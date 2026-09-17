@@ -45,15 +45,21 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 CandidateX/
 ├── apps/
 │   └── web/                         # Next.js 15 App Router Frontend (React 19, Tailwind CSS)
-│       ├── src/
-│       │   ├── app/                 # Dashboard pages, dossier view, intake flow
-│       │   ├── components/          # CapabilityTable, ClaimsMatrix, GraphViewer, ProbesPanel
-│       │   └── types/               # Type definitions aligning with backend domain contracts
+│       ├── app/                     # Unified workspace: Directory, Intake, Pipeline, Dossier
+│       ├── components/              # CandidateDirectory, JobIntake, CandidateIntake, DossierViewer, CEGViewer
+│       ├── lib/                     # API client layer (jobs, candidates, pipeline, dossier)
 │       └── Dockerfile               # Multi-stage non-root container build
+├── examples/                        # Canonical role evaluation fixtures (CVs and JDs)
+│   ├── sample_backend_cv.txt / sample_backend_jd.txt
+│   ├── sample_frontend_cv.txt / sample_frontend_jd.txt
+│   ├── sample_ml_cv.txt / sample_ml_jd.txt
+│   ├── sample_devops_cv.txt / sample_devops_jd.txt
+│   └── sample_fullstack_cv.txt / sample_fullstack_jd.txt
 ├── services/
 │   └── backend/                     # FastAPI & SQLAlchemy 2.0 Backend Service
 │       ├── src/cci/
 │       │   ├── domain/              # Frozen Pydantic domain contracts & 41-entity DB models
+│       │   ├── db/                  # Dual-representation repository layer & ImmutableModelMixin
 │       │   ├── scoring/             # Mathematical core (recency, confidence, RCI, bootstrap CI)
 │       │   ├── intake/              # CV/JD parsers, hyperlink extractors, URL canonicalizers
 │       │   ├── acquisition/         # Safe workspace sandbox, git indexer, GitHub client
@@ -62,14 +68,16 @@ CandidateX/
 │       │   ├── attribution/         # Heuristic ownership discount, Beta source calibration
 │       │   ├── graph/               # Heterogeneous Candidate Evidence Graph (CEG)
 │       │   ├── pipeline/            # 10-stage analysis orchestrator & service
-│       │   └── api/                 # FastAPI routers (dossier, pipeline, overrides, health)
-│       ├── tests/                   # 120 unit, property, security, and paper audit tests
+│       │   └── api/                 # FastAPI routers (dossier, jobs, candidates, overrides, health)
+│       ├── tests/                   # 131 unit, golden, property, security, DB, and theorem audit tests
 │       └── Dockerfile               # Hardened Python 3.11-slim container build
 ├── research/
 │   ├── run_paper_experiments.py     # Monte Carlo simulation reproduction runner (N=4,800)
 │   └── results/                     # Generated publication Markdown & LaTeX tables
 ├── docs/                            # Formal conference paper interfaces and schemas
 ├── scripts/
+│   ├── analyze_candidate.py         # 10-stage CLI pipeline with auto-name extraction & functional rescore
+│   ├── seed_db.py                   # Multi-tenant DB seeder for organizations, roles, and 7 candidate cohorts
 │   └── smoke_test.py                # Operational health & connectivity verification script
 ├── docker-compose.yml               # Production & integration stack (Postgres 16, Redis 7, Backend, Web)
 └── .github/workflows/ci.yml         # GitHub Actions multi-stage CI matrix
@@ -148,13 +156,23 @@ Publication artifacts are automatically emitted to:
 
 ### Prerequisites
 - Python 3.11+
-- Node.js 20+ & pnpm 9+
+- Node.js 20+ & pnpm 9+ (or npm)
 - Docker & Docker Compose (optional for local containerized run)
 
-### Turnkey Candidate Analysis CLI
-Analyze candidate materials through the full 10-stage pipeline and synthesize a Technical Dossier in seconds:
+### 1. Database Seeding CLI
+Seed the SQLite or PostgreSQL database with multi-tenant organizations (`Acme Distributed Systems Corp`, `Apex AI Research Labs`), recruiters, 5 canonical role JDs, and 7 diverse candidate cohorts evaluated through the full 10-stage pipeline:
 ```bash
-# Run 10-stage pipeline on sample CV and JD fixtures
+# Seed default SQLite database (local_dev.db) with 7 canonical candidates
+python scripts/seed_db.py --samples 7
+
+# Reset existing database and seed a custom PostgreSQL instance
+python scripts/seed_db.py --db-url "postgresql://postgres:postgres@localhost:5432/cci" --reset --samples 7
+```
+
+### 2. Turnkey Candidate Analysis CLI
+Analyze arbitrary candidate materials through the full 10-stage pipeline and synthesize a Technical Dossier in seconds:
+```bash
+# Run 10-stage pipeline on sample CV and JD fixtures (automatically infers candidate name)
 python scripts/analyze_candidate.py --cv examples/sample_backend_cv.txt --jd examples/sample_backend_jd.txt --role backend
 
 # Demonstrate instantaneous pure functional rescore (< 1ms) with custom capability weights
@@ -162,19 +180,49 @@ python scripts/analyze_candidate.py --rescore-weights '{"backend_engineering": 0
 ```
 Dossier Markdown and JSON reports are generated in `reports/`.
 
-### Backend Setup
+### 3. Canonical Role Fixtures (`examples/`)
+The repository includes 5 production-grade CV and JD pairs for reproducible evaluation:
+- **Backend Engineering**: [`examples/sample_backend_cv.txt`](examples/sample_backend_cv.txt) & [`examples/sample_backend_jd.txt`](examples/sample_backend_jd.txt)
+- **Frontend Engineering**: [`examples/sample_frontend_cv.txt`](examples/sample_frontend_cv.txt) & [`examples/sample_frontend_jd.txt`](examples/sample_frontend_jd.txt)
+- **Machine Learning**: [`examples/sample_ml_cv.txt`](examples/sample_ml_cv.txt) & [`examples/sample_ml_jd.txt`](examples/sample_ml_jd.txt)
+- **DevOps & Cloud**: [`examples/sample_devops_cv.txt`](examples/sample_devops_cv.txt) & [`examples/sample_devops_jd.txt`](examples/sample_devops_jd.txt)
+- **Fullstack Engineering**: [`examples/sample_fullstack_cv.txt`](examples/sample_fullstack_cv.txt) & [`examples/sample_fullstack_jd.txt`](examples/sample_fullstack_jd.txt)
+
+### 4. Backend Service Setup
 ```bash
 cd services/backend
-pip install -r requirements.txt
+pip install -e ".[dev]"
 python -m pytest
+python -m uvicorn cci.main:app --reload --port 8000
 ```
 
-### Frontend Setup
+### 5. Web Dashboard Setup
 ```bash
+cd apps/web
 pnpm install
-pnpm --filter web lint
-pnpm --filter web build
+pnpm dev
 ```
+Open `http://localhost:3000` to access the interactive recruitment platform:
+- **Candidate Directory**: Real-time search, role filtering, evidence status badges (`Robust`, `Sparse`, `Conflict Flagged`), and 1-click dossier navigation.
+- **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
+- **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
+- **Dossier & CEG Viewer**: Comprehensive capability breakdown, confidence factors, claims matrix, interview probes, and interactive graph viewer.
+
+---
+
+## REST API Specification
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/health` / `/healthz` | System health and service availability check |
+| `POST` | `/api/v1/jobs/parse` | Parses raw JD text into normalized requirements and softmax role weights $w_k$ |
+| `GET` | `/api/v1/jobs` | Lists active job descriptions from the database |
+| `GET` | `/api/v1/candidates` | Lists all candidates with RCI, Coverage, and conflict indicators |
+| `GET` | `/api/v1/candidates/{id}` | Retrieves full candidate manifest data and intake records |
+| `POST` | `/api/v1/pipeline/analyze` | Executes 10-stage evaluation pipeline against submitted CV and JD |
+| `GET` | `/api/v1/dossier/{id}` | Retrieves generated Technical Dossier for a candidate |
+| `GET` | `/api/v1/dossier/{id}/probes` | Retrieves prioritized interview probes with information-gain scores |
+| `POST` | `/api/v1/overrides/recruiter` | Records recruiter capability adjustments with immutable audit trail |
 
 ---
 
@@ -183,7 +231,7 @@ pnpm --filter web build
 The entire stack is configured via `docker-compose.yml` with hardened security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
 
 ```bash
-# Spin up PostgreSQL, Redis, FastAPI backend, and Next.js frontend
+# Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
 docker-compose up --build -d
 
 # Verify all services are responsive
@@ -198,9 +246,13 @@ python scripts/smoke_test.py
 
 ## Verification & Test Matrix
 
-The codebase is covered by **120 tests** verifying all theorems, safety boundaries, and end-to-end pipeline stages:
+The test suite contains **131 passed tests** verifying all theorems, database persistence invariants, and end-to-end pipeline stages:
 
 - **Mathematical Theorems (Theorems 1–10)**: Strict adherence to conference paper proofs in [`test_paper_theorems_audit.py`](services/backend/tests/test_paper_theorems_audit.py).
-- **Security & SSRF Defense**: Link-local, loopback, private IP, and IMDS protection in [`test_ssrf_guard.py`](services/backend/tests/security/test_ssrf_guard.py).
+- **Security & SSRF Defense**: Link-local, loopback, RFC 1918 private IP, and IMDS protection in [`test_ssrf.py`](services/backend/tests/security/test_ssrf.py) and [`test_safe_workspace.py`](services/backend/tests/security/repositories/test_safe_workspace.py).
+- **Database Repository & Invariants**: ORM persistence, dual-representation conversions, and evidence immutability checks in [`test_db_seeding.py`](services/backend/tests/integration/test_db_seeding.py) and [`test_db_migration.py`](services/backend/tests/integration/test_db_migration.py).
+- **Static Multi-Language AST Parsers**: Deterministic code intelligence across Python, TypeScript/JavaScript, Go, Java, and C++ in [`test_code_analyzers.py`](services/backend/tests/golden/code_intel/test_code_analyzers.py).
+- **Database & DevOps Infrastructure**: Schema, migration, Docker, and CI/CD parsing in [`test_db_test_infra_analyzers.py`](services/backend/tests/golden/db_infra_golden/test_db_test_infra_analyzers.py).
+- **Job & Candidate APIs**: Endpoint contracts, request validation, and database fallbacks in [`test_jobs_and_candidates_api.py`](services/backend/tests/unit/api/test_jobs_and_candidates_api.py).
 - **End-to-End Orchestration**: 10-stage execution pipeline and functional rescore in [`test_pipeline_orchestration.py`](services/backend/tests/test_pipeline_orchestration.py).
 - **Research Reproducibility**: Monte Carlo simulation and statistical significance in [`test_run_paper_experiments.py`](services/backend/tests/unit/research/test_run_paper_experiments.py).
