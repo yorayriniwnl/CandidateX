@@ -1,18 +1,22 @@
-"""Monte Carlo candidate cohort simulation engine for paper reproducibility.
+"""Synthetic generator for the repository supplementary implementation ablation.
 
-FORMAL PAPER MODEL REPLICATION:
-Simulates synthetic candidate cohorts with known latent ground-truth capability profiles q_k^*
-and realistic noisy evidence emission across the 6 canonical engineering roles.
-Supports 16 deterministic pseudo-random seeds x 300 candidates (N=4,800 total).
+This generator produces role-specific synthetic cohorts used by
+``research/run_paper_experiments.py``. It is intentionally kept separate from the
+submitted paper's broader 28,800 candidate-role controlled benchmark.
+
+The repository harness is supplementary implementation evidence, not an exact
+regeneration of the submitted paper benchmark. Paper-reported benchmark provenance
+is recorded in ``research/paper_benchmark_manifest.json``.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
 from uuid import UUID, uuid4
+
 import numpy as np
 
-from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
+
 
 # Role capability emphasis profiles: mean latent capability (core vs. peripheral)
 ROLE_CAPABILITY_PROFILES: Dict[CanonicalRole, Dict[CapabilityKey, Tuple[float, float]]] = {
@@ -106,19 +110,21 @@ ROLE_CAPABILITY_PROFILES: Dict[CanonicalRole, Dict[CapabilityKey, Tuple[float, f
 @dataclass
 class SimulatedObservation:
     """An emitted evidence observation with simulated real-world factors."""
+
     capability_key: CapabilityKey
-    observed_score: float               # z_e,k with observation noise
-    ownership_score: float              # o_e
-    elapsed_years: float                # delta_t
-    artifact_integrity: float           # a_e
-    verification_level: float           # v_e
-    depth_specificity: float            # x_e
-    source_family: SourceFamily         # r_s
+    observed_score: float
+    ownership_score: float
+    elapsed_years: float
+    artifact_integrity: float
+    verification_level: float
+    depth_specificity: float
+    source_family: SourceFamily
 
 
 @dataclass
 class SimulatedCandidate:
-    """A synthetic candidate with latent ground-truth capability vector and simulated observations."""
+    """Synthetic role-specific candidate used by the supplementary harness."""
+
     candidate_id: UUID
     role: CanonicalRole
     ground_truth_capabilities: Dict[CapabilityKey, float]
@@ -131,85 +137,94 @@ def generate_synthetic_cohort(
     count: int = 300,
     seed: int = 42,
 ) -> List[SimulatedCandidate]:
-    """Generates a reproducible synthetic cohort of candidates for a canonical role."""
+    """Generate a reproducible role-specific synthetic cohort."""
     rng = np.random.RandomState(seed)
     cohort: List[SimulatedCandidate] = []
-    profile = ROLE_CAPABILITY_PROFILES.get(role, ROLE_CAPABILITY_PROFILES[CanonicalRole.BACKEND])
+    profile = ROLE_CAPABILITY_PROFILES.get(
+        role,
+        ROLE_CAPABILITY_PROFILES[CanonicalRole.BACKEND],
+    )
 
-    for i in range(count):
-        cand_id = uuid4()
+    for _ in range(count):
+        candidate_id = uuid4()
         ground_truth: Dict[CapabilityKey, float] = {}
-
-        # 1. Sample latent ground-truth capabilities q_k^* in [0, 100]
-        # Candidate general ability factor
         general_ability_shift = rng.normal(0.0, 6.0)
 
-        for cap_key in CapabilityKey:
-            base_mean, base_std = profile.get(cap_key, (60.0, 12.0))
-            sampled_val = rng.normal(base_mean + general_ability_shift, base_std)
-            ground_truth[cap_key] = float(np.clip(sampled_val, 10.0, 99.0))
+        for capability in CapabilityKey:
+            base_mean, base_std = profile.get(capability, (60.0, 12.0))
+            sampled_value = rng.normal(base_mean + general_ability_shift, base_std)
+            ground_truth[capability] = float(np.clip(sampled_value, 10.0, 99.0))
 
-        # 2. Simulate evidence emissions across capabilities
         observations: List[SimulatedObservation] = []
-
-        for cap_key, true_q in ground_truth.items():
-            # Higher capability candidates emit more evidence on average
-            expected_emissions = int(max(0, rng.poisson(lam=1.5 + (true_q / 35.0))))
+        for capability, true_q in ground_truth.items():
+            expected_emissions = int(
+                max(0, rng.poisson(lam=1.5 + (true_q / 35.0)))
+            )
 
             for _ in range(expected_emissions):
-                # Ownership simulation: 15% chance of forked/shared repo with low ownership
                 is_fork = rng.random() < 0.15
                 if is_fork:
                     ownership = float(rng.uniform(0.05, 0.18))
                 else:
                     ownership = float(np.clip(rng.beta(8.0, 2.0), 0.50, 1.0))
 
-                # Elapsed years: exponential decay (majority recent, some older)
-                elapsed = float(rng.exponential(scale=1.8))
-                elapsed = min(elapsed, 8.0)
+                elapsed = min(float(rng.exponential(scale=1.8)), 8.0)
 
-                # Source family sampling
-                sf_rand = rng.random()
-                if sf_rand < 0.55:
-                    sf = SourceFamily.GITHUB
-                elif sf_rand < 0.70:
-                    sf = SourceFamily.DEPLOYMENT
-                elif sf_rand < 0.82:
-                    sf = SourceFamily.DATABASE
+                source_roll = rng.random()
+                if source_roll < 0.55:
+                    source_family = SourceFamily.GITHUB
+                elif source_roll < 0.70:
+                    source_family = SourceFamily.DEPLOYMENT
+                elif source_roll < 0.82:
+                    source_family = SourceFamily.DATABASE
                 else:
-                    sf = SourceFamily.RESUME
+                    source_family = SourceFamily.RESUME
 
-                # Realistic observation score with empirical source phenomena:
                 if is_fork:
-                    # Forked/multi-author repo reflects external project codebase
-                    ext_quality = float(rng.normal(55.0, 18.0))
-                    obs_score = float(np.clip((1.0 - ownership) * ext_quality + ownership * true_q + rng.normal(0.0, 3.0), 0.0, 100.0))
-                elif sf == SourceFamily.RESUME:
-                    # Self-reported resume claim: upward self-reporting bias & noise
+                    external_quality = float(rng.normal(55.0, 18.0))
+                    observed_score = float(
+                        np.clip(
+                            (1.0 - ownership) * external_quality
+                            + ownership * true_q
+                            + rng.normal(0.0, 3.0),
+                            0.0,
+                            100.0,
+                        )
+                    )
+                elif source_family == SourceFamily.RESUME:
                     resume_inflation = float(rng.normal(16.0, 5.0))
-                    obs_score = float(np.clip(true_q + resume_inflation, 0.0, 100.0))
+                    observed_score = float(
+                        np.clip(true_q + resume_inflation, 0.0, 100.0)
+                    )
                 else:
-                    # Verified technical evidence: career progression and staleness drift
                     career_progression = -1.5 * max(0.0, elapsed - 0.5)
                     stale_noise = rng.normal(0.0, 2.0 + 1.5 * np.sqrt(elapsed))
-                    obs_score = float(np.clip(true_q + career_progression + stale_noise, 0.0, 100.0))
+                    observed_score = float(
+                        np.clip(
+                            true_q + career_progression + stale_noise,
+                            0.0,
+                            100.0,
+                        )
+                    )
 
                 observations.append(
                     SimulatedObservation(
-                        capability_key=cap_key,
-                        observed_score=obs_score,
+                        capability_key=capability,
+                        observed_score=observed_score,
                         ownership_score=ownership,
                         elapsed_years=elapsed,
                         artifact_integrity=float(rng.uniform(0.90, 1.0)),
-                        verification_level=1.0 if sf != SourceFamily.RESUME else 0.50,
+                        verification_level=(
+                            1.0 if source_family != SourceFamily.RESUME else 0.50
+                        ),
                         depth_specificity=float(rng.uniform(0.70, 0.95)),
-                        source_family=sf,
+                        source_family=source_family,
                     )
                 )
 
         cohort.append(
             SimulatedCandidate(
-                candidate_id=cand_id,
+                candidate_id=candidate_id,
                 role=role,
                 ground_truth_capabilities=ground_truth,
                 observations=observations,
