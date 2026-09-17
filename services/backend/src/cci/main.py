@@ -26,6 +26,11 @@ app.add_middleware(
 )
 
 
+from cci.api.routers import dossier_router
+
+app.include_router(dossier_router)
+
+
 @app.get(
     "/healthz",
     status_code=status.HTTP_200_OK,
