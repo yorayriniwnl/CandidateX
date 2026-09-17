@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   LayoutDashboard,
   Layers,
   MessageSquare,
   FileCheck2,
   GitFork,
-  ShieldCheck,
 } from 'lucide-react';
 import { CapabilityKey, CanonicalRole, Dossier, CEGGraph } from '../../types/cci';
+import { TabSlider } from '../ui/TabSlider';
 import { DossierHeader } from './DossierHeader';
 import { DossierOverviewTab } from './DossierOverviewTab';
 import { CapabilityBreakdownTable } from './CapabilityBreakdownTable';
@@ -22,6 +23,22 @@ import { InterviewScorecardModal } from './InterviewScorecardModal';
 import { AuditTrailViewer } from './AuditTrailViewer';
 import { EvidenceProvenanceModal } from './EvidenceProvenanceModal';
 
+type DossierSubTab = 'overview' | 'capabilities' | 'probes' | 'claims' | 'graph';
+
+const DOSSIER_TABS = (probeCount: number) => [
+  { key: 'overview', label: 'Executive Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+  { key: 'capabilities', label: '12 Core Capabilities', icon: <Layers className="w-4 h-4" /> },
+  { key: 'probes', label: 'Interview Guide', icon: <MessageSquare className="w-4 h-4" />, badge: probeCount > 0 ? probeCount : undefined },
+  { key: 'claims', label: 'Claims & Proof', icon: <FileCheck2 className="w-4 h-4" /> },
+  { key: 'graph', label: 'Evidence & Audit', icon: <GitFork className="w-4 h-4" /> },
+];
+
+const tabContentVariants: Variants = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+  exit: { opacity: 0, y: -4, transition: { duration: 0.1 } },
+};
+
 export const DossierView: React.FC<{
   initialDossier: Dossier;
   graph: CEGGraph;
@@ -29,14 +46,13 @@ export const DossierView: React.FC<{
   onSelectCandidate?: (candidateId: string, name: string) => void;
 }> = ({ initialDossier, graph, candidateName = 'Alice Developer', onSelectCandidate }) => {
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'capabilities' | 'probes' | 'claims' | 'graph'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('overview');
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
   const [inspectedEvidenceId, setInspectedEvidenceId] = useState<string | null>(null);
   const [isWeightsModalOpen, setIsWeightsModalOpen] = useState(false);
   const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
 
-  // Sync state if initialDossier changes
   React.useEffect(() => {
     setDossier(initialDossier);
   }, [initialDossier]);
@@ -59,7 +75,6 @@ export const DossierView: React.FC<{
   const handleApplyWeights = (newWeights: Record<CapabilityKey, number>) => {
     setCustomWeights(newWeights);
 
-    // Functional rescore of RCI
     let observedWeightSum = 0;
     let weightedScoreSum = 0;
 
@@ -78,15 +93,16 @@ export const DossierView: React.FC<{
       rci: newRci,
     }));
 
-    // Trigger audit trail refresh after override
     setTimeout(() => {
       setAuditRefreshTrigger((t) => t + 1);
     }, 300);
   };
 
+  const probeCount = dossier.interview_probes?.length || 0;
+
   return (
-    <div className="space-y-6">
-      {/* 1. Header with RCI, Coverage, Candidate Switcher, and Export */}
+    <div className="space-y-5">
+      {/* Header with RCI gauge, candidate info, actions */}
       <DossierHeader
         dossier={dossier}
         candidateName={candidateName}
@@ -94,143 +110,86 @@ export const DossierView: React.FC<{
         onSelectCandidate={onSelectCandidate}
       />
 
-      {/* 2. Focused Dossier Sub-Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto text-xs">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('overview')}
-          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
-            activeSubTab === 'overview'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span>Executive Overview</span>
-        </button>
+      {/* Sub-tabs with sliding indicator */}
+      <TabSlider
+        tabs={DOSSIER_TABS(probeCount)}
+        activeKey={activeSubTab}
+        onChange={(key) => setActiveSubTab(key as DossierSubTab)}
+        size="sm"
+      />
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('capabilities')}
-          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
-            activeSubTab === 'capabilities'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
+      {/* Tab content with transitions */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeSubTab}
+          variants={tabContentVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
         >
-          <Layers className="w-4 h-4" />
-          <span>12 Core Capabilities</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('probes')}
-          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
-            activeSubTab === 'probes'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>Interview Guide &amp; Scorecard</span>
-          {dossier.interview_probes && dossier.interview_probes.length > 0 && (
-            <span className="px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 rounded-full text-[10px] font-mono">
-              {dossier.interview_probes.length}
-            </span>
+          {activeSubTab === 'overview' && (
+            <DossierOverviewTab
+              dossier={dossier}
+              candidateName={candidateName}
+              onNavigateToTab={(tab) => setActiveSubTab(tab)}
+              onSelectCapability={(key) => setSelectedCapability(key)}
+            />
           )}
-        </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('claims')}
-          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
-            activeSubTab === 'claims'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <FileCheck2 className="w-4 h-4" />
-          <span>Claims &amp; Code Proof</span>
-        </button>
+          {activeSubTab === 'capabilities' && (
+            <CapabilityBreakdownTable
+              estimates={dossier.capability_estimates}
+              weights={customWeights}
+              selectedCapability={selectedCapability}
+              onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+            />
+          )}
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('graph')}
-          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
-            activeSubTab === 'graph'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <GitFork className="w-4 h-4" />
-          <span>Evidence Graph &amp; Audit Log</span>
-        </button>
-      </div>
+          {activeSubTab === 'probes' && (
+            <InterviewProbesPanel
+              probes={dossier.interview_probes}
+              questions={dossier.interview_questions}
+              selectedCapability={selectedCapability}
+              onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+              onOpenScorecard={() => setIsScorecardModalOpen(true)}
+              onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+            />
+          )}
 
-      {/* 3. Tab Contents */}
-      {activeSubTab === 'overview' && (
-        <DossierOverviewTab
-          dossier={dossier}
-          candidateName={candidateName}
-          onNavigateToTab={(tab) => setActiveSubTab(tab)}
-          onSelectCapability={(key) => setSelectedCapability(key)}
-        />
-      )}
+          {activeSubTab === 'claims' && (
+            <div className="space-y-6">
+              <ContradictionDiagnosticsCard
+                conflicts={dossier.capability_conflicts}
+                selectedCapability={selectedCapability}
+                onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+              />
+              <ClaimsMatrix
+                claims={dossier.claims_corroboration}
+                selectedCapability={selectedCapability}
+                onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+                onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+              />
+            </div>
+          )}
 
-      {activeSubTab === 'capabilities' && (
-        <CapabilityBreakdownTable
-          estimates={dossier.capability_estimates}
-          weights={customWeights}
-          selectedCapability={selectedCapability}
-          onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-        />
-      )}
+          {activeSubTab === 'graph' && (
+            <div className="space-y-6">
+              <GraphViewer
+                graph={graph}
+                selectedCapability={selectedCapability}
+                onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+                onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+              />
+              <AuditTrailViewer
+                candidateId={dossier.candidate_id}
+                refreshTrigger={auditRefreshTrigger}
+              />
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-      {activeSubTab === 'probes' && (
-        <InterviewProbesPanel
-          probes={dossier.interview_probes}
-          questions={dossier.interview_questions}
-          selectedCapability={selectedCapability}
-          onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-          onOpenScorecard={() => setIsScorecardModalOpen(true)}
-          onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-        />
-      )}
-
-      {activeSubTab === 'claims' && (
-        <div className="space-y-6">
-          <ContradictionDiagnosticsCard
-            conflicts={dossier.capability_conflicts}
-            selectedCapability={selectedCapability}
-            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-          />
-
-          <ClaimsMatrix
-            claims={dossier.claims_corroboration}
-            selectedCapability={selectedCapability}
-            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-            onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-          />
-        </div>
-      )}
-
-      {activeSubTab === 'graph' && (
-        <div className="space-y-6">
-          <GraphViewer
-            graph={graph}
-            selectedCapability={selectedCapability}
-            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-            onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-          />
-
-          <AuditTrailViewer
-            candidateId={dossier.candidate_id}
-            refreshTrigger={auditRefreshTrigger}
-          />
-        </div>
-      )}
-
-      {/* Expert Weight Override Modal */}
+      {/* Modals */}
       <ExpertWeightOverrideModal
         isOpen={isWeightsModalOpen}
         onClose={() => setIsWeightsModalOpen(false)}
@@ -241,7 +200,6 @@ export const DossierView: React.FC<{
         onApplyWeights={handleApplyWeights}
       />
 
-      {/* Live Interview Scorecard Modal */}
       <InterviewScorecardModal
         isOpen={isScorecardModalOpen}
         onClose={() => setIsScorecardModalOpen(false)}
@@ -254,7 +212,6 @@ export const DossierView: React.FC<{
         }}
       />
 
-      {/* 6-Factor Evidence Provenance & Static AST Decomposition Modal */}
       <EvidenceProvenanceModal
         isOpen={!!inspectedEvidenceId}
         onClose={() => setInspectedEvidenceId(null)}

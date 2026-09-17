@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   AlertCircle,
   Award,
@@ -8,7 +9,6 @@ import {
   Gauge,
   Sliders,
   ShieldCheck,
-  User,
   Printer,
   Download,
   FileText,
@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { Dossier } from '../../types/cci';
 import { downloadDossier } from '../../lib/api';
+import { GlassCard } from '../ui/GlassCard';
+import { GlowBadge } from '../ui/GlowBadge';
+import { RadialGauge } from '../ui/RadialGauge';
+import { AnimatedCounter } from '../ui/AnimatedCounter';
 
 const CANONICAL_CANDIDATE_LIST = [
   { id: '11111111-1111-1111-1111-111111111111', name: 'Alice Chen', role: 'Backend (Senior)' },
@@ -56,125 +60,139 @@ export const DossierHeader: React.FC<{
     }
   };
 
-  // Human-friendly readiness tier
   const rci = dossier.rci;
-  let readinessTier = { label: 'Inconclusive / Sparse', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
+  let readinessTier: { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'brand' } = {
+    label: 'Inconclusive / Sparse',
+    variant: 'warning',
+  };
   if (rci !== null) {
     if (rci >= 88) {
-      readinessTier = { label: 'Exceptional (88+)', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
+      readinessTier = { label: 'Exceptional (88+)', variant: 'success' };
     } else if (rci >= 75) {
-      readinessTier = { label: 'Strong (75-87)', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30' };
+      readinessTier = { label: 'Strong (75-87)', variant: 'brand' };
     } else if (rci >= 60) {
-      readinessTier = { label: 'Developing (60-74)', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
+      readinessTier = { label: 'Developing (60-74)', variant: 'info' };
     }
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
+    <GlassCard variant="strong" glow="indigo" className="space-y-4">
       {/* Low Coverage Warning Banner */}
       {isLowCoverage && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-2.5 text-xs text-amber-300">
+        <div className="p-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl flex items-center gap-2.5 text-xs text-amber-300">
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
           <div>
-            <span className="font-semibold">Sparse Public Code Footprint ({coveragePercent}%):</span> Most role skills were not observed in public GitHub repos. Missing skills are marked UNKNOWN, never failed. Focus the technical interview on unobserved skills.
+            <span className="font-semibold">Sparse Public Code Footprint ({coveragePercent}%):</span> Most role skills were not observed in public GitHub repos. Missing skills are marked UNKNOWN, never failed. Focus technical interview on unobserved skills.
           </div>
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h1 className="text-2xl font-bold text-white tracking-tight">{candidateName}</h1>
+      {/* Hero Bar */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border-b border-white/[0.06] pb-5">
+        <div className="flex items-center gap-4">
+          <RadialGauge
+            value={rci !== null ? rci / 100 : 0}
+            size={76}
+            strokeWidth={6}
+            label="RCI"
+            showPercentage={true}
+          />
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <h1 className="text-2xl font-black text-white tracking-tight text-gradient">
+                {candidateName}
+              </h1>
 
-            <span className="px-2.5 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-full text-xs font-semibold uppercase tracking-wider">
-              {dossier.role.replace('_', ' ')}
-            </span>
+              <GlowBadge variant="brand" size="sm">
+                {dossier.role.replace('_', ' ')}
+              </GlowBadge>
 
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${readinessTier.color}`}>
-              {readinessTier.label}
-            </span>
+              <GlowBadge variant={readinessTier.variant} size="sm">
+                {readinessTier.label}
+              </GlowBadge>
 
-            {/* Quick Candidate Switcher Dropdown */}
-            {onSelectCandidate && (
-              <div className="relative inline-block ml-1">
-                <button
-                  type="button"
-                  onClick={() => setIsCandidateMenuOpen(!isCandidateMenuOpen)}
-                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-md text-xs font-medium flex items-center gap-1 transition-colors"
-                >
-                  <Users className="w-3 h-3 text-indigo-400" />
-                  <span>Switch Candidate</span>
-                  <ChevronDown className="w-3 h-3 opacity-60" />
-                </button>
+              {/* Quick Candidate Switcher Dropdown */}
+              {onSelectCandidate && (
+                <div className="relative inline-block ml-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsCandidateMenuOpen(!isCandidateMenuOpen)}
+                    className="px-2.5 py-1 glass hover:bg-white/[0.08] text-slate-300 border border-white/[0.08] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                  >
+                    <Users className="w-3 h-3 text-brand-400" />
+                    <span>Switch</span>
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </button>
 
-                {isCandidateMenuOpen && (
-                  <div className="absolute left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
-                    <div className="px-3 py-1 text-[10px] uppercase font-mono text-slate-500 border-b border-slate-800">
-                      Switch Candidate Dossier
+                  {isCandidateMenuOpen && (
+                    <div className="absolute left-0 mt-2 w-64 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs backdrop-blur-2xl">
+                      <div className="px-3 py-1 text-[10px] uppercase font-mono text-slate-500 border-b border-white/[0.06]">
+                        Switch Candidate
+                      </div>
+                      {CANONICAL_CANDIDATE_LIST.map((cand) => (
+                        <button
+                          key={cand.id}
+                          type="button"
+                          onClick={() => {
+                            setIsCandidateMenuOpen(false);
+                            onSelectCandidate(cand.id, cand.name);
+                          }}
+                          className={`w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center justify-between transition-colors ${
+                            cand.id === dossier.candidate_id ? 'bg-brand-500/20 text-brand-300 font-semibold' : 'text-slate-300'
+                          }`}
+                        >
+                          <div>
+                            <div>{cand.name}</div>
+                            <div className="text-[10px] text-slate-500">{cand.role}</div>
+                          </div>
+                          {cand.id === dossier.candidate_id && (
+                            <span className="w-2 h-2 rounded-full bg-brand-400 shadow-glow-sm" />
+                          )}
+                        </button>
+                      ))}
                     </div>
-                    {CANONICAL_CANDIDATE_LIST.map((cand) => (
-                      <button
-                        key={cand.id}
-                        type="button"
-                        onClick={() => {
-                          setIsCandidateMenuOpen(false);
-                          onSelectCandidate(cand.id, cand.name);
-                        }}
-                        className={`w-full px-3 py-2 text-left hover:bg-slate-800 flex items-center justify-between transition-colors ${
-                          cand.id === dossier.candidate_id ? 'bg-indigo-600/20 text-indigo-300 font-semibold' : 'text-slate-300'
-                        }`}
-                      >
-                        <div>
-                          <div>{cand.name}</div>
-                          <div className="text-[10px] text-slate-500">{cand.role}</div>
-                        </div>
-                        {cand.id === dossier.candidate_id && (
-                          <span className="w-2 h-2 rounded-full bg-indigo-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-          <p className="text-xs text-slate-400 font-mono">
-            Candidate ID: {dossier.candidate_id} • Evaluated: {new Date(dossier.generated_at).toLocaleDateString()}
-          </p>
+            <p className="text-xs text-slate-500 font-mono">
+              Candidate ID: {dossier.candidate_id.slice(0, 18)}... • Evaluated: {new Date(dossier.generated_at).toLocaleDateString()}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 relative">
+        <div className="flex items-center gap-2.5 relative self-end md:self-center">
           {/* Export Brief Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
               disabled={isExporting}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm shadow-indigo-600/30"
+              className="px-3.5 py-2 bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-500 hover:to-violet-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-2 shadow-lg shadow-brand-500/20"
             >
               <Download className="w-3.5 h-3.5" />
               <span>{isExporting ? 'Exporting...' : 'Export Brief'}</span>
-              <ChevronDown className="w-3 h-3 ml-0.5 opacity-80" />
+              <ChevronDown className="w-3 h-3 opacity-80" />
             </button>
 
             {isExportMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs text-slate-200">
+              <div className="absolute right-0 mt-2 w-52 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200 backdrop-blur-2xl">
                 <button
                   type="button"
                   onClick={() => {
                     setIsExportMenuOpen(false);
                     window.print();
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-800 flex items-center gap-2 transition-colors"
+                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
                 >
-                  <Printer className="w-3.5 h-3.5 text-indigo-400" />
+                  <Printer className="w-3.5 h-3.5 text-brand-400" />
                   <span>Print / Save as PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDownload('html')}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-800 flex items-center gap-2 transition-colors border-t border-slate-800"
+                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors border-t border-white/[0.06]"
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Download HTML Brief</span>
@@ -182,7 +200,7 @@ export const DossierHeader: React.FC<{
                 <button
                   type="button"
                   onClick={() => handleDownload('markdown')}
-                  className="w-full px-3 py-2 text-left hover:bg-slate-800 flex items-center gap-2 transition-colors"
+                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
                 >
                   <FileText className="w-3.5 h-3.5 text-sky-400" />
                   <span>Download Markdown</span>
@@ -194,78 +212,86 @@ export const DossierHeader: React.FC<{
           <button
             type="button"
             onClick={onOpenWeightsModal}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700"
+            className="px-3.5 py-2 glass hover:bg-white/[0.08] text-slate-200 rounded-xl text-xs font-medium transition-all flex items-center gap-2 border border-white/[0.08]"
           >
-            <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Role Weights Override</span>
+            <Sliders className="w-3.5 h-3.5 text-brand-400" />
+            <span>Role Weights</span>
           </button>
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
         {/* RCI Score Card */}
-        <div className="p-4 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-between">
+        <GlassCard variant="subtle" glow="indigo" className="flex items-center justify-between p-4">
           <div>
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-              Technical Readiness Score (RCI)
+            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+              Technical Readiness (RCI)
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-indigo-400">
-                {dossier.rci !== null ? dossier.rci.toFixed(1) : 'UNKNOWN'}
+              <span className="text-2xl font-black text-brand-400 font-mono">
+                {dossier.rci !== null ? (
+                  <AnimatedCounter value={dossier.rci} decimals={1} />
+                ) : (
+                  'UNKNOWN'
+                )}
               </span>
               <span className="text-xs text-slate-500 font-mono">/ 100</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Weighted composite of verified code capabilities</p>
+            <p className="text-[10px] text-slate-400 mt-1">Weighted composite of verified code capabilities</p>
           </div>
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
-            <Award className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
+            <Award className="w-5 h-5" />
           </div>
-        </div>
+        </GlassCard>
 
         {/* Evidence Coverage Card */}
-        <div className="p-4 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-between">
+        <GlassCard variant="subtle" glow="emerald" className="flex items-center justify-between p-4">
           <div>
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
+            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
               Verified Code Coverage
             </span>
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl font-black ${isLowCoverage ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {coveragePercent}%
+              <span className={`text-2xl font-black ${isLowCoverage ? 'text-amber-400' : 'text-emerald-400'} font-mono`}>
+                <AnimatedCounter value={coveragePercent} suffix="%" />
               </span>
               <span className="text-xs text-slate-500 font-mono">of role requirements</span>
             </div>
-            <div className="w-32 bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
+            <div className="w-36 bg-white/[0.06] h-1.5 rounded-full overflow-hidden mt-2">
               <div
-                className={`h-full ${isLowCoverage ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  isLowCoverage
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-400'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                }`}
                 style={{ width: `${Math.min(100, coveragePercent)}%` }}
               />
             </div>
           </div>
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
-            <Gauge className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+            <Gauge className="w-5 h-5" />
           </div>
-        </div>
+        </GlassCard>
 
-        {/* Invariant Decision Support Card */}
-        <div className="p-4 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-between">
+        {/* Decision Support Card */}
+        <GlassCard variant="subtle" className="flex items-center justify-between p-4">
           <div>
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
+            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
               Decision Boundary
             </span>
             <div className="flex items-center gap-1.5 text-slate-200 text-sm font-semibold">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Interviewer Support Only</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1 leading-normal">
+            <p className="text-[10px] text-slate-400 mt-1 leading-normal">
               Zero autonomous hire/reject calls. AI generates grounded evidence for humans.
             </p>
           </div>
-          <div className="p-3 bg-slate-800/80 text-slate-400 rounded-xl">
-            <CheckCircle className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-white/[0.04] text-slate-400 flex items-center justify-center shrink-0">
+            <CheckCircle className="w-5 h-5" />
           </div>
-        </div>
+        </GlassCard>
       </div>
-    </div>
+    </GlassCard>
   );
 };

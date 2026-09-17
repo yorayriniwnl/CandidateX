@@ -1,23 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Briefcase,
-  UserCheck,
-  Layers,
   Sparkles,
-  ArrowRight,
   ArrowLeft,
   CheckCircle2,
   Play,
-  FileText,
-  AlertTriangle,
-  Award,
 } from 'lucide-react';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement } from '../types/cci';
 import { JobIntakeForm } from './JobIntakeForm';
 import { CandidateIntakeForm } from './CandidateIntakeForm';
 import { PipelineTracker } from './PipelineTracker';
+import { GlassCard } from './ui/GlassCard';
+import { GlowBadge } from './ui/GlowBadge';
 
 interface QuickDemoProfile {
   id: string;
@@ -25,7 +21,7 @@ interface QuickDemoProfile {
   role: CanonicalRole;
   label: string;
   badge: string;
-  badgeColor: string;
+  variant: 'success' | 'brand' | 'danger';
   manifest: CandidateManifest;
 }
 
@@ -36,7 +32,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     role: 'backend',
     label: 'Senior Distributed Backend',
     badge: 'High Coverage (RCI 90.0)',
-    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    variant: 'success',
     manifest: {
       candidate_id: '11111111-1111-1111-1111-111111111111',
       full_name: 'Alice Chen',
@@ -58,7 +54,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     role: 'frontend',
     label: 'Staff Frontend Platform',
     badge: 'Design Systems (RCI 86.0)',
-    badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    variant: 'brand',
     manifest: {
       candidate_id: '22222222-2222-2222-2222-222222222222',
       full_name: 'Elena Rostova',
@@ -80,7 +76,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     role: 'backend',
     label: 'Backend Conflict Demo',
     badge: 'Contradiction Alert (D_k < 0)',
-    badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    variant: 'danger',
     manifest: {
       candidate_id: '77777777-7777-7777-7777-777777777777',
       full_name: 'Devin Vance',
@@ -117,7 +113,6 @@ export const EvaluationWizard: React.FC<{
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(isPipelineRunning ? 3 : 1);
 
-  // When pipeline starts running, switch to step 3
   React.useEffect(() => {
     if (isPipelineRunning) {
       setStep(3);
@@ -125,11 +120,8 @@ export const EvaluationWizard: React.FC<{
   }, [isPipelineRunning]);
 
   const handleQuickDemoClick = (profile: QuickDemoProfile) => {
-    // 1. Complete Job Spec
     onJobComplete(profile.role, '', []);
-    // 2. Submit candidate manifest and trigger pipeline
     onCandidateSubmit(profile.manifest);
-    // 3. Jump to Step 3
     setStep(3);
   };
 
@@ -144,18 +136,18 @@ export const EvaluationWizard: React.FC<{
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1-Click Quick Demo Toolbar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
+    <div className="space-y-5">
+      {/* 1-Click Quick Demo Presets */}
+      <GlassCard variant="strong" glow="indigo" className="p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-semibold text-slate-200">1-Click Demonstration Pre-sets:</span>
-              <span className="text-[11px] text-slate-400 ml-1.5 hidden md:inline">
-                Skip manual entry and evaluate a pre-configured candidate instantly:
+              <span className="text-xs font-bold text-white">1-Click Demonstration Presets</span>
+              <span className="text-[11px] text-slate-400 ml-2 hidden md:inline">
+                Evaluate pre-configured candidate profiles instantly:
               </span>
             </div>
           </div>
@@ -166,40 +158,42 @@ export const EvaluationWizard: React.FC<{
                 key={profile.id}
                 type="button"
                 onClick={() => handleQuickDemoClick(profile)}
-                className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 rounded-lg text-xs font-medium text-slate-200 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 glass hover:bg-white/[0.08] rounded-xl text-xs font-medium text-slate-200 transition-all flex items-center gap-2 group"
               >
-                <Play className="w-3 h-3 text-indigo-400" />
-                <span>{profile.name}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[10px] border ${profile.badgeColor}`}>
+                <Play className="w-3 h-3 text-brand-400 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold">{profile.name}</span>
+                <GlowBadge variant={profile.variant} size="sm">
                   {profile.badge}
-                </span>
+                </GlowBadge>
               </button>
             ))}
           </div>
         </div>
-      </div>
+      </GlassCard>
 
-      {/* Visual Stepper Progress Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
+      {/* Visual Stepper */}
+      <GlassCard variant="subtle" className="p-3">
         <div className="grid grid-cols-3 gap-2 text-xs">
           {/* Step 1 */}
           <button
             type="button"
             onClick={() => setStep(1)}
-            className={`p-3 rounded-lg border transition-colors text-left flex items-center gap-3 ${
+            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
               step === 1
-                ? 'bg-indigo-600/15 border-indigo-500 text-white shadow-sm'
-                : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
+                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-              step > 1 ? 'bg-emerald-500 text-white' : step === 1 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+              step > 1 ? 'bg-emerald-500/20 text-emerald-400' : step === 1 ? 'bg-brand-500 text-white shadow-glow-sm' : 'bg-white/[0.04] text-slate-500'
             }`}>
               {step > 1 ? <CheckCircle2 className="w-4 h-4" /> : '1'}
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-slate-200 truncate">Step 1: Role &amp; Job Spec</div>
-              <div className="text-[11px] text-slate-500 truncate">Select role &amp; requirements</div>
+              <div className={`font-semibold truncate ${step === 1 ? 'text-white' : 'text-slate-400'}`}>
+                Role &amp; Job Spec
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">Define target capabilities</div>
             </div>
           </button>
 
@@ -207,20 +201,22 @@ export const EvaluationWizard: React.FC<{
           <button
             type="button"
             onClick={() => setStep(2)}
-            className={`p-3 rounded-lg border transition-colors text-left flex items-center gap-3 ${
+            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
               step === 2
-                ? 'bg-indigo-600/15 border-indigo-500 text-white shadow-sm'
-                : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
+                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-              step > 2 ? 'bg-emerald-500 text-white' : step === 2 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+              step > 2 ? 'bg-emerald-500/20 text-emerald-400' : step === 2 ? 'bg-brand-500 text-white shadow-glow-sm' : 'bg-white/[0.04] text-slate-500'
             }`}>
               {step > 2 ? <CheckCircle2 className="w-4 h-4" /> : '2'}
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-slate-200 truncate">Step 2: Candidate Materials</div>
-              <div className="text-[11px] text-slate-500 truncate">CV, GitHub &amp; public links</div>
+              <div className={`font-semibold truncate ${step === 2 ? 'text-white' : 'text-slate-400'}`}>
+                Candidate Artifacts
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">GitHub &amp; resume links</div>
             </div>
           </button>
 
@@ -228,67 +224,83 @@ export const EvaluationWizard: React.FC<{
           <button
             type="button"
             onClick={() => setStep(3)}
-            className={`p-3 rounded-lg border transition-colors text-left flex items-center gap-3 ${
+            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
               step === 3
-                ? 'bg-indigo-600/15 border-indigo-500 text-white shadow-sm'
-                : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
+                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-              isPipelineComplete && step === 3 ? 'bg-emerald-500 text-white' : step === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+              isPipelineComplete && step === 3
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : step === 3
+                ? 'bg-brand-500 text-white shadow-glow-sm'
+                : 'bg-white/[0.04] text-slate-500'
             }`}>
               {isPipelineComplete && step === 3 ? <CheckCircle2 className="w-4 h-4" /> : '3'}
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-slate-200 truncate">Step 3: Live Pipeline</div>
-              <div className="text-[11px] text-slate-500 truncate">10-stage AST &amp; math execution</div>
+              <div className={`font-semibold truncate ${step === 3 ? 'text-white' : 'text-slate-400'}`}>
+                Intelligence Engine
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">10-stage AST &amp; math</div>
             </div>
           </button>
         </div>
-      </div>
+      </GlassCard>
 
       {/* Step Content */}
-      {step === 1 && (
-        <div className="space-y-4">
-          <JobIntakeForm onComplete={handleJobFormComplete} />
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          {step === 1 && (
+            <div className="space-y-4">
+              <JobIntakeForm onComplete={handleJobFormComplete} />
+            </div>
+          )}
 
-      {step === 2 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Step 1: Role &amp; Job Spec</span>
-            </button>
-          </div>
-          <CandidateIntakeForm onSubmit={handleCandidateFormSubmit} />
-        </div>
-      )}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Step 1: Role &amp; Job Spec</span>
+                </button>
+              </div>
+              <CandidateIntakeForm onSubmit={handleCandidateFormSubmit} />
+            </div>
+          )}
 
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Step 2: Candidate Materials</span>
-            </button>
-          </div>
-          <PipelineTracker
-            currentStageIndex={pipelineStageIndex}
-            isComplete={isPipelineComplete}
-            onViewDossier={onViewDossier}
-          />
-        </div>
-      )}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Step 2: Candidate Materials</span>
+                </button>
+              </div>
+              <PipelineTracker
+                currentStageIndex={pipelineStageIndex}
+                isComplete={isPipelineComplete}
+                onViewDossier={onViewDossier}
+              />
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

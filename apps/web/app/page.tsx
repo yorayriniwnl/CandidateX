@@ -1,20 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
-  Briefcase,
-  Layers,
-  UserCheck,
-  Shield,
-  Sparkles,
-  ArrowRight,
-  Award,
   Users,
+  Play,
+  Award,
   GitCompare,
   GraduationCap,
   HelpCircle,
-  Play,
-  FileCheck2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { EvaluationWizard } from '../components/EvaluationWizard';
@@ -23,11 +22,11 @@ import { CandidateComparison } from '../components/CandidateComparison';
 import { ResearchTheoremsExplorer } from '../components/ResearchTheoremsExplorer';
 import { DossierView } from '../components/dossier/DossierView';
 import { HowItWorksModal } from '../components/HowItWorksModal';
+import { GlowBadge } from '../components/ui/GlowBadge';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import {
   checkBackendHealth,
   triggerPipelineRun,
-  fetchPipelineStatus,
   fetchCandidateDossier,
   fetchCandidateGraph,
 } from '../lib/api';
@@ -35,8 +34,23 @@ import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGr
 
 type TabKey = 'directory' | 'new_eval' | 'dossier' | 'compare' | 'research';
 
+const NAV_ITEMS: { key: TabKey; label: string; icon: React.ReactNode; description: string }[] = [
+  { key: 'directory', label: 'Candidates', icon: <Users className="w-5 h-5" />, description: 'Browse & search' },
+  { key: 'new_eval', label: 'New Evaluation', icon: <Play className="w-5 h-5" />, description: 'Run pipeline' },
+  { key: 'dossier', label: 'Dossier', icon: <Award className="w-5 h-5" />, description: 'Deep analysis' },
+  { key: 'compare', label: 'Compare', icon: <GitCompare className="w-5 h-5" />, description: 'Side by side' },
+  { key: 'research', label: 'Methodology', icon: <GraduationCap className="w-5 h-5" />, description: 'Math & proofs' },
+];
+
+const pageVariants: Variants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
+};
+
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('directory');
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>({
     candidate_id: '11111111-1111-1111-1111-111111111111',
@@ -64,18 +78,14 @@ export default function HomePage() {
     '77777777-7777-7777-7777-777777777777',
   ]);
 
-  // Probe backend server connectivity on mount
   React.useEffect(() => {
     checkBackendHealth().then((online) => setIsBackendOnline(online));
   }, []);
 
-  // Animate 10-stage execution pipeline upon candidate intake submission
   React.useEffect(() => {
     if (!isPipelineRunning) return;
-
     setPipelineStageIndex(0);
     setIsPipelineComplete(false);
-
     const interval = setInterval(() => {
       setPipelineStageIndex((prev) => {
         if (prev >= 9) {
@@ -87,7 +97,6 @@ export default function HomePage() {
         return prev + 1;
       });
     }, 350);
-
     return () => clearInterval(interval);
   }, [isPipelineRunning]);
 
@@ -98,15 +107,9 @@ export default function HomePage() {
   const handleCandidateSubmit = async (candManifest: CandidateManifest) => {
     setManifest(candManifest);
     setIsPipelineRunning(true);
-
-    // Attempt live pipeline run if backend is responsive
     if (isBackendOnline) {
       try {
-        const runRes = await triggerPipelineRun(
-          candManifest.candidate_id,
-          currentRole,
-          candManifest
-        );
+        const runRes = await triggerPipelineRun(candManifest.candidate_id, currentRole, candManifest);
         if (runRes.status === 'completed' || runRes.dossier_id) {
           const liveDossier = await fetchCandidateDossier(candManifest.candidate_id);
           const liveGraph = await fetchCandidateGraph(candManifest.candidate_id);
@@ -126,7 +129,7 @@ export default function HomePage() {
       try {
         liveGraph = await fetchCandidateGraph(candidateId);
       } catch {
-        // Fallback to mock graph if CEG not cached
+        // Fallback to mock graph
       }
       setCurrentDossier(liveDossier);
       setCurrentGraph(liveGraph);
@@ -149,171 +152,235 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Navigation */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-600/30">
-              C
-            </div>
-            <div>
-              <span className="font-bold tracking-tight text-white text-base">Candidate Capability Intelligence</span>
-              <span className="text-xs text-slate-400 font-mono ml-2 hidden sm:inline">v0.1.0-paper</span>
-            </div>
-
-            {/* Active Candidate Context Pill */}
-            {manifest?.full_name && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('dossier')}
-                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 rounded-full text-xs text-slate-300 ml-2 transition-colors"
-                title="Click to view candidate dossier"
-              >
-                <span className="text-slate-500 font-normal">Active:</span>
-                <span className="font-semibold text-indigo-300">{manifest.full_name}</span>
-              </button>
-            )}
-
-            {/* Live Backend Connection Indicator */}
-            <div className="hidden md:flex items-center gap-2 text-xs border border-slate-800 bg-slate-900/80 px-2.5 py-1 rounded-full ml-1">
-              <span className={`w-2 h-2 rounded-full ${isBackendOnline ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-amber-400'}`} />
-              <span className="text-slate-300 font-mono text-[11px]">
-                {isBackendOnline === null ? 'Probing...' : isBackendOnline ? 'Backend: Live' : 'Demo Mode'}
-              </span>
-            </div>
+    <div className="min-h-screen flex font-[family-name:var(--font-sans)]">
+      {/* ============================================================
+          Sidebar Navigation
+          ============================================================ */}
+      <aside
+        className={`
+          fixed top-0 left-0 h-screen z-40
+          glass-strong border-r border-white/[0.06]
+          flex flex-col transition-all duration-300 ease-in-out
+          ${sidebarExpanded ? 'w-[220px]' : 'w-[68px]'}
+        `}
+      >
+        {/* Logo */}
+        <div className="p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-brand-500/25 shrink-0">
+            <Sparkles className="w-5 h-5" />
           </div>
-
-          <div className="flex items-center gap-2">
-            {/* Primary Navigation Tabs */}
-            <nav className="flex items-center gap-1 bg-slate-900 p-1 border border-slate-800 rounded-lg text-xs">
-              <button
-                onClick={() => setActiveTab('directory')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'directory' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Candidates</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('new_eval')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'new_eval' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Play className="w-3.5 h-3.5 text-indigo-300" />
-                <span>New Evaluation</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('dossier')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'dossier' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Award className="w-3.5 h-3.5" />
-                <span>Candidate Dossier</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('compare')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'compare' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <GitCompare className="w-3.5 h-3.5" />
-                <span>Compare</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('research')}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'research' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5" />
-                <span>Methodology &amp; Math</span>
-              </button>
-            </nav>
-
-            {/* How It Works Button */}
-            <button
-              type="button"
-              onClick={() => setIsHowItWorksOpen(true)}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0"
-              title="Learn how CCI works and understand evaluation metrics"
+          {sidebarExpanded && (
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="overflow-hidden"
             >
-              <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">How It Works</span>
-            </button>
-          </div>
+              <div className="text-sm font-bold text-white tracking-tight whitespace-nowrap">CandidateX</div>
+              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">v1.0.0</div>
+            </motion.div>
+          )}
         </div>
-      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 w-full">
-        <SystemNotice />
+        {/* Nav Items */}
+        <nav className="flex-1 px-2.5 py-2 space-y-1">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveTab(item.key)}
+                className={`
+                  w-full flex items-center gap-3 rounded-xl transition-all duration-200 group relative
+                  ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
+                  ${isActive
+                    ? 'bg-brand-500/15 text-white shadow-glow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                  }
+                `}
+              >
+                {/* Active indicator bar */}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand-400 rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className={`shrink-0 ${isActive ? 'text-brand-400' : ''}`}>
+                  {item.icon}
+                </span>
+                {sidebarExpanded && (
+                  <div className="text-left min-w-0">
+                    <div className="text-sm font-medium truncate">{item.label}</div>
+                    <div className="text-[10px] text-slate-500 truncate">{item.description}</div>
+                  </div>
+                )}
 
-        {activeTab === 'directory' && (
-          <CandidateDirectory
-            onSelectCandidate={handleSelectCandidateFromDirectory}
-            onNewCandidate={() => setActiveTab('new_eval')}
-            isBackendOnline={isBackendOnline}
-            initialSelectedForComparison={comparisonCandidateIds}
-            onCompareCandidates={(ids) => {
-              setComparisonCandidateIds(ids);
-              setActiveTab('compare');
-            }}
-          />
-        )}
+                {/* Tooltip for collapsed state */}
+                {!sidebarExpanded && (
+                  <div className="absolute left-full ml-2 px-2.5 py-1.5 glass-strong rounded-lg text-xs text-white whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl">
+                    {item.label}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-        {activeTab === 'new_eval' && (
-          <EvaluationWizard
-            currentRole={currentRole}
-            pipelineStageIndex={pipelineStageIndex}
-            isPipelineRunning={isPipelineRunning}
-            isPipelineComplete={isPipelineComplete}
-            onJobComplete={handleJobComplete}
-            onCandidateSubmit={handleCandidateSubmit}
-            onViewDossier={() => setActiveTab('dossier')}
-          />
-        )}
+        {/* Bottom actions */}
+        <div className="p-2.5 space-y-1 border-t border-white/[0.04]">
+          <button
+            type="button"
+            onClick={() => setIsHowItWorksOpen(true)}
+            className={`
+              w-full flex items-center gap-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-all duration-200
+              ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
+            `}
+          >
+            <HelpCircle className="w-5 h-5 shrink-0" />
+            {sidebarExpanded && <span className="text-sm font-medium">How It Works</span>}
+          </button>
 
-        {activeTab === 'dossier' && (
-          <DossierView
-            initialDossier={currentDossier}
-            graph={currentGraph}
-            candidateName={manifest?.full_name || 'Alice Chen'}
-            onSelectCandidate={handleSelectCandidateFromDirectory}
-          />
-        )}
+          <button
+            type="button"
+            onClick={() => setSidebarExpanded(!sidebarExpanded)}
+            className={`
+              w-full flex items-center gap-3 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-all duration-200
+              ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
+            `}
+          >
+            {sidebarExpanded ? <ChevronLeft className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />}
+            {sidebarExpanded && <span className="text-sm font-medium">Collapse</span>}
+          </button>
+        </div>
+      </aside>
 
-        {activeTab === 'compare' && (
-          <CandidateComparison
-            onSelectCandidateDossier={handleSelectCandidateFromDirectory}
-            isBackendOnline={isBackendOnline}
-            selectedCandidateIds={comparisonCandidateIds}
-            onSelectedIdsChange={setComparisonCandidateIds}
-          />
-        )}
+      {/* ============================================================
+          Main Content Area
+          ============================================================ */}
+      <div
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+          sidebarExpanded ? 'ml-[220px]' : 'ml-[68px]'
+        }`}
+      >
+        {/* Top Command Bar */}
+        <header className="sticky top-0 z-30 glass-strong border-b border-white/[0.04]">
+          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Search trigger */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-slate-500 text-sm cursor-default">
+                <Search className="w-3.5 h-3.5" />
+                <span className="text-xs">Search candidates...</span>
+                <kbd className="ml-4 px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-slate-500 border border-white/[0.08]">
+                  Ctrl+K
+                </kbd>
+              </div>
+            </div>
 
-        {activeTab === 'research' && (
-          <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />
-        )}
-      </main>
+            <div className="flex items-center gap-3">
+              {/* Active candidate pill */}
+              {manifest?.full_name && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('dossier')}
+                  className="flex items-center gap-2 px-3 py-1.5 glass rounded-full text-xs transition-all hover:bg-white/[0.06] group"
+                >
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-400 to-violet-400 flex items-center justify-center text-[10px] font-bold text-white">
+                    {manifest.full_name.charAt(0)}
+                  </div>
+                  <span className="text-slate-400 group-hover:text-slate-200 transition-colors">
+                    {manifest.full_name}
+                  </span>
+                </button>
+              )}
 
-      {/* Interactive How It Works Onboarding Modal */}
+              {/* Backend status */}
+              <GlowBadge
+                variant={isBackendOnline === null ? 'neutral' : isBackendOnline ? 'success' : 'warning'}
+                size="sm"
+                pulse={isBackendOnline === true}
+              >
+                {isBackendOnline === null ? 'Probing...' : isBackendOnline ? 'Live' : 'Demo'}
+              </GlowBadge>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content with Transitions */}
+        <main className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
+          <SystemNotice />
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {activeTab === 'directory' && (
+                <CandidateDirectory
+                  onSelectCandidate={handleSelectCandidateFromDirectory}
+                  onNewCandidate={() => setActiveTab('new_eval')}
+                  isBackendOnline={isBackendOnline}
+                  initialSelectedForComparison={comparisonCandidateIds}
+                  onCompareCandidates={(ids) => {
+                    setComparisonCandidateIds(ids);
+                    setActiveTab('compare');
+                  }}
+                />
+              )}
+
+              {activeTab === 'new_eval' && (
+                <EvaluationWizard
+                  currentRole={currentRole}
+                  pipelineStageIndex={pipelineStageIndex}
+                  isPipelineRunning={isPipelineRunning}
+                  isPipelineComplete={isPipelineComplete}
+                  onJobComplete={handleJobComplete}
+                  onCandidateSubmit={handleCandidateSubmit}
+                  onViewDossier={() => setActiveTab('dossier')}
+                />
+              )}
+
+              {activeTab === 'dossier' && (
+                <DossierView
+                  initialDossier={currentDossier}
+                  graph={currentGraph}
+                  candidateName={manifest?.full_name || 'Alice Chen'}
+                  onSelectCandidate={handleSelectCandidateFromDirectory}
+                />
+              )}
+
+              {activeTab === 'compare' && (
+                <CandidateComparison
+                  onSelectCandidateDossier={handleSelectCandidateFromDirectory}
+                  isBackendOnline={isBackendOnline}
+                  selectedCandidateIds={comparisonCandidateIds}
+                  onSelectedIdsChange={setComparisonCandidateIds}
+                />
+              )}
+
+              {activeTab === 'research' && (
+                <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-white/[0.04] py-4 text-center text-xs text-slate-600">
+          <span className="text-gradient-brand font-semibold">CandidateX</span>
+          {' '}&mdash; AI-Powered Capability Intelligence for Technical Hiring
+        </footer>
+      </div>
+
+      {/* How It Works Modal */}
       <HowItWorksModal
         isOpen={isHowItWorksOpen}
         onClose={() => setIsHowItWorksOpen(false)}
       />
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        Candidate Capability Intelligence (CCI) Platform — Decision Support System for Technical Hiring Teams
-      </footer>
     </div>
   );
 }
