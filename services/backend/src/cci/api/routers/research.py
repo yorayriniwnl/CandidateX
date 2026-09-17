@@ -1,7 +1,7 @@
 """Research, Theorems, and Formal Math Router for Candidate Capability Intelligence (CCI).
 
 Provides endpoints to inspect all 10 conference paper theorems, access
-empirical ablation study reproduction results (Table 1), and execute live
+synthetic Monte Carlo ablation study reproduction results (Table 1), and execute live
 pure-functional mathematical calculations.
 """
 
@@ -243,8 +243,8 @@ def get_all_theorems() -> List[TheoremMetadata]:
 @router.get(
     "/ablation-study",
     response_model=AblationStudyResponse,
-    summary="Get Table 1 Architecture Ablation Study Reproduction Data",
-    description="Returns the empirical benchmark results across N=4,800 candidates for Full CCI vs 4 ablated architectures.",
+    summary="Get Table 1 Synthetic Architecture Ablation Study Reproduction Data",
+    description="Returns synthetic Monte Carlo simulation results across N=4,800 simulated candidates for Full CCI versus four ablated architectures. These results test internal model behavior under the simulator assumptions and are not validation on real applicants, hiring outcomes, or job performance.",
 )
 def get_ablation_study() -> AblationStudyResponse:
     # Attempt to load from research/results/ablation_results.json if available
@@ -342,7 +342,7 @@ Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\
         role_breakdown=role_breakdown,
         latex_table=latex_table,
         markdown_table=markdown_table,
-        notes="Ablation experiments conducted across 16 pseudo-random seeds x 300 candidates across 6 canonical engineering roles. Statistical significance calculated via paired Wilcoxon signed-rank test.",
+        notes="Synthetic Monte Carlo ablation simulation across 16 pseudo-random seeds x 300 candidates and 6 canonical engineering roles. Statistical significance is calculated per comparison with a paired Wilcoxon signed-rank test; the uncalibrated-source ablation is not significant in the committed result (p = 1.000). This experiment does not establish real-world hiring validity.",
     )
 
 
