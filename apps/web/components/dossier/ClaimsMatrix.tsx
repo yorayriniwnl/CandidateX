@@ -66,7 +66,8 @@ export const ClaimsMatrix: React.FC<{
   claims: ClaimCorroboration[];
   onSelectCapability?: (key: CapabilityKey) => void;
   selectedCapability?: CapabilityKey | null;
-}> = ({ claims, onSelectCapability, selectedCapability }) => {
+  onInspectEvidence?: (evidenceId: string) => void;
+}> = ({ claims, onSelectCapability, selectedCapability, onInspectEvidence }) => {
   const [filterStatus, setFilterStatus] = useState<ClaimStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -187,12 +188,15 @@ export const ClaimsMatrix: React.FC<{
                       <span>Evidence:</span>
                       <div className="flex flex-wrap gap-1">
                         {claim.grounding_evidence_ids.map((id) => (
-                          <span
+                          <button
                             key={id}
-                            className="px-1.5 py-0.2 bg-slate-900 border border-slate-800 text-slate-300 rounded text-[10px]"
+                            type="button"
+                            onClick={() => onInspectEvidence && onInspectEvidence(id)}
+                            className="px-1.5 py-0.5 bg-slate-900 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/50 text-slate-300 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
+                            title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
                           >
                             {id}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>

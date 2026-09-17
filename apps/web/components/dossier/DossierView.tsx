@@ -11,6 +11,7 @@ import { GraphViewer } from './GraphViewer';
 import { ExpertWeightOverrideModal } from './ExpertWeightOverrideModal';
 import { InterviewScorecardModal } from './InterviewScorecardModal';
 import { AuditTrailViewer } from './AuditTrailViewer';
+import { EvidenceProvenanceModal } from './EvidenceProvenanceModal';
 
 export const DossierView: React.FC<{
   initialDossier: Dossier;
@@ -19,6 +20,7 @@ export const DossierView: React.FC<{
 }> = ({ initialDossier, graph, candidateName = 'Alice Developer' }) => {
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
+  const [inspectedEvidenceId, setInspectedEvidenceId] = useState<string | null>(null);
   const [isWeightsModalOpen, setIsWeightsModalOpen] = useState(false);
   const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
@@ -96,6 +98,7 @@ export const DossierView: React.FC<{
         selectedCapability={selectedCapability}
         onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
         onOpenScorecard={() => setIsScorecardModalOpen(true)}
+        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
       />
 
       {/* 5. Self-Claims Verification Matrix */}
@@ -103,6 +106,7 @@ export const DossierView: React.FC<{
         claims={dossier.claims_corroboration}
         selectedCapability={selectedCapability}
         onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
       />
 
       {/* 6. Candidate Evidence Graph (CEG) Interactive Viewer */}
@@ -110,6 +114,7 @@ export const DossierView: React.FC<{
         graph={graph}
         selectedCapability={selectedCapability}
         onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
       />
 
       {/* 7. Candidate Audit Trail & Governance Log */}
@@ -140,6 +145,15 @@ export const DossierView: React.FC<{
         onFeedbackSubmitted={() => {
           setAuditRefreshTrigger((t) => t + 1);
         }}
+      />
+
+      {/* 6-Factor Evidence Provenance & Static AST Decomposition Modal */}
+      <EvidenceProvenanceModal
+        isOpen={!!inspectedEvidenceId}
+        onClose={() => setInspectedEvidenceId(null)}
+        nodeId={inspectedEvidenceId}
+        graph={graph}
+        dossier={dossier}
       />
     </div>
   );

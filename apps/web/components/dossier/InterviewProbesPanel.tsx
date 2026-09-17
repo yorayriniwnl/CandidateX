@@ -35,7 +35,8 @@ export const InterviewProbesPanel: React.FC<{
   onSelectCapability?: (key: CapabilityKey) => void;
   selectedCapability?: CapabilityKey | null;
   onOpenScorecard?: () => void;
-}> = ({ probes, questions, onSelectCapability, selectedCapability, onOpenScorecard }) => {
+  onInspectEvidence?: (evidenceId: string) => void;
+}> = ({ probes, questions, onSelectCapability, selectedCapability, onOpenScorecard, onInspectEvidence }) => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
   // Group questions by capability
@@ -224,12 +225,15 @@ export const InterviewProbesPanel: React.FC<{
                                 <span>Grounding Evidence IDs:</span>
                                 <div className="flex flex-wrap gap-1">
                                   {q.grounding_evidence_ids.map((id) => (
-                                    <span
+                                    <button
                                       key={id}
-                                      className="px-1.5 py-0.5 bg-slate-950 border border-slate-800 text-indigo-400 rounded text-[10px]"
+                                      type="button"
+                                      onClick={() => onInspectEvidence && onInspectEvidence(id)}
+                                      className="px-1.5 py-0.5 bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/50 text-indigo-400 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
+                                      title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
                                     >
                                       {id}
-                                    </span>
+                                    </button>
                                   ))}
                                 </div>
                               </div>

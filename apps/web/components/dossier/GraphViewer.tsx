@@ -63,7 +63,8 @@ export const GraphViewer: React.FC<{
   graph: CEGGraph;
   selectedCapability?: CapabilityKey | null;
   onSelectCapability?: (key: CapabilityKey) => void;
-}> = ({ graph, selectedCapability, onSelectCapability }) => {
+  onInspectEvidence?: (nodeId: string) => void;
+}> = ({ graph, selectedCapability, onSelectCapability, onInspectEvidence }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -394,6 +395,17 @@ export const GraphViewer: React.FC<{
                       ))}
                     </div>
                   </div>
+                )}
+
+                {onInspectEvidence && (
+                  <button
+                    type="button"
+                    onClick={() => onInspectEvidence(selectedNode.id)}
+                    className="w-full mt-3 py-2 px-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Inspect 6-Factor Provenance</span>
+                  </button>
                 )}
               </div>
             ) : (
