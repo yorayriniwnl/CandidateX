@@ -1,0 +1,27 @@
+# Senior Machine Learning Engineer — Applied AI & Inference Platforms
+
+## Company Overview
+CandidateX AI is building foundational intelligence systems and specialized model deployment platforms
+for enterprise automation. We are seeking a Senior Machine Learning Engineer to design, train, evaluate,
+and serve large language models, retrieval-augmented pipelines, and real-time inference systems.
+
+## Responsibilities
+- Architect, fine-tune, and deploy transformer-based foundation models and domain-specific embeddings.
+- Build high-throughput, low-latency model inference systems leveraging continuous batching and quantization.
+- Develop rigorous offline evaluation benchmarks, calibration metrics, and safety red-teaming harnesses.
+- Collaborate with platform infrastructure engineers to orchestrate multi-node GPU training and serving on Kubernetes.
+- Implement vector search, hybrid retrieval, and knowledge ingestion pipelines with vector databases.
+- Maintain reproducibility, dataset provenance, and experiment tracking through MLflow and DVC.
+
+## Mandatory Requirements
+- 4+ years of hands-on production experience training and serving machine learning models in Python and PyTorch.
+- Strong practical knowledge of modern transformer architectures, fine-tuning (LoRA, PEFT), and embedding models.
+- Experience deploying real-time model inference at scale (vLLM, Triton, TensorRT, or ONNX Runtime).
+- Demonstrated mastery of model evaluation methodologies, calibration metrics, and regression testing in CI.
+- Solid software engineering fundamentals: unit testing, clean abstractions, version control, and containerization.
+
+## Preferred Qualifications
+- Experience with distributed training frameworks (DeepSpeed, FSDP, Ray).
+- Hands-on deployment of vector search engines (Qdrant, Milvus, FAISS, Pinecone).
+- Contributions to open-source ML libraries (Hugging Face, PyTorch, vLLM).
+- Publication track record or deep interest in model uncertainty, alignment, or quantization techniques.

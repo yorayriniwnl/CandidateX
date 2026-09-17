@@ -167,8 +167,8 @@ def main() -> None:
     parser.add_argument(
         "--name",
         type=str,
-        default="Alice Chen",
-        help="Candidate full name (default: Alice Chen)",
+        default=None,
+        help="Candidate full name (auto-detected from CV if omitted)",
     )
     parser.add_argument(
         "--output-dir",
@@ -179,7 +179,7 @@ def main() -> None:
     parser.add_argument(
         "--rescore-weights",
         type=str,
-        help="JSON string of capability weight overrides to demonstrate instantaneous functional rescore",
+        help="JSON string or path to JSON mapping CapabilityKey to float weights for instant rescoring",
     )
 
     args = parser.parse_args()
@@ -192,9 +192,17 @@ def main() -> None:
     role = CanonicalRole(args.role)
     candidate_id = uuid4()
 
+    cand_name = args.name
+    if not cand_name:
+        first_line = cv_content.strip().split("\n")[0].strip()
+        if first_line.startswith("# "):
+            cand_name = first_line[2:].strip()
+        else:
+            cand_name = "Candidate"
+
     print(f"================================================================================")
     print(f"CANDIDATE CAPABILITY INTELLIGENCE: PIPELINE ORCHESTRATION")
-    print(f"Candidate: {args.name} | Role: {role.value} | Candidate ID: {candidate_id}")
+    print(f"Candidate: {cand_name} | Role: {role.value} | Candidate ID: {candidate_id}")
     print(f"================================================================================")
 
     t0 = time.time()
@@ -216,7 +224,7 @@ def main() -> None:
         print(f"    {status_indicator} {stage.label:<35} -> {stage.status.upper()}")
 
     dossier = state.dossier
-    print_cli_summary(dossier, args.name)
+    print_cli_summary(dossier, cand_name)
 
     # Save output artifacts
     out_dir = Path(args.output_dir)
@@ -227,7 +235,7 @@ def main() -> None:
         json.dump(dossier.model_dump(mode="json"), f, indent=2)
     print(f"[+] Saved Dossier JSON:     {json_path}")
 
-    md_report = format_dossier_markdown(dossier, args.name)
+    md_report = format_dossier_markdown(dossier, cand_name)
     md_path = out_dir / f"dossier_{candidate_id}.md"
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_report)

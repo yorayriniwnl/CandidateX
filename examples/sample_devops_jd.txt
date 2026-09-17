@@ -1,0 +1,27 @@
+# Senior / Staff Site Reliability Engineer (SRE) — Platform Infrastructure
+
+## Company Overview
+CandidateX Cloud delivers enterprise resilience and low-latency distributed edge compute. We are looking
+for a Senior or Staff Site Reliability Engineer to design, scale, and automate our multi-region Kubernetes
+infrastructure, GitOps pipelines, and observability frameworks.
+
+## Responsibilities
+- Architect and operate secure, highly available, multi-tenant Kubernetes clusters on AWS/GCP.
+- Codify 100% of infrastructure provisioning using Terraform, Pulumi, and modular Infrastructure as Code.
+- Implement end-to-end GitOps deployment pipelines with ArgoCD, Helm, and canary analysis tooling.
+- Establish comprehensive observability with Prometheus, Grafana, and OpenTelemetry across all production services.
+- Define Service Level Objectives (SLOs), Service Level Indicators (SLIs), and error budgets with product engineering teams.
+- Lead blameless incident postmortems, automate failure recovery, and run regular disaster recovery / chaos game days.
+
+## Mandatory Requirements
+- 5+ years in production Site Reliability Engineering, DevOps, or Cloud Infrastructure roles.
+- Expert-level proficiency with Kubernetes administration, networking, security policies, and debugging.
+- Advanced mastery of Terraform / Infrastructure as Code and cloud architecture (AWS or GCP).
+- Strong experience with production observability stacks (Prometheus, Grafana, OpenTelemetry, Datadog).
+- Proficiency in at least one scripting/systems programming language (Python, Go, or Bash).
+
+## Preferred Qualifications
+- Experience with modern eBPF networking, service mesh (Cilium, Istio), or zero-trust network policies.
+- Hands-on experience with chaos engineering tools (Chaos Mesh, Gremlin, Litmus).
+- Contributions to open-source infrastructure or cloud-native tooling (CNCF ecosystem).
+- Experience managing multi-region failover, active-active database clusters, and compliance (SOC2, HIPAA).

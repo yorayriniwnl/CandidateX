@@ -44,6 +44,17 @@ def get_candidate_dossier(candidate_id: UUID) -> DossierResponse:
     """Returns the complete technical dossier snapshot for a candidate."""
     dossier = _DOSSIER_STORE.get(candidate_id)
     if not dossier:
+        try:
+            from cci.db.session import SessionLocal
+            from cci.db.repository import get_dossier_by_candidate_id
+            with SessionLocal() as db:
+                dossier = get_dossier_by_candidate_id(db, candidate_id)
+                if dossier:
+                    _DOSSIER_STORE[candidate_id] = dossier
+        except Exception:
+            pass
+
+    if not dossier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dossier not found for candidate ID {candidate_id}",
@@ -79,6 +90,17 @@ def get_candidate_graph(candidate_id: UUID) -> CEGGraphResponse:
 def get_candidate_probes(candidate_id: UUID) -> InterviewProbesResponse:
     """Returns ranked interview probe priorities and evidence-grounded questions."""
     dossier = _DOSSIER_STORE.get(candidate_id)
+    if not dossier:
+        try:
+            from cci.db.session import SessionLocal
+            from cci.db.repository import get_dossier_by_candidate_id
+            with SessionLocal() as db:
+                dossier = get_dossier_by_candidate_id(db, candidate_id)
+                if dossier:
+                    _DOSSIER_STORE[candidate_id] = dossier
+        except Exception:
+            pass
+
     if not dossier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
