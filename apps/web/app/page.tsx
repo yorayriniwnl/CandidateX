@@ -8,7 +8,8 @@ import { CandidateIntakeForm } from '../components/CandidateIntakeForm';
 import { PipelineTracker } from '../components/PipelineTracker';
 import { DossierView } from '../components/dossier/DossierView';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
-import { CanonicalRole, CandidateManifest, NormalizedRequirement } from '../types/cci';
+import { checkBackendHealth, triggerPipelineRun, fetchPipelineStatus, fetchCandidateDossier, fetchCandidateGraph } from '../lib/api';
+import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGraph } from '../types/cci';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'job' | 'candidate' | 'pipeline' | 'dossier'>('job');
@@ -17,6 +18,14 @@ export default function HomePage() {
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [pipelineStageIndex, setPipelineStageIndex] = useState(9);
   const [isPipelineComplete, setIsPipelineComplete] = useState(true);
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
+  const [currentDossier, setCurrentDossier] = useState<Dossier>(MOCK_DOSSIER);
+  const [currentGraph, setCurrentGraph] = useState<CEGGraph>(MOCK_GRAPH);
+
+  // Probe backend server connectivity on mount
+  React.useEffect(() => {
+    checkBackendHealth().then((online) => setIsBackendOnline(online));
+  }, []);
 
   // Animate 10-stage execution pipeline upon candidate intake submission
   React.useEffect(() => {
@@ -45,10 +54,29 @@ export default function HomePage() {
     setActiveTab('candidate');
   };
 
-  const handleCandidateSubmit = (candManifest: CandidateManifest) => {
+  const handleCandidateSubmit = async (candManifest: CandidateManifest) => {
     setManifest(candManifest);
     setIsPipelineRunning(true);
     setActiveTab('pipeline');
+
+    // Attempt live pipeline run if backend is responsive
+    if (isBackendOnline) {
+      try {
+        const runRes = await triggerPipelineRun(
+          candManifest.candidate_id,
+          currentRole,
+          candManifest
+        );
+        if (runRes.status === 'completed' || runRes.dossier_id) {
+          const liveDossier = await fetchCandidateDossier(candManifest.candidate_id);
+          const liveGraph = await fetchCandidateGraph(candManifest.candidate_id);
+          setCurrentDossier(liveDossier);
+          setCurrentGraph(liveGraph);
+        }
+      } catch (err) {
+        console.warn('Backend execution fallback to mock data:', err);
+      }
+    }
   };
 
   return (
@@ -63,6 +91,13 @@ export default function HomePage() {
             <div>
               <span className="font-bold tracking-tight text-white text-base">Candidate Capability Intelligence</span>
               <span className="text-xs text-slate-400 font-mono ml-2">v0.1.0-paper</span>
+            </div>
+            {/* Live Backend Connection Indicator */}
+            <div className="hidden sm:flex items-center gap-2 text-xs border border-slate-800 bg-slate-900/80 px-2.5 py-1 rounded-full ml-3">
+              <span className={`w-2 h-2 rounded-full ${isBackendOnline ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-amber-400'}`} />
+              <span className="text-slate-300 font-mono text-[11px]">
+                {isBackendOnline === null ? 'Probing API...' : isBackendOnline ? 'Backend: Live' : 'Demo Mode (Mock)'}
+              </span>
             </div>
           </div>
 
@@ -125,8 +160,8 @@ export default function HomePage() {
 
         {activeTab === 'dossier' && (
           <DossierView
-            initialDossier={MOCK_DOSSIER}
-            graph={MOCK_GRAPH}
+            initialDossier={currentDossier}
+            graph={currentGraph}
             candidateName={manifest?.full_name || 'Alice Developer'}
           />
         )}

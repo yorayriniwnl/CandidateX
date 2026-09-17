@@ -48,6 +48,11 @@ class PipelineService:
             self._runs[state.analysis_run_id] = state
             if state.dossier:
                 self._dossiers_by_id[state.dossier.dossier_id] = state.dossier
+                try:
+                    from cci.api.routers.dossier import register_dossier
+                    register_dossier(state.dossier, state.ceg_graph)
+                except ImportError:
+                    pass
 
         return state
 
@@ -75,6 +80,11 @@ class PipelineService:
             rescored = rescore_dossier(state.dossier, new_weights)
             state.dossier = rescored
             self._dossiers_by_id[rescored.dossier_id] = rescored
+            try:
+                from cci.api.routers.dossier import register_dossier
+                register_dossier(rescored, state.ceg_graph)
+            except ImportError:
+                pass
             return rescored
 
 
