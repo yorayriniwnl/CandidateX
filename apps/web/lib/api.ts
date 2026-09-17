@@ -212,3 +212,42 @@ export async function fetchCandidatesList(): Promise<CandidateSummary[]> {
   return res.json();
 }
 
+/**
+ * Constructs the export endpoint URL for the given candidate and format.
+ */
+export function getExportDossierUrl(
+  candidateId: string,
+  format: 'html' | 'markdown' | 'json' = 'html'
+): string {
+  return `${API_BASE_URL}/api/v1/dossier/${candidateId}/export?format=${format}`;
+}
+
+/**
+ * Downloads the exported dossier file directly to the client browser.
+ */
+export async function downloadDossier(
+  candidateId: string,
+  format: 'html' | 'markdown' | 'json',
+  candidateName: string = 'candidate'
+): Promise<void> {
+  const url = getExportDossierUrl(candidateId, format);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to export dossier: HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const ext = format === 'html' ? 'html' : format === 'markdown' ? 'md' : 'json';
+  const cleanName = candidateName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const filename = `${cleanName}_technical_brief.${ext}`;
+
+  const link = document.createElement('a');
+  link.href = window.URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(link.href);
+}
+
+

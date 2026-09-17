@@ -207,6 +207,8 @@ Open `http://localhost:3000` to access the interactive recruitment platform:
 - **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
 - **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
 - **Dossier & CEG Viewer**: Comprehensive capability breakdown, confidence factors, claims matrix, interview probes, and interactive graph viewer.
+- **Export & Print**: 1-click "Export Brief" generating standalone printable HTML documents (optimized `@media print`), downloadable Markdown, or raw JSON snapshots.
+- **Multi-Candidate Comparison**: Side-by-side comparative capability matrix comparing up to 3 candidates simultaneously across RCI, Coverage, 12 Core Capabilities, and contradiction alerts.
 
 ---
 
@@ -221,6 +223,7 @@ Open `http://localhost:3000` to access the interactive recruitment platform:
 | `GET` | `/api/v1/candidates/{id}` | Retrieves full candidate manifest data and intake records |
 | `POST` | `/api/v1/pipeline/analyze` | Executes 10-stage evaluation pipeline against submitted CV and JD |
 | `GET` | `/api/v1/dossier/{id}` | Retrieves generated Technical Dossier for a candidate |
+| `GET` | `/api/v1/dossier/{id}/export` | Exports formatted printable brief (`html`, `markdown`, or `json`) |
 | `GET` | `/api/v1/dossier/{id}/probes` | Retrieves prioritized interview probes with information-gain scores |
 | `POST` | `/api/v1/overrides/recruiter` | Records recruiter capability adjustments with immutable audit trail |
 
@@ -246,7 +249,7 @@ python scripts/smoke_test.py
 
 ## Verification & Test Matrix
 
-The test suite contains **131 passed tests** verifying all theorems, database persistence invariants, and end-to-end pipeline stages:
+The test suite contains **134 passed tests** verifying all theorems, database persistence invariants, and end-to-end pipeline stages:
 
 - **Mathematical Theorems (Theorems 1–10)**: Strict adherence to conference paper proofs in [`test_paper_theorems_audit.py`](services/backend/tests/test_paper_theorems_audit.py).
 - **Security & SSRF Defense**: Link-local, loopback, RFC 1918 private IP, and IMDS protection in [`test_ssrf.py`](services/backend/tests/security/test_ssrf.py) and [`test_safe_workspace.py`](services/backend/tests/security/repositories/test_safe_workspace.py).

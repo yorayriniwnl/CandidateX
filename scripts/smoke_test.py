@@ -76,6 +76,23 @@ def run_smoke_tests(backend_url: str, frontend_url: str) -> bool:
         if res["status"] != "UP":
             all_healthy = False
 
+    # If Candidates API is healthy, probe dynamic candidate dossier export
+    try:
+        cand_list_req = urllib.request.Request(f"{backend_url.rstrip('/')}/api/v1/candidates", headers={"User-Agent": "CCI-SmokeTest/1.0"})
+        with urllib.request.urlopen(cand_list_req, timeout=5) as resp:
+            cands = json.loads(resp.read().decode("utf-8"))
+            if cands and len(cands) > 0:
+                first_cand = cands[0]
+                export_res = check_http_endpoint(
+                    "FastAPI Dossier Export (HTML)",
+                    f"{backend_url.rstrip('/')}/api/v1/dossier/{first_cand['id']}/export?format=html",
+                )
+                results.append(export_res)
+                if export_res["status"] != "UP":
+                    all_healthy = False
+    except Exception:
+        pass
+
     print("=" * 80)
     if all_healthy:
         print("[SUCCESS] All CCI stack services are healthy and responsive.")

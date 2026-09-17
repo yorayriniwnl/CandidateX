@@ -1,19 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award, Users } from 'lucide-react';
+import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award, Users, GitCompare } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { JobIntakeForm } from '../components/JobIntakeForm';
 import { CandidateIntakeForm } from '../components/CandidateIntakeForm';
 import { PipelineTracker } from '../components/PipelineTracker';
 import { CandidateDirectory } from '../components/CandidateDirectory';
+import { CandidateComparison } from '../components/CandidateComparison';
 import { DossierView } from '../components/dossier/DossierView';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import { checkBackendHealth, triggerPipelineRun, fetchPipelineStatus, fetchCandidateDossier, fetchCandidateGraph } from '../lib/api';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGraph } from '../types/cci';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'directory' | 'job' | 'candidate' | 'pipeline' | 'dossier'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'job' | 'candidate' | 'pipeline' | 'dossier' | 'compare'>('directory');
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
@@ -172,6 +173,14 @@ export default function HomePage() {
             >
               <Award className="w-3.5 h-3.5" /> 4. Candidate Dossier
             </button>
+            <button
+              onClick={() => setActiveTab('compare')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'compare' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <GitCompare className="w-3.5 h-3.5" /> 5. Compare
+            </button>
           </div>
         </div>
       </header>
@@ -209,6 +218,13 @@ export default function HomePage() {
             initialDossier={currentDossier}
             graph={currentGraph}
             candidateName={manifest?.full_name || 'Alice Developer'}
+          />
+        )}
+
+        {activeTab === 'compare' && (
+          <CandidateComparison
+            onSelectCandidateDossier={handleSelectCandidateFromDirectory}
+            isBackendOnline={isBackendOnline}
           />
         )}
       </main>

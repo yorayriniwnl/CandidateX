@@ -2,13 +2,14 @@
 
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from cci.api.contracts.dossier import DossierResponse, InterviewProbesResponse
 from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CapabilityKey
 from cci.graph.ceg import CandidateEvidenceGraph
+from cci.reports.exporter import generate_html_brief, generate_markdown_brief
 
 router = APIRouter(prefix="/api/v1/dossier", tags=["Dossier & Evidence Graph"])
 
@@ -60,6 +61,53 @@ def get_candidate_dossier(candidate_id: UUID) -> DossierResponse:
             detail=f"Dossier not found for candidate ID {candidate_id}",
         )
     return DossierResponse(dossier=dossier)
+
+
+@router.get(
+    "/{candidate_id}/export",
+    summary="Export candidate technical intelligence brief (HTML, Markdown, JSON)",
+    status_code=status.HTTP_200_OK,
+)
+def export_candidate_dossier(
+    candidate_id: UUID,
+    format: str = Query("html", pattern="^(html|markdown|json)$", description="Export format: html, markdown, or json"),
+) -> Response:
+    """Exports a formatted, printable technical brief for hiring managers and interviewers."""
+    dossier = _DOSSIER_STORE.get(candidate_id)
+    cand_name = "Candidate"
+    if not dossier:
+        try:
+            from cci.db.session import SessionLocal
+            from cci.db.repository import get_dossier_by_candidate_id, get_candidate_by_id
+            with SessionLocal() as db:
+                dossier = get_dossier_by_candidate_id(db, candidate_id)
+                cand = get_candidate_by_id(db, candidate_id)
+                if cand:
+                    cand_name = cand.display_name
+                if dossier:
+                    _DOSSIER_STORE[candidate_id] = dossier
+        except Exception:
+            pass
+
+    if not dossier:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dossier not found for candidate ID {candidate_id}",
+        )
+
+    if format == "html":
+        content = generate_html_brief(dossier, candidate_name=cand_name)
+        return Response(content=content, media_type="text/html")
+    elif format == "markdown":
+        content = generate_markdown_brief(dossier, candidate_name=cand_name)
+        return Response(content=content, media_type="text/markdown")
+    else:
+        # json
+        return Response(
+            content=dossier.model_dump_json(indent=2),
+            media_type="application/json",
+        )
+
 
 
 @router.get(
