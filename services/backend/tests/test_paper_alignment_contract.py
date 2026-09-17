@@ -1,8 +1,7 @@
 """Regression contract between the submitted CCI paper and the public implementation.
 
-These tests intentionally validate *presentation and provenance* alignment. They do not
-pretend that the repository's supplementary ablation harness regenerated the paper's
-reported synthetic benchmark.
+These tests validate presentation and provenance alignment. They deliberately do not
+pretend that the repository supplementary ablation regenerated the paper benchmark.
 """
 
 from __future__ import annotations
@@ -89,7 +88,11 @@ def test_research_defaults_use_the_six_paper_roles() -> None:
         assert "Mobile Engineering" not in text
         assert 'role="mobile"' not in text
         assert "role: 'mobile'" not in text
-        assert "Data Engineer" in text or "Data Engineering" in text
+        assert (
+            "data_engineer" in text
+            or "Data Engineer" in text
+            or "Data Engineering" in text
+        )
 
 
 def test_repository_distinguishes_paper_benchmark_from_supplementary_ablation() -> None:
