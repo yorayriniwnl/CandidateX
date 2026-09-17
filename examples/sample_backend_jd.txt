@@ -1,0 +1,27 @@
+# Senior Backend Engineer — Core Distributed Infrastructure
+
+## Company Overview
+CandidateX Fintech is building the next generation of financial infrastructure and high-throughput
+distributed transaction networks. We are looking for a Senior Backend Engineer to own our transactional
+ledger, asynchronous messaging pipelines, and database architecture.
+
+## Responsibilities
+- Architect, build, and maintain high-performance distributed microservices in Python or Go.
+- Own transactional database design, query optimization, indexing strategies, and zero-downtime migrations in PostgreSQL.
+- Implement robust event-driven workflows with Apache Kafka, Redis, and message outbox patterns.
+- Champion engineering excellence through comprehensive unit, integration, and property testing.
+- Design secure APIs with strict authentication, authorization, and network security protections.
+- Write architectural decision records (ADRs) and collaborate cross-functionally with DevOps and product teams.
+
+## Mandatory Requirements
+- 5+ years of production experience building backend systems in Python, Go, or Java.
+- Deep expertise in relational database engineering (PostgreSQL preferred), including transaction isolation, indexing, and schema design.
+- Hands-on experience with asynchronous message queues and event streaming (Kafka, RabbitMQ, or Redis).
+- Proven track record writing reliable, maintainable code with high test coverage and CI/CD integration.
+- Strong understanding of software architecture, distributed systems patterns, and failure modes.
+
+## Preferred Qualifications
+- Experience with container orchestration (Docker, Kubernetes) and Infrastructure as Code (Terraform).
+- Familiarity with cloud platforms (AWS, GCP) and production reliability monitoring.
+- Contributions to open-source infrastructure or developer tooling.
+- Knowledge of financial protocols, ledger systems, or payment reconciliation workflows.
