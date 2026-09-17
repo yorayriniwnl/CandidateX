@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
   Award,
   Check,
   CheckCircle2,
+  Download,
   ExternalLink,
   Filter,
+  Flame,
   GitCompare,
+  LayoutGrid,
+  List,
   Plus,
+  Printer,
   Search,
   Sparkles,
   Users,
@@ -132,6 +137,7 @@ export const CandidateDirectory: React.FC<{
     initialSelectedForComparison || []
   );
   const [loadingCandidateId, setLoadingCandidateId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   useEffect(() => {
     if (initialSelectedForComparison && initialSelectedForComparison.length > 0) {
@@ -204,6 +210,60 @@ export const CandidateDirectory: React.FC<{
       return 0;
     });
 
+  const cohortMetrics = useMemo(() => {
+    const validRcis = filteredCandidates.map((c) => c.rci).filter((r): r is number => r !== null && r !== undefined);
+    const validCovs = filteredCandidates.map((c) => c.coverage).filter((cv): cv is number => cv !== null && cv !== undefined);
+    const meanRci = validRcis.length > 0 ? validRcis.reduce((a, b) => a + b, 0) / validRcis.length : 0;
+    const meanCov = validCovs.length > 0 ? validCovs.reduce((a, b) => a + b, 0) / validCovs.length : 0;
+    const conflictCount = filteredCandidates.filter((c) => c.has_meaningful_conflict).length;
+    const topCandidate = [...filteredCandidates].sort((a, b) => (b.rci ?? 0) - (a.rci ?? 0))[0];
+
+    return {
+      total: filteredCandidates.length,
+      meanRci,
+      meanCov,
+      conflictCount,
+      topCandidate,
+    };
+  }, [filteredCandidates]);
+
+  const handleExportCohortMarkdown = () => {
+    const lines = [
+      '# Candidate Capability Intelligence (CCI) — Cohort Ranking Leaderboard',
+      '',
+      `Generated: ${new Date().toISOString()}`,
+      `Total Evaluated Candidates: ${cohortMetrics.total}`,
+      `Cohort Mean RCI: ${cohortMetrics.meanRci.toFixed(1)} / 100`,
+      `Cohort Mean Evidence Coverage: ${(cohortMetrics.meanCov * 100).toFixed(1)}%`,
+      `Candidates with Contradiction Alerts: ${cohortMetrics.conflictCount}`,
+      '',
+      '| Rank | Candidate Name | Canonical Role | Role Capability Index (RCI) | Evidence Coverage | Contradiction Alert |',
+      '|:---:|:---|:---|:---:|:---:|:---:|',
+    ];
+
+    filteredCandidates.forEach((c, idx) => {
+      const rank = idx + 1;
+      const rciStr = c.rci !== null && c.rci !== undefined ? `${c.rci.toFixed(1)} / 100` : 'UNKNOWN';
+      const covStr = c.coverage !== null && c.coverage !== undefined ? `${(c.coverage * 100).toFixed(1)}%` : '0.0%';
+      const conflictStr = c.has_meaningful_conflict ? '⚠️ Conflict Detected' : 'Aligned';
+      const roleStr = c.role || 'Unspecified';
+      lines.push(`| **#${rank}** | ${c.display_name} | ${roleStr} | **${rciStr}** | ${covStr} | ${conflictStr} |`);
+    });
+
+    lines.push('');
+    lines.push('---');
+    lines.push('*Decision Support Only: CCI strictly assists human hiring committees and never makes autonomous hire/reject decisions.*');
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `cohort_leaderboard_${new Date().toISOString().slice(0, 10)}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleInspect = async (candidateId: string, name: string) => {
     setLoadingCandidateId(candidateId);
     try {
@@ -229,14 +289,93 @@ export const CandidateDirectory: React.FC<{
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onNewCandidate}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-indigo-600/20 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Intake New Candidate
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCohortMarkdown}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Download complete cohort rankings as Markdown"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Export Cohort (.md)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Print executive cohort leaderboard packet"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-400" />
+            <span>Print Packet</span>
+          </button>
+          <button
+            type="button"
+            onClick={onNewCandidate}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-indigo-600/20 self-start sm:self-auto cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Intake New Candidate
+          </button>
+        </div>
+      </div>
+
+      {/* Cohort Analytics Overview Ribbon */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-mono">
+              Evaluated Cohort
+            </span>
+            <span className="text-lg font-bold text-white font-mono">
+              {cohortMetrics.total} Candidates
+            </span>
+          </div>
+          <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+            <Users className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-mono">
+              Cohort Mean RCI
+            </span>
+            <span className="text-lg font-bold text-indigo-400 font-mono">
+              {cohortMetrics.meanRci.toFixed(1)} <span className="text-xs text-slate-500 font-normal">/ 100</span>
+            </span>
+          </div>
+          <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+            <Award className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-mono">
+              Mean Coverage
+            </span>
+            <span className="text-lg font-bold text-sky-400 font-mono">
+              {(cohortMetrics.meanCov * 100).toFixed(1)}%
+            </span>
+          </div>
+          <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-mono">
+              Contradiction Alerts
+            </span>
+            <span className={`text-lg font-bold font-mono ${cohortMetrics.conflictCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {cohortMetrics.conflictCount} Detected
+            </span>
+          </div>
+          <div className={`p-2 rounded-lg ${cohortMetrics.conflictCount > 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -289,110 +428,290 @@ export const CandidateDirectory: React.FC<{
               <option value="name_asc">Sort: Name (A &rarr; Z)</option>
               <option value="conflict_first">Sort: Contradictions First</option>
             </select>
+
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'grid' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Cards Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'table' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Cohort Leaderboard Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Candidate Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCandidates.map((candidate) => {
-          const roleMeta = ROLE_LABELS[candidate.role || 'backend'] || {
-            label: candidate.role || 'Unknown',
-            color: 'bg-slate-800 text-slate-300 border-slate-700',
-          };
-          const isInspecting = loadingCandidateId === candidate.id;
-          const isSelectedForCompare = selectedForComparison.includes(candidate.id);
+      {/* Candidate Cards Grid OR Leaderboard Table */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCandidates.map((candidate) => {
+            const roleMeta = ROLE_LABELS[candidate.role || 'backend'] || {
+              label: candidate.role || 'Unknown',
+              color: 'bg-slate-800 text-slate-300 border-slate-700',
+            };
+            const isInspecting = loadingCandidateId === candidate.id;
+            const isSelectedForCompare = selectedForComparison.includes(candidate.id);
 
-          return (
-            <div
-              key={candidate.id}
-              className={`bg-slate-900 border transition-all rounded-xl p-5 space-y-4 flex flex-col justify-between shadow-lg ${
-                isSelectedForCompare
-                  ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-slate-900/90'
-                  : 'border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                {/* Header with Name, Compare Toggle & Role Badge */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-100">{candidate.display_name}</h3>
-                    <p className="text-xs text-slate-400">{candidate.primary_email || 'No email declared'}</p>
+            return (
+              <div
+                key={candidate.id}
+                className={`bg-slate-900 border transition-all rounded-xl p-5 space-y-4 flex flex-col justify-between shadow-lg ${
+                  isSelectedForCompare
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-slate-900/90'
+                    : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div>
+                  {/* Header with Name, Compare Toggle & Role Badge */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-100">{candidate.display_name}</h3>
+                      <p className="text-xs text-slate-400">{candidate.primary_email || 'No email declared'}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectForComparison(candidate.id)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 transition-all cursor-pointer ${
+                          isSelectedForCompare
+                            ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm'
+                            : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                        }`}
+                        title={isSelectedForCompare ? 'Remove from comparison' : 'Add to side-by-side comparison (max 3)'}
+                      >
+                        <GitCompare className="w-3 h-3" />
+                        <span>{isSelectedForCompare ? 'Selected' : 'Compare'}</span>
+                      </button>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border ${roleMeta.color}`}>
+                        {roleMeta.label}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => toggleSelectForComparison(candidate.id)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 transition-all ${
-                        isSelectedForCompare
-                          ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm'
-                          : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+
+                  {/* Score & Diagnostics Badges */}
+                  <div className="mt-4 grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Role Capability Index</span>
+                      <span className="text-lg font-bold text-slate-100">
+                        {candidate.rci !== null && candidate.rci !== undefined ? `${candidate.rci.toFixed(1)}` : 'UNKNOWN'}
+                      </span>
+                      <span className="text-[11px] text-slate-500"> / 100</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Evidence Coverage</span>
+                      <span className="text-lg font-bold text-indigo-400">
+                        {candidate.coverage !== null && candidate.coverage !== undefined ? `${(candidate.coverage * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Conflict or Warning Notice */}
+                  {candidate.has_meaningful_conflict && (
+                    <div className="mt-3 flex items-center gap-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs text-rose-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <span>Contradiction flagged (D_k &lt; 0) between claims and repository observations</span>
+                    </div>
+                  )}
+
+                  {!candidate.has_meaningful_conflict && candidate.coverage !== undefined && candidate.coverage < 0.10 && (
+                    <div className="mt-3 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-300">
+                      <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span>Sparse evidence cohort: Missing capabilities remain UNKNOWN</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    ID: {candidate.id.slice(0, 8)}...
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleInspect(candidate.id, candidate.display_name)}
+                    disabled={isInspecting}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm shadow-indigo-600/30 cursor-pointer"
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    {isInspecting ? 'Loading Dossier...' : 'View Dossier'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] uppercase tracking-wider bg-slate-950/60">
+                  <th className="py-3 px-4 text-center">Rank</th>
+                  <th className="py-3 px-4">Candidate &amp; Role</th>
+                  <th className="py-3 px-4 text-center">RCI Score</th>
+                  <th className="py-3 px-4 text-center">Coverage</th>
+                  <th className="py-3 px-4 text-center">Contradiction Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-sans">
+                {filteredCandidates.map((candidate, idx) => {
+                  const rank = idx + 1;
+                  const roleMeta = ROLE_LABELS[candidate.role || 'backend'] || {
+                    label: candidate.role || 'Unknown',
+                    color: 'bg-slate-800 text-slate-300 border-slate-700',
+                  };
+                  const isInspecting = loadingCandidateId === candidate.id;
+                  const isSelectedForCompare = selectedForComparison.includes(candidate.id);
+                  const rankBadgeBg =
+                    rank === 1
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : rank === 2
+                      ? 'bg-blue-600 text-white'
+                      : rank === 3
+                      ? 'bg-sky-600 text-white'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700';
+
+                  return (
+                    <tr
+                      key={candidate.id}
+                      className={`hover:bg-slate-800/30 transition-colors ${
+                        isSelectedForCompare ? 'bg-indigo-950/20' : ''
                       }`}
-                      title={isSelectedForCompare ? 'Remove from comparison' : 'Add to side-by-side comparison (max 3)'}
                     >
-                      <GitCompare className="w-3 h-3" />
-                      <span>{isSelectedForCompare ? 'Selected' : 'Compare'}</span>
-                    </button>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border ${roleMeta.color}`}>
-                      {roleMeta.label}
-                    </span>
-                  </div>
-                </div>
+                      {/* Rank # */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`w-6 h-6 rounded-full inline-flex items-center justify-center font-mono font-bold text-xs ${rankBadgeBg}`}
+                        >
+                          {rank}
+                        </span>
+                      </td>
 
-                {/* Score & Diagnostics Badges */}
-                <div className="mt-4 grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Role Capability Index</span>
-                    <span className="text-lg font-bold text-slate-100">
-                      {candidate.rci !== null && candidate.rci !== undefined ? `${candidate.rci.toFixed(1)}` : 'UNKNOWN'}
-                    </span>
-                    <span className="text-[11px] text-slate-500"> / 100</span>
-                  </div>
+                      {/* Candidate Name & Role */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleInspect(candidate.id, candidate.display_name)}
+                            className="text-sm font-semibold text-white hover:text-indigo-400 transition-colors text-left cursor-pointer"
+                          >
+                            {candidate.display_name}
+                          </button>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium border ${roleMeta.color}`}
+                          >
+                            {roleMeta.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {candidate.primary_email || candidate.id.slice(0, 8)}
+                        </p>
+                      </td>
 
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Evidence Coverage</span>
-                    <span className="text-lg font-bold text-indigo-400">
-                      {candidate.coverage !== null && candidate.coverage !== undefined ? `${(candidate.coverage * 100).toFixed(1)}%` : '0.0%'}
-                    </span>
-                  </div>
-                </div>
+                      {/* RCI Score */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex flex-col items-center">
+                          <span className="text-sm font-bold font-mono text-indigo-400">
+                            {candidate.rci !== null && candidate.rci !== undefined
+                              ? candidate.rci.toFixed(1)
+                              : 'UNKNOWN'}
+                            <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
+                          </span>
+                          {candidate.rci !== null && candidate.rci !== undefined && (
+                            <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                              <div
+                                className="h-full bg-indigo-500 rounded-full"
+                                style={{ width: `${candidate.rci}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </td>
 
-                {/* Conflict or Warning Notice */}
-                {candidate.has_meaningful_conflict && (
-                  <div className="mt-3 flex items-center gap-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs text-rose-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                    <span>Contradiction flagged (D_k &lt; 0) between claims and repository observations</span>
-                  </div>
-                )}
+                      {/* Evidence Coverage */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex flex-col items-center">
+                          <span className="text-xs font-semibold font-mono text-sky-400">
+                            {candidate.coverage !== null && candidate.coverage !== undefined
+                              ? `${(candidate.coverage * 100).toFixed(1)}%`
+                              : '0.0%'}
+                          </span>
+                          <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                            <div
+                              className="h-full bg-sky-500 rounded-full"
+                              style={{ width: `${(candidate.coverage ?? 0) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
 
-                {!candidate.has_meaningful_conflict && candidate.coverage !== undefined && candidate.coverage < 0.10 && (
-                  <div className="mt-3 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-300">
-                    <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-                    <span>Sparse evidence cohort: Missing capabilities remain UNKNOWN</span>
-                  </div>
-                )}
-              </div>
+                      {/* Contradiction Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        {candidate.has_meaningful_conflict ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+                            <AlertTriangle className="w-3 h-3 text-rose-400" />
+                            <span>Conflict Flagged</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>Aligned</span>
+                          </span>
+                        )}
+                      </td>
 
-              {/* Action Button */}
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-mono">
-                  ID: {candidate.id.slice(0, 8)}...
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => handleInspect(candidate.id, candidate.display_name)}
-                  disabled={isInspecting}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm shadow-indigo-600/30"
-                >
-                  <Award className="w-3.5 h-3.5" />
-                  {isInspecting ? 'Loading Dossier...' : 'View Dossier'}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectForComparison(candidate.id)}
+                            className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                              isSelectedForCompare
+                                ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                            title={isSelectedForCompare ? 'Remove from compare' : 'Select for comparison'}
+                          >
+                            <GitCompare className="w-3 h-3" />
+                            <span>{isSelectedForCompare ? 'Selected' : 'Compare'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isInspecting}
+                            onClick={() => handleInspect(candidate.id, candidate.display_name)}
+                            className="px-3 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Award className="w-3 h-3" />
+                            <span>{isInspecting ? '...' : 'Dossier'}</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {filteredCandidates.length === 0 && (
         <div className="text-center py-12 bg-slate-900 border border-slate-800 rounded-xl">
