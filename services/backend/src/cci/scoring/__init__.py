@@ -21,6 +21,16 @@ from cci.scoring.rci import (
     evaluate_analysis_score,
 )
 
+from cci.scoring.reliability import (
+    calibrate_from_observations,
+    compute_source_reliability,
+    get_default_reliability_snapshots,
+)
+from cci.scoring.ownership import (
+    assemble_confidence_factors,
+    estimate_repository_ownership,
+)
+
 __all__ = [
     "calculate_elapsed_years",
     "compute_recency_factor",
@@ -35,4 +45,9 @@ __all__ = [
     "compute_evidence_coverage",
     "compute_rci",
     "evaluate_analysis_score",
+    "compute_source_reliability",
+    "calibrate_from_observations",
+    "get_default_reliability_snapshots",
+    "estimate_repository_ownership",
+    "assemble_confidence_factors",
 ]
