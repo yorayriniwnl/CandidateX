@@ -30,6 +30,7 @@ from cci.api.routers import (
     candidates_router,
     dossier_router,
     jobs_router,
+    overrides_router,
     pipeline_router,
 )
 
@@ -37,6 +38,7 @@ app.include_router(dossier_router)
 app.include_router(pipeline_router)
 app.include_router(jobs_router)
 app.include_router(candidates_router)
+app.include_router(overrides_router)
 
 
 @app.get(

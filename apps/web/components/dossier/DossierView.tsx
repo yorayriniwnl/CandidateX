@@ -109,6 +109,7 @@ export const DossierView: React.FC<{
         currentRole={dossier.role}
         currentWeights={customWeights}
         estimates={dossier.capability_estimates}
+        candidateId={dossier.candidate_id}
         onApplyWeights={handleApplyWeights}
       />
     </div>

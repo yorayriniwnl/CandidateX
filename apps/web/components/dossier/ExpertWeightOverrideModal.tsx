@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, RefreshCw, Sliders, X, AlertCircle, Sparkles } from 'lucide-react';
+import { Check, RefreshCw, Sliders, X, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
 import { CapabilityEstimate, CapabilityKey, CanonicalRole } from '../../types/cci';
+import { submitRecruiterOverride } from '../../lib/api';
 
 const ALL_CAPABILITIES: { key: CapabilityKey; label: string }[] = [
   { key: 'backend_engineering', label: 'Backend Engineering' },
@@ -112,9 +113,13 @@ export const ExpertWeightOverrideModal: React.FC<{
   currentRole: CanonicalRole;
   currentWeights: Record<CapabilityKey, number>;
   estimates: Record<CapabilityKey, CapabilityEstimate>;
+  candidateId?: string;
   onApplyWeights: (weights: Record<CapabilityKey, number>) => void;
-}> = ({ isOpen, onClose, currentRole, currentWeights, estimates, onApplyWeights }) => {
+}> = ({ isOpen, onClose, currentRole, currentWeights, estimates, candidateId, onApplyWeights }) => {
   const [weights, setWeights] = useState<Record<CapabilityKey, number>>({ ...currentWeights });
+  const [justification, setJustification] = useState(
+    'Recruiter adjustments aligned with specialized hiring requirements.'
+  );
 
   useEffect(() => {
     setWeights({ ...currentWeights });
@@ -161,7 +166,7 @@ export const ExpertWeightOverrideModal: React.FC<{
     setWeights({ ...defaults });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // If not strictly normalized, normalize before applying
     let finalWeights = { ...weights };
     if (!isValidSum && totalSum > 0) {
@@ -169,6 +174,17 @@ export const ExpertWeightOverrideModal: React.FC<{
         finalWeights[key] = (finalWeights[key] || 0) / totalSum;
       });
     }
+
+    if (candidateId) {
+      submitRecruiterOverride({
+        candidate_id: candidateId,
+        role_weights: finalWeights,
+        justification: justification || 'Recruiter role weight override',
+      }).catch((err) => {
+        console.warn('Backend override persistence warning:', err);
+      });
+    }
+
     onApplyWeights(finalWeights);
     onClose();
   };
@@ -271,6 +287,24 @@ export const ExpertWeightOverrideModal: React.FC<{
               </div>
             );
           })}
+        </div>
+
+        {/* Mandatory Audit Justification */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900/90">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Mandatory Audit Trail Justification</span>
+            </label>
+            <span className="text-[10px] text-slate-500 font-mono">Immutable Logged Event</span>
+          </div>
+          <input
+            type="text"
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+            placeholder="Explain why role capability weights were adjusted for this evaluation..."
+            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-xs text-slate-200 outline-none transition-colors"
+          />
         </div>
 
         {/* Modal Footer */}

@@ -250,4 +250,44 @@ export async function downloadDossier(
   window.URL.revokeObjectURL(link.href);
 }
 
+export interface RecruiterOverridePayload {
+  candidate_id: string;
+  role_weights: Record<string, number>;
+  justification: string;
+  user_id?: string;
+  organization_id?: string;
+}
+
+export interface RecruiterOverrideResponse {
+  override_id: string;
+  candidate_id: string;
+  previous_rci: number | null;
+  rescored_rci: number | null;
+  rescored_coverage: number;
+  audit_event_id: string;
+  justification: string;
+  recorded_at: string;
+  dossier: Dossier;
+}
+
+/**
+ * Submits recruiter role weight overrides to backend with mandatory audit justification.
+ */
+export async function submitRecruiterOverride(
+  payload: RecruiterOverridePayload
+): Promise<RecruiterOverrideResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/overrides/recruiter`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Recruiter override failed: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+
 
