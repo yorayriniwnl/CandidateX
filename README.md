@@ -1,261 +1,380 @@
 # Candidate Capability Intelligence (CCI)
 
-[![CI Pipeline](https://github.com/yorayriniwnl/CandidateX/actions/workflows/ci.yml/badge.svg)](https://github.com/yorayriniwnl/CandidateX/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
+[![Research prototype](https://img.shields.io/badge/status-research_prototype-indigo.svg)](#research-and-validation-boundary)
 
-> **Candidate Capability Intelligence (CCI)** is a formal, provenance-grounded technical capability evaluation and interview intelligence platform. Built strictly in alignment with the Max-Technical conference paper specification, CCI transforms messy, heterogeneous candidate artifacts (CVs, git commits, codebases, schemas, CI/CD configs, live deployments) into an interpretable **Candidate Evidence Graph (CEG)**, statistically rigorous capability estimates, contradiction diagnostics, and prioritized interview probes.
+**Candidate Capability Intelligence (CCI)** is an employer-facing, human-in-the-loop technical assessment prototype. It turns candidate-authorized technical evidence into a provenance-preserving Candidate Evidence Graph, role-conditioned capability estimates, Evidence Coverage, contradiction diagnostics, and evidence-linked interview probes.
 
----
+**Live demo:** https://candidatex-smoky.vercel.app  
+**Portfolio case study:** https://yorayriniwnl.in/projects/candidatex
 
-## Table of Contents
-
-1. [Core Product Invariants](#core-product-invariants)
-2. [System Architecture & Monorepo Structure](#system-architecture--monorepo-structure)
-3. [Formal Mathematical Framework](#formal-mathematical-framework)
-4. [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies)
-5. [Quickstart & Local Development](#quickstart--local-development)
-6. [Docker Deployment](#docker-deployment)
-7. [Verification & Test Matrix](#verification--test-matrix)
+> CCI is decision support for technical interviewers. It does **not** autonomously hire or reject candidates, and missing public evidence is treated as uncertainty / lower coverage rather than incapability.
 
 ---
 
-## Core Product Invariants
+## Why CandidateX exists
 
-CCI is designed under strict ethical, mathematical, and operational constraints:
+Software-engineering capability leaves evidence across repositories, deployments, database artifacts, credentials, professional profiles, resumes, and coding platforms. Traditional screening often compresses that evidence into resume keywords or one opaque score.
 
-1. **Employer Decision Support Only**: CCI assists human interviewers and hiring managers with structured evidence, diagnostics, and probe questions; it **never** makes autonomous hire/reject decisions.
-2. **Closed-World CV Candidate Manifest**: Analysis is strictly constrained to resources explicitly supplied by the candidate (e.g. CV, linked GitHub, portfolio links). No unconstrained scraping or unsupplied identity discovery.
-3. **Candidate Code is NEVER Executed**: Untrusted candidate repositories are analyzed purely via static deterministic AST parsers (Python, TypeScript/JavaScript, Go, Java, C++), dependency manifests, and infrastructure definitions. No test runners, containers, sub-processes, or headless JS browsers are ever launched against candidate code.
-4. **Missing Evidence is `UNKNOWN`**: A lack of evidence on a skill drops **Evidence Coverage**, but never assigns an arbitrary zero capability score.
-5. **Separation of RCI and Coverage**:
-   - **Role Capability Index (RCI)** reflects estimated capability strictly across *observed* technical dimensions.
-   - **Evidence Coverage** reflects the fraction of job-critical capabilities backed by sufficient empirical evidence.
-6. **Immutable Provenance**: Every evidence record is immutable and cryptographically fingerprinted with commit hash, file locator, and AST symbol path.
-7. **Purely Functional Rescoring**: Evidence acquisition is cached; re-evaluating a candidate against a revised Job Description or customized role weights is instantaneous and purely functional.
-8. **Strict SSRF Security**: Live deployment inspection enforces multi-layered SSRF guards: DNS pinning, RFC 1918 private IP blocking, loopback blocking, redirect hop validation, and cloud metadata defense (blocking `169.254.169.254`).
+CCI instead asks four questions:
+
+1. **What technical capability is supported?**
+2. **Which concrete evidence supports it?**
+3. **How strong, attributable, current, and complete is that evidence?**
+4. **What should a human interviewer verify next?**
+
+The system is designed around auditability rather than automated employment decisions.
 
 ---
 
-## System Architecture & Monorepo Structure
+## Core invariants
 
+1. **Human decision support only**. No autonomous hire / reject output.
+2. **Closed-world evidence boundary**. Analysis is restricted to candidate-supplied or explicitly authorized professional artifacts.
+3. **No untrusted candidate-code execution**. Candidate repositories are inspected statically.
+4. **Missing evidence is UNKNOWN**. Absence lowers Evidence Coverage; it is not silently mapped to zero capability.
+5. **Capability and coverage are separate outputs**. RCI summarizes observed capability while Coverage communicates evidence sufficiency.
+6. **Provenance is first-class**. Evidence retains source, revision, timestamp, ownership, verification, extractor version, and fingerprint information.
+7. **Role-aware interpretation**. The same candidate can be interpreted differently for Backend, Frontend, Full-stack, ML Engineer, DevOps, and Data Engineer roles.
+8. **Contradictions are preserved**. Conflicting evidence becomes an interviewer verification signal rather than an automatic rejection.
+
+---
+
+## System architecture
+
+```text
+Candidate / Job Intake
+        |
+        v
+Authorized Evidence Sources
+        |
+        v
+Source-specific static analyzers + verifiers
+        |
+        v
+Candidate Evidence Graph (CEG)
+        |
+        v
+Role-aware evidence fusion
+        |
+        +--> Capability estimates + confidence intervals
+        +--> Evidence Coverage
+        +--> Contradiction diagnostics
+        +--> Evidence-linked interview probes
+        |
+        v
+Human interviewer dossier
 ```
+
+### Monorepo
+
+```text
 CandidateX/
-├── apps/
-│   └── web/                         # Next.js 15 App Router Frontend (React 19, Tailwind CSS)
-│       ├── app/                     # Unified workspace: Directory, Intake, Pipeline, Dossier
-│       ├── components/              # CandidateDirectory, JobIntake, CandidateIntake, DossierViewer, CEGViewer
-│       ├── lib/                     # API client layer (jobs, candidates, pipeline, dossier)
-│       └── Dockerfile               # Multi-stage non-root container build
-├── examples/                        # Canonical role evaluation fixtures (CVs and JDs)
-│   ├── sample_backend_cv.txt / sample_backend_jd.txt
-│   ├── sample_frontend_cv.txt / sample_frontend_jd.txt
-│   ├── sample_ml_cv.txt / sample_ml_jd.txt
-│   ├── sample_devops_cv.txt / sample_devops_jd.txt
-│   └── sample_fullstack_cv.txt / sample_fullstack_jd.txt
-├── services/
-│   └── backend/                     # FastAPI & SQLAlchemy 2.0 Backend Service
-│       ├── src/cci/
-│       │   ├── domain/              # Frozen Pydantic domain contracts & 41-entity DB models
-│       │   ├── db/                  # Dual-representation repository layer & ImmutableModelMixin
-│       │   ├── scoring/             # Mathematical core (recency, confidence, RCI, bootstrap CI)
-│       │   ├── intake/              # CV/JD parsers, hyperlink extractors, URL canonicalizers
-│       │   ├── acquisition/         # Safe workspace sandbox, git indexer, GitHub client
-│       │   ├── analyzers/           # Static AST parsers (5 langs), SQL/DB, DevOps/Cloud
-│       │   ├── security/            # Strict SSRF guard, deployment inspectors
-│       │   ├── attribution/         # Heuristic ownership discount, Beta source calibration
-│       │   ├── graph/               # Heterogeneous Candidate Evidence Graph (CEG)
-│       │   ├── pipeline/            # 10-stage analysis orchestrator & service
-│       │   └── api/                 # FastAPI routers (dossier, jobs, candidates, overrides, health)
-│       ├── tests/                   # 131 unit, golden, property, security, DB, and theorem audit tests
-│       └── Dockerfile               # Hardened Python 3.11-slim container build
-├── research/
-│   ├── run_paper_experiments.py     # Monte Carlo simulation reproduction runner (N=4,800)
-│   └── results/                     # Generated publication Markdown & LaTeX tables
-├── docs/                            # Formal conference paper interfaces and schemas
-├── scripts/
-│   ├── analyze_candidate.py         # 10-stage CLI pipeline with auto-name extraction & functional rescore
-│   ├── seed_db.py                   # Multi-tenant DB seeder for organizations, roles, and 7 candidate cohorts
-│   └── smoke_test.py                # Operational health & connectivity verification script
-├── docker-compose.yml               # Production & integration stack (Postgres 16, Redis 7, Backend, Web)
-└── .github/workflows/ci.yml         # GitHub Actions multi-stage CI matrix
+├── apps/web/                         # Next.js recruiter workspace
+├── services/backend/                 # FastAPI + SQLAlchemy backend
+│   └── src/cci/
+│       ├── acquisition/              # bounded evidence acquisition
+│       ├── analyzers/                # static code / DB / infra / deployment analysis
+│       ├── attribution/              # ownership + reliability
+│       ├── graph/                    # Candidate Evidence Graph
+│       ├── scoring/                  # confidence, capability, coverage, RCI
+│       ├── contradictions/           # conflict diagnostics
+│       ├── probes/                   # interview-probe prioritization
+│       ├── pipeline/                 # staged analysis orchestration
+│       └── api/                      # FastAPI routers
+├── research/                         # benchmark provenance + supplementary ablation harness
+├── examples/                         # reproducible candidate/JD fixtures
+├── scripts/                          # CLI analysis, seed, and audit tools
+└── .github/workflows/ci.yml          # backend/frontend/security verification workflow
 ```
 
 ---
 
-## Formal Mathematical Framework
+## Formal CCI model
 
-The CCI evaluation engine implements the exact mathematical formulations defined in the conference paper:
+The repository implementation follows the submitted paper's scoring equations.
 
-### 1. Bayesian Source Family Reliability Posterior
-For each source family $s \in \{\text{Resume}, \text{GitHub}, \text{Deployment}, \text{Database}, \text{Coding}, \text{Certificate}, \text{LinkedIn}\}$:
-$$r_s = \frac{TP_s + \alpha_s}{TP_s + FP_s + \alpha_s + \beta_s}, \quad \operatorname{Var}(r_s) = \frac{(\alpha + TP)(\beta + FP)}{(T + \alpha + \beta)^2 (T + \alpha + \beta + 1)}$$
+### 1. Bayesian source reliability
 
-### 2. Temporal Recency Decay
-$$t_{e,k} = \exp(-\lambda_k \cdot \Delta t_e)$$
-where $\lambda_k$ is the capability-specific half-life decay rate and $\Delta t_e$ is the elapsed time in years.
+For source family `s`:
 
-### 3. Six-Factor Multiplicative Confidence
-Each atomic evidence record $e$ supporting capability $k$ receives a confidence weight:
-$$c_{e,k} = \left( a_e \cdot o_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/6}$$
-- $a_e$: Artifact validity and static parser integrity
-- $o_e$: Authorship attribution (penalizing forks $\le 0.18$, rewarding solo code $\ge 0.95$)
-- $t_{e,k}$: Temporal recency decay
-- $v_e$: Direct verification level (e.g. verified commit vs unverified resume)
-- $x_e$: Technical specificity and architectural depth
-- $r_s(e)$: Bayesian posterior source reliability
+```text
+r_s = (TP_s + alpha_s) / (TP_s + FP_s + alpha_s + beta_s)
+```
 
-### 4. Capability Estimation & Kish Effective Sample Size
-$$q_k = \frac{\sum_{e} c_{e,k} \cdot z_{e,k}}{\sum_{e} c_{e,k}}, \quad n_{\text{eff},k} = \frac{\left(\sum_e c_{e,k}\right)^2}{\sum_e c_{e,k}^2}$$
-Confidence intervals are estimated via **Cluster Bootstrap Resampling** grouped by source repository to prevent intra-cluster correlation bias.
+### 2. Capability-dependent recency
 
-### 5. Contradiction Diagnostics
-$$D_k = \frac{P_k - N_k}{P_k + N_k + \epsilon} \in [-1, 1]$$
-Quantifies consensus ($D_k \to 1$) vs. severe contradiction ($D_k \to -1$) between resume claims and observed codebase realities.
+```text
+t_e,k = exp(-lambda_k * Delta t_e)
+```
 
-### 6. Information-Gain Probe Prioritization
-Interview probes are prioritized to maximize uncertainty reduction:
-$$I_k = w_k \cdot \sigma_k \cdot (1 + \gamma |D_k|)$$
+### 3. Six-factor evidence confidence
 
-### 7. Role Capability Index (RCI) & Evidence Coverage
-$$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{observed}} w_k}, \quad \text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \min\left(1.0, \frac{\sum_e c_{e,k}}{\tau_k}\right)$$
+```text
+c_e,k = (a_e * o_e * t_e,k * v_e * x_e * r_s(e))^(1/6)
+```
+
+where the factors represent artifact authenticity / integrity, contributor ownership, recency, verification, extractor confidence / technical specificity, and calibrated source reliability.
+
+### 4. Capability estimate
+
+```text
+q_k = sum(c_e,k * z_e,k) / sum(c_e,k)
+```
+
+When no usable evidence exists for capability `k`, `q_k` is UNKNOWN rather than zero.
+
+### 5. Effective evidence count
+
+```text
+n_eff,k = (sum c_e,k)^2 / sum(c_e,k^2)
+```
+
+### 6. Contradiction diagnostic
+
+```text
+D_k = (P_k - N_k) / (P_k + N_k + epsilon)
+```
+
+### 7. Role-conditioned weighting
+
+```text
+w_k(J) = exp(u_k / T) / sum_j exp(u_j / T)
+```
+
+### 8. Evidence Coverage
+
+```text
+Coverage(C,J) = sum_k w_k(J) * min(1, sum_e c_e,k / tau_k)
+```
+
+### 9. Role Capability Index
+
+```text
+RCI(C,J) = 100 * [sum_(k in O_C) w_k(J) q_k] / [sum_(k in O_C) w_k(J)]
+```
+
+### 10. Interview-probe priority, paper Eq. (11)
+
+```text
+I_k = w_k(J) * [alpha * (1 - Cov_k) + beta * CIwidth_k + gamma * Conf_k]
+```
+
+The implementation in `services/backend/src/cci/probes/priority.py` uses this structure so interviewer attention is directed toward role-important capability gaps, uncertainty, and contradictions.
 
 ---
 
-## Paper Reproducibility & Ablation Studies
+## Canonical roles and evidence families
 
-The platform includes a research engine replicating the conference paper's Monte Carlo candidate cohort evaluation across **16 deterministic seeds** $\times$ **300 candidates** across the **6 canonical roles** ($N = 4,800$ simulated candidates total).
+### Six target roles
 
-To reproduce the publication tables:
-```bash
-python research/run_paper_experiments.py
-```
-*(Or use `--quick` for a fast verification run across 120 candidates)*.
+- Backend
+- Frontend
+- Full-stack
+- ML Engineer
+- DevOps / Cloud
+- Data Engineer
 
-### Publication Results ($N = 4,800$)
+### Seven paper evidence families
 
-| Evaluation Model | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
-|:-----------------|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
-| **FULL_CCI** | **1.943** | **2.469** | **0.943** | **0.794** | Baseline |
-| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes ($^{***}$, $p = 2.0 \times 10^{-72}$) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes ($^{***}$, $p = 0.0$) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | **0.939** | 0.785 | Yes ($^{***}$, $p = 0.0$) |
-| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | Two-sided $p = 4.1 \times 10^{-29}$ |
+- Resume
+- GitHub
+- Deployment / website
+- Database artifacts
+- Coding platforms
+- Certificates
+- LinkedIn / professional-profile claims
 
-Publication artifacts are automatically emitted to:
-- [`research/results/table_ablation_study.md`](research/results/table_ablation_study.md)
-- [`research/results/table_ablation_study.tex`](research/results/table_ablation_study.tex)
-- [`research/results/role_breakdown.md`](research/results/role_breakdown.md)
-- [`research/results/ablation_results.json`](research/results/ablation_results.json)
+Not every current connector has identical runtime depth; the research paper and the implementation intentionally preserve source-family provenance so unavailable sources can be represented explicitly rather than fabricated.
 
 ---
 
-## Quickstart & Local Development
+## Research and validation boundary
 
-### Prerequisites
-- Python 3.11+
-- Node.js 20+ & pnpm 9+ (or npm)
-- Docker & Docker Compose (optional for local containerized run)
+There are **two separate evidence layers** in this repository. They must not be conflated.
 
-### 1. Database Seeding CLI
-Seed the SQLite or PostgreSQL database with multi-tenant organizations (`Acme Distributed Systems Corp`, `Apex AI Research Labs`), recruiters, 5 canonical role JDs, and 7 diverse candidate cohorts evaluated through the full 10-stage pipeline:
-```bash
-# Seed default SQLite database (local_dev.db) with 7 canonical candidates
-python scripts/seed_db.py --samples 7
+### A. Submitted-paper controlled synthetic benchmark
 
-# Reset existing database and seed a custom PostgreSQL instance
-python scripts/seed_db.py --db-url "postgresql://postgres:postgres@localhost:5432/cci" --reset --samples 7
+The submitted paper reports:
+
+- **16 random seeds**
+- **300 synthetic candidates per seed**
+- **6 target roles**
+- **12 capability dimensions**
+- **7 evidence families**
+- **28,800 candidate-role evaluations**
+
+Primary paper-reported results:
+
+| Metric | Paper-reported result |
+|---|---:|
+| Spearman `rho` | **0.928 ± 0.013** |
+| Kendall `tau` | **0.774 ± 0.019** |
+| nDCG@20 | **0.970 ± 0.011** |
+| Role-agnostic fusion Spearman `rho` | **0.849** |
+| 60% source-dropout Spearman `rho` | **0.716** |
+| Candidate-shuffle control Spearman `rho` | **-0.006 ± 0.057** |
+
+The paper also reports **40 randomized generator regimes** comprising **288,000 additional evaluations**, with mean regime-level Spearman `rho = 0.919 ± 0.010`.
+
+These are **synthetic mechanism-validation results, not real-world hiring accuracy**. The paper explicitly requires external validation with consented candidates and blinded interviewers before any real hiring-validity claim.
+
+Machine-readable provenance is stored in:
+
+```text
+research/paper_benchmark_manifest.json
 ```
 
-### 2. Turnkey Candidate Analysis CLI
-Analyze arbitrary candidate materials through the full 10-stage pipeline and synthesize a Technical Dossier in seconds:
-```bash
-# Run 10-stage pipeline on sample CV and JD fixtures (automatically infers candidate name)
-python scripts/analyze_candidate.py --cv examples/sample_backend_cv.txt --jd examples/sample_backend_jd.txt --role backend
+### B. Repository supplementary implementation ablation
 
-# Demonstrate instantaneous pure functional rescore (< 1ms) with custom capability weights
-python scripts/analyze_candidate.py --rescore-weights '{"backend_engineering": 0.40, "database_engineering": 0.30}'
+`research/run_paper_experiments.py` is a **supplementary implementation ablation harness**. At its default settings it evaluates:
+
+```text
+16 seeds x 6 role-specific cohorts x 50 samples = 4,800 candidate-role samples
 ```
-Dossier Markdown and JSON reports are generated in `reports/`.
 
-### 3. Canonical Role Fixtures (`examples/`)
-The repository includes 5 production-grade CV and JD pairs for reproducible evaluation:
-- **Backend Engineering**: [`examples/sample_backend_cv.txt`](examples/sample_backend_cv.txt) & [`examples/sample_backend_jd.txt`](examples/sample_backend_jd.txt)
-- **Frontend Engineering**: [`examples/sample_frontend_cv.txt`](examples/sample_frontend_cv.txt) & [`examples/sample_frontend_jd.txt`](examples/sample_frontend_jd.txt)
-- **Machine Learning**: [`examples/sample_ml_cv.txt`](examples/sample_ml_cv.txt) & [`examples/sample_ml_jd.txt`](examples/sample_ml_jd.txt)
-- **DevOps & Cloud**: [`examples/sample_devops_cv.txt`](examples/sample_devops_cv.txt) & [`examples/sample_devops_jd.txt`](examples/sample_devops_jd.txt)
-- **Fullstack Engineering**: [`examples/sample_fullstack_cv.txt`](examples/sample_fullstack_cv.txt) & [`examples/sample_fullstack_jd.txt`](examples/sample_fullstack_jd.txt)
+It is **not an exact regeneration of the paper benchmark**. It uses the current repository simulator to exercise implementation behavior under recency, ownership, role-weight, and source-calibration ablations.
 
-### 4. Backend Service Setup
+The existing `research/results/ablation_results.json` values therefore remain valid as repository implementation diagnostics, but they are not relabeled as the paper's headline 28,800-evaluation results.
+
+This separation is deliberate: publication provenance is stronger than forcing two different experimental designs into one number.
+
+---
+
+## Recruiter workflow
+
+The web application exposes:
+
+- Candidate directory
+- Candidate intake
+- Job / role intake
+- Multi-stage analysis progress
+- Candidate technical dossier
+- Candidate Evidence Graph
+- RCI and Evidence Coverage
+- Contradiction diagnostics
+- Evidence-linked interview probes
+- Candidate comparison
+- Methodology & math explorer
+- Dossier export / print flows
+
+When a live backend is unavailable, the public UI may fall back to controlled demonstration data. Demo-mode status should be treated as a product demonstration, not evidence that a real candidate was analyzed live.
+
+---
+
+## Backend API surface
+
+Representative endpoints include:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | service health |
+| `POST` | `/api/v1/jobs/parse` | parse job requirements / role profile |
+| `GET` | `/api/v1/candidates` | candidate directory |
+| `POST` | `/api/v1/pipeline/run` | run staged analysis |
+| `GET` | `/api/v1/pipeline/status/{run_id}` | pipeline status |
+| `GET` | `/api/v1/dossier/{candidate_id}` | technical dossier |
+| `GET` | `/api/v1/dossier/{candidate_id}/graph` | Candidate Evidence Graph |
+| `POST` | `/api/v1/pipeline/rescore` | functional role-weight rescore |
+| `GET` | `/api/v1/research/theorems` | formal methodology catalog |
+| `GET` | `/api/v1/research/ablation-study` | supplementary implementation ablation |
+
+---
+
+## Quickstart
+
+### Backend
+
 ```bash
 cd services/backend
-pip install -e ".[dev]"
-python -m pytest
+python -m pip install -e ".[dev]"
+pytest -v
 python -m uvicorn cci.main:app --reload --port 8000
 ```
 
-### 5. Web Dashboard Setup
+### Frontend
+
 ```bash
-cd apps/web
 pnpm install
-pnpm dev
+pnpm --filter web dev
 ```
-Open `http://localhost:3000` to access the interactive recruitment platform:
-- **Candidate Directory**: Real-time search, role filtering, evidence status badges (`Robust`, `Sparse`, `Conflict Flagged`), and 1-click dossier navigation.
-- **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
-- **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
-- **Dossier & CEG Viewer**: Comprehensive capability breakdown, confidence factors, claims matrix, interview probes, and interactive graph viewer.
-- **Export & Print**: 1-click "Export Brief" generating standalone printable HTML documents (optimized `@media print`), downloadable Markdown, or raw JSON snapshots.
-- **Multi-Candidate Comparison**: Side-by-side comparative capability matrix comparing up to 3 candidates simultaneously across RCI, Coverage, 12 Core Capabilities, and contradiction alerts.
 
----
-
-## REST API Specification
-
-| Method | Endpoint | Description |
-|:-------|:---------|:------------|
-| `GET` | `/health` / `/healthz` | System health and service availability check |
-| `POST` | `/api/v1/jobs/parse` | Parses raw JD text into normalized requirements and softmax role weights $w_k$ |
-| `GET` | `/api/v1/jobs` | Lists active job descriptions from the database |
-| `GET` | `/api/v1/candidates` | Lists all candidates with RCI, Coverage, and conflict indicators |
-| `GET` | `/api/v1/candidates/{id}` | Retrieves full candidate manifest data and intake records |
-| `POST` | `/api/v1/pipeline/analyze` | Executes 10-stage evaluation pipeline against submitted CV and JD |
-| `GET` | `/api/v1/dossier/{id}` | Retrieves generated Technical Dossier for a candidate |
-| `GET` | `/api/v1/dossier/{id}/export` | Exports formatted printable brief (`html`, `markdown`, or `json`) |
-| `GET` | `/api/v1/dossier/{id}/probes` | Retrieves prioritized interview probes with information-gain scores |
-| `POST` | `/api/v1/overrides/recruiter` | Records recruiter capability adjustments with immutable audit trail |
-
----
-
-## Docker Deployment
-
-The entire stack is configured via `docker-compose.yml` with hardened security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
+### Seed controlled demo candidates
 
 ```bash
-# Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
-docker-compose up --build -d
-
-# Verify all services are responsive
-python scripts/smoke_test.py
+python scripts/seed_db.py --samples 7
 ```
 
-- Web Dashboard: `http://localhost:3000`
-- FastAPI Documentation: `http://localhost:8000/docs`
-- Healthcheck Endpoint: `http://localhost:8000/health`
+### Run one candidate through the CLI
+
+```bash
+python scripts/analyze_candidate.py \
+  --cv examples/sample_backend_cv.txt \
+  --jd examples/sample_backend_jd.txt \
+  --role backend
+```
+
+### Run the supplementary implementation ablation
+
+```bash
+python research/run_paper_experiments.py
+```
+
+Fast sanity run:
+
+```bash
+python research/run_paper_experiments.py --quick
+```
 
 ---
 
-## Verification & Test Matrix
+## Verification
 
-The test suite contains **134 passed tests** verifying all theorems, database persistence invariants, and end-to-end pipeline stages:
+The repository includes tests for scoring mathematics, paper invariants, SSRF / safe-workspace behavior, database seeding, research utilities, pipeline behavior, and frontend build/type checks.
 
-- **Mathematical Theorems (Theorems 1–10)**: Strict adherence to conference paper proofs in [`test_paper_theorems_audit.py`](services/backend/tests/test_paper_theorems_audit.py).
-- **Security & SSRF Defense**: Link-local, loopback, RFC 1918 private IP, and IMDS protection in [`test_ssrf.py`](services/backend/tests/security/test_ssrf.py) and [`test_safe_workspace.py`](services/backend/tests/security/repositories/test_safe_workspace.py).
-- **Database Repository & Invariants**: ORM persistence, dual-representation conversions, and evidence immutability checks in [`test_db_seeding.py`](services/backend/tests/integration/test_db_seeding.py) and [`test_db_migration.py`](services/backend/tests/integration/test_db_migration.py).
-- **Static Multi-Language AST Parsers**: Deterministic code intelligence across Python, TypeScript/JavaScript, Go, Java, and C++ in [`test_code_analyzers.py`](services/backend/tests/golden/code_intel/test_code_analyzers.py).
-- **Database & DevOps Infrastructure**: Schema, migration, Docker, and CI/CD parsing in [`test_db_test_infra_analyzers.py`](services/backend/tests/golden/db_infra_golden/test_db_test_infra_analyzers.py).
-- **Job & Candidate APIs**: Endpoint contracts, request validation, and database fallbacks in [`test_jobs_and_candidates_api.py`](services/backend/tests/unit/api/test_jobs_and_candidates_api.py).
-- **End-to-End Orchestration**: 10-stage execution pipeline and functional rescore in [`test_pipeline_orchestration.py`](services/backend/tests/test_pipeline_orchestration.py).
-- **Research Reproducibility**: Monte Carlo simulation and statistical significance in [`test_run_paper_experiments.py`](services/backend/tests/unit/research/test_run_paper_experiments.py).
+The paper-alignment regression contract lives at:
+
+```text
+services/backend/tests/test_paper_alignment_contract.py
+```
+
+It protects the project against three easy-to-miss regressions:
+
+1. stale probe-priority equations appearing in UI/docs,
+2. a non-paper role such as Mobile replacing Data Engineer in research defaults,
+3. the 4,800-sample implementation harness being mislabeled as the paper's 28,800-evaluation benchmark.
+
+### CI note
+
+The GitHub Actions workflow is configured in `.github/workflows/ci.yml`. If GitHub reports jobs with **zero steps and `runner_id = 0`**, the job never reached a runner, so that event is an Actions account/runner-availability failure rather than a test failure. Do not interpret such a run as evidence that the backend or frontend tests executed.
+
+---
+
+## Security and governance
+
+- Static analysis only for untrusted candidate repositories
+- SSRF / private-network / cloud-metadata protections for bounded deployment inspection
+- Source allowlists and explicit source states
+- Immutable / auditable evidence lineage
+- Correction / appeal design for mistaken identity or attribution
+- Sensitive / protected attributes excluded from technical scoring
+- Candidate notice, consent, retention, and external fairness validation required before serious hiring use
+
+---
+
+## Limitations
+
+CandidateX is a research prototype. Public technical artifacts reveal only part of a person's capability. Private work, NDAs, team context, unequal access to public platforms, accessibility needs, and many other factors affect observability.
+
+A strong-looking dossier is therefore not a hiring verdict. A low-coverage dossier is not evidence of low capability. The intended endpoint is a transparent technical brief that helps a human interviewer spend limited interview time on the most important unresolved technical questions.
+
+---
+
+## Authors / research context
+
+**Ayush Roy · Archi Srivastava**  
+School of Computer Engineering, KIIT Deemed to be University, Bhubaneswar, Odisha, India
+
+Associated paper: **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion**.
