@@ -1,14 +1,14 @@
-"""Integration tests for CCI end-to-end pipeline orchestration (Agent 13).
+"""Integration tests for CCI end-to-end pipeline orchestration.
 
 Verifies:
 1. 10-stage analysis lifecycle execution from intake to dossier.
-2. Missing evidence produces UNKNOWN (never 0.0).
+2. Missing extracted evidence produces UNKNOWN (never invented scores).
 3. Pure functional rescore without re-crawling.
 4. FastAPI endpoints for pipeline execution, status, and rescore.
 """
 
 from uuid import uuid4
-import pytest
+
 from fastapi.testclient import TestClient
 
 from cci.domain.enums import CanonicalRole, CapabilityKey
@@ -19,13 +19,12 @@ from cci.pipeline.orchestrator import (
     execute_analysis_pipeline,
     rescore_dossier,
 )
-from cci.pipeline.service import pipeline_service
 
 client = TestClient(app)
 
 
-def test_pipeline_10_stages_execution():
-    """Verify that all 10 stages execute and produce a valid Dossier."""
+def test_pipeline_10_stages_execution_without_extracted_evidence():
+    """Declared text/URLs alone must not become capability evidence."""
     cand_id = uuid4()
     state = execute_analysis_pipeline(
         candidate_id=cand_id,
@@ -39,58 +38,45 @@ def test_pipeline_10_stages_execution():
     assert state.error is None
     assert state.dossier is not None
 
-    # Verify all 10 stages are tracked and completed
     assert len(state.stages) == 10
     stage_enum_set = {s.stage for s in state.stages}
     for expected_stage in AnalysisStage:
         assert expected_stage in stage_enum_set
 
-    for s in state.stages:
-        assert s.status == "completed", f"Stage {s.stage} not completed: {s}"
+    for stage in state.stages:
+        assert stage.status == "completed", f"Stage {stage.stage} not completed: {stage}"
 
-    # Verify Dossier structure & math invariants
     dossier = state.dossier
     assert dossier.candidate_id == cand_id
     assert dossier.role == CanonicalRole.BACKEND
-    assert dossier.rci is not None
-    assert 0.0 <= dossier.rci <= 100.0
-    assert 0.0 <= dossier.coverage <= 1.0
+    assert dossier.rci is None
+    assert dossier.coverage == 0.0
+    assert dossier.is_insufficient_evidence is True
+    assert dossier.ownership_assessments == []
 
-    # Invariant: Missing evidence must be UNKNOWN, never 0.0
     estimates = dossier.capability_estimates
-    assert len(estimates) == 12
+    assert len(estimates) == len(CapabilityKey)
+    assert all(est.is_observed is False for est in estimates.values())
+    assert all(est.estimate is None for est in estimates.values())
+    assert all(est.coverage_k == 0.0 for est in estimates.values())
 
-    # Observed capabilities should have non-null estimate
-    assert estimates[CapabilityKey.BACKEND_ENGINEERING].is_observed is True
-    assert estimates[CapabilityKey.BACKEND_ENGINEERING].estimate is not None
+    assert len(dossier.interview_probes) == len(CapabilityKey)
+    ranks = [probe.rank for probe in dossier.interview_probes]
+    assert sorted(ranks) == list(range(1, len(CapabilityKey) + 1))
 
-    # Unobserved capability must be UNKNOWN
-    unobserved = estimates[CapabilityKey.MACHINE_LEARNING]
-    assert unobserved.is_observed is False
-    assert unobserved.estimate is None
-    assert unobserved.coverage_k == 0.0
-
-    # Interview probes must be ranked 1..12
-    assert len(dossier.interview_probes) == 12
-    ranks = [p.rank for p in dossier.interview_probes]
-    assert sorted(ranks) == list(range(1, 13))
-
-    # Evidence graph must be constructed
     assert state.ceg_graph is not None
-    assert len(state.ceg_graph.nodes) > 0
+    assert len(state.ceg_graph.nodes) == len(CapabilityKey)
 
 
-def test_functional_rescore_without_recrawling():
-    """Verify purely functional rescore without re-crawling or mutating original dossier."""
-    cand_id = uuid4()
+def test_functional_rescore_without_recrawling_preserves_unknowns():
+    """Rescoring cannot turn missing evidence into a score."""
     state = execute_analysis_pipeline(
-        candidate_id=cand_id,
+        candidate_id=uuid4(),
         role=CanonicalRole.BACKEND,
     )
     assert state.dossier is not None
-    original_rci = state.dossier.rci
+    assert state.dossier.rci is None
 
-    # Apply heavy weight override to Database Engineering
     custom_weights = {
         CapabilityKey.DATABASE_ENGINEERING: 0.80,
         CapabilityKey.BACKEND_ENGINEERING: 0.10,
@@ -99,21 +85,18 @@ def test_functional_rescore_without_recrawling():
 
     rescored = rescore_dossier(state.dossier, custom_weights)
 
-    # Must produce new distinct dossier instance
     assert rescored.dossier_id != state.dossier.dossier_id
     assert rescored.candidate_id == state.dossier.candidate_id
-    assert rescored.rci is not None
+    assert rescored.rci is None
+    assert rescored.coverage == 0.0
+    assert all(est.estimate is None for est in rescored.capability_estimates.values())
+    assert all(est.is_observed is False for est in rescored.capability_estimates.values())
 
-    # Unobserved capabilities remain strictly UNKNOWN
-    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].estimate is None
-    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is False
 
-
-def test_pipeline_api_lifecycle():
-    """Test full FastAPI lifecycle: run pipeline, query status, and rescore."""
+def test_pipeline_api_lifecycle_is_honest_without_analyzer_evidence():
+    """The API may complete intake, but must return no RCI until evidence exists."""
     cand_id = str(uuid4())
 
-    # 1. Trigger Run
     payload = {
         "candidate_id": cand_id,
         "role": "backend",
@@ -129,17 +112,18 @@ def test_pipeline_api_lifecycle():
     run_id = data["analysis_run_id"]
     assert data["status"] == "completed"
     assert data["dossier_id"] is not None
-    assert data["rci"] is not None
+    assert data["rci"] is None
+    assert data["coverage"] == 0.0
     assert len(data["stages"]) == 10
 
-    # 2. Query Status
     status_resp = client.get(f"/api/v1/pipeline/status/{run_id}")
     assert status_resp.status_code == 200
     status_data = status_resp.json()
     assert status_data["analysis_run_id"] == run_id
     assert status_data["status"] == "completed"
+    assert status_data["rci"] is None
+    assert status_data["coverage"] == 0.0
 
-    # 3. Rescore Run
     rescore_payload = {
         "run_id": run_id,
         "weights": {
@@ -150,7 +134,8 @@ def test_pipeline_api_lifecycle():
     rescore_resp = client.post("/api/v1/pipeline/rescore", json=rescore_payload)
     assert rescore_resp.status_code == 200
     rescored_data = rescore_resp.json()
-    assert rescored_data["rci"] is not None
+    assert rescored_data["rci"] is None
+    assert rescored_data["coverage"] == 0.0
 
 
 def test_pipeline_api_404_not_found():
