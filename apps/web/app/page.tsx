@@ -78,7 +78,10 @@ export default function HomePage() {
     '77777777-7777-7777-7777-777777777777',
   ]);
 
+  const [mounted, setMounted] = useState(false);
+
   React.useEffect(() => {
+    setMounted(true);
     checkBackendHealth().then((online) => setIsBackendOnline(online));
   }, []);
 
@@ -150,6 +153,17 @@ export default function HomePage() {
       setActiveTab('dossier');
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#030712] font-[family-name:var(--font-sans)]" suppressHydrationWarning>
+        <div className="flex flex-col items-center gap-3" suppressHydrationWarning>
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" suppressHydrationWarning />
+          <div className="text-xs text-slate-500 font-mono tracking-wide" suppressHydrationWarning>Initializing workspace...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex font-[family-name:var(--font-sans)]">

@@ -17,6 +17,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "CandidateX — Capability Intelligence",
   description: "AI-powered technical candidate evaluation platform for engineering teams",
+  other: {
+    "darkreader-lock": "true",
+    "color-scheme": "dark"
+  }
 };
 
 export default function RootLayout({
@@ -25,21 +29,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="antialiased min-h-screen bg-[#030712] text-slate-100 font-[family-name:var(--font-sans)]">
+    <html lang="en" className={`dark ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+      <body className="antialiased min-h-screen bg-[#030712] text-slate-100 font-[family-name:var(--font-sans)]" suppressHydrationWarning>
         {/* Animated Background Orbs */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true" suppressHydrationWarning>
           <div
-            className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full animate-float-1 opacity-30"
-            style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)' }}
+            className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full animate-float-1 opacity-30 bg-orb-1"
+            suppressHydrationWarning
           />
           <div
-            className="absolute top-[40%] right-[-15%] w-[500px] h-[500px] rounded-full animate-float-2 opacity-25"
-            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)' }}
+            className="absolute top-[40%] right-[-15%] w-[500px] h-[500px] rounded-full animate-float-2 opacity-25 bg-orb-2"
+            suppressHydrationWarning
           />
           <div
-            className="absolute bottom-[-10%] left-[30%] w-[550px] h-[550px] rounded-full animate-float-3 opacity-20"
-            style={{ background: 'radial-gradient(circle, rgba(34,211,238,0.10) 0%, transparent 70%)' }}
+            className="absolute bottom-[-10%] left-[30%] w-[550px] h-[550px] rounded-full animate-float-3 opacity-20 bg-orb-3"
+            suppressHydrationWarning
           />
         </div>
         {/* Content Layer */}

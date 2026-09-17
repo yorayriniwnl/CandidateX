@@ -53,8 +53,8 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
   const percentage = Math.round(value * 100);
 
   return (
-    <div className="relative inline-flex flex-col items-center gap-1.5">
-      <svg width={size} height={size} className="transform -rotate-90">
+    <div className="relative inline-flex flex-col items-center gap-1.5" suppressHydrationWarning>
+      <svg width={size} height={size} className="transform -rotate-90" suppressHydrationWarning>
         {/* Track */}
         <circle
           cx={center}
@@ -63,6 +63,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
           fill="none"
           stroke={trackColor}
           strokeWidth={strokeWidth}
+          suppressHydrationWarning
         />
         {/* Value arc */}
         <circle
@@ -75,6 +76,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
+          suppressHydrationWarning
           style={{
             transition: animated ? 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
             filter: `drop-shadow(0 0 6px ${resolvedColor}40)`,
@@ -82,10 +84,11 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
         />
       </svg>
       {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ width: size, height: size }} suppressHydrationWarning>
         {showPercentage && (
           <span
             className="font-bold tabular-nums tracking-tight"
+            suppressHydrationWarning
             style={{ fontSize: size * 0.22, color: resolvedColor }}
           >
             {percentage}
