@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award } from 'lucide-react';
+import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award, Users } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { JobIntakeForm } from '../components/JobIntakeForm';
 import { CandidateIntakeForm } from '../components/CandidateIntakeForm';
 import { PipelineTracker } from '../components/PipelineTracker';
+import { CandidateDirectory } from '../components/CandidateDirectory';
 import { DossierView } from '../components/dossier/DossierView';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import { checkBackendHealth, triggerPipelineRun, fetchPipelineStatus, fetchCandidateDossier, fetchCandidateGraph } from '../lib/api';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGraph } from '../types/cci';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'job' | 'candidate' | 'pipeline' | 'dossier'>('job');
+  const [activeTab, setActiveTab] = useState<'directory' | 'job' | 'candidate' | 'pipeline' | 'dossier'>('directory');
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
@@ -79,6 +80,35 @@ export default function HomePage() {
     }
   };
 
+  const handleSelectCandidateFromDirectory = async (candidateId: string, name: string) => {
+    try {
+      const liveDossier = await fetchCandidateDossier(candidateId);
+      let liveGraph: CEGGraph = MOCK_GRAPH;
+      try {
+        liveGraph = await fetchCandidateGraph(candidateId);
+      } catch {
+        // Fallback to mock graph if CEG not cached
+      }
+      setCurrentDossier(liveDossier);
+      setCurrentGraph(liveGraph);
+      setManifest({
+        candidate_id: candidateId,
+        full_name: name,
+        primary_email: '',
+        github_usernames: [],
+        github_repositories: [],
+        deployment_urls: [],
+        portfolio_urls: [],
+        declared_skills: [],
+        extraction_metadata: {},
+      });
+      setActiveTab('dossier');
+    } catch (err) {
+      console.warn('Failed to load live candidate dossier, falling back to mock:', err);
+      setActiveTab('dossier');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Top Navigation */}
@@ -102,6 +132,14 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-1 bg-slate-900 p-1 border border-slate-800 rounded-lg text-xs">
+            <button
+              onClick={() => setActiveTab('directory')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'directory' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" /> Directory
+            </button>
             <button
               onClick={() => setActiveTab('job')}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
@@ -141,6 +179,14 @@ export default function HomePage() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 w-full">
         <SystemNotice />
+
+        {activeTab === 'directory' && (
+          <CandidateDirectory
+            onSelectCandidate={handleSelectCandidateFromDirectory}
+            onNewCandidate={() => setActiveTab('candidate')}
+            isBackendOnline={isBackendOnline}
+          />
+        )}
 
         {activeTab === 'job' && (
           <JobIntakeForm onComplete={handleJobComplete} />
