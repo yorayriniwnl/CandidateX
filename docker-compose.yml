@@ -1,0 +1,106 @@
+version: '3.8'
+
+# ==============================================================================
+# Candidate Capability Intelligence (CCI) - Docker Compose Stack
+# Full-system development and integration stack
+# Security: Hardened containers, no-new-privileges, healthchecks on all services
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cci-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cci}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cci_secure_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-cci_platform}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cci} -d ${POSTGRES_DB:-cci_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cci-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: cci-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - cci-network
+
+  backend:
+    build:
+      context: ./services/backend
+      dockerfile: Dockerfile
+    container_name: cci-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cci}:${POSTGRES_PASSWORD:-cci_secure_pass_2026}@postgres:5432/${POSTGRES_DB:-cci_platform}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /app/tmp:mode=1777,size=128M
+    networks:
+      - cci-network
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: cci-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - cci-network
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  cci-network:
+    driver: bridge
