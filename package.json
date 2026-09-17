@@ -13,6 +13,9 @@
     "test": "pnpm --filter web test"
   },
   "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22.0.0 <23"
+  },
   "resolutions": {
     "postcss": "^8.5.23"
   },
