@@ -1,27 +1,21 @@
-"""Research and methodology API for Candidate Capability Intelligence (CCI).
+"""Paper-aligned research and methodology API for CandidateX.
 
-This router deliberately separates two evidence layers:
-1. the headline controlled benchmark reported in the submitted conference paper; and
-2. the repository's supplementary implementation ablation harness.
+Two evidence layers are exposed deliberately and separately:
+- the controlled synthetic benchmark reported in the submitted paper; and
+- a smaller repository supplementary implementation-ablation snapshot.
 
-The two must never be presented as the same experiment. All results are synthetic
-research evidence and are not claims of real-world hiring validity.
+Neither layer is evidence of real-world hiring accuracy or fairness.
 """
 
 from __future__ import annotations
 
-import json
 import math
-from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/research", tags=["Research & Methodology"])
-
-REPO_ROOT = Path(__file__).resolve().parents[6]
-RESULTS_PATH = REPO_ROOT / "research" / "results" / "ablation_results.json"
 
 CANONICAL_ROLES = [
     "backend",
@@ -31,6 +25,28 @@ CANONICAL_ROLES = [
     "devops_cloud",
     "data_engineer",
 ]
+
+SUPPLEMENTARY_ABLATION = {
+    "metadata": {
+        "evidence_layer": "supplementary_implementation_ablation",
+        "total_candidates": 4800,
+        "seeds": list(range(1, 17)),
+        "roles": CANONICAL_ROLES,
+    },
+    "ablation_summary": {
+        "FULL_CCI": {"rci_mae": 1.9426, "rci_rmse": 2.4686, "spearman_rho": 0.9434, "kendall_tau": 0.7945},
+        "NO_RECENCY_DECAY": {"rci_mae": 1.9753, "rci_rmse": 2.5045, "spearman_rho": 0.9432, "kendall_tau": 0.7940},
+        "NO_OWNERSHIP_DISCOUNT": {"rci_mae": 2.2192, "rci_rmse": 2.8126, "spearman_rho": 0.9327, "kendall_tau": 0.7753},
+        "UNIFORM_WEIGHTS": {"rci_mae": 3.1716, "rci_rmse": 3.7610, "spearman_rho": 0.9386, "kendall_tau": 0.7854},
+        "UNCALIBRATED_SOURCES": {"rci_mae": 1.9224, "rci_rmse": 2.4455, "spearman_rho": 0.9424, "kendall_tau": 0.7925},
+    },
+    "statistical_tests": {
+        "NO_RECENCY_DECAY": {"two_sided_p_value": 4.072815682536481e-72, "is_significant": True},
+        "NO_OWNERSHIP_DISCOUNT": {"two_sided_p_value": 0.0, "is_significant": True},
+        "UNIFORM_WEIGHTS": {"two_sided_p_value": 0.0, "is_significant": True},
+        "UNCALIBRATED_SOURCES": {"two_sided_p_value": 4.104265665660845e-29, "is_significant": False},
+    },
+}
 
 
 class TheoremMetadata(BaseModel):
@@ -111,7 +127,7 @@ THEOREMS_CATALOG: List[TheoremMetadata] = [
         id=1,
         name="Recency Decay Monotonicity & Asymptotics",
         category="Calibration & Recency",
-        latex_formula=r"t_{e,k}=\exp(-\lambda_k\Delta t_e)",
+        latex_formula=r"t_{e,k}=\exp(-\lambda_k\cdot\Delta t_e)",
         description="Capability-specific temporal discount applied to evidence recency.",
         bound_statement=r"t_{e,k}\in(0,1],\ t(0)=1,\ \lim_{\Delta t\to\infty}t=0",
         physical_intuition="Recent evidence receives more weight, with faster-moving domains allowed to decay more quickly.",
@@ -121,7 +137,7 @@ THEOREMS_CATALOG: List[TheoremMetadata] = [
         id=2,
         name="Six-Factor Evidence Confidence",
         category="Scoring & Calibration",
-        latex_formula=r"c_{e,k}=(a_eo_et_{e,k}v_ex_er_{s(e)})^{1/6}",
+        latex_formula=r"c_{e,k}=(a_e\cdot o_e\cdot t_{e,k}\cdot v_e\cdot x_e\cdot r_{s(e)})^{1/6}",
         description="Geometric-mean confidence over integrity, ownership, recency, verification, depth and source reliability.",
         bound_statement=r"c_{e,k}\in[0,1]",
         physical_intuition="No single strong signal can fully compensate for a critically weak evidence factor.",
@@ -235,18 +251,11 @@ def get_paper_benchmark() -> PaperBenchmarkResponse:
     )
 
 
-def _load_supplementary_results() -> Dict[str, Any]:
-    if not RESULTS_PATH.exists():
-        raise HTTPException(status_code=503, detail="Supplementary ablation artifact is unavailable")
-    with RESULTS_PATH.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _significance_for(model_name: str, payload: Dict[str, Any]) -> str:
+def _significance_for(model_name: str) -> str:
     if model_name == "FULL_CCI":
         return "Supplementary baseline"
-    stats_payload = payload.get("statistical_tests", {}).get(model_name, {})
-    p_value = stats_payload.get("two_sided_p_value", stats_payload.get("p_value"))
+    stats_payload = SUPPLEMENTARY_ABLATION["statistical_tests"].get(model_name, {})
+    p_value = stats_payload.get("two_sided_p_value")
     is_significant = bool(stats_payload.get("is_significant", False))
     if p_value is None:
         return "supplementary diagnostic"
@@ -255,8 +264,7 @@ def _significance_for(model_name: str, payload: Dict[str, Any]) -> str:
 
 @router.get("/ablation-study", response_model=AblationStudyResponse)
 def get_ablation_study() -> AblationStudyResponse:
-    payload = _load_supplementary_results()
-    summary = payload.get("ablation_summary", {})
+    summary = SUPPLEMENTARY_ABLATION["ablation_summary"]
     display_names = {
         "FULL_CCI": "Full CCI",
         "NO_RECENCY_DECAY": "Without recency decay",
@@ -264,53 +272,37 @@ def get_ablation_study() -> AblationStudyResponse:
         "UNIFORM_WEIGHTS": "Uniform role weights",
         "UNCALIBRATED_SOURCES": "Uncalibrated sources",
     }
-
-    models: List[AblationRow] = []
-    for model_name in [
-        "FULL_CCI",
-        "NO_RECENCY_DECAY",
-        "NO_OWNERSHIP_DISCOUNT",
-        "UNIFORM_WEIGHTS",
-        "UNCALIBRATED_SOURCES",
-    ]:
-        row = summary.get(model_name)
-        if not row:
-            continue
-        models.append(
-            AblationRow(
-                model_name=model_name,
-                display_name=display_names[model_name],
-                mae=float(row["rci_mae"]),
-                rmse=float(row["rci_rmse"]),
-                spearman_rho=float(row["spearman_rho"]),
-                kendall_tau=float(row["kendall_tau"]),
-                statistical_significance=_significance_for(model_name, payload),
-                is_baseline=model_name == "FULL_CCI",
-            )
+    order = ["FULL_CCI", "NO_RECENCY_DECAY", "NO_OWNERSHIP_DISCOUNT", "UNIFORM_WEIGHTS", "UNCALIBRATED_SOURCES"]
+    models = [
+        AblationRow(
+            model_name=name,
+            display_name=display_names[name],
+            mae=float(summary[name]["rci_mae"]),
+            rmse=float(summary[name]["rci_rmse"]),
+            spearman_rho=float(summary[name]["spearman_rho"]),
+            kendall_tau=float(summary[name]["kendall_tau"]),
+            statistical_significance=_significance_for(name),
+            is_baseline=name == "FULL_CCI",
         )
-
-    markdown_lines = [
-        "| Model | MAE | RMSE | Spearman rho | Kendall tau |",
-        "|---|---:|---:|---:|---:|",
+        for name in order
     ]
-    for row in models:
-        markdown_lines.append(
-            f"| {row.display_name} | {row.mae:.3f} | {row.rmse:.3f} | {row.spearman_rho:.3f} | {row.kendall_tau:.3f} |"
-        )
-
-    metadata = payload.get("metadata", {})
+    markdown_lines = ["| Model | MAE | RMSE | Spearman rho | Kendall tau |", "|---|---:|---:|---:|---:|"]
+    markdown_lines.extend(
+        f"| {row.display_name} | {row.mae:.3f} | {row.rmse:.3f} | {row.spearman_rho:.3f} | {row.kendall_tau:.3f} |"
+        for row in models
+    )
+    metadata = SUPPLEMENTARY_ABLATION["metadata"]
     return AblationStudyResponse(
-        total_candidates=int(metadata.get("total_candidates", 0)),
-        total_seeds=len(metadata.get("seeds", [])),
-        roles_count=len(metadata.get("roles", [])),
+        total_candidates=int(metadata["total_candidates"]),
+        total_seeds=len(metadata["seeds"]),
+        roles_count=len(metadata["roles"]),
         models=models,
         role_breakdown=[],
         latex_table="",
         markdown_table="\n".join(markdown_lines),
         notes=(
-            "Supplementary implementation ablation harness generated by the repository. "
-            "It is distinct from the conference paper's 28,800 candidate-role controlled benchmark "
-            "and must not be presented as real-world hiring validation."
+            "Supplementary implementation ablation harness. It is distinct from the conference paper's "
+            "28,800 candidate-role controlled benchmark and is not real-world hiring validation."
         ),
     )
 
@@ -325,15 +317,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if delta_t < 0 or lambda_rate < 0:
             raise HTTPException(status_code=400, detail="delta_t_months and lambda_rate must be non-negative")
         value = math.exp(-lambda_rate * delta_t)
-        return CalculationResponse(
-            theorem_id=1,
-            theorem_name=THEOREMS_CATALOG[0].name,
-            formula="exp(-lambda * delta_t)",
-            result=round(value, 4),
-            intermediate_steps={"exponent": -lambda_rate * delta_t},
-            bounds_satisfied=0.0 < value <= 1.0,
-            explanation="Recency discount calculated from the paper-aligned exponential decay function.",
-        )
+        return CalculationResponse(1, THEOREMS_CATALOG[0].name, "exp(-lambda * delta_t)", round(value, 4), {"exponent": -lambda_rate * delta_t}, 0.0 < value <= 1.0, "Paper-aligned exponential recency discount.")
 
     if request.theorem_id == 2:
         keys = ["authority", "ownership", "recency", "verifiability", "complexity", "reliability"]
@@ -362,15 +346,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         sum_c = sum(values)
         sum_sq = sum(value * value for value in values)
         n_eff = (sum_c * sum_c) / sum_sq if sum_sq else 0.0
-        return CalculationResponse(
-            theorem_id=4,
-            theorem_name=THEOREMS_CATALOG[3].name,
-            formula="(sum c)^2/sum(c^2)",
-            result=round(n_eff, 4),
-            intermediate_steps={"raw_count": len(values), "sum_c": sum_c, "sum_sq": sum_sq},
-            bounds_satisfied=(n_eff == 0.0 and sum_c == 0.0) or (1.0 <= n_eff <= len(values) + 1e-9),
-            explanation="Kish effective evidence count.",
-        )
+        return CalculationResponse(4, THEOREMS_CATALOG[3].name, "(sum c)^2/sum(c^2)", round(n_eff, 4), {"raw_count": len(values), "sum_c": sum_c, "sum_sq": sum_sq}, (n_eff == 0.0 and sum_c == 0.0) or 1.0 <= n_eff <= len(values) + 1e-9, "Kish effective evidence count.")
 
     if request.theorem_id == 6:
         weights = [float(v) for v in p.get("weights", [])]
@@ -383,15 +359,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if weight_sum <= 0:
             raise HTTPException(status_code=400, detail="sum of weights must be positive")
         rci = sum(w * q for w, q in zip(weights, estimates)) / weight_sum
-        return CalculationResponse(
-            theorem_id=6,
-            theorem_name=THEOREMS_CATALOG[5].name,
-            formula="sum(w*q)/sum(w)",
-            result=round(rci, 4),
-            intermediate_steps={"observed_weight_mass": weight_sum},
-            bounds_satisfied=0.0 <= rci <= 100.0,
-            explanation="RCI normalized over observed capability weight mass.",
-        )
+        return CalculationResponse(6, THEOREMS_CATALOG[5].name, "sum(w*q)/sum(w)", round(rci, 4), {"observed_weight_mass": weight_sum}, 0.0 <= rci <= 100.0, "RCI normalized over observed capability weight mass.")
 
     if request.theorem_id == 7:
         positive = float(p.get("positive_support", 0.0))
@@ -400,15 +368,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if positive < 0 or negative < 0 or epsilon <= 0:
             raise HTTPException(status_code=400, detail="support values must be non-negative and epsilon positive")
         value = (positive - negative) / (positive + negative + epsilon)
-        return CalculationResponse(
-            theorem_id=7,
-            theorem_name=THEOREMS_CATALOG[6].name,
-            formula="(P-N)/(P+N+epsilon)",
-            result=round(value, 4),
-            intermediate_steps={"P": positive, "N": negative, "epsilon": epsilon},
-            bounds_satisfied=-1.0 <= value <= 1.0,
-            explanation="Directional contradiction diagnostic.",
-        )
+        return CalculationResponse(7, THEOREMS_CATALOG[6].name, "(P-N)/(P+N+epsilon)", round(value, 4), {"P": positive, "N": negative, "epsilon": epsilon}, -1.0 <= value <= 1.0, "Directional contradiction diagnostic.")
 
     if request.theorem_id == 8:
         role_weight = float(p.get("role_weight", 0.2))
@@ -428,13 +388,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
             theorem_name=THEOREMS_CATALOG[7].name,
             formula="w_k[alpha(1-Cov_k)+beta*CIwidth_k+gamma*Conf_k]",
             result=round(value, 4),
-            intermediate_steps={
-                "coverage_gap": gap,
-                "weighted_gap_term": alpha * gap,
-                "uncertainty_term": beta * ci_width,
-                "conflict_term": gamma * conflict,
-                "inner_bracket": inner,
-            },
+            intermediate_steps={"coverage_gap": gap, "weighted_gap_term": alpha * gap, "uncertainty_term": beta * ci_width, "conflict_term": gamma * conflict, "inner_bracket": inner},
             bounds_satisfied=value >= 0.0,
             explanation="Paper-aligned interview probe priority calculation.",
         )
