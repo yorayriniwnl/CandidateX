@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Search,
   Sparkles,
-  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { EvaluationWizard } from '../components/EvaluationWizard';
@@ -23,7 +23,6 @@ import { ResearchTheoremsExplorer } from '../components/ResearchTheoremsExplorer
 import { DossierView } from '../components/dossier/DossierView';
 import { HowItWorksModal } from '../components/HowItWorksModal';
 import { GlowBadge } from '../components/ui/GlowBadge';
-import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import {
   checkBackendHealth,
   triggerPipelineRun,
@@ -35,11 +34,11 @@ import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGr
 type TabKey = 'directory' | 'new_eval' | 'dossier' | 'compare' | 'research';
 
 const NAV_ITEMS: { key: TabKey; label: string; icon: React.ReactNode; description: string }[] = [
-  { key: 'directory', label: 'Candidates', icon: <Users className="w-5 h-5" />, description: 'Browse & search' },
+  { key: 'directory', label: 'Candidates', icon: <Users className="w-5 h-5" />, description: 'Browse verified runs' },
   { key: 'new_eval', label: 'New Evaluation', icon: <Play className="w-5 h-5" />, description: 'Run pipeline' },
-  { key: 'dossier', label: 'Dossier', icon: <Award className="w-5 h-5" />, description: 'Deep analysis' },
+  { key: 'dossier', label: 'Dossier', icon: <Award className="w-5 h-5" />, description: 'Inspect evidence' },
   { key: 'compare', label: 'Compare', icon: <GitCompare className="w-5 h-5" />, description: 'Side by side' },
-  { key: 'research', label: 'Methodology', icon: <GraduationCap className="w-5 h-5" />, description: 'Math & proofs' },
+  { key: 'research', label: 'Methodology', icon: <GraduationCap className="w-5 h-5" />, description: 'Math & simulation' },
 ];
 
 const pageVariants: Variants = {
@@ -52,110 +51,112 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('directory');
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
-  const [manifest, setManifest] = useState<CandidateManifest | null>({
-    candidate_id: '11111111-1111-1111-1111-111111111111',
-    full_name: 'Alice Chen',
-    primary_email: 'alice.chen@example.com',
-    github_usernames: ['alicechen-dev'],
-    github_repositories: [
-      'https://github.com/alicechen-dev/distributed-payment-engine',
-      'https://github.com/alicechen-dev/pg-partition-manager',
-    ],
-    deployment_urls: ['https://alicechen.dev'],
-    portfolio_urls: [],
-    declared_skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
-    extraction_metadata: {},
-  });
+  const [currentJdText, setCurrentJdText] = useState('');
+  const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
-  const [pipelineStageIndex, setPipelineStageIndex] = useState(9);
-  const [isPipelineComplete, setIsPipelineComplete] = useState(true);
+  const [pipelineStageIndex, setPipelineStageIndex] = useState(0);
+  const [isPipelineComplete, setIsPipelineComplete] = useState(false);
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
-  const [currentDossier, setCurrentDossier] = useState<Dossier>(MOCK_DOSSIER);
-  const [currentGraph, setCurrentGraph] = useState<CEGGraph>(MOCK_GRAPH);
+  const [currentDossier, setCurrentDossier] = useState<Dossier | null>(null);
+  const [currentGraph, setCurrentGraph] = useState<CEGGraph | null>(null);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
-  const [comparisonCandidateIds, setComparisonCandidateIds] = useState<string[]>([
-    '11111111-1111-1111-1111-111111111111',
-    '77777777-7777-7777-7777-777777777777',
-  ]);
+  const [comparisonCandidateIds, setComparisonCandidateIds] = useState<string[]>([]);
 
   React.useEffect(() => {
     checkBackendHealth().then((online) => setIsBackendOnline(online));
   }, []);
 
-  React.useEffect(() => {
-    if (!isPipelineRunning) return;
-    setPipelineStageIndex(0);
-    setIsPipelineComplete(false);
-    const interval = setInterval(() => {
-      setPipelineStageIndex((prev) => {
-        if (prev >= 9) {
-          clearInterval(interval);
-          setIsPipelineRunning(false);
-          setIsPipelineComplete(true);
-          return 9;
-        }
-        return prev + 1;
-      });
-    }, 350);
-    return () => clearInterval(interval);
-  }, [isPipelineRunning]);
-
-  const handleJobComplete = (role: CanonicalRole, jdText: string, reqs: NormalizedRequirement[]) => {
+  const handleJobComplete = (role: CanonicalRole, jdText: string, _reqs: NormalizedRequirement[]) => {
     setCurrentRole(role);
+    setCurrentJdText(jdText);
   };
 
   const handleCandidateSubmit = async (candManifest: CandidateManifest) => {
     setManifest(candManifest);
+    setCurrentDossier(null);
+    setCurrentGraph(null);
+    setPipelineError(null);
+    setPipelineStageIndex(0);
+    setIsPipelineComplete(false);
+
+    if (!isBackendOnline) {
+      setPipelineError('The analysis backend is unavailable. No dossier or score was generated.');
+      return;
+    }
+
     setIsPipelineRunning(true);
-    if (isBackendOnline) {
-      try {
-        const runRes = await triggerPipelineRun(candManifest.candidate_id, currentRole, candManifest);
-        if (runRes.status === 'completed' || runRes.dossier_id) {
-          const liveDossier = await fetchCandidateDossier(candManifest.candidate_id);
-          const liveGraph = await fetchCandidateGraph(candManifest.candidate_id);
-          setCurrentDossier(liveDossier);
-          setCurrentGraph(liveGraph);
-        }
-      } catch (err) {
-        console.warn('Backend execution fallback to mock data:', err);
+    try {
+      const runRes = await triggerPipelineRun(
+        candManifest.candidate_id,
+        currentRole,
+        candManifest,
+        currentJdText,
+      );
+
+      if (runRes.status !== 'completed' || !runRes.dossier_id) {
+        throw new Error(runRes.error || `Pipeline ended with status: ${runRes.status}`);
       }
+
+      const [liveDossier, liveGraph] = await Promise.all([
+        fetchCandidateDossier(candManifest.candidate_id),
+        fetchCandidateGraph(candManifest.candidate_id),
+      ]);
+
+      setCurrentDossier(liveDossier);
+      setCurrentGraph(liveGraph);
+      setPipelineStageIndex(9);
+      setIsPipelineComplete(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown pipeline failure';
+      setPipelineError(`Analysis failed. No mock result was substituted. ${message}`);
+      setCurrentDossier(null);
+      setCurrentGraph(null);
+      setIsPipelineComplete(false);
+    } finally {
+      setIsPipelineRunning(false);
     }
   };
 
   const handleSelectCandidateFromDirectory = async (candidateId: string, name: string) => {
+    setPipelineError(null);
+    setCurrentDossier(null);
+    setCurrentGraph(null);
+    setManifest({
+      candidate_id: candidateId,
+      full_name: name,
+      primary_email: '',
+      github_usernames: [],
+      github_repositories: [],
+      deployment_urls: [],
+      portfolio_urls: [],
+      declared_skills: [],
+      extraction_metadata: {},
+    });
+
+    if (!isBackendOnline) {
+      setPipelineError('The analysis backend is unavailable, so this dossier cannot be loaded.');
+      setActiveTab('dossier');
+      return;
+    }
+
     try {
-      const liveDossier = await fetchCandidateDossier(candidateId);
-      let liveGraph: CEGGraph = MOCK_GRAPH;
-      try {
-        liveGraph = await fetchCandidateGraph(candidateId);
-      } catch {
-        // Fallback to mock graph
-      }
+      const [liveDossier, liveGraph] = await Promise.all([
+        fetchCandidateDossier(candidateId),
+        fetchCandidateGraph(candidateId),
+      ]);
       setCurrentDossier(liveDossier);
       setCurrentGraph(liveGraph);
-      setManifest({
-        candidate_id: candidateId,
-        full_name: name,
-        primary_email: '',
-        github_usernames: [],
-        github_repositories: [],
-        deployment_urls: [],
-        portfolio_urls: [],
-        declared_skills: [],
-        extraction_metadata: {},
-      });
       setActiveTab('dossier');
-    } catch (err) {
-      console.warn('Failed to load live candidate dossier, falling back to mock:', err);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown dossier load failure';
+      setPipelineError(`Live dossier unavailable. No sample result was substituted. ${message}`);
       setActiveTab('dossier');
     }
   };
 
   return (
     <div className="min-h-screen flex font-[family-name:var(--font-sans)]">
-      {/* ============================================================
-          Sidebar Navigation
-          ============================================================ */}
       <aside
         className={`
           fixed top-0 left-0 h-screen z-40
@@ -164,7 +165,6 @@ export default function HomePage() {
           ${sidebarExpanded ? 'w-[220px]' : 'w-[68px]'}
         `}
       >
-        {/* Logo */}
         <div className="p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-brand-500/25 shrink-0">
             <Sparkles className="w-5 h-5" />
@@ -176,12 +176,11 @@ export default function HomePage() {
               className="overflow-hidden"
             >
               <div className="text-sm font-bold text-white tracking-tight whitespace-nowrap">CandidateX</div>
-              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">v1.0.0</div>
+              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">research prototype</div>
             </motion.div>
           )}
         </div>
 
-        {/* Nav Items */}
         <nav className="flex-1 px-2.5 py-2 space-y-1">
           {NAV_ITEMS.map((item) => {
             const isActive = activeTab === item.key;
@@ -199,7 +198,6 @@ export default function HomePage() {
                   }
                 `}
               >
-                {/* Active indicator bar */}
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-indicator"
@@ -216,8 +214,6 @@ export default function HomePage() {
                     <div className="text-[10px] text-slate-500 truncate">{item.description}</div>
                   </div>
                 )}
-
-                {/* Tooltip for collapsed state */}
                 {!sidebarExpanded && (
                   <div className="absolute left-full ml-2 px-2.5 py-1.5 glass-strong rounded-lg text-xs text-white whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl">
                     {item.label}
@@ -228,7 +224,6 @@ export default function HomePage() {
           })}
         </nav>
 
-        {/* Bottom actions */}
         <div className="p-2.5 space-y-1 border-t border-white/[0.04]">
           <button
             type="button"
@@ -256,30 +251,21 @@ export default function HomePage() {
         </div>
       </aside>
 
-      {/* ============================================================
-          Main Content Area
-          ============================================================ */}
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
           sidebarExpanded ? 'ml-[220px]' : 'ml-[68px]'
         }`}
       >
-        {/* Top Command Bar */}
         <header className="sticky top-0 z-30 glass-strong border-b border-white/[0.04]">
           <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Search trigger */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-slate-500 text-sm cursor-default">
                 <Search className="w-3.5 h-3.5" />
-                <span className="text-xs">Search candidates...</span>
-                <kbd className="ml-4 px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-slate-500 border border-white/[0.08]">
-                  Ctrl+K
-                </kbd>
+                <span className="text-xs">Candidate evidence workspace</span>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Active candidate pill */}
               {manifest?.full_name && (
                 <button
                   type="button"
@@ -295,21 +281,29 @@ export default function HomePage() {
                 </button>
               )}
 
-              {/* Backend status */}
               <GlowBadge
                 variant={isBackendOnline === null ? 'neutral' : isBackendOnline ? 'success' : 'warning'}
                 size="sm"
                 pulse={isBackendOnline === true}
               >
-                {isBackendOnline === null ? 'Probing...' : isBackendOnline ? 'Live' : 'Demo'}
+                {isBackendOnline === null ? 'Probing API' : isBackendOnline ? 'Backend live' : 'Backend offline'}
               </GlowBadge>
             </div>
           </div>
         </header>
 
-        {/* Page Content with Transitions */}
         <main className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
           <SystemNotice />
+
+          {pipelineError && (
+            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+              <div>
+                <div className="font-semibold text-amber-300">Evidence unavailable</div>
+                <div className="mt-1 text-amber-100/80">{pipelineError}</div>
+              </div>
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -318,6 +312,7 @@ export default function HomePage() {
               initial="initial"
               animate="animate"
               exit="exit"
+              className="mt-5"
             >
               {activeTab === 'directory' && (
                 <CandidateDirectory
@@ -338,19 +333,39 @@ export default function HomePage() {
                   pipelineStageIndex={pipelineStageIndex}
                   isPipelineRunning={isPipelineRunning}
                   isPipelineComplete={isPipelineComplete}
+                  isBackendOnline={isBackendOnline}
                   onJobComplete={handleJobComplete}
                   onCandidateSubmit={handleCandidateSubmit}
-                  onViewDossier={() => setActiveTab('dossier')}
+                  onViewDossier={() => {
+                    if (currentDossier && currentGraph) setActiveTab('dossier');
+                  }}
                 />
               )}
 
-              {activeTab === 'dossier' && (
+              {activeTab === 'dossier' && currentDossier && currentGraph && (
                 <DossierView
                   initialDossier={currentDossier}
                   graph={currentGraph}
-                  candidateName={manifest?.full_name || 'Alice Chen'}
+                  candidateName={manifest?.full_name || 'Candidate'}
                   onSelectCandidate={handleSelectCandidateFromDirectory}
                 />
+              )}
+
+              {activeTab === 'dossier' && (!currentDossier || !currentGraph) && (
+                <div className="glass-strong border border-white/[0.06] rounded-2xl p-10 text-center">
+                  <Award className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                  <h2 className="text-lg font-semibold text-white">No verified dossier loaded</h2>
+                  <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
+                    CandidateX only renders a dossier after the backend returns the analyzed evidence and graph. Backend failure does not substitute sample scores.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('new_eval')}
+                    className="mt-5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-colors"
+                  >
+                    Start an evaluation
+                  </button>
+                </div>
               )}
 
               {activeTab === 'compare' && (
@@ -369,14 +384,12 @@ export default function HomePage() {
           </AnimatePresence>
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-white/[0.04] py-4 text-center text-xs text-slate-600">
           <span className="text-gradient-brand font-semibold">CandidateX</span>
-          {' '}&mdash; AI-Powered Capability Intelligence for Technical Hiring
+          {' '}· evidence-grounded decision support for technical interviewers
         </footer>
       </div>
 
-      {/* How It Works Modal */}
       <HowItWorksModal
         isOpen={isHowItWorksOpen}
         onClose={() => setIsHowItWorksOpen(false)}
