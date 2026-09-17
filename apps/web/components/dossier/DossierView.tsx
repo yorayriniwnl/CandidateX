@@ -9,6 +9,8 @@ import { InterviewProbesPanel } from './InterviewProbesPanel';
 import { ClaimsMatrix } from './ClaimsMatrix';
 import { GraphViewer } from './GraphViewer';
 import { ExpertWeightOverrideModal } from './ExpertWeightOverrideModal';
+import { InterviewScorecardModal } from './InterviewScorecardModal';
+import { AuditTrailViewer } from './AuditTrailViewer';
 
 export const DossierView: React.FC<{
   initialDossier: Dossier;
@@ -18,6 +20,8 @@ export const DossierView: React.FC<{
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
   const [isWeightsModalOpen, setIsWeightsModalOpen] = useState(false);
+  const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
+  const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
   const [customWeights, setCustomWeights] = useState<Record<CapabilityKey, number>>({
     backend_engineering: 0.25,
     database_engineering: 0.15,
@@ -54,6 +58,11 @@ export const DossierView: React.FC<{
       ...prev,
       rci: newRci,
     }));
+
+    // Trigger audit trail refresh after override
+    setTimeout(() => {
+      setAuditRefreshTrigger((t) => t + 1);
+    }, 300);
   };
 
   return (
@@ -86,6 +95,7 @@ export const DossierView: React.FC<{
         questions={dossier.interview_questions}
         selectedCapability={selectedCapability}
         onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+        onOpenScorecard={() => setIsScorecardModalOpen(true)}
       />
 
       {/* 5. Self-Claims Verification Matrix */}
@@ -102,6 +112,12 @@ export const DossierView: React.FC<{
         onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
       />
 
+      {/* 7. Candidate Audit Trail & Governance Log */}
+      <AuditTrailViewer
+        candidateId={dossier.candidate_id}
+        refreshTrigger={auditRefreshTrigger}
+      />
+
       {/* Expert Weight Override Modal */}
       <ExpertWeightOverrideModal
         isOpen={isWeightsModalOpen}
@@ -111,6 +127,19 @@ export const DossierView: React.FC<{
         estimates={dossier.capability_estimates}
         candidateId={dossier.candidate_id}
         onApplyWeights={handleApplyWeights}
+      />
+
+      {/* Live Interview Scorecard Modal */}
+      <InterviewScorecardModal
+        isOpen={isScorecardModalOpen}
+        onClose={() => setIsScorecardModalOpen(false)}
+        candidateId={dossier.candidate_id}
+        candidateName={candidateName}
+        probes={dossier.interview_probes}
+        questions={dossier.interview_questions}
+        onFeedbackSubmitted={() => {
+          setAuditRefreshTrigger((t) => t + 1);
+        }}
       />
     </div>
   );

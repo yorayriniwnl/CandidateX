@@ -187,3 +187,39 @@ export interface CEGGraph {
   edges: CEGEdge[];
   metadata?: Record<string, any>;
 }
+
+export interface ProbeEvaluationItem {
+  capability_key: CapabilityKey;
+  rating: number; // 1 to 5
+  notes: string;
+  is_gap_resolved: boolean;
+}
+
+export type HiringRecommendation = 'strong_hire' | 'lean_hire' | 'lean_no_hire' | 'no_hire';
+
+export interface InterviewFeedbackPayload {
+  candidate_id: string;
+  interviewer_name: string;
+  probe_evaluations: ProbeEvaluationItem[];
+  overall_recommendation: HiringRecommendation;
+  overall_notes?: string;
+}
+
+export interface InterviewFeedbackResponse {
+  feedback_id: string;
+  candidate_id: string;
+  interviewer_name: string;
+  evaluations_count: number;
+  audit_event_id: string;
+  recorded_at: string;
+}
+
+export interface AuditEventItem {
+  id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  user_id: string | null;
+  details: Record<string, any>;
+  created_at: string;
+}

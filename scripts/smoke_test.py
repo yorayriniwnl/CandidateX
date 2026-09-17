@@ -90,6 +90,14 @@ def run_smoke_tests(backend_url: str, frontend_url: str) -> bool:
                 results.append(export_res)
                 if export_res["status"] != "UP":
                     all_healthy = False
+
+                audit_res = check_http_endpoint(
+                    "FastAPI Candidate Audit Trail",
+                    f"{backend_url.rstrip('/')}/api/v1/overrides/audit/{first_cand['id']}",
+                )
+                results.append(audit_res)
+                if audit_res["status"] != "UP":
+                    all_healthy = False
     except Exception:
         pass
 

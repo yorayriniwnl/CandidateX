@@ -15,6 +15,20 @@ from cci.domain.enums import CapabilityKey
 
 router = APIRouter(prefix="/api/v1/overrides", tags=["Recruiter Overrides & Audit Trail"])
 
+# In-memory audit log store for instant fallback and fast lookup
+_AUDIT_LOG_STORE: List[Dict[str, Any]] = []
+
+
+class AuditEventResponse(BaseModel):
+    """Immutable audit event contract."""
+    id: UUID
+    event_type: str
+    entity_type: str
+    entity_id: str
+    user_id: Optional[UUID] = None
+    details: Dict[str, Any]
+    created_at: str
+
 
 class RecruiterOverrideRequest(BaseModel):
     """Payload to record an audited recruiter role weight override and trigger functional rescore."""
@@ -169,6 +183,24 @@ def record_recruiter_override(request: RecruiterOverrideRequest) -> RecruiterOve
         # Transparent in-memory fallback
         pass
 
+    # Track in in-memory fallback log
+    _AUDIT_LOG_STORE.append({
+        "id": audit_event_id,
+        "event_type": "recruiter_weight_override",
+        "entity_type": "candidate_dossier",
+        "entity_id": str(candidate_id),
+        "user_id": request.user_id,
+        "details": {
+            "override_id": str(override_id),
+            "justification": request.justification,
+            "previous_rci": previous_rci,
+            "rescored_rci": new_rci,
+            "rescored_coverage": new_coverage,
+            "applied_weights": {k.value: v for k, v in normalized_weights.items()},
+        },
+        "created_at": now_iso,
+    })
+
     return RecruiterOverrideResponse(
         override_id=override_id,
         candidate_id=candidate_id,
@@ -224,6 +256,17 @@ def record_interview_feedback(request: InterviewFeedbackRequest) -> InterviewFee
     except Exception:
         pass
 
+    # Track in in-memory fallback log
+    _AUDIT_LOG_STORE.append({
+        "id": audit_event_id,
+        "event_type": "interviewer_probe_feedback",
+        "entity_type": "candidate",
+        "entity_id": str(request.candidate_id),
+        "user_id": None,
+        "details": details,
+        "created_at": now_iso,
+    })
+
     return InterviewFeedbackResponse(
         feedback_id=feedback_id,
         candidate_id=request.candidate_id,
@@ -232,3 +275,50 @@ def record_interview_feedback(request: InterviewFeedbackRequest) -> InterviewFee
         audit_event_id=audit_event_id,
         recorded_at=now_iso,
     )
+
+
+@router.get(
+    "/audit/{candidate_id}",
+    response_model=List[AuditEventResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get immutable audit trail of recruiter overrides and interview feedback for a candidate",
+)
+def get_candidate_audit_trail(candidate_id: UUID) -> List[AuditEventResponse]:
+    """Retrieves all immutable audit events for the given candidate ID."""
+    results: List[AuditEventResponse] = []
+    cand_id_str = str(candidate_id)
+
+    # First attempt DB query
+    try:
+        with SessionLocal() as db:
+            events = (
+                db.query(AuditEvent)
+                .filter(AuditEvent.entity_id == cand_id_str)
+                .order_by(AuditEvent.created_at.desc())
+                .all()
+            )
+            for ev in events:
+                results.append(
+                    AuditEventResponse(
+                        id=ev.id,
+                        event_type=ev.event_type,
+                        entity_type=ev.entity_type,
+                        entity_id=ev.entity_id,
+                        user_id=ev.user_id,
+                        details=ev.details or {},
+                        created_at=ev.created_at.isoformat() if ev.created_at else "",
+                    )
+                )
+    except Exception:
+        pass
+
+    # Merge with in-memory fallback store (de-duping by id)
+    seen_ids = {r.id for r in results}
+    for mem_ev in _AUDIT_LOG_STORE:
+        if mem_ev["entity_id"] == cand_id_str and mem_ev["id"] not in seen_ids:
+            results.append(AuditEventResponse(**mem_ev))
+            seen_ids.add(mem_ev["id"])
+
+    # Sort descending by created_at
+    results.sort(key=lambda x: x.created_at, reverse=True)
+    return results

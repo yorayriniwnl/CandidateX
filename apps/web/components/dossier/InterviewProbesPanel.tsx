@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   HelpCircle,
   ListOrdered,
   MessageSquare,
@@ -33,7 +34,8 @@ export const InterviewProbesPanel: React.FC<{
   questions: InterviewQuestion[];
   onSelectCapability?: (key: CapabilityKey) => void;
   selectedCapability?: CapabilityKey | null;
-}> = ({ probes, questions, onSelectCapability, selectedCapability }) => {
+  onOpenScorecard?: () => void;
+}> = ({ probes, questions, onSelectCapability, selectedCapability, onOpenScorecard }) => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
   // Group questions by capability
@@ -49,7 +51,7 @@ export const InterviewProbesPanel: React.FC<{
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
             <ListOrdered className="w-5 h-5" />
@@ -61,10 +63,20 @@ export const InterviewProbesPanel: React.FC<{
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">
+        <div className="flex items-center gap-2.5">
+          <span className="hidden sm:inline-block px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 font-mono">
             {questions.length} Grounded Question(s)
           </span>
+          {onOpenScorecard && (
+            <button
+              type="button"
+              onClick={onOpenScorecard}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-colors"
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              <span>Record Scorecard</span>
+            </button>
+          )}
         </div>
       </div>
 

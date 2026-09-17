@@ -3,7 +3,19 @@
  * Connects the Next.js UI to the FastAPI backend with graceful fallback.
  */
 
-import { CanonicalRole, CapabilityKey, Dossier, CEGGraph, CandidateManifest, NormalizedRequirement } from '../types/cci';
+import {
+  CanonicalRole,
+  CapabilityKey,
+  Dossier,
+  CEGGraph,
+  CandidateManifest,
+  NormalizedRequirement,
+  ProbeEvaluationItem,
+  HiringRecommendation,
+  InterviewFeedbackPayload,
+  InterviewFeedbackResponse,
+  AuditEventItem,
+} from '../types/cci';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -289,5 +301,40 @@ export async function submitRecruiterOverride(
   return res.json();
 }
 
+/**
+ * Submits technical interviewer probe evaluations and hiring recommendation to immutable audit trail.
+ */
+export async function submitInterviewFeedback(
+  payload: InterviewFeedbackPayload
+): Promise<InterviewFeedbackResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/overrides/interview-feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 
+  if (!res.ok) {
+    throw new Error(`Interview feedback submission failed: HTTP ${res.status}`);
+  }
 
+  return res.json();
+}
+
+/**
+ * Fetches the immutable audit trail of recruiter overrides and interview feedback for a candidate.
+ */
+export async function fetchCandidateAuditTrail(
+  candidateId: string
+): Promise<AuditEventItem[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/overrides/audit/${candidateId}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch candidate audit trail: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}

@@ -163,3 +163,43 @@ def test_interview_feedback_recording():
     assert data["interviewer_name"] == "Dr. Sarah Jenkins"
     assert data["evaluations_count"] == 1
     assert data["audit_event_id"] is not None
+
+
+def test_candidate_audit_trail_retrieval(candidate_dossier):
+    """Verifies that GET /api/v1/overrides/audit/{candidate_id} returns all recorded events."""
+    register_dossier(candidate_dossier)
+    client = TestClient(app)
+    cand_id = candidate_dossier.candidate_id
+
+    # 1. Submit weight override
+    client.post(
+        "/api/v1/overrides/recruiter",
+        json={
+            "candidate_id": str(cand_id),
+            "role_weights": {CapabilityKey.BACKEND_ENGINEERING.value: 1.0},
+            "justification": "Candidate audit history test justification",
+        },
+    )
+
+    # 2. Submit interview feedback
+    client.post(
+        "/api/v1/overrides/interview-feedback",
+        json={
+            "candidate_id": str(cand_id),
+            "interviewer_name": "Marcus Aurelius",
+            "probe_evaluations": [],
+            "overall_recommendation": "lean_hire",
+            "overall_notes": "Solid fundamentals.",
+        },
+    )
+
+    # 3. Retrieve audit trail
+    res = client.get(f"/api/v1/overrides/audit/{cand_id}")
+    assert res.status_code == 200
+
+    events = res.json()
+    assert len(events) >= 2
+    types = [e["event_type"] for e in events]
+    assert "recruiter_weight_override" in types
+    assert "interviewer_probe_feedback" in types
+
