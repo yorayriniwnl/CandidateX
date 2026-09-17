@@ -3,14 +3,18 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   Award,
+  Check,
   CheckCircle2,
   ExternalLink,
   Filter,
+  GitCompare,
   Plus,
   Search,
   Sparkles,
   Users,
+  X,
 } from 'lucide-react';
 import { CandidateSummary, fetchCandidatesList } from '../lib/api';
 import { CanonicalRole } from '../types/cci';
@@ -108,12 +112,32 @@ export const CandidateDirectory: React.FC<{
   onSelectCandidate: (candidateId: string, name: string) => void;
   onNewCandidate: () => void;
   isBackendOnline: boolean | null;
-}> = ({ onSelectCandidate, onNewCandidate, isBackendOnline }) => {
+  onCompareCandidates?: (candidateIds: string[]) => void;
+  initialSelectedForComparison?: string[];
+}> = ({
+  onSelectCandidate,
+  onNewCandidate,
+  isBackendOnline,
+  onCompareCandidates,
+  initialSelectedForComparison,
+}) => {
   const [candidates, setCandidates] = useState<CandidateSummary[]>(FALLBACK_CANDIDATES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<
+    'rci_desc' | 'rci_asc' | 'coverage_desc' | 'name_asc' | 'conflict_first'
+  >('rci_desc');
+  const [selectedForComparison, setSelectedForComparison] = useState<string[]>(
+    initialSelectedForComparison || []
+  );
   const [loadingCandidateId, setLoadingCandidateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialSelectedForComparison && initialSelectedForComparison.length > 0) {
+      setSelectedForComparison(initialSelectedForComparison);
+    }
+  }, [initialSelectedForComparison]);
 
   useEffect(() => {
     if (isBackendOnline) {
@@ -129,24 +153,56 @@ export const CandidateDirectory: React.FC<{
     }
   }, [isBackendOnline]);
 
-  const filteredCandidates = candidates.filter((c) => {
-    const matchesSearch =
-      c.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.primary_email && c.primary_email.toLowerCase().includes(searchQuery.toLowerCase()));
+  const toggleSelectForComparison = (id: string) => {
+    setSelectedForComparison((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      }
+      if (prev.length >= 3) {
+        // Max 3 candidates for side-by-side comparison: drop oldest, add new
+        return [...prev.slice(1), id];
+      }
+      return [...prev, id];
+    });
+  };
 
-    const matchesRole = selectedRole === 'all' || c.role === selectedRole;
+  const filteredCandidates = candidates
+    .filter((c) => {
+      const matchesSearch =
+        c.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.primary_email && c.primary_email.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    let matchesStatus = true;
-    if (selectedStatus === 'conflict') {
-      matchesStatus = c.has_meaningful_conflict;
-    } else if (selectedStatus === 'sparse') {
-      matchesStatus = c.coverage !== undefined && c.coverage < 0.10;
-    } else if (selectedStatus === 'robust') {
-      matchesStatus = !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
-    }
+      const matchesRole = selectedRole === 'all' || c.role === selectedRole;
 
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+      let matchesStatus = true;
+      if (selectedStatus === 'conflict') {
+        matchesStatus = c.has_meaningful_conflict;
+      } else if (selectedStatus === 'sparse') {
+        matchesStatus = c.coverage !== undefined && c.coverage < 0.10;
+      } else if (selectedStatus === 'robust') {
+        matchesStatus = !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
+      }
+
+      return matchesSearch && matchesRole && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'rci_desc') {
+        return (b.rci ?? -1) - (a.rci ?? -1);
+      }
+      if (sortBy === 'rci_asc') {
+        return (a.rci ?? 999) - (b.rci ?? 999);
+      }
+      if (sortBy === 'coverage_desc') {
+        return (b.coverage ?? 0) - (a.coverage ?? 0);
+      }
+      if (sortBy === 'name_asc') {
+        return a.display_name.localeCompare(b.display_name);
+      }
+      if (sortBy === 'conflict_first') {
+        return (b.has_meaningful_conflict ? 1 : 0) - (a.has_meaningful_conflict ? 1 : 0);
+      }
+      return 0;
+    });
 
   const handleInspect = async (candidateId: string, name: string) => {
     setLoadingCandidateId(candidateId);
@@ -221,6 +277,18 @@ export const CandidateDirectory: React.FC<{
               <option value="sparse">Sparse Warning</option>
               <option value="conflict">Conflict Flagged (D_k &lt; 0)</option>
             </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="rci_desc">Sort: RCI (High &rarr; Low)</option>
+              <option value="rci_asc">Sort: RCI (Low &rarr; High)</option>
+              <option value="coverage_desc">Sort: Coverage (High &rarr; Low)</option>
+              <option value="name_asc">Sort: Name (A &rarr; Z)</option>
+              <option value="conflict_first">Sort: Contradictions First</option>
+            </select>
           </div>
         </div>
       </div>
@@ -233,22 +301,42 @@ export const CandidateDirectory: React.FC<{
             color: 'bg-slate-800 text-slate-300 border-slate-700',
           };
           const isInspecting = loadingCandidateId === candidate.id;
+          const isSelectedForCompare = selectedForComparison.includes(candidate.id);
 
           return (
             <div
               key={candidate.id}
-              className="bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all rounded-xl p-5 space-y-4 flex flex-col justify-between shadow-lg"
+              className={`bg-slate-900 border transition-all rounded-xl p-5 space-y-4 flex flex-col justify-between shadow-lg ${
+                isSelectedForCompare
+                  ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-slate-900/90'
+                  : 'border-slate-800 hover:border-slate-700'
+              }`}
             >
               <div>
-                {/* Header with Name & Role Badge */}
+                {/* Header with Name, Compare Toggle & Role Badge */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <h3 className="text-base font-semibold text-slate-100">{candidate.display_name}</h3>
                     <p className="text-xs text-slate-400">{candidate.primary_email || 'No email declared'}</p>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border shrink-0 ${roleMeta.color}`}>
-                    {roleMeta.label}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectForComparison(candidate.id)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 transition-all ${
+                        isSelectedForCompare
+                          ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm'
+                          : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      }`}
+                      title={isSelectedForCompare ? 'Remove from comparison' : 'Add to side-by-side comparison (max 3)'}
+                    >
+                      <GitCompare className="w-3 h-3" />
+                      <span>{isSelectedForCompare ? 'Selected' : 'Compare'}</span>
+                    </button>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase border ${roleMeta.color}`}>
+                      {roleMeta.label}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Score & Diagnostics Badges */}
@@ -311,6 +399,60 @@ export const CandidateDirectory: React.FC<{
           <Users className="w-8 h-8 text-slate-500 mx-auto mb-2" />
           <p className="text-sm text-slate-300 font-medium">No candidates match the selected filters</p>
           <p className="text-xs text-slate-500 mt-1">Try broadening your search query or role filter.</p>
+        </div>
+      )}
+
+      {/* Floating Comparison Action Bar */}
+      {selectedForComparison.length > 0 && onCompareCandidates && (
+        <div className="fixed bottom-6 inset-x-0 mx-auto max-w-2xl px-4 z-40 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="bg-slate-900/95 border border-indigo-500/50 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md">
+                <GitCompare className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Compare Candidates ({selectedForComparison.length} / 3)
+                  </span>
+                  <span className="text-[11px] text-indigo-300 font-mono">
+                    Side-by-Side Matrix
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 flex flex-wrap items-center gap-1.5 mt-1">
+                  {selectedForComparison.map((id) => {
+                    const cand = candidates.find((c) => c.id === id);
+                    return (
+                      <span
+                        key={id}
+                        className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded text-slate-300 text-[11px] font-medium"
+                      >
+                        {cand?.display_name || id.slice(0, 8)}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedForComparison([])}
+                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => onCompareCandidates(selectedForComparison)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-1.5 transition-colors"
+              >
+                <span>Compare Now</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

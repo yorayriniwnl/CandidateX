@@ -24,6 +24,7 @@ if str(BACKEND_SRC) not in sys.path:
 from cci.domain.contracts import CapabilityEstimate, Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.pipeline.orchestrator import execute_analysis_pipeline, rescore_dossier
+from cci.reports.exporter import generate_html_brief
 
 
 def load_text(path_or_text: Optional[str], default_path: Optional[Path] = None) -> str:
@@ -240,6 +241,12 @@ def main() -> None:
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_report)
     print(f"[+] Saved Dossier Markdown: {md_path}")
+
+    html_brief = generate_html_brief(dossier, cand_name)
+    html_path = out_dir / f"dossier_{candidate_id}.html"
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html_brief)
+    print(f"[+] Saved Dossier HTML Brief: {html_path}")
 
     # Optional functional rescore demonstration
     if args.rescore_weights:

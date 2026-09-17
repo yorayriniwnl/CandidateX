@@ -12,6 +12,7 @@ import {
   Sparkles,
   Printer,
   ChevronDown,
+  Download,
   Info,
   Shield,
 } from 'lucide-react';
@@ -54,15 +55,29 @@ const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
 export const CandidateComparison: React.FC<{
   onSelectCandidateDossier?: (candidateId: string, name: string) => void;
   isBackendOnline?: boolean | null;
-}> = ({ onSelectCandidateDossier, isBackendOnline }) => {
+  selectedCandidateIds?: string[];
+  onSelectedIdsChange?: (ids: string[]) => void;
+}> = ({
+  onSelectCandidateDossier,
+  isBackendOnline,
+  selectedCandidateIds,
+  onSelectedIdsChange,
+}) => {
   // Selected IDs for comparison (max 3)
-  const [selectedIds, setSelectedIds] = useState<string[]>([
-    '11111111-1111-1111-1111-111111111111',
-    '77777777-7777-7777-7777-777777777777',
-  ]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    selectedCandidateIds && selectedCandidateIds.length > 0
+      ? selectedCandidateIds
+      : ['11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777']
+  );
   const [subjects, setSubjects] = useState<ComparisonSubject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [candidateOptions, setCandidateOptions] = useState<Array<{ id: string; name: string; role: string }>>(PRESET_COHORTS);
+
+  useEffect(() => {
+    if (selectedCandidateIds && selectedCandidateIds.length > 0) {
+      setSelectedIds(selectedCandidateIds);
+    }
+  }, [selectedCandidateIds]);
 
   // Fetch available candidates from API if online
   useEffect(() => {
@@ -108,6 +123,7 @@ export const CandidateComparison: React.FC<{
         const mockCopy: Dossier = JSON.parse(JSON.stringify(MOCK_DOSSIER));
         mockCopy.candidate_id = id;
         mockCopy.role = role as CanonicalRole;
+        mockCopy.dossier_id = `mock-${id}`;
 
         // Custom adjustments per sample cohort to showcase comparison
         if (id === '77777777-7777-7777-7777-777777777777') {
@@ -137,21 +153,70 @@ export const CandidateComparison: React.FC<{
   }, [selectedIds, candidateOptions, isBackendOnline]);
 
   const toggleCandidateSelection = (id: string) => {
+    let nextIds: string[];
     if (selectedIds.includes(id)) {
       if (selectedIds.length <= 1) return; // Keep at least one
-      setSelectedIds(selectedIds.filter((item) => item !== id));
+      nextIds = selectedIds.filter((item) => item !== id);
     } else {
       if (selectedIds.length >= 3) {
         // Replace last item
-        setSelectedIds([selectedIds[0], selectedIds[1], id]);
+        nextIds = [selectedIds[0], selectedIds[1], id];
       } else {
-        setSelectedIds([...selectedIds, id]);
+        nextIds = [...selectedIds, id];
       }
+    }
+    setSelectedIds(nextIds);
+    if (onSelectedIdsChange) {
+      onSelectedIdsChange(nextIds);
     }
   };
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadMarkdown = () => {
+    if (subjects.length === 0) return;
+    let md = `# Candidate Comparative Evaluation Matrix\n\n`;
+    md += `**Generated At:** ${new Date().toISOString()}\n`;
+    md += `**Evaluation Mode:** Employer Decision Support (Invariants: No Execution, Missing Evidence is Unknown)\n\n`;
+
+    md += `## 1. High-Level Summary\n\n`;
+    md += `| Metric | ${subjects.map((s) => s.name).join(' | ')} |\n`;
+    md += `| :--- | ${subjects.map(() => ':---:').join(' | ')} |\n`;
+    md += `| **Role** | ${subjects.map((s) => s.role).join(' | ')} |\n`;
+    md += `| **Role Capability Index (RCI)** | ${subjects
+      .map((s) => (s.dossier.rci !== null ? `**${s.dossier.rci.toFixed(1)} / 100**` : 'UNKNOWN'))
+      .join(' | ')} |\n`;
+    md += `| **Evidence Coverage** | ${subjects
+      .map((s) => `${(s.dossier.coverage * 100).toFixed(1)}%`)
+      .join(' | ')} |\n`;
+    md += `| **Evidence Sufficiency** | ${subjects
+      .map((s) => (s.dossier.is_insufficient_evidence ? 'INSUFFICIENT' : 'SUFFICIENT'))
+      .join(' | ')} |\n\n`;
+
+    md += `## 2. 12 Core Capabilities Comparison\n\n`;
+    md += `| Capability | ${subjects.map((s) => `${s.name} (Score / n_eff)`).join(' | ')} |\n`;
+    md += `| :--- | ${subjects.map(() => ':---:').join(' | ')} |\n`;
+
+    Object.entries(CAPABILITY_LABELS).forEach(([capKey, label]) => {
+      const row = subjects.map((s) => {
+        const est = s.dossier.capability_estimates[capKey as CapabilityKey];
+        if (!est || !est.is_observed || est.estimate === null) return 'UNKNOWN';
+        return `${est.estimate.toFixed(1)} (n=${est.effective_evidence_count.toFixed(1)})`;
+      });
+      md += `| **${label}** | ${row.join(' | ')} |\n`;
+    });
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `candidate_comparison_matrix.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -174,8 +239,16 @@ export const CandidateComparison: React.FC<{
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
+              type="button"
+              onClick={handleDownloadMarkdown}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm shadow-indigo-600/30"
+            >
+              <Download className="w-3.5 h-3.5" /> Download Matrix (.md)
+            </button>
+            <button
+              type="button"
               onClick={handlePrint}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
             >

@@ -23,6 +23,10 @@ export default function HomePage() {
   const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
   const [currentDossier, setCurrentDossier] = useState<Dossier>(MOCK_DOSSIER);
   const [currentGraph, setCurrentGraph] = useState<CEGGraph>(MOCK_GRAPH);
+  const [comparisonCandidateIds, setComparisonCandidateIds] = useState<string[]>([
+    '11111111-1111-1111-1111-111111111111',
+    '77777777-7777-7777-7777-777777777777',
+  ]);
 
   // Probe backend server connectivity on mount
   React.useEffect(() => {
@@ -194,6 +198,11 @@ export default function HomePage() {
             onSelectCandidate={handleSelectCandidateFromDirectory}
             onNewCandidate={() => setActiveTab('candidate')}
             isBackendOnline={isBackendOnline}
+            initialSelectedForComparison={comparisonCandidateIds}
+            onCompareCandidates={(ids) => {
+              setComparisonCandidateIds(ids);
+              setActiveTab('compare');
+            }}
           />
         )}
 
@@ -225,6 +234,8 @@ export default function HomePage() {
           <CandidateComparison
             onSelectCandidateDossier={handleSelectCandidateFromDirectory}
             isBackendOnline={isBackendOnline}
+            selectedCandidateIds={comparisonCandidateIds}
+            onSelectedIdsChange={setComparisonCandidateIds}
           />
         )}
       </main>
