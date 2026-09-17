@@ -26,9 +26,10 @@ app.add_middleware(
 )
 
 
-from cci.api.routers import dossier_router
+from cci.api.routers import dossier_router, pipeline_router
 
 app.include_router(dossier_router)
+app.include_router(pipeline_router)
 
 
 @app.get(

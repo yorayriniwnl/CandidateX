@@ -1,0 +1,153 @@
+"""Pipeline orchestration and lifecycle management API router."""
+
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+
+from cci.domain.contracts import Dossier
+from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.pipeline.service import pipeline_service
+
+router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
+
+
+class PipelineRunRequest(BaseModel):
+    candidate_id: UUID
+    role: CanonicalRole = CanonicalRole.BACKEND
+    jd_text: Optional[str] = None
+    cv_text: Optional[str] = None
+    repo_urls: Optional[List[str]] = Field(default_factory=list)
+    declared_claims: Optional[List[str]] = Field(default_factory=list)
+    expert_weight_overrides: Optional[Dict[CapabilityKey, float]] = None
+
+
+class StageProgressResponse(BaseModel):
+    stage: str
+    label: str
+    status: str
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    details: Optional[str] = None
+
+
+class PipelineStatusResponse(BaseModel):
+    analysis_run_id: UUID
+    candidate_id: UUID
+    role: CanonicalRole
+    status: str
+    current_stage: Optional[str] = None
+    stages: List[StageProgressResponse]
+    dossier_id: Optional[UUID] = None
+    rci: Optional[float] = None
+    coverage: Optional[float] = None
+    error: Optional[str] = None
+
+
+class PipelineRescoreRequest(BaseModel):
+    run_id: UUID
+    weights: Dict[CapabilityKey, float]
+
+
+@router.post(
+    "/run",
+    response_model=PipelineStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Trigger end-to-end Candidate Capability Intelligence pipeline",
+)
+def run_pipeline(request: PipelineRunRequest):
+    """Executes the full 10-stage analysis pipeline and returns execution state."""
+    state = pipeline_service.start_pipeline(
+        candidate_id=request.candidate_id,
+        role=request.role,
+        jd_text=request.jd_text,
+        cv_text=request.cv_text,
+        repo_urls=request.repo_urls,
+        declared_claims=request.declared_claims,
+        expert_weight_overrides=request.expert_weight_overrides,
+    )
+
+    stage_responses = [
+        StageProgressResponse(
+            stage=s.stage.value,
+            label=s.label,
+            status=s.status,
+            started_at=s.started_at,
+            completed_at=s.completed_at,
+            details=s.details,
+        )
+        for s in state.stages
+    ]
+
+    return PipelineStatusResponse(
+        analysis_run_id=state.analysis_run_id,
+        candidate_id=state.candidate_id,
+        role=state.role,
+        status=state.status.value,
+        current_stage=state.current_stage.value if state.current_stage else None,
+        stages=stage_responses,
+        dossier_id=state.dossier.dossier_id if state.dossier else None,
+        rci=state.dossier.rci if state.dossier else None,
+        coverage=state.dossier.coverage if state.dossier else None,
+        error=state.error,
+    )
+
+
+@router.get(
+    "/status/{run_id}",
+    response_model=PipelineStatusResponse,
+    summary="Get pipeline execution progress and result summary",
+)
+def get_pipeline_status(run_id: UUID):
+    """Retrieves current stage and progress for an active or completed analysis run."""
+    state = pipeline_service.get_pipeline_state(run_id)
+    if not state:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis run {run_id} not found",
+        )
+
+    stage_responses = [
+        StageProgressResponse(
+            stage=s.stage.value,
+            label=s.label,
+            status=s.status,
+            started_at=s.started_at,
+            completed_at=s.completed_at,
+            details=s.details,
+        )
+        for s in state.stages
+    ]
+
+    return PipelineStatusResponse(
+        analysis_run_id=state.analysis_run_id,
+        candidate_id=state.candidate_id,
+        role=state.role,
+        status=state.status.value,
+        current_stage=state.current_stage.value if state.current_stage else None,
+        stages=stage_responses,
+        dossier_id=state.dossier.dossier_id if state.dossier else None,
+        rci=state.dossier.rci if state.dossier else None,
+        coverage=state.dossier.coverage if state.dossier else None,
+        error=state.error,
+    )
+
+
+@router.post(
+    "/rescore",
+    response_model=Dossier,
+    summary="Pure functional rescore of candidate dossier with expert weights",
+)
+def rescore_pipeline(request: PipelineRescoreRequest):
+    """Pure functional recalculation of RCI without re-running analyzers or re-crawling."""
+    rescored = pipeline_service.rescore_run(
+        run_id=request.run_id,
+        new_weights=request.weights,
+    )
+    if not rescored:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis run {request.run_id} or dossier not found",
+        )
+    return rescored
