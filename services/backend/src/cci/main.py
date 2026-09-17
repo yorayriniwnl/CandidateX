@@ -26,10 +26,17 @@ app.add_middleware(
 )
 
 
-from cci.api.routers import dossier_router, pipeline_router
+from cci.api.routers import (
+    candidates_router,
+    dossier_router,
+    jobs_router,
+    pipeline_router,
+)
 
 app.include_router(dossier_router)
 app.include_router(pipeline_router)
+app.include_router(jobs_router)
+app.include_router(candidates_router)
 
 
 @app.get(
@@ -37,6 +44,12 @@ app.include_router(pipeline_router)
     status_code=status.HTTP_200_OK,
     tags=["System"],
     summary="Health check endpoint",
+)
+@app.get(
+    "/health",
+    status_code=status.HTTP_200_OK,
+    tags=["System"],
+    summary="Health check endpoint alias",
 )
 def healthz():
     """Liveness and health check endpoint."""

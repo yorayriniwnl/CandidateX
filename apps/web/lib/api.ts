@@ -3,9 +3,32 @@
  * Connects the Next.js UI to the FastAPI backend with graceful fallback.
  */
 
-import { CanonicalRole, CapabilityKey, Dossier, CEGGraph, CandidateManifest } from '../types/cci';
+import { CanonicalRole, CapabilityKey, Dossier, CEGGraph, CandidateManifest, NormalizedRequirement } from '../types/cci';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export interface CandidateSummary {
+  id: string;
+  display_name: string;
+  primary_email?: string;
+  has_completed_dossier: boolean;
+  rci?: number;
+  coverage?: number;
+  role?: string;
+  has_meaningful_conflict: boolean;
+  created_at: string;
+}
+
+export interface JobParseResponse {
+  role: CanonicalRole;
+  requirements_count: number;
+  requirements: NormalizedRequirement[];
+  role_profile: {
+    canonical_role: CanonicalRole;
+    raw_importances: Record<CapabilityKey, number>;
+    softmax_weights: Record<CapabilityKey, number>;
+  };
+}
 
 export interface PipelineStatusResponse {
   analysis_run_id: string;
@@ -151,3 +174,41 @@ export async function rescoreDossierBackend(
 
   return res.json();
 }
+
+/**
+ * Parses raw Job Description text into structured requirements and role weights.
+ */
+export async function parseJobDescription(
+  jdText: string,
+  role: CanonicalRole = 'backend'
+): Promise<JobParseResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/jobs/parse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jd_text: jdText, role }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Job parse failed: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Lists candidates from the database with evaluation and dossier summary.
+ */
+export async function fetchCandidatesList(): Promise<CandidateSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Candidates list fetch failed: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
