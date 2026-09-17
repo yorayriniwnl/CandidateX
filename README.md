@@ -151,6 +151,17 @@ Publication artifacts are automatically emitted to:
 - Node.js 20+ & pnpm 9+
 - Docker & Docker Compose (optional for local containerized run)
 
+### Turnkey Candidate Analysis CLI
+Analyze candidate materials through the full 10-stage pipeline and synthesize a Technical Dossier in seconds:
+```bash
+# Run 10-stage pipeline on sample CV and JD fixtures
+python scripts/analyze_candidate.py --cv examples/sample_backend_cv.txt --jd examples/sample_backend_jd.txt --role backend
+
+# Demonstrate instantaneous pure functional rescore (< 1ms) with custom capability weights
+python scripts/analyze_candidate.py --rescore-weights '{"backend_engineering": 0.40, "database_engineering": 0.30}'
+```
+Dossier Markdown and JSON reports are generated in `reports/`.
+
 ### Backend Setup
 ```bash
 cd services/backend
