@@ -15,6 +15,10 @@ import {
   InterviewFeedbackPayload,
   InterviewFeedbackResponse,
   AuditEventItem,
+  TheoremMetadata,
+  AblationStudyResponse,
+  CalculationRequest,
+  CalculationResponse,
 } from '../types/cci';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -338,3 +342,57 @@ export async function fetchCandidateAuditTrail(
 
   return res.json();
 }
+
+/**
+ * Fetches all 10 conference paper theorems with LaTeX formulas and invariant descriptions.
+ */
+export async function fetchTheorems(): Promise<TheoremMetadata[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/research/theorems`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch theorems catalog: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Fetches Table 1 Model Architecture Ablation Study reproduction data.
+ */
+export async function fetchAblationStudy(): Promise<AblationStudyResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/research/ablation-study`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ablation study: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Evaluates live mathematical calculation for paper theorems on the backend.
+ */
+export async function calculateTheoremMath(
+  req: CalculationRequest
+): Promise<CalculationResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/research/calculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Theorem calculation failed: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+

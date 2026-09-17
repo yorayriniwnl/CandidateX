@@ -1,20 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award, Users, GitCompare } from 'lucide-react';
+import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award, Users, GitCompare, GraduationCap } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { JobIntakeForm } from '../components/JobIntakeForm';
 import { CandidateIntakeForm } from '../components/CandidateIntakeForm';
 import { PipelineTracker } from '../components/PipelineTracker';
 import { CandidateDirectory } from '../components/CandidateDirectory';
 import { CandidateComparison } from '../components/CandidateComparison';
+import { ResearchTheoremsExplorer } from '../components/ResearchTheoremsExplorer';
 import { DossierView } from '../components/dossier/DossierView';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import { checkBackendHealth, triggerPipelineRun, fetchPipelineStatus, fetchCandidateDossier, fetchCandidateGraph } from '../lib/api';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGraph } from '../types/cci';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'directory' | 'job' | 'candidate' | 'pipeline' | 'dossier' | 'compare'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'job' | 'candidate' | 'pipeline' | 'dossier' | 'compare' | 'research'>('directory');
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
@@ -185,6 +186,14 @@ export default function HomePage() {
             >
               <GitCompare className="w-3.5 h-3.5" /> 5. Compare
             </button>
+            <button
+              onClick={() => setActiveTab('research')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'research' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" /> 6. Research &amp; Math
+            </button>
           </div>
         </div>
       </header>
@@ -237,6 +246,10 @@ export default function HomePage() {
             selectedCandidateIds={comparisonCandidateIds}
             onSelectedIdsChange={setComparisonCandidateIds}
           />
+        )}
+
+        {activeTab === 'research' && (
+          <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />
         )}
       </main>
 

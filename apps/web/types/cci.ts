@@ -223,3 +223,61 @@ export interface AuditEventItem {
   details: Record<string, any>;
   created_at: string;
 }
+
+export interface TheoremMetadata {
+  id: number;
+  name: string;
+  category: string;
+  latex_formula: string;
+  description: string;
+  bound_statement: string;
+  physical_intuition: string;
+  key_properties: string[];
+}
+
+export interface AblationRow {
+  model_name: string;
+  display_name: string;
+  mae: number;
+  rmse: number;
+  spearman_rho: number;
+  kendall_tau: number;
+  statistical_significance: string;
+  is_baseline?: boolean;
+}
+
+export interface RoleBreakdownRow {
+  role: string;
+  display_name: string;
+  full_cci_mae: number;
+  no_decay_mae: number;
+  no_ownership_mae: number;
+  uniform_weights_mae: number;
+}
+
+export interface AblationStudyResponse {
+  total_candidates: number;
+  total_seeds: number;
+  roles_count: number;
+  models: AblationRow[];
+  role_breakdown: RoleBreakdownRow[];
+  latex_table: string;
+  markdown_table: string;
+  notes: string;
+}
+
+export interface CalculationRequest {
+  theorem_id: number;
+  parameters: Record<string, any>;
+}
+
+export interface CalculationResponse {
+  theorem_id: number;
+  theorem_name: string;
+  formula: string;
+  result: number;
+  intermediate_steps: Record<string, any>;
+  bounds_satisfied: boolean;
+  explanation: string;
+}
+
