@@ -1,0 +1,70 @@
+name: ChatGPT Audit
+
+on:
+  push:
+    branches:
+      - chatgpt/audit-20260917
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          cd services/backend
+          pip install -e ".[dev]"
+      - name: Backend tests
+        run: |
+          cd services/backend
+          pytest -q
+      - name: Research quick check
+        run: python research/run_paper_experiments.py --quick
+      - name: Seeder smoke check
+        run: |
+          python scripts/seed_db.py --db-url "sqlite:///audit_ci.db" --reset --samples 2
+          rm -f audit_ci.db
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install backend
+        run: |
+          cd services/backend
+          pip install -e ".[dev]"
+      - name: SSRF and invariant tests
+        run: |
+          cd services/backend
+          pytest -q tests/security/test_ssrf.py tests/security/repositories/test_safe_workspace.py tests/test_paper_theorems_audit.py
