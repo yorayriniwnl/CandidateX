@@ -15,6 +15,30 @@ export default function HomePage() {
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+  const [pipelineStageIndex, setPipelineStageIndex] = useState(9);
+  const [isPipelineComplete, setIsPipelineComplete] = useState(true);
+
+  // Animate 10-stage execution pipeline upon candidate intake submission
+  React.useEffect(() => {
+    if (!isPipelineRunning) return;
+
+    setPipelineStageIndex(0);
+    setIsPipelineComplete(false);
+
+    const interval = setInterval(() => {
+      setPipelineStageIndex((prev) => {
+        if (prev >= 9) {
+          clearInterval(interval);
+          setIsPipelineRunning(false);
+          setIsPipelineComplete(true);
+          return 9;
+        }
+        return prev + 1;
+      });
+    }, 350);
+
+    return () => clearInterval(interval);
+  }, [isPipelineRunning]);
 
   const handleJobComplete = (role: CanonicalRole, jdText: string, reqs: NormalizedRequirement[]) => {
     setCurrentRole(role);
@@ -93,8 +117,8 @@ export default function HomePage() {
 
         {activeTab === 'pipeline' && (
           <PipelineTracker
-            currentStageIndex={9}
-            isComplete={true}
+            currentStageIndex={pipelineStageIndex}
+            isComplete={isPipelineComplete}
             onViewDossier={() => setActiveTab('dossier')}
           />
         )}
