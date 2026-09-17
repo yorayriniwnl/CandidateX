@@ -46,6 +46,8 @@ export type AnalysisStatus =
   | 'failed'
   | 'cancelled';
 
+export type ClaimStatus = 'corroborated' | 'partial' | 'unknown' | 'contradicted';
+
 export interface NormalizedRequirement {
   requirement_id: string;
   source_text: string;
@@ -74,4 +76,114 @@ export interface PipelineStageInfo {
   status: 'pending' | 'active' | 'completed' | 'failed';
   started_at?: string;
   completed_at?: string;
+}
+
+export interface CapabilityEstimate {
+  capability_key: CapabilityKey;
+  estimate: number | null;
+  is_observed: boolean;
+  effective_evidence_count: number;
+  raw_evidence_count: number;
+  cluster_count?: number;
+  standard_error: number;
+  dispersion: number;
+  ci_lower: number | null;
+  ci_upper: number | null;
+  coverage_k: number;
+}
+
+export interface CapabilityConflict {
+  capability_key: CapabilityKey;
+  positive_support_sum: number;
+  negative_support_sum: number;
+  contradiction_diagnostic: number; // D_k in [-1, 1]
+  has_meaningful_conflict: boolean;
+  triggering_evidence_ids?: string[];
+}
+
+export interface ProbePriority {
+  capability_key: CapabilityKey;
+  rank: number;
+  priority_score: number;
+  role_weight: number;
+  coverage_gap_term: number;
+  uncertainty_term: number;
+  contradiction_term: number;
+}
+
+export interface InterviewQuestion {
+  question_id: string;
+  target_capability: CapabilityKey;
+  question_text: string;
+  rationale: string;
+  verification_guidance: string;
+  grounding_evidence_ids: string[];
+  suggested_followups: string[];
+}
+
+export interface OwnershipAssessment {
+  assessment_id: string;
+  repository_url: string;
+  candidate_identifier: string;
+  ownership_score: number;
+  feature_vector: Record<string, number>;
+  is_fork: boolean;
+  is_vendor_or_generated: boolean;
+  attribution_confidence: number;
+  limitations: string[];
+}
+
+export interface ClaimCorroboration {
+  claim_id: string;
+  claim_text: string;
+  target_capability: CapabilityKey;
+  status: ClaimStatus;
+  confidence: number;
+  grounding_evidence_ids: string[];
+  citation_urls: string[];
+  explanation: string;
+}
+
+export interface Dossier {
+  dossier_id: string;
+  candidate_id: string;
+  analysis_run_id: string;
+  role: CanonicalRole;
+  rci: number | null;
+  coverage: number;
+  is_insufficient_evidence: boolean;
+  capability_estimates: Record<CapabilityKey, CapabilityEstimate>;
+  capability_conflicts: Record<CapabilityKey, CapabilityConflict>;
+  role_requirements: NormalizedRequirement[];
+  ownership_assessments: OwnershipAssessment[];
+  claims_corroboration: ClaimCorroboration[];
+  interview_probes: ProbePriority[];
+  interview_questions: InterviewQuestion[];
+  system_limitations: string[];
+  versions: Record<string, string>;
+  generated_at: string;
+}
+
+export interface CEGNode {
+  id: string;
+  type: string;
+  label: string;
+  properties: Record<string, any>;
+}
+
+export interface CEGEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  weight: number;
+  properties: Record<string, any>;
+}
+
+export interface CEGGraph {
+  candidate_id: string;
+  analysis_run_id: string;
+  nodes: CEGNode[];
+  edges: CEGEdge[];
+  metadata?: Record<string, any>;
 }

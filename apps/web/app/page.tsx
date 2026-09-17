@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight } from 'lucide-react';
+import { Briefcase, Layers, UserCheck, Shield, Sparkles, ArrowRight, Award } from 'lucide-react';
 import { SystemNotice } from '../components/SystemNotice';
 import { JobIntakeForm } from '../components/JobIntakeForm';
 import { CandidateIntakeForm } from '../components/CandidateIntakeForm';
 import { PipelineTracker } from '../components/PipelineTracker';
+import { DossierView } from '../components/dossier/DossierView';
+import { MOCK_DOSSIER, MOCK_GRAPH } from '../data/mockDossier';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement } from '../types/cci';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'job' | 'candidate' | 'pipeline'>('job');
+  const [activeTab, setActiveTab] = useState<'job' | 'candidate' | 'pipeline' | 'dossier'>('job');
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
@@ -63,7 +65,15 @@ export default function HomePage() {
                 activeTab === 'pipeline' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" /> 3. Pipeline Progress
+              <Layers className="w-3.5 h-3.5" /> 3. Pipeline
+            </button>
+            <button
+              onClick={() => setActiveTab('dossier')}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'dossier' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" /> 4. Candidate Dossier
             </button>
           </div>
         </div>
@@ -85,10 +95,15 @@ export default function HomePage() {
           <PipelineTracker
             currentStageIndex={9}
             isComplete={true}
-            onViewDossier={() => {
-              // Navigation or view trigger
-              alert('Dossier ready for review. Proceeding to Agent 11 Dossier Intelligence View.');
-            }}
+            onViewDossier={() => setActiveTab('dossier')}
+          />
+        )}
+
+        {activeTab === 'dossier' && (
+          <DossierView
+            initialDossier={MOCK_DOSSIER}
+            graph={MOCK_GRAPH}
+            candidateName={manifest?.full_name || 'Alice Developer'}
           />
         )}
       </main>
