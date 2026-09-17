@@ -64,6 +64,8 @@ def run_smoke_tests(backend_url: str, frontend_url: str) -> bool:
         ("FastAPI OpenAPI Schema", f"{backend_url.rstrip('/')}/openapi.json"),
         ("FastAPI Jobs API", f"{backend_url.rstrip('/')}/api/v1/jobs"),
         ("FastAPI Candidates API", f"{backend_url.rstrip('/')}/api/v1/candidates"),
+        ("FastAPI Research Theorems Catalog", f"{backend_url.rstrip('/')}/api/v1/research/theorems"),
+        ("FastAPI Research Ablation Study", f"{backend_url.rstrip('/')}/api/v1/research/ablation-study"),
         ("Next.js Web Dashboard", f"{frontend_url.rstrip('/')}/"),
     ]
 
