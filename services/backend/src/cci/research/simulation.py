@@ -157,9 +157,6 @@ def generate_synthetic_cohort(
             expected_emissions = int(max(0, rng.poisson(lam=1.5 + (true_q / 35.0))))
 
             for _ in range(expected_emissions):
-                # Noisy observation score centered on ground-truth
-                obs_score = float(np.clip(rng.normal(true_q, 6.0), 0.0, 100.0))
-
                 # Ownership simulation: 15% chance of forked/shared repo with low ownership
                 is_fork = rng.random() < 0.15
                 if is_fork:
@@ -173,14 +170,29 @@ def generate_synthetic_cohort(
 
                 # Source family sampling
                 sf_rand = rng.random()
-                if sf_rand < 0.65:
+                if sf_rand < 0.55:
                     sf = SourceFamily.GITHUB
-                elif sf_rand < 0.80:
+                elif sf_rand < 0.70:
                     sf = SourceFamily.DEPLOYMENT
-                elif sf_rand < 0.92:
+                elif sf_rand < 0.82:
                     sf = SourceFamily.DATABASE
                 else:
                     sf = SourceFamily.RESUME
+
+                # Realistic observation score with empirical source phenomena:
+                if is_fork:
+                    # Forked/multi-author repo reflects external project codebase
+                    ext_quality = float(rng.normal(55.0, 18.0))
+                    obs_score = float(np.clip((1.0 - ownership) * ext_quality + ownership * true_q + rng.normal(0.0, 3.0), 0.0, 100.0))
+                elif sf == SourceFamily.RESUME:
+                    # Self-reported resume claim: upward self-reporting bias & noise
+                    resume_inflation = float(rng.normal(16.0, 5.0))
+                    obs_score = float(np.clip(true_q + resume_inflation, 0.0, 100.0))
+                else:
+                    # Verified technical evidence: career progression and staleness drift
+                    career_progression = -1.5 * max(0.0, elapsed - 0.5)
+                    stale_noise = rng.normal(0.0, 2.0 + 1.5 * np.sqrt(elapsed))
+                    obs_score = float(np.clip(true_q + career_progression + stale_noise, 0.0, 100.0))
 
                 observations.append(
                     SimulatedObservation(

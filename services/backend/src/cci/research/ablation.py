@@ -70,6 +70,7 @@ def evaluate_candidate_ablation(
     candidate: SimulatedCandidate,
     mode: AblationMode,
     role_weights: Dict[CapabilityKey, float],
+    true_weights: Optional[Dict[CapabilityKey, float]] = None,
 ) -> Tuple[Optional[float], float, Dict[CapabilityKey, float]]:
     """Evaluates a simulated candidate's capability scores and RCI under ablation."""
     # Group observations by capability
@@ -101,11 +102,15 @@ def evaluate_candidate_ablation(
         return None, 0.0, estimated_q
 
     weighted_q = sum(role_weights[k] * estimated_q[k] for k in estimated_q.keys())
-    rci_est = 100.0 * (weighted_q / w_sum)
+    rci_est = weighted_q / w_sum
 
     # Compute ground truth RCI over the same observed capabilities for fair comparison
-    weighted_true = sum(role_weights[k] * candidate.ground_truth_capabilities[k] for k in estimated_q.keys())
-    rci_true = 100.0 * (weighted_true / w_sum)
+    target_w = true_weights if true_weights is not None else role_weights
+    target_w_sum = sum(target_w[k] for k in estimated_q.keys())
+    if target_w_sum <= 0.0:
+        return None, 0.0, estimated_q
+    weighted_true = sum(target_w[k] * candidate.ground_truth_capabilities[k] for k in estimated_q.keys())
+    rci_true = weighted_true / target_w_sum
 
     return rci_est, rci_true, estimated_q
 
@@ -116,25 +121,28 @@ def run_ablation_evaluation(
     role: CanonicalRole,
 ) -> Dict[str, float]:
     """Runs ablation evaluation across a candidate cohort and computes paper metrics."""
+    # Default role importance
+    raw_importances = {k: 1.0 for k in CapabilityKey}
+    from cci.research.simulation import ROLE_CAPABILITY_PROFILES
+    prof = ROLE_CAPABILITY_PROFILES.get(role, {})
+    for k, (mean_val, _) in prof.items():
+        raw_importances[k] = mean_val / 50.0
+    true_role_weights = compute_softmax_weights(raw_importances, temperature=1.0)
+
     # Build weights based on mode
     if mode == AblationMode.UNIFORM_WEIGHTS:
-        weights = {k: 1.0 / 12.0 for k in CapabilityKey}
+        eval_weights = {k: 1.0 / 12.0 for k in CapabilityKey}
     else:
-        # Default role importance
-        raw_importances = {k: 1.0 for k in CapabilityKey}
-        # Emphasize role primary capabilities
-        from cci.research.simulation import ROLE_CAPABILITY_PROFILES
-        prof = ROLE_CAPABILITY_PROFILES.get(role, {})
-        for k, (mean_val, _) in prof.items():
-            raw_importances[k] = mean_val / 50.0
-        weights = compute_softmax_weights(raw_importances, temperature=1.0)
+        eval_weights = true_role_weights
 
     est_rcis: List[float] = []
     true_rcis: List[float] = []
     cap_errors: List[float] = []
 
     for cand in cohort:
-        rci_est, rci_true, q_hats = evaluate_candidate_ablation(cand, mode, weights)
+        rci_est, rci_true, q_hats = evaluate_candidate_ablation(
+            cand, mode, eval_weights, true_weights=true_role_weights
+        )
         if rci_est is not None:
             est_rcis.append(rci_est)
             true_rcis.append(rci_true)

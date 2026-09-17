@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-17 08:16:18 UTC",
+    "total_candidates": 4800,
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "roles": [
+      "backend",
+      "frontend",
+      "fullstack",
+      "ml_engineer",
+      "devops_cloud",
+      "data_engineer"
+    ],
+    "candidates_per_role": 50,
+    "execution_time_seconds": 29.37
+  },
+  "ablation_summary": {
+    "FULL_CCI": {
+      "rci_mae": 1.9426,
+      "rci_rmse": 2.4686,
+      "spearman_rho": 0.9434,
+      "kendall_tau": 0.7945,
+      "capability_mae": 4.8442,
+      "sample_count": 4800
+    },
+    "NO_RECENCY_DECAY": {
+      "rci_mae": 1.9753,
+      "rci_rmse": 2.5045,
+      "spearman_rho": 0.9432,
+      "kendall_tau": 0.794,
+      "capability_mae": 4.8884,
+      "sample_count": 4800
+    },
+    "NO_OWNERSHIP_DISCOUNT": {
+      "rci_mae": 2.2192,
+      "rci_rmse": 2.8126,
+      "spearman_rho": 0.9327,
+      "kendall_tau": 0.7753,
+      "capability_mae": 5.2368,
+      "sample_count": 4800
+    },
+    "UNIFORM_WEIGHTS": {
+      "rci_mae": 3.1716,
+      "rci_rmse": 3.761,
+      "spearman_rho": 0.9386,
+      "kendall_tau": 0.7854,
+      "capability_mae": 4.8442,
+      "sample_count": 4800
+    },
+    "UNCALIBRATED_SOURCES": {
+      "rci_mae": 1.9224,
+      "rci_rmse": 2.4455,
+      "spearman_rho": 0.9424,
+      "kendall_tau": 0.7925,
+      "capability_mae": 4.8991,
+      "sample_count": 4800
+    }
+  },
+  "statistical_tests": {
+    "NO_RECENCY_DECAY": {
+      "statistic": 4036856.0,
+      "p_value": 2.0364078412682406e-72,
+      "two_sided_p_value": 4.072815682536481e-72,
+      "is_significant": true,
+      "cliffs_delta": 0.0121,
+      "mean_difference": 0.0327
+    },
+    "NO_OWNERSHIP_DISCOUNT": {
+      "statistic": 1978352.0,
+      "p_value": 0.0,
+      "two_sided_p_value": 0.0,
+      "is_significant": true,
+      "cliffs_delta": 0.0844,
+      "mean_difference": 0.2766
+    },
+    "UNIFORM_WEIGHTS": {
+      "statistic": 1507040.0,
+      "p_value": 0.0,
+      "two_sided_p_value": 0.0,
+      "is_significant": true,
+      "cliffs_delta": 0.3751,
+      "mean_difference": 1.229
+    },
+    "UNCALIBRATED_SOURCES": {
+      "statistic": 4685888.0,
+      "p_value": 1.0,
+      "two_sided_p_value": 4.104265665660845e-29,
+      "is_significant": false,
+      "cliffs_delta": -0.0073,
+      "mean_difference": -0.0202
+    }
+  },
+  "per_role_summary": {
+    "backend": {
+      "rci_mae": 1.9355,
+      "rci_rmse": 2.4436,
+      "spearman_rho": 0.9398,
+      "sample_count": 800
+    },
+    "frontend": {
+      "rci_mae": 1.9002,
+      "rci_rmse": 2.3812,
+      "spearman_rho": 0.9358,
+      "sample_count": 800
+    },
+    "fullstack": {
+      "rci_mae": 1.8942,
+      "rci_rmse": 2.3887,
+      "spearman_rho": 0.9402,
+      "sample_count": 800
+    },
+    "ml_engineer": {
+      "rci_mae": 1.9863,
+      "rci_rmse": 2.5059,
+      "spearman_rho": 0.9342,
+      "sample_count": 800
+    },
+    "devops_cloud": {
+      "rci_mae": 1.9574,
+      "rci_rmse": 2.5739,
+      "spearman_rho": 0.9347,
+      "sample_count": 800
+    },
+    "data_engineer": {
+      "rci_mae": 1.9822,
+      "rci_rmse": 2.5122,
+      "spearman_rho": 0.9451,
+      "sample_count": 800
+    }
+  }
+}
