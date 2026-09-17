@@ -5,7 +5,7 @@ Implements Wilcoxon signed-rank paired tests, effect size estimation (Cliff's de
 and paper-ready LaTeX / Markdown reporting.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats
 
