@@ -1,289 +1,144 @@
 # Candidate Capability Intelligence (CCI)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Research prototype](https://img.shields.io/badge/status-research_prototype-indigo.svg)](#research-and-validation-boundary)
+**CandidateX** is a research prototype for provenance-grounded technical capability evaluation and interviewer decision support. It converts candidate-supplied artifacts into an inspectable Candidate Evidence Graph (CEG), capability estimates, evidence-coverage diagnostics, contradictions, and prioritized technical interview probes.
 
-**Candidate Capability Intelligence (CCI)** is an employer-facing, human-in-the-loop technical assessment prototype. It turns candidate-authorized technical evidence into a provenance-preserving Candidate Evidence Graph, role-conditioned capability estimates, Evidence Coverage, contradiction diagnostics, and evidence-linked interview probes.
-
-**Live demo:** https://candidatex-smoky.vercel.app  
-**Portfolio case study:** https://yorayriniwnl.in/projects/candidatex
-
-> CCI is decision support for technical interviewers. It does **not** autonomously hire or reject candidates, and missing public evidence is treated as uncertainty / lower coverage rather than incapability.
-
----
-
-## Why CandidateX exists
-
-Software-engineering capability leaves evidence across repositories, deployments, database artifacts, credentials, professional profiles, resumes, and coding platforms. Traditional screening often compresses that evidence into resume keywords or one opaque score.
-
-CCI instead asks four questions:
-
-1. **What technical capability is supported?**
-2. **Which concrete evidence supports it?**
-3. **How strong, attributable, current, and complete is that evidence?**
-4. **What should a human interviewer verify next?**
-
-The system is designed around auditability rather than automated employment decisions.
-
----
+> **Human decision support only.** CandidateX does not autonomously hire, reject, shortlist, or rank people for employment decisions. Public demo records may be controlled synthetic/demo data when the live backend is unavailable.
 
 ## Core invariants
 
-1. **Human decision support only**. No autonomous hire / reject output.
-2. **Closed-world evidence boundary**. Analysis is restricted to candidate-supplied or explicitly authorized professional artifacts.
-3. **No untrusted candidate-code execution**. Candidate repositories are inspected statically.
-4. **Missing evidence is UNKNOWN**. Absence lowers Evidence Coverage; it is not silently mapped to zero capability.
-5. **Capability and coverage are separate outputs**. RCI summarizes observed capability while Coverage communicates evidence sufficiency.
-6. **Provenance is first-class**. Evidence retains source, revision, timestamp, ownership, verification, extractor version, and fingerprint information.
-7. **Role-aware interpretation**. The same candidate can be interpreted differently for Backend, Frontend, Full-stack, ML Engineer, DevOps, and Data Engineer roles.
-8. **Contradictions are preserved**. Conflicting evidence becomes an interviewer verification signal rather than an automatic rejection.
+- Analysis is bounded to a closed-world manifest of candidate-supplied resources.
+- Untrusted candidate code is statically inspected and is never executed.
+- Missing evidence is `UNKNOWN`; it lowers coverage rather than becoming a zero capability score.
+- RCI and Evidence Coverage are separate outputs.
+- Evidence records preserve provenance and immutable locators.
+- Rescoring uses previously acquired evidence and does not require re-crawling candidate sources.
 
----
-
-## System architecture
+## Architecture
 
 ```text
-Candidate / Job Intake
-        |
-        v
-Authorized Evidence Sources
-        |
-        v
-Source-specific static analyzers + verifiers
-        |
-        v
+Candidate / Role Intake
+        ↓
+Safe Evidence Acquisition
+        ↓
+Static Analyzers + Provenance
+        ↓
 Candidate Evidence Graph (CEG)
-        |
-        v
-Role-aware evidence fusion
-        |
-        +--> Capability estimates + confidence intervals
-        +--> Evidence Coverage
-        +--> Contradiction diagnostics
-        +--> Evidence-linked interview probes
-        |
-        v
-Human interviewer dossier
+        ↓
+Capability + Uncertainty Engine
+        ↓
+Contradiction Diagnostics
+        ↓
+Interview Probe Prioritization
+        ↓
+Human-Reviewed Technical Dossier
 ```
 
-### Monorepo
+The monorepo contains a Next.js recruiter workspace (`apps/web`), a FastAPI / SQLAlchemy analysis service (`services/backend`), deterministic research tooling (`research`), sample role fixtures (`examples`), and verification/audit tests.
 
-```text
-CandidateX/
-├── apps/web/                         # Next.js recruiter workspace
-├── services/backend/                 # FastAPI + SQLAlchemy backend
-│   └── src/cci/
-│       ├── acquisition/              # bounded evidence acquisition
-│       ├── analyzers/                # static code / DB / infra / deployment analysis
-│       ├── attribution/              # ownership + reliability
-│       ├── graph/                    # Candidate Evidence Graph
-│       ├── scoring/                  # confidence, capability, coverage, RCI
-│       ├── contradictions/           # conflict diagnostics
-│       ├── probes/                   # interview-probe prioritization
-│       ├── pipeline/                 # staged analysis orchestration
-│       └── api/                      # FastAPI routers
-├── research/                         # benchmark provenance + supplementary ablation harness
-├── examples/                         # reproducible candidate/JD fixtures
-├── scripts/                          # CLI analysis, seed, and audit tools
-└── .github/workflows/ci.yml          # backend/frontend/security verification workflow
-```
+## Paper-aligned mathematical core
 
----
+### Evidence recency
 
-## Formal CCI model
+$$t_{e,k}=\exp(-\lambda_k\Delta t_e)$$
 
-The repository implementation follows the submitted paper's scoring equations.
+### Six-factor evidence confidence
 
-### 1. Bayesian source reliability
+$$c_{e,k}=\left(a_e\,o_e\,t_{e,k}\,v_e\,x_e\,r_{s(e)}\right)^{1/6}$$
 
-For source family `s`:
+### Capability estimate and effective evidence count
 
-```text
-r_s = (TP_s + alpha_s) / (TP_s + FP_s + alpha_s + beta_s)
-```
+$$q_k=\frac{\sum_e c_{e,k}z_{e,k}}{\sum_e c_{e,k}},\qquad
+n_{\mathrm{eff},k}=\frac{(\sum_e c_{e,k})^2}{\sum_e c_{e,k}^2}$$
 
-### 2. Capability-dependent recency
+### Contradiction diagnostic
 
-```text
-t_e,k = exp(-lambda_k * Delta t_e)
-```
+$$D_k=\frac{P_k-N_k}{P_k+N_k+\epsilon}$$
 
-### 3. Six-factor evidence confidence
+### Interview probe priority, paper Eq. (11)
 
-```text
-c_e,k = (a_e * o_e * t_e,k * v_e * x_e * r_s(e))^(1/6)
-```
+$$I_k=w_k\left[\alpha(1-\mathrm{Cov}_k)+\beta\,\mathrm{CIwidth}_k+\gamma\,\mathrm{Conf}_k\right]$$
 
-where the factors represent artifact authenticity / integrity, contributor ownership, recency, verification, extractor confidence / technical specificity, and calibrated source reliability.
+### Role Capability Index
 
-### 4. Capability estimate
+$$RCI(C,J)=\frac{\sum_{k\in\mathcal O}w_kq_k}{\sum_{k\in\mathcal O}w_k}$$
 
-```text
-q_k = sum(c_e,k * z_e,k) / sum(c_e,k)
-```
+Unobserved capabilities remain outside the RCI numerator/denominator and are reflected in Evidence Coverage instead.
 
-When no usable evidence exists for capability `k`, `q_k` is UNKNOWN rather than zero.
+## Canonical engineering roles
 
-### 5. Effective evidence count
+1. Backend Engineering
+2. Frontend Engineering
+3. Full-stack Engineering
+4. Machine Learning Engineering
+5. DevOps / Cloud Engineering
+6. Data Engineering
 
-```text
-n_eff,k = (sum c_e,k)^2 / sum(c_e,k^2)
-```
+The framework evaluates twelve technical capability dimensions across those role profiles.
 
-### 6. Contradiction diagnostic
+## Research evidence: two distinct layers
 
-```text
-D_k = (P_k - N_k) / (P_k + N_k + epsilon)
-```
+### A. Submitted-paper controlled benchmark
 
-### 7. Role-conditioned weighting
+The submitted conference paper reports a controlled synthetic mechanism-validation experiment with:
 
-```text
-w_k(J) = exp(u_k / T) / sum_j exp(u_j / T)
-```
-
-### 8. Evidence Coverage
-
-```text
-Coverage(C,J) = sum_k w_k(J) * min(1, sum_e c_e,k / tau_k)
-```
-
-### 9. Role Capability Index
-
-```text
-RCI(C,J) = 100 * [sum_(k in O_C) w_k(J) q_k] / [sum_(k in O_C) w_k(J)]
-```
-
-### 10. Interview-probe priority, paper Eq. (11)
-
-```text
-I_k = w_k(J) * [alpha * (1 - Cov_k) + beta * CIwidth_k + gamma * Conf_k]
-```
-
-The implementation in `services/backend/src/cci/probes/priority.py` uses this structure so interviewer attention is directed toward role-important capability gaps, uncertainty, and contradictions.
-
----
-
-## Canonical roles and evidence families
-
-### Six target roles
-
-- Backend
-- Frontend
-- Full-stack
-- ML Engineer
-- DevOps / Cloud
-- Data Engineer
-
-### Seven paper evidence families
-
-- Resume
-- GitHub
-- Deployment / website
-- Database artifacts
-- Coding platforms
-- Certificates
-- LinkedIn / professional-profile claims
-
-Not every current connector has identical runtime depth; the research paper and the implementation intentionally preserve source-family provenance so unavailable sources can be represented explicitly rather than fabricated.
-
----
-
-## Research and validation boundary
-
-There are **two separate evidence layers** in this repository. They must not be conflated.
-
-### A. Submitted-paper controlled synthetic benchmark
-
-The submitted paper reports:
-
-- **16 random seeds**
-- **300 synthetic candidates per seed**
-- **6 target roles**
-- **12 capability dimensions**
-- **7 evidence families**
+- **16 deterministic seeds**
+- **300 candidate profiles per seed**
+- **6 target roles per candidate profile**
 - **28,800 candidate-role evaluations**
 
-Primary paper-reported results:
+Headline paper-reported results:
 
-| Metric | Paper-reported result |
+| Metric | Paper result |
 |---|---:|
-| Spearman `rho` | **0.928 ± 0.013** |
-| Kendall `tau` | **0.774 ± 0.019** |
+| Spearman $\rho$ | **0.928 ± 0.013** |
+| Kendall $\tau$ | **0.774 ± 0.019** |
 | nDCG@20 | **0.970 ± 0.011** |
-| Role-agnostic fusion Spearman `rho` | **0.849** |
-| 60% source-dropout Spearman `rho` | **0.716** |
-| Candidate-shuffle control Spearman `rho` | **-0.006 ± 0.057** |
 
-The paper also reports **40 randomized generator regimes** comprising **288,000 additional evaluations**, with mean regime-level Spearman `rho = 0.919 ± 0.010`.
+The machine-readable provenance record is `research/paper_benchmark_manifest.json`.
 
-These are **synthetic mechanism-validation results, not real-world hiring accuracy**. The paper explicitly requires external validation with consented candidates and blinded interviewers before any real hiring-validity claim.
+Additional paper-reported controls are also recorded there, including role-agnostic ranking, source dropout, candidate shuffle, and generator-regime sensitivity.
 
-Machine-readable provenance is stored in:
-
-```text
-research/paper_benchmark_manifest.json
-```
+**Validation boundary:** these are synthetic controlled-experiment results. They do not establish real-world hiring accuracy, fairness, or candidate performance. External human-reviewed validation remains future work.
 
 ### B. Repository supplementary implementation ablation
 
-`research/run_paper_experiments.py` is a **supplementary implementation ablation harness**. At its default settings it evaluates:
+The repository separately contains a deterministic **4,800 candidate-role-sample supplementary implementation ablation**. It compares the implemented Full CCI scoring architecture against recency, ownership, role-weight, and source-reliability ablations.
 
-```text
-16 seeds x 6 role-specific cohorts x 50 samples = 4,800 candidate-role samples
+This harness is intentionally labelled `paper_exact_reproduction: false`. It is useful for implementation diagnostics, but **it is not an exact regeneration of the paper benchmark** and its metrics must not be substituted for the paper's 28,800-evaluation headline results.
+
+Run it with:
+
+```bash
+python research/run_paper_experiments.py
 ```
 
-It is **not an exact regeneration of the paper benchmark**. It uses the current repository simulator to exercise implementation behavior under recency, ownership, role-weight, and source-calibration ablations.
+or a quick smoke configuration with:
 
-The existing `research/results/ablation_results.json` values therefore remain valid as repository implementation diagnostics, but they are not relabeled as the paper's headline 28,800-evaluation results.
+```bash
+python research/run_paper_experiments.py --quick
+```
 
-This separation is deliberate: publication provenance is stronger than forcing two different experimental designs into one number.
+Generated artifacts live under `research/results/` and carry the supplementary-evidence provenance boundary.
 
----
+## Public demo behavior
 
-## Recruiter workflow
+The frontend contains controlled demo candidate records so the recruiter workflow remains inspectable when the FastAPI service is unavailable. The UI explicitly identifies this boundary. Demo candidates are **not** evidence that those people were analyzed by a live production backend.
 
-The web application exposes:
+When the backend is online, the frontend uses the configured API and can retrieve live candidate/dossier/research data. When it is not, supported screens degrade to bounded demo/fallback data rather than pretending that a network analysis occurred.
 
-- Candidate directory
-- Candidate intake
-- Job / role intake
-- Multi-stage analysis progress
-- Candidate technical dossier
-- Candidate Evidence Graph
-- RCI and Evidence Coverage
-- Contradiction diagnostics
-- Evidence-linked interview probes
-- Candidate comparison
-- Methodology & math explorer
-- Dossier export / print flows
-
-When a live backend is unavailable, the public UI may fall back to controlled demonstration data. Demo-mode status should be treated as a product demonstration, not evidence that a real candidate was analyzed live.
-
----
-
-## Backend API surface
-
-Representative endpoints include:
+## REST API highlights
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/health` | service health |
-| `POST` | `/api/v1/jobs/parse` | parse job requirements / role profile |
-| `GET` | `/api/v1/candidates` | candidate directory |
-| `POST` | `/api/v1/pipeline/run` | run staged analysis |
-| `GET` | `/api/v1/pipeline/status/{run_id}` | pipeline status |
-| `GET` | `/api/v1/dossier/{candidate_id}` | technical dossier |
-| `GET` | `/api/v1/dossier/{candidate_id}/graph` | Candidate Evidence Graph |
-| `POST` | `/api/v1/pipeline/rescore` | functional role-weight rescore |
-| `GET` | `/api/v1/research/theorems` | formal methodology catalog |
-| `GET` | `/api/v1/research/ablation-study` | supplementary implementation ablation |
+| `GET` | `/health` | Service health |
+| `GET` | `/api/v1/candidates` | Candidate directory |
+| `GET` | `/api/v1/dossier/{candidate_id}` | Technical dossier |
+| `GET` | `/api/v1/research/theorems` | Paper-aligned theorem / formula catalog |
+| `GET` | `/api/v1/research/paper-benchmark` | Submitted-paper benchmark provenance and headline results |
+| `GET` | `/api/v1/research/ablation-study` | Supplementary 4,800-sample implementation ablation |
+| `POST` | `/api/v1/research/calculate` | Interactive supported theorem calculations |
 
----
-
-## Quickstart
+## Local development
 
 ### Backend
 
@@ -301,80 +156,22 @@ pnpm install
 pnpm --filter web dev
 ```
 
-### Seed controlled demo candidates
-
-```bash
-python scripts/seed_db.py --samples 7
-```
-
-### Run one candidate through the CLI
-
-```bash
-python scripts/analyze_candidate.py \
-  --cv examples/sample_backend_cv.txt \
-  --jd examples/sample_backend_jd.txt \
-  --role backend
-```
-
-### Run the supplementary implementation ablation
-
-```bash
-python research/run_paper_experiments.py
-```
-
-Fast sanity run:
-
-```bash
-python research/run_paper_experiments.py --quick
-```
-
----
-
 ## Verification
 
-The repository includes tests for scoring mathematics, paper invariants, SSRF / safe-workspace behavior, database seeding, research utilities, pipeline behavior, and frontend build/type checks.
+The repository includes unit, scoring, theorem, API, security, database, pipeline, export, research, and paper-alignment regression tests. The CI workflow runs Python 3.11/3.12 backend checks, frontend build/type checks, security invariants, and a research smoke run.
 
-The paper-alignment regression contract lives at:
+### Current GitHub Actions infrastructure note
 
-```text
-services/backend/tests/test_paper_alignment_contract.py
-```
+During the 17 September 2026 readiness pass, GitHub created all CI jobs but terminated them before assigning a runner: the Actions API reported `steps: []`, `runner_id: 0`, and an empty runner name across backend, frontend, and security jobs. Therefore those red runs are **not evidence that pytest, pnpm, or the security suite executed and failed**.
 
-It protects the project against three easy-to-miss regressions:
+The repository does not bypass or fake-success those checks. The external Actions runner/account condition must be resolved and the unchanged workflow rerun before calling CI green. See `docs/verification/ci-external-runner-note.md`.
 
-1. stale probe-priority equations appearing in UI/docs,
-2. a non-paper role such as Mobile replacing Data Engineer in research defaults,
-3. the 4,800-sample implementation harness being mislabeled as the paper's 28,800-evaluation benchmark.
+Vercel deployment status is tracked independently and should not be treated as a substitute for the backend test suite.
 
-### CI note
+## Limitations and next validation stage
 
-The GitHub Actions workflow is configured in `.github/workflows/ci.yml`. If GitHub reports jobs with **zero steps and `runner_id = 0`**, the job never reached a runner, so that event is an Actions account/runner-availability failure rather than a test failure. Do not interpret such a run as evidence that the backend or frontend tests executed.
+CandidateX is an engineering/research prototype, not a validated hiring instrument. Before any consequential use, the system needs consented external validation with real hiring artifacts, inter-rater studies, calibration analysis, subgroup/fairness assessment, privacy/governance review, and operational reliability measurements.
 
----
+For a classroom or conference demonstration, the appropriate claim is:
 
-## Security and governance
-
-- Static analysis only for untrusted candidate repositories
-- SSRF / private-network / cloud-metadata protections for bounded deployment inspection
-- Source allowlists and explicit source states
-- Immutable / auditable evidence lineage
-- Correction / appeal design for mistaken identity or attribution
-- Sensitive / protected attributes excluded from technical scoring
-- Candidate notice, consent, retention, and external fairness validation required before serious hiring use
-
----
-
-## Limitations
-
-CandidateX is a research prototype. Public technical artifacts reveal only part of a person's capability. Private work, NDAs, team context, unequal access to public platforms, accessibility needs, and many other factors affect observability.
-
-A strong-looking dossier is therefore not a hiring verdict. A low-coverage dossier is not evidence of low capability. The intended endpoint is a transparent technical brief that helps a human interviewer spend limited interview time on the most important unresolved technical questions.
-
----
-
-## Authors / research context
-
-**Ayush Roy · Archi Srivastava**  
-School of Computer Engineering, KIIT Deemed to be University, Bhubaneswar, Odisha, India
-
-Associated paper: **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion**.
+> CandidateX implements a provenance-grounded technical evidence and interview-intelligence workflow and includes controlled synthetic research evidence. It does not yet claim validated real-world hiring performance.
