@@ -1,33 +1,30 @@
 #!/usr/bin/env python3
-"""Candidate Capability Intelligence (CCI) — Comprehensive System & Theoretical Audit Runner.
+"""Candidate Capability Intelligence (CCI) comprehensive system audit runner.
 
-Executes a formal 6-pillar audit:
-1. Formal Paper Theorems Audit (Theorems 1-10)
-2. Security & AST Sandboxing Audit (SSRF, Zero Code Execution, Isolation)
-3. Database Immutability & Model Integrity Audit (ImmutableModelMixin)
-4. Research Benchmark Reproduction Audit (Monte Carlo N=4,800, Wilcoxon tests)
-5. Live Operational Endpoints Audit (10/10 endpoints)
-6. Frontend Build & Static Typecheck Audit (Next.js 15, TypeScript)
+Executes a six-pillar audit:
+1. Formal paper theorem tests (Theorems 1-10)
+2. Security and static-analysis sandboxing tests
+3. Database migration and model-integrity tests
+4. Synthetic Monte Carlo research reproduction tests (N=4,800 simulated candidates)
+5. Local operational endpoint probes
+6. Frontend typecheck, production build, and UI evidence-contract checks
 
-Emits a structured audit scorecard with formal invariant assertions.
+The runner reports only what its commands actually exercise. The N=4,800 research
+cohort is synthetic simulation evidence, not validation on real applicants or hiring outcomes.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict, List
 import urllib.request
-import urllib.error
 
-# ANSI colors
 CYAN = "\033[96m"
 GREEN = "\033[92m"
-YELLOW = "\033[93m"
 RED = "\033[91m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -36,14 +33,13 @@ RESET = "\033[0m"
 @dataclass
 class AuditResult:
     pillar: str
-    status: str  # "PASS", "FAIL", "WARN"
+    status: str
     details: str
     duration_ms: float
     checks: List[Dict[str, Any]]
 
 
 def run_command(cmd: List[str], cwd: str | None = None) -> tuple[int, str, str]:
-    start = time.perf_counter()
     proc = subprocess.Popen(
         cmd,
         cwd=cwd,
@@ -57,7 +53,7 @@ def run_command(cmd: List[str], cwd: str | None = None) -> tuple[int, str, str]:
 
 
 def audit_pillar_1_theorems(python_bin: str) -> AuditResult:
-    """Pillar 1: Mathematical & Paper Theorems Audit."""
+    """Pillar 1: Mathematical and paper theorem tests."""
     t0 = time.perf_counter()
     cmd = [
         python_bin,
@@ -86,32 +82,30 @@ def audit_pillar_1_theorems(python_bin: str) -> AuditResult:
 
     combined = stdout + stderr
     all_passed = code == 0 and "passed" in combined
-
     for title, fn_name in theorems:
-        # If pytest exited 0 (all tests passed), each theorem is verified.
-        # If it failed, try to detect which specific test failed in output.
-        if all_passed:
-            passed = True
-        else:
-            passed = f"{fn_name} PASSED" in combined
+        passed = all_passed or f"{fn_name} PASSED" in combined
         checks.append({
             "name": title,
             "status": "PASS" if passed else "FAIL",
-            "assertion": "Mathematically Verified" if passed else "Failed Assertion",
+            "assertion": "Test passed" if passed else "Test did not pass",
         })
 
     status = "PASS" if code == 0 else "FAIL"
     return AuditResult(
-        pillar="1. Mathematical & Theoretical Theorems (Theorems 1–10)",
+        pillar="1. Mathematical & Theoretical Theorems (Theorems 1-10)",
         status=status,
-        details="All 10 formal conference paper theorems verified under range bounds and asymptotic limits.",
+        details=(
+            "The theorem test module completed successfully."
+            if status == "PASS"
+            else "One or more theorem tests failed; inspect pytest output before making theorem-verification claims."
+        ),
         duration_ms=duration,
         checks=checks,
     )
 
 
 def audit_pillar_2_security(python_bin: str) -> AuditResult:
-    """Pillar 2: Security, SSRF & AST Sandboxing Audit."""
+    """Pillar 2: Security, SSRF, and static-analysis sandboxing tests."""
     t0 = time.perf_counter()
     cmd = [
         python_bin,
@@ -128,37 +122,41 @@ def audit_pillar_2_security(python_bin: str) -> AuditResult:
         {
             "name": "SSRF Protection Matrix (RFC 1918, Link-Local, Loopback)",
             "status": "PASS" if "test_ssrf.py" in stdout and code == 0 else "FAIL",
-            "assertion": "Strict IP address filtering blocks unauthorized intranet scans",
+            "assertion": "Security test suite passed" if code == 0 else "Security test suite failed",
         },
         {
             "name": "Cloud Metadata IMDS Protection (169.254.169.254)",
             "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "AWS/GCP/Azure link-local metadata targets prohibited",
+            "assertion": "Covered by passing security suite" if code == 0 else "Not verified by this run",
         },
         {
-            "name": "Zero Dynamic Code Execution (Static AST Only)",
+            "name": "Static Code Analysis Path",
             "status": "PASS" if "test_code_analyzers.py" in stdout and code == 0 else "FAIL",
-            "assertion": "Python ast, Babel TS/JS, Go ast, Java/C++ parsed deterministically without execution",
+            "assertion": "Golden analyzer tests passed" if code == 0 else "Golden analyzer tests failed",
         },
         {
             "name": "Workspace Isolation Context Manager",
             "status": "PASS" if "test_safe_workspace.py" in stdout and code == 0 else "FAIL",
-            "assertion": "Ephemeral directories isolated; path traversal strictly prevented",
+            "assertion": "Workspace tests passed" if code == 0 else "Workspace tests failed",
         },
     ]
 
     status = "PASS" if code == 0 else "FAIL"
     return AuditResult(
-        pillar="2. Security, SSRF & AST Sandboxing Isolation",
+        pillar="2. Security, SSRF & Static-Analysis Isolation",
         status=status,
-        details="Untrusted candidate code is never executed. SSRF filters block all private network access.",
+        details=(
+            "The selected security and golden static-analysis tests passed."
+            if status == "PASS"
+            else "Security/static-analysis verification is incomplete because the selected tests failed."
+        ),
         duration_ms=duration,
         checks=checks,
     )
 
 
 def audit_pillar_3_db_immutability(python_bin: str) -> AuditResult:
-    """Pillar 3: Database Persistence & Immutability Audit."""
+    """Pillar 3: Database persistence and model-integrity tests."""
     t0 = time.perf_counter()
     cmd = [
         python_bin,
@@ -173,34 +171,38 @@ def audit_pillar_3_db_immutability(python_bin: str) -> AuditResult:
 
     checks = [
         {
-            "name": "Immutable Evidence Records (ImmutableModelMixin)",
+            "name": "Evidence / Model Integrity",
             "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "Committed evidence records and confidence parameters cannot be mutated",
+            "assertion": "Selected DB integration tests passed" if code == 0 else "Selected DB integration tests failed",
         },
         {
             "name": "Alembic Database Schema Migration Reversibility",
             "status": "PASS" if "test_db_migration.py" in stdout and code == 0 else "FAIL",
-            "assertion": "All 41 relational schema entities upgrade and downgrade cleanly",
+            "assertion": "Migration test passed" if code == 0 else "Migration test not verified",
         },
         {
-            "name": "Multi-Tenant Recruiter & Organization Partitioning",
-            "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "Organization foreign keys enforce strict multi-tenant boundary",
+            "name": "Database Seeding / Relationship Integrity",
+            "status": "PASS" if "test_db_seeding.py" in stdout and code == 0 else "FAIL",
+            "assertion": "Seeding test passed" if code == 0 else "Seeding test not verified",
         },
     ]
 
     status = "PASS" if code == 0 else "FAIL"
     return AuditResult(
-        pillar="3. Database Persistence & Governance Immutability",
+        pillar="3. Database Persistence & Governance Integrity",
         status=status,
-        details="Schema integrity, migration reversibility, and immutable evidence records verified.",
+        details=(
+            "The selected database migration and seeding integration tests passed."
+            if status == "PASS"
+            else "Database integrity is not verified by this run because one or more integration tests failed."
+        ),
         duration_ms=duration,
         checks=checks,
     )
 
 
 def audit_pillar_4_research_benchmarks(python_bin: str) -> AuditResult:
-    """Pillar 4: Research Benchmarks & Ablation Reproduction."""
+    """Pillar 4: Synthetic research simulation and ablation reproduction tests."""
     t0 = time.perf_counter()
     cmd = [
         python_bin,
@@ -214,34 +216,42 @@ def audit_pillar_4_research_benchmarks(python_bin: str) -> AuditResult:
 
     checks = [
         {
-            "name": "Table 1 Architecture Ablation Evaluation (5 Configurations)",
+            "name": "Synthetic Table 1 Ablation Evaluation (5 Configurations)",
             "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "Full CCI, w/o Recency, w/o Ownership, Uniform Weights, Uncalibrated verified",
+            "assertion": "Simulation/research tests passed" if code == 0 else "Simulation/research tests failed",
         },
         {
-            "name": "Paired Wilcoxon Signed-Rank Test (p < 0.001)",
+            "name": "Paired Wilcoxon Signed-Rank Calculations",
             "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "Statistical significance p < 0.001 (***) confirmed across 4,800 Monte Carlo candidates",
+            "assertion": (
+                "Per-ablation significance is preserved; UNCALIBRATED_SOURCES is non-significant (committed p = 1.000)"
+                if code == 0
+                else "Statistical-test implementation not verified by this run"
+            ),
         },
         {
             "name": "Cliff's Delta Effect Size Calculation",
             "status": "PASS" if code == 0 else "FAIL",
-            "assertion": "Non-parametric effect size metrics accurately bounded in [-1, +1]",
+            "assertion": "Research statistics tests passed" if code == 0 else "Research statistics tests failed",
         },
     ]
 
     status = "PASS" if code == 0 else "FAIL"
     return AuditResult(
-        pillar="4. Research Benchmarks & Statistical Reproducibility",
+        pillar="4. Synthetic Research Simulation & Statistical Reproducibility",
         status=status,
-        details="Table 1 reproduction metrics and non-parametric hypothesis tests verified.",
+        details=(
+            "The selected research tests passed for the synthetic Monte Carlo simulation. This does not establish real-candidate or hiring-outcome validity."
+            if status == "PASS"
+            else "Synthetic research reproduction is not verified by this run because one or more research tests failed."
+        ),
         duration_ms=duration,
         checks=checks,
     )
 
 
 def audit_pillar_5_live_endpoints() -> AuditResult:
-    """Pillar 5: Live Local Operational Stack Audit."""
+    """Pillar 5: Local operational stack probe."""
     t0 = time.perf_counter()
     endpoints = [
         ("FastAPI Backend Healthcheck", "http://127.0.0.1:8000/health"),
@@ -258,7 +268,6 @@ def audit_pillar_5_live_endpoints() -> AuditResult:
 
     checks = []
     all_ok = True
-
     for name, url in endpoints:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "CCI-System-Auditor/1.0"})
@@ -266,7 +275,7 @@ def audit_pillar_5_live_endpoints() -> AuditResult:
             with urllib.request.urlopen(req, timeout=5) as resp:
                 status_code = resp.getcode()
                 latency_ms = (time.perf_counter() - t_req) * 1000
-                is_pass = (status_code == 200)
+                is_pass = status_code == 200
                 checks.append({
                     "name": name,
                     "status": "PASS" if is_pass else "FAIL",
@@ -274,55 +283,64 @@ def audit_pillar_5_live_endpoints() -> AuditResult:
                 })
                 if not is_pass:
                     all_ok = False
-        except Exception as e:
+        except Exception as exc:
             checks.append({
                 "name": name,
                 "status": "FAIL",
-                "assertion": f"Connection Error: {str(e)}",
+                "assertion": f"Connection Error: {exc}",
             })
             all_ok = False
 
     duration = (time.perf_counter() - t0) * 1000
     return AuditResult(
-        pillar="5. Live Operational Endpoints & HTTP Availability",
+        pillar="5. Local Operational Endpoints & HTTP Availability",
         status="PASS" if all_ok else "FAIL",
-        details="10/10 local endpoints probe responsive with 200 OK status.",
+        details=(
+            "All 10 configured local endpoints returned HTTP 200."
+            if all_ok
+            else "One or more configured local endpoints did not return HTTP 200; local-stack availability is not fully verified."
+        ),
         duration_ms=duration,
         checks=checks,
     )
 
 
 def audit_pillar_6_frontend_build() -> AuditResult:
-    """Pillar 6: Frontend TypeScript Typecheck & Production Build."""
+    """Pillar 6: Frontend typecheck, production build, and evidence-contract checks."""
     t0 = time.perf_counter()
-    # 1. Typecheck & lint
-    code_lint, stdout_lint, stderr_lint = run_command(
-        ["npm", "--prefix", "apps/web", "run", "lint"]
-    )
+
+    code_lint, _, _ = run_command(["npm", "--prefix", "apps/web", "run", "lint"])
+    code_build, _, _ = run_command(["npm", "--prefix", "apps/web", "run", "build"])
+    code_contract, _, _ = run_command(["node", "scripts/verify_ui_evidence_contract.mjs"])
 
     checks = [
         {
-            "name": "Next.js TypeScript Static Typecheck (tsc --noEmit)",
+            "name": "Next.js TypeScript Static Typecheck",
             "status": "PASS" if code_lint == 0 else "FAIL",
-            "assertion": "0 TypeScript compilation or contract errors",
+            "assertion": "Frontend lint/typecheck command exited 0" if code_lint == 0 else "Frontend lint/typecheck command failed",
         },
         {
-            "name": "Prerendered Production Routes (4/4)",
-            "status": "PASS" if code_lint == 0 else "FAIL",
-            "assertion": "Static pages optimized with zero hydration mismatches",
+            "name": "Next.js Production Build",
+            "status": "PASS" if code_build == 0 else "FAIL",
+            "assertion": "Production build exited 0" if code_build == 0 else "Production build failed",
         },
         {
-            "name": "Human-Centric UI/UX Accessibility",
-            "status": "PASS",
-            "assertion": "Simplified 5-destination navigation, How It Works modal, dual-mode views",
+            "name": "UI Evidence Integrity Contract",
+            "status": "PASS" if code_contract == 0 else "FAIL",
+            "assertion": "No silent mock-result fallback detected by contract" if code_contract == 0 else "UI evidence contract failed",
         },
     ]
 
     duration = (time.perf_counter() - t0) * 1000
+    status = "PASS" if code_lint == 0 and code_build == 0 and code_contract == 0 else "FAIL"
     return AuditResult(
-        pillar="6. Frontend TypeScript & Production Build Health",
-        status="PASS" if code_lint == 0 else "FAIL",
-        details="Next.js 15 workstation compiles cleanly with 0 type errors.",
+        pillar="6. Frontend TypeScript, Production Build & Evidence Integrity",
+        status=status,
+        details=(
+            "Typecheck/lint, production build, and UI evidence contract all passed."
+            if status == "PASS"
+            else "At least one frontend verification command failed; inspect its direct output before claiming build health."
+        ),
         duration_ms=duration,
         checks=checks,
     )
@@ -376,7 +394,6 @@ def main():
         print(f"{BOLD}{RED}[AUDIT RESULT: PARTIAL] {passed_checks}/{total_checks} audit checks passed ({score_pct:.1f}%).{RESET}")
     print("=" * 80)
 
-    # Return non-zero if any pillar failed
     all_passed = all(p.status == "PASS" for p in pillars)
     sys.exit(0 if all_passed else 1)
 
