@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
+import {
+  LayoutDashboard,
+  Layers,
+  MessageSquare,
+  FileCheck2,
+  GitFork,
+  ShieldCheck,
+} from 'lucide-react';
 import { CapabilityKey, CanonicalRole, Dossier, CEGGraph } from '../../types/cci';
 import { DossierHeader } from './DossierHeader';
+import { DossierOverviewTab } from './DossierOverviewTab';
 import { CapabilityBreakdownTable } from './CapabilityBreakdownTable';
 import { ContradictionDiagnosticsCard } from './ContradictionDiagnosticsCard';
 import { InterviewProbesPanel } from './InterviewProbesPanel';
@@ -17,13 +26,21 @@ export const DossierView: React.FC<{
   initialDossier: Dossier;
   graph: CEGGraph;
   candidateName?: string;
-}> = ({ initialDossier, graph, candidateName = 'Alice Developer' }) => {
+  onSelectCandidate?: (candidateId: string, name: string) => void;
+}> = ({ initialDossier, graph, candidateName = 'Alice Developer', onSelectCandidate }) => {
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'capabilities' | 'probes' | 'claims' | 'graph'>('overview');
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
   const [inspectedEvidenceId, setInspectedEvidenceId] = useState<string | null>(null);
   const [isWeightsModalOpen, setIsWeightsModalOpen] = useState(false);
   const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
   const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
+
+  // Sync state if initialDossier changes
+  React.useEffect(() => {
+    setDossier(initialDossier);
+  }, [initialDossier]);
+
   const [customWeights, setCustomWeights] = useState<Record<CapabilityKey, number>>({
     backend_engineering: 0.25,
     database_engineering: 0.15,
@@ -69,59 +86,149 @@ export const DossierView: React.FC<{
 
   return (
     <div className="space-y-6">
-      {/* 1. Header with RCI, Coverage, and Invariant Badges */}
+      {/* 1. Header with RCI, Coverage, Candidate Switcher, and Export */}
       <DossierHeader
         dossier={dossier}
         candidateName={candidateName}
         onOpenWeightsModal={() => setIsWeightsModalOpen(true)}
+        onSelectCandidate={onSelectCandidate}
       />
 
-      {/* 2. Core Capabilities Point Estimates & Confidence Intervals */}
-      <CapabilityBreakdownTable
-        estimates={dossier.capability_estimates}
-        weights={customWeights}
-        selectedCapability={selectedCapability}
-        onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-      />
+      {/* 2. Focused Dossier Sub-Navigation Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto text-xs">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('overview')}
+          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
+            activeSubTab === 'overview'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Executive Overview</span>
+        </button>
 
-      {/* 3. Contradiction Diagnostics (D_k in [-1, +1]) */}
-      <ContradictionDiagnosticsCard
-        conflicts={dossier.capability_conflicts}
-        selectedCapability={selectedCapability}
-        onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('capabilities')}
+          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
+            activeSubTab === 'capabilities'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>12 Core Capabilities</span>
+        </button>
 
-      {/* 4. Prioritized Technical Interview Probes */}
-      <InterviewProbesPanel
-        probes={dossier.interview_probes}
-        questions={dossier.interview_questions}
-        selectedCapability={selectedCapability}
-        onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-        onOpenScorecard={() => setIsScorecardModalOpen(true)}
-        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('probes')}
+          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
+            activeSubTab === 'probes'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Interview Guide &amp; Scorecard</span>
+          {dossier.interview_probes && dossier.interview_probes.length > 0 && (
+            <span className="px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 rounded-full text-[10px] font-mono">
+              {dossier.interview_probes.length}
+            </span>
+          )}
+        </button>
 
-      {/* 5. Self-Claims Verification Matrix */}
-      <ClaimsMatrix
-        claims={dossier.claims_corroboration}
-        selectedCapability={selectedCapability}
-        onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('claims')}
+          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
+            activeSubTab === 'claims'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+          <span>Claims &amp; Code Proof</span>
+        </button>
 
-      {/* 6. Candidate Evidence Graph (CEG) Interactive Viewer */}
-      <GraphViewer
-        graph={graph}
-        selectedCapability={selectedCapability}
-        onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
-        onInspectEvidence={(id) => setInspectedEvidenceId(id)}
-      />
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('graph')}
+          className={`px-3.5 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shrink-0 ${
+            activeSubTab === 'graph'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <GitFork className="w-4 h-4" />
+          <span>Evidence Graph &amp; Audit Log</span>
+        </button>
+      </div>
 
-      {/* 7. Candidate Audit Trail & Governance Log */}
-      <AuditTrailViewer
-        candidateId={dossier.candidate_id}
-        refreshTrigger={auditRefreshTrigger}
-      />
+      {/* 3. Tab Contents */}
+      {activeSubTab === 'overview' && (
+        <DossierOverviewTab
+          dossier={dossier}
+          candidateName={candidateName}
+          onNavigateToTab={(tab) => setActiveSubTab(tab)}
+          onSelectCapability={(key) => setSelectedCapability(key)}
+        />
+      )}
+
+      {activeSubTab === 'capabilities' && (
+        <CapabilityBreakdownTable
+          estimates={dossier.capability_estimates}
+          weights={customWeights}
+          selectedCapability={selectedCapability}
+          onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+        />
+      )}
+
+      {activeSubTab === 'probes' && (
+        <InterviewProbesPanel
+          probes={dossier.interview_probes}
+          questions={dossier.interview_questions}
+          selectedCapability={selectedCapability}
+          onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+          onOpenScorecard={() => setIsScorecardModalOpen(true)}
+          onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+        />
+      )}
+
+      {activeSubTab === 'claims' && (
+        <div className="space-y-6">
+          <ContradictionDiagnosticsCard
+            conflicts={dossier.capability_conflicts}
+            selectedCapability={selectedCapability}
+            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+          />
+
+          <ClaimsMatrix
+            claims={dossier.claims_corroboration}
+            selectedCapability={selectedCapability}
+            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+            onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+          />
+        </div>
+      )}
+
+      {activeSubTab === 'graph' && (
+        <div className="space-y-6">
+          <GraphViewer
+            graph={graph}
+            selectedCapability={selectedCapability}
+            onSelectCapability={(key) => setSelectedCapability(selectedCapability === key ? null : key)}
+            onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+          />
+
+          <AuditTrailViewer
+            candidateId={dossier.candidate_id}
+            refreshTrigger={auditRefreshTrigger}
+          />
+        </div>
+      )}
 
       {/* Expert Weight Override Modal */}
       <ExpertWeightOverrideModal

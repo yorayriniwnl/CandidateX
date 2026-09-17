@@ -319,6 +319,19 @@ export const CandidateDirectory: React.FC<{
         </div>
       </div>
 
+      {/* Quick Onboarding Helper Banner */}
+      <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-indigo-200 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+          <div>
+            <span className="font-semibold text-white">How to explore this cohort:</span>
+            <span className="text-slate-300 ml-1.5">
+              Click &ldquo;View Dossier&rdquo; on any candidate to inspect their verified code capabilities and interview questions, or select up to 3 candidates with the &ldquo;Compare&rdquo; checkbox.
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Cohort Analytics Overview Ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
@@ -505,7 +518,7 @@ export const CandidateDirectory: React.FC<{
                   {/* Score & Diagnostics Badges */}
                   <div className="mt-4 grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Role Capability Index</span>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Technical Readiness</span>
                       <span className="text-lg font-bold text-slate-100">
                         {candidate.rci !== null && candidate.rci !== undefined ? `${candidate.rci.toFixed(1)}` : 'UNKNOWN'}
                       </span>
@@ -513,7 +526,7 @@ export const CandidateDirectory: React.FC<{
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Evidence Coverage</span>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Code Evidence Coverage</span>
                       <span className="text-lg font-bold text-indigo-400">
                         {candidate.coverage !== null && candidate.coverage !== undefined ? `${(candidate.coverage * 100).toFixed(1)}%` : '0.0%'}
                       </span>
@@ -524,14 +537,14 @@ export const CandidateDirectory: React.FC<{
                   {candidate.has_meaningful_conflict && (
                     <div className="mt-3 flex items-center gap-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs text-rose-300">
                       <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                      <span>Contradiction flagged (D_k &lt; 0) between claims and repository observations</span>
+                      <span><strong>Claim Discrepancy:</strong> Resume claim conflicts with code complexity ($D_k &lt; 0$)</span>
                     </div>
                   )}
 
                   {!candidate.has_meaningful_conflict && candidate.coverage !== undefined && candidate.coverage < 0.10 && (
                     <div className="mt-3 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-300">
                       <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-                      <span>Sparse evidence cohort: Missing capabilities remain UNKNOWN</span>
+                      <span><strong>Sparse Public Repos:</strong> Missing skills marked UNKNOWN (never scored 0.0)</span>
                     </div>
                   )}
                 </div>
