@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Play,
+  AlertTriangle,
 } from 'lucide-react';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement } from '../types/cci';
 import { JobIntakeForm } from './JobIntakeForm';
@@ -31,7 +32,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     name: 'Alice Chen',
     role: 'backend',
     label: 'Senior Distributed Backend',
-    badge: 'High Coverage (RCI 90.0)',
+    badge: 'Synthetic input',
     variant: 'success',
     manifest: {
       candidate_id: '11111111-1111-1111-1111-111111111111',
@@ -45,7 +46,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
       deployment_urls: ['https://alicechen.dev'],
       portfolio_urls: [],
       declared_skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
-      extraction_metadata: {},
+      extraction_metadata: { sample_input: true },
     },
   },
   {
@@ -53,7 +54,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     name: 'Elena Rostova',
     role: 'frontend',
     label: 'Staff Frontend Platform',
-    badge: 'Design Systems (RCI 86.0)',
+    badge: 'Synthetic input',
     variant: 'brand',
     manifest: {
       candidate_id: '22222222-2222-2222-2222-222222222222',
@@ -67,15 +68,15 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
       deployment_urls: ['https://erostova.design'],
       portfolio_urls: [],
       declared_skills: ['TypeScript', 'React', 'Next.js', 'Web Vitals', 'WAI-ARIA', 'Tailwind CSS'],
-      extraction_metadata: {},
+      extraction_metadata: { sample_input: true },
     },
   },
   {
     id: '77777777-7777-7777-7777-777777777777',
     name: 'Devin Vance',
     role: 'backend',
-    label: 'Backend Conflict Demo',
-    badge: 'Contradiction Alert (D_k < 0)',
+    label: 'Backend Conflict Scenario',
+    badge: 'Synthetic input',
     variant: 'danger',
     manifest: {
       candidate_id: '77777777-7777-7777-7777-777777777777',
@@ -89,7 +90,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
       deployment_urls: ['https://devinvance.dev'],
       portfolio_urls: [],
       declared_skills: ['Distributed Systems', 'Kafka', 'Consensus Algorithms', 'Raft'],
-      extraction_metadata: {},
+      extraction_metadata: { sample_input: true },
     },
   },
 ];
@@ -99,14 +100,16 @@ export const EvaluationWizard: React.FC<{
   pipelineStageIndex: number;
   isPipelineRunning: boolean;
   isPipelineComplete: boolean;
+  isBackendOnline: boolean | null;
   onJobComplete: (role: CanonicalRole, jdText: string, reqs: NormalizedRequirement[]) => void;
   onCandidateSubmit: (manifest: CandidateManifest) => void;
   onViewDossier: () => void;
 }> = ({
-  currentRole,
+  currentRole: _currentRole,
   pipelineStageIndex,
   isPipelineRunning,
   isPipelineComplete,
+  isBackendOnline,
   onJobComplete,
   onCandidateSubmit,
   onViewDossier,
@@ -120,6 +123,7 @@ export const EvaluationWizard: React.FC<{
   }, [isPipelineRunning]);
 
   const handleQuickDemoClick = (profile: QuickDemoProfile) => {
+    if (!isBackendOnline) return;
     onJobComplete(profile.role, '', []);
     onCandidateSubmit(profile.manifest);
     setStep(3);
@@ -137,44 +141,52 @@ export const EvaluationWizard: React.FC<{
 
   return (
     <div className="space-y-5">
-      {/* 1-Click Quick Demo Presets */}
       <GlassCard variant="strong" glow="indigo" className="p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4" />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white">Synthetic Input Presets</span>
+                <span className="text-[11px] text-slate-400 ml-2 hidden md:inline">
+                  Convenience manifests only. They do not contain preset scores or outcomes.
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-xs font-bold text-white">1-Click Demonstration Presets</span>
-              <span className="text-[11px] text-slate-400 ml-2 hidden md:inline">
-                Evaluate pre-configured candidate profiles instantly:
-              </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {QUICK_DEMO_PROFILES.map((profile) => (
+                <button
+                  key={profile.id}
+                  type="button"
+                  disabled={!isBackendOnline}
+                  onClick={() => handleQuickDemoClick(profile)}
+                  title={isBackendOnline ? profile.label : 'Backend required to run an evaluation'}
+                  className="px-3 py-1.5 glass hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-medium text-slate-200 transition-all flex items-center gap-2 group"
+                >
+                  <Play className="w-3 h-3 text-brand-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold">{profile.name}</span>
+                  <GlowBadge variant={profile.variant} size="sm">
+                    {profile.badge}
+                  </GlowBadge>
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {QUICK_DEMO_PROFILES.map((profile) => (
-              <button
-                key={profile.id}
-                type="button"
-                onClick={() => handleQuickDemoClick(profile)}
-                className="px-3 py-1.5 glass hover:bg-white/[0.08] rounded-xl text-xs font-medium text-slate-200 transition-all flex items-center gap-2 group"
-              >
-                <Play className="w-3 h-3 text-brand-400 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold">{profile.name}</span>
-                <GlowBadge variant={profile.variant} size="sm">
-                  {profile.badge}
-                </GlowBadge>
-              </button>
-            ))}
-          </div>
+          {isBackendOnline === false && (
+            <div className="flex items-center gap-2 text-[11px] text-amber-300 border-t border-white/[0.05] pt-3">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>The backend is offline. Presets are disabled because CandidateX will not manufacture a dossier in the browser.</span>
+            </div>
+          )}
         </div>
       </GlassCard>
 
-      {/* Visual Stepper */}
       <GlassCard variant="subtle" className="p-3">
         <div className="grid grid-cols-3 gap-2 text-xs">
-          {/* Step 1 */}
           <button
             type="button"
             onClick={() => setStep(1)}
@@ -197,7 +209,6 @@ export const EvaluationWizard: React.FC<{
             </div>
           </button>
 
-          {/* Step 2 */}
           <button
             type="button"
             onClick={() => setStep(2)}
@@ -220,7 +231,6 @@ export const EvaluationWizard: React.FC<{
             </div>
           </button>
 
-          {/* Step 3 */}
           <button
             type="button"
             onClick={() => setStep(3)}
@@ -243,13 +253,12 @@ export const EvaluationWizard: React.FC<{
               <div className={`font-semibold truncate ${step === 3 ? 'text-white' : 'text-slate-400'}`}>
                 Intelligence Engine
               </div>
-              <div className="text-[10px] text-slate-500 truncate">10-stage AST &amp; math</div>
+              <div className="text-[10px] text-slate-500 truncate">Backend analysis pipeline</div>
             </div>
           </button>
         </div>
       </GlassCard>
 
-      {/* Step Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={step}
