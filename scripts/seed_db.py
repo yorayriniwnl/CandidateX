@@ -226,8 +226,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
         cohorts = [
             {
                 "id": UUID("11111111-1111-1111-1111-111111111111"),
-                "name": "Alice Chen",
-                "email": "alice.chen@example.com",
+                "name": "Ayush Roy",
+                "email": "2329027@kiit.ac.in",
                 "role": CanonicalRole.BACKEND,
                 "org_id": org_acme.id,
                 "cv_file": "sample_backend_cv.txt",
@@ -248,8 +248,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
             },
             {
                 "id": UUID("22222222-2222-2222-2222-222222222222"),
-                "name": "Elena Rostova",
-                "email": "elena.rostova@example.com",
+                "name": "Archi Srivastava",
+                "email": "2329100@kiit.ac.in",
                 "role": CanonicalRole.FRONTEND,
                 "org_id": org_acme.id,
                 "cv_file": "sample_frontend_cv.txt",
@@ -269,8 +269,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
             },
             {
                 "id": UUID("33333333-3333-3333-3333-333333333333"),
-                "name": "Dr. Marcus Thorne",
-                "email": "marcus.thorne@example.com",
+                "name": "Atmaja Tripathy",
+                "email": "2329179@kiit.ac.in",
                 "role": CanonicalRole.ML_ENGINEER,
                 "org_id": org_apex.id,
                 "cv_file": "sample_ml_cv.txt",
@@ -289,8 +289,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
             },
             {
                 "id": UUID("44444444-4444-4444-4444-444444444444"),
-                "name": "Tariq Mansour",
-                "email": "tariq.mansour@example.com",
+                "name": "Shreya",
+                "email": "2329065@kiit.ac.in",
                 "role": CanonicalRole.DEVOPS_CLOUD,
                 "org_id": org_acme.id,
                 "cv_file": "sample_devops_cv.txt",
@@ -309,8 +309,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
             },
             {
                 "id": UUID("55555555-5555-5555-5555-555555555555"),
-                "name": "Samuel O'Connor",
-                "email": "samuel.oconnor@example.com",
+                "name": "Shreshth Nigam",
+                "email": "2329064@kiit.ac.in",
                 "role": CanonicalRole.FULLSTACK,
                 "org_id": org_acme.id,
                 "cv_file": "sample_fullstack_cv.txt",

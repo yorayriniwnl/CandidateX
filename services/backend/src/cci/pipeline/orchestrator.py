@@ -55,9 +55,7 @@ from cci.scoring.ownership import (
     estimate_repository_ownership,
 )
 from cci.scoring.rci import compute_evidence_coverage, compute_rci
-from cci.scoring.reliability import (
-    get_default_reliability_snapshots,
-)
+
 from cci.scoring.weights import (
     apply_expert_overrides,
     build_role_profile,

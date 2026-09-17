@@ -12,5 +12,11 @@
     "lint": "pnpm --filter web lint",
     "test": "pnpm --filter web test"
   },
-  "packageManager": "pnpm@11.15.1"
+  "packageManager": "pnpm@11.15.1",
+  "resolutions": {
+    "postcss": "^8.5.23"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
+  }
 }

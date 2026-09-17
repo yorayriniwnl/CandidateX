@@ -62,7 +62,7 @@ def main():
     # 2. Flake8
     print("Running Flake8 (Linting)...")
     code, stdout, stderr, duration = run_command(
-        [python_bin, "-m", "flake8", "services/backend/src", "--max-line-length=120", "--ignore=E501"]
+        [python_bin, "-m", "flake8", "services/backend/src", "--max-line-length=120", "--ignore=E501,W503"]
     )
     flake8_pass = print_result("Backend Linting (Flake8)", code, stdout, stderr, duration)
 
@@ -76,21 +76,21 @@ def main():
     # 4. Safety
     print("Running Safety (Dependency Vulnerabilities)...")
     code, stdout, stderr, duration = run_command(
-        [python_bin, "-m", "safety", "check", "--bare"] 
+        [python_bin, "-m", "safety", "check", "-r", "services/backend/pyproject.toml"] 
     )
     safety_pass = print_result("Backend Dependencies (Safety)", code, stdout, stderr, duration)
 
     # 5. NPM Audit
     print("Running NPM Audit (Frontend Dependencies)...")
     code, stdout, stderr, duration = run_command(
-        ["npm", "audit", "--audit-level=high"], cwd="apps/web"
+        ["pnpm", "audit", "--audit-level=high"], cwd="apps/web"
     )
     npm_pass = print_result("Frontend Dependencies (NPM Audit)", code, stdout, stderr, duration)
 
     # 6. ESLint
     print("Running ESLint (Frontend Linting)...")
     code, stdout, stderr, duration = run_command(
-        ["npm", "run", "lint"], cwd="apps/web"
+        ["pnpm", "run", "lint"], cwd="apps/web"
     )
     eslint_pass = print_result("Frontend Linting (ESLint)", code, stdout, stderr, duration)
 

@@ -107,12 +107,12 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         )
 
         # Check route decorators, DI, and Auth
-        self._analyze_function_common(node, is_async=True)
+        self._analyze_function_common(node, _is_async=True)
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Analyze synchronous function definitions."""
-        self._analyze_function_common(node, is_async=False)
+        self._analyze_function_common(node, _is_async=False)
         self.generic_visit(node)
 
     def _analyze_function_common(
