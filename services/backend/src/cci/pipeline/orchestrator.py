@@ -17,12 +17,13 @@ CRITICAL INVARIANTS:
 - Candidate code is NEVER executed.
 - Missing evidence -> UNKNOWN (never 0.0).
 - Purely functional rescore without re-crawling.
+- Repository URLs alone never manufacture capability or ownership evidence.
 """
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 
 from cci.claims.corroborator import ExtractedClaimInput, corroborate_candidate_claims
@@ -31,12 +32,9 @@ from cci.domain.contracts import (
     CapabilityConflict,
     CapabilityEstimate,
     Dossier,
-    EvidenceConfidenceFactors,
     EvidenceRecord,
-    InterviewQuestion,
     NormalizedRequirement,
     OwnershipAssessment,
-    ProbePriority,
 )
 from cci.domain.enums import (
     AnalysisStage,
@@ -44,32 +42,17 @@ from cci.domain.enums import (
     CapabilityKey,
     GraphEdgeType,
     GraphNodeType,
-    SourceFamily,
 )
 from cci.dossier.builder import build_candidate_dossier, generate_interview_questions
 from cci.graph.ceg import CandidateEvidenceGraph, CEGEdge, CEGNode
 from cci.intake.canonicalizer import normalize_url
 from cci.jobs.parser import extract_requirements_from_jd
 from cci.probes.priority import compute_probe_priorities
-from cci.scoring.capability import (
-    compute_capability_score,
-    compute_effective_evidence_count,
-)
-from cci.scoring.confidence import compute_evidence_confidence
-from cci.scoring.ownership import (
-    assemble_confidence_factors,
-    estimate_repository_ownership,
-)
+from cci.scoring.capability import compute_capability_score
 from cci.scoring.rci import compute_evidence_coverage, compute_rci
-from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
-from cci.scoring.reliability import (
-    compute_source_reliability,
-    get_default_reliability_snapshots,
-)
 from cci.scoring.weights import (
     apply_expert_overrides,
     build_role_profile,
-    compute_softmax_weights,
 )
 from cci.uncertainty.bootstrap import cluster_bootstrap_ci
 from cci.uncertainty.diagnostics import compute_uncertainty_diagnostics
@@ -133,7 +116,14 @@ def execute_analysis_pipeline(
     custom_evidence: Optional[List[EvidenceRecord]] = None,
     expert_weight_overrides: Optional[Dict[CapabilityKey, float]] = None,
 ) -> PipelineExecutionState:
-    """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
+    """Execute the 10-stage analysis pipeline over explicitly observed evidence.
+
+    ``repo_urls`` and CV text define the closed-world intake boundary, but they are
+    not themselves capability evidence. Until a static analyzer/acquisition layer
+    supplies ``custom_evidence``, capability estimates remain UNKNOWN and RCI is
+    ``None``. This deliberately fails honest rather than fabricating plausible
+    repository findings.
+    """
     run_id = uuid4()
     state = PipelineExecutionState(
         analysis_run_id=run_id,
@@ -167,9 +157,8 @@ def execute_analysis_pipeline(
         # Stage 1: PARSING_CV
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.PARSING_CV, "Extracting candidate manifest and declarations")
-        discovered_claims: List[str] = declared_claims or []
+        discovered_claims: List[str] = list(declared_claims or [])
         if cv_text and not discovered_claims:
-            # Simple sentence splitting for extracted claims from CV text
             lines = [ln.strip() for ln in cv_text.split("\n") if len(ln.strip()) > 15]
             discovered_claims.extend(lines[:5])
 
@@ -179,101 +168,24 @@ def execute_analysis_pipeline(
         advance_stage(AnalysisStage.INGESTING_SOURCES, "Validating URLs and closed-world boundary")
         valid_repos: List[str] = []
         if repo_urls:
-            for u in repo_urls:
+            for url in repo_urls:
                 try:
-                    norm = normalize_url(u)
-                    valid_repos.append(norm)
+                    valid_repos.append(normalize_url(url))
                 except Exception:
-                    valid_repos.append(u)
+                    # Invalid/unapproved locations are not silently reintroduced.
+                    continue
 
         # ----------------------------------------------------------------------
         # Stage 3: ANALYZING_ARTIFACTS
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.ANALYZING_ARTIFACTS, "Static code, DB, and deployment analysis")
-        # Invariant: candidate code is NEVER executed
-        # Synthetic / extracted evidence items populated from static analysis
-        raw_evidence: List[EvidenceRecord] = []
-        if custom_evidence:
-            raw_evidence = list(custom_evidence)
+        raw_evidence: List[EvidenceRecord] = list(custom_evidence or [])
+        if raw_evidence:
+            analysis_detail = f"Using {len(raw_evidence)} explicitly supplied static evidence records"
         else:
-            # Provide baseline calibrated static evidence representing repository analysis
-            now_dt = datetime.now(timezone.utc)
-            locator = valid_repos[0] if valid_repos else "https://github.com/candidate/service"
-            rev = "HEAD"
-            conf_factors_be = EvidenceConfidenceFactors(
-                artifact_integrity=0.95,
-                ownership_score=0.92,
-                recency_factor=0.95,
-                verification_level=0.90,
-                depth_specificity=0.88,
-                source_reliability=0.85,
+            analysis_detail = (
+                "No extracted analyzer evidence supplied; repository declarations remain unscored"
             )
-            conf_factors_db = EvidenceConfidenceFactors(
-                artifact_integrity=0.92,
-                ownership_score=0.90,
-                recency_factor=0.90,
-                verification_level=0.85,
-                depth_specificity=0.85,
-                source_reliability=0.85,
-            )
-            conf_factors_test = EvidenceConfidenceFactors(
-                artifact_integrity=0.90,
-                ownership_score=0.88,
-                recency_factor=0.90,
-                verification_level=0.80,
-                depth_specificity=0.80,
-                source_reliability=0.85,
-            )
-            raw_evidence = [
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_backend_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    support_score=85.0,
-                    confidence_factors=conf_factors_be,
-                    confidence=conf_factors_be.composite_confidence,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "src/api/routes.py",
-                        "raw_support_text": "Asynchronous FastAPI endpoints with dependency injection",
-                    },
-                ),
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_database_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    support_score=82.0,
-                    confidence_factors=conf_factors_db,
-                    confidence=conf_factors_db.composite_confidence,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "alembic/versions/001_initial.py",
-                        "raw_support_text": "Reversible relational schema migration with B-tree index",
-                    },
-                ),
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_testing_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.TESTING_QUALITY,
-                    support_score=70.0,
-                    confidence_factors=conf_factors_test,
-                    confidence=conf_factors_test.composite_confidence,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "tests/test_api.py",
-                        "raw_support_text": "Unit and integration tests with pytest fixtures",
-                    },
-                ),
-            ]
+        advance_stage(AnalysisStage.ANALYZING_ARTIFACTS, analysis_detail)
 
         # ----------------------------------------------------------------------
         # Stage 4: BUILDING_EVIDENCE
@@ -283,59 +195,50 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 5: CALIBRATING_RELIABILITY
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.CALIBRATING_RELIABILITY, "Calibrating source family reliability posteriors")
-        reliability_snapshots = get_default_reliability_snapshots()
+        advance_stage(
+            AnalysisStage.CALIBRATING_RELIABILITY,
+            "No source posterior update is inferred beyond observed evidence",
+        )
 
         # ----------------------------------------------------------------------
         # Stage 6: ESTIMATING_OWNERSHIP
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.ESTIMATING_OWNERSHIP, "Computing ownership attribution vectors")
+        # Ownership requires real contribution features from the acquisition layer.
+        # A repository URL, account ownership, or candidate declaration is not enough.
         ownership_assessments: List[OwnershipAssessment] = []
-        for r_url in (valid_repos or ["https://github.com/candidate/repo"]):
-            assessment = estimate_repository_ownership(
-                repository_url=r_url,
-                candidate_identifier="candidate",
-                candidate_commits=45,
-                total_commits=50,
-                candidate_lines=3900,
-                total_lines=4500,
-                is_fork=False,
-                is_owner=True,
-            )
-            ownership_assessments.append(assessment)
+        advance_stage(
+            AnalysisStage.ESTIMATING_OWNERSHIP,
+            "No verified contribution vectors supplied; ownership remains unassessed",
+        )
 
         # ----------------------------------------------------------------------
         # Stage 7: COMPUTING_UNCERTAINTY
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.COMPUTING_UNCERTAINTY, "Generating cluster bootstrap confidence intervals")
-        cap_records: Dict[CapabilityKey, List[EvidenceRecord]] = {}
-        for ev in raw_evidence:
-            cap_records.setdefault(ev.target_capability, []).append(ev)
-
         capability_estimates: Dict[CapabilityKey, CapabilityEstimate] = {}
         for cap in CapabilityKey:
             ci_bounds = cluster_bootstrap_ci(raw_evidence, cap, n_resamples=200, seed=42)
-
-            estimate = compute_capability_score(
+            capability_estimates[cap] = compute_capability_score(
                 evidence_records=raw_evidence,
                 capability=cap,
                 ci_bounds=ci_bounds,
             )
-            capability_estimates[cap] = estimate
 
         # ----------------------------------------------------------------------
         # Stage 8: SCORING
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.SCORING, "Computing Role Capability Index (RCI)")
-        # Parse JD requirements or use canonical profile
         norm_reqs: List[NormalizedRequirement] = []
         if jd_text:
-            extracted_reqs = extract_requirements_from_jd(jd_text)
-            norm_reqs = extracted_reqs
+            norm_reqs = extract_requirements_from_jd(jd_text)
 
         profile = build_role_profile(norm_reqs, role)
         if expert_weight_overrides:
-            profile = apply_expert_overrides(profile, expert_weight_overrides, justification="Expert adjustment")
+            profile = apply_expert_overrides(
+                profile,
+                expert_weight_overrides,
+                justification="Expert adjustment",
+            )
 
         role_weights = profile.softmax_weights
         rci_score = compute_rci(capability_estimates, role_weights)
@@ -345,9 +248,10 @@ def execute_analysis_pipeline(
         # Stage 9: PRIORITIZING_PROBES
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.PRIORITIZING_PROBES, "Computing contradiction diagnostics D_k and probe ranking")
-        capability_conflicts: Dict[CapabilityKey, CapabilityConflict] = {}
-        for cap in CapabilityKey:
-            capability_conflicts[cap] = compute_contradiction_diagnostic(raw_evidence, cap)
+        capability_conflicts: Dict[CapabilityKey, CapabilityConflict] = {
+            cap: compute_contradiction_diagnostic(raw_evidence, cap)
+            for cap in CapabilityKey
+        }
 
         uncertainties = {
             cap: compute_uncertainty_diagnostics(est)
@@ -361,14 +265,13 @@ def execute_analysis_pipeline(
             conflicts=capability_conflicts,
         )
 
-        # Corroborate claims
         claim_inputs = [
             ExtractedClaimInput(
                 claim_id=uuid4(),
-                claim_text=c_text,
+                claim_text=claim_text,
                 target_capability=CapabilityKey.BACKEND_ENGINEERING,
             )
-            for c_text in discovered_claims
+            for claim_text in discovered_claims
         ]
         corroborated_claims = corroborate_candidate_claims(claim_inputs, raw_evidence)
 
@@ -376,7 +279,6 @@ def execute_analysis_pipeline(
         # Stage 10: GENERATING_DOSSIER
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.GENERATING_DOSSIER, "Assembling heterogeneous CEG and immutable dossier")
-        # Build CEG
         ceg = CandidateEvidenceGraph()
         for cap in CapabilityKey:
             cap_node_id = f"cap_{cap.value}"
@@ -388,29 +290,29 @@ def execute_analysis_pipeline(
                 )
             )
 
-        for ev in raw_evidence:
-            ev_id = str(ev.evidence_id)
-            cap_node_id = f"cap_{ev.target_capability.value}"
+        for evidence in raw_evidence:
+            evidence_id = str(evidence.evidence_id)
+            cap_node_id = f"cap_{evidence.target_capability.value}"
             ceg.add_node(
                 CEGNode(
-                    node_id=ev_id,
+                    node_id=evidence_id,
                     node_type=GraphNodeType.EVIDENCE,
                     properties={
-                        "label": f"ev_{ev.target_capability.value}",
-                        "score": ev.support_score,
-                        "confidence": ev.confidence,
-                        "source_locator": ev.provenance.get("source_locator", "unknown"),
-                        "artifact_path": ev.provenance.get("artifact_path", "unknown"),
+                        "label": f"ev_{evidence.target_capability.value}",
+                        "score": evidence.support_score,
+                        "confidence": evidence.confidence,
+                        "source_locator": evidence.provenance.get("source_locator", "unknown"),
+                        "artifact_path": evidence.provenance.get("artifact_path", "unknown"),
                     },
                 )
             )
             ceg.add_edge(
                 CEGEdge(
-                    edge_id=f"e_{ev_id}_{cap_node_id}",
-                    source_id=ev_id,
+                    edge_id=f"e_{evidence_id}_{cap_node_id}",
+                    source_id=evidence_id,
                     target_id=cap_node_id,
                     edge_type=GraphEdgeType.SUPPORTS_CAPABILITY,
-                    properties={"weight": ev.confidence},
+                    properties={"weight": evidence.confidence},
                 )
             )
 
@@ -436,8 +338,9 @@ def execute_analysis_pipeline(
         state.ceg_graph = ceg
         state.updated_at = datetime.now(timezone.utc).isoformat()
 
-    except Exception as e:
+    except Exception:
         import traceback
+
         state.status = PipelineStatus.FAILED
         state.error = traceback.format_exc()
         state.updated_at = datetime.now(timezone.utc).isoformat()
@@ -464,7 +367,6 @@ def rescore_dossier(
     )
     role_weights = overridden_profile.softmax_weights
 
-    # Recompute RCI over observed capabilities
     new_rci = compute_rci(
         capabilities=dossier.capability_estimates,
         role_weights=role_weights,
@@ -474,7 +376,6 @@ def rescore_dossier(
         role_weights=role_weights,
     )
 
-    # Recompute probe priorities
     uncertainties = {
         cap: compute_uncertainty_diagnostics(est)
         for cap, est in dossier.capability_estimates.items()
@@ -487,14 +388,12 @@ def rescore_dossier(
         conflicts=dossier.capability_conflicts,
     )
 
-    # Re-generate interview questions with updated rankings
     new_questions = generate_interview_questions(
         probes=new_probes,
         capability_conflicts=dossier.capability_conflicts,
         evidence_records=[],
     )
 
-    # Return new immutable Dossier instance
     return Dossier(
         dossier_id=uuid4(),
         candidate_id=dossier.candidate_id,
