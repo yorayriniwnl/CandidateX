@@ -1,24 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Users,
-  Award,
-  Gauge,
   AlertTriangle,
-  CheckCircle2,
-  HelpCircle,
-  ArrowRight,
-  Sparkles,
-  Printer,
-  ChevronDown,
   Download,
-  Info,
+  Printer,
   Shield,
+  Users,
 } from 'lucide-react';
-import { CanonicalRole, CapabilityKey, Dossier } from '../types/cci';
-import { fetchCandidateDossier, fetchCandidatesList, CandidateSummary } from '../lib/api';
-import { MOCK_DOSSIER } from '../data/mockDossier';
+import { CapabilityKey, Dossier } from '../types/cci';
+import { fetchCandidateDossier, fetchCandidatesList } from '../lib/api';
+import { GlassCard } from './ui/GlassCard';
+import { GlowBadge } from './ui/GlowBadge';
 
 interface ComparisonSubject {
   id: string;
@@ -26,16 +19,6 @@ interface ComparisonSubject {
   role: string;
   dossier: Dossier;
 }
-
-const PRESET_COHORTS = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Alice Chen', role: 'backend' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'Devin Vance', role: 'backend' },
-  { id: '66666666-6666-6666-6666-666666666666', name: 'Jordan Blake', role: 'backend' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Elena Rostova', role: 'frontend' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Dr. Marcus Thorne', role: 'ml_engineer' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Tariq Mansour', role: 'devops_cloud' },
-  { id: '55555555-5555-5555-5555-555555555555', name: "Samuel O'Connor", role: 'fullstack' },
-];
 
 const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
   backend_engineering: 'Backend Engineering',
@@ -53,7 +36,7 @@ const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
 };
 
 export const CandidateComparison: React.FC<{
-  onSelectCandidateDossier?: (candidateId: string, name: string) => void;
+  onSelectCandidateDossier?: (candidateId: string, name: string) => void | Promise<void>;
   isBackendOnline?: boolean | null;
   selectedCandidateIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
@@ -63,548 +46,267 @@ export const CandidateComparison: React.FC<{
   selectedCandidateIds,
   onSelectedIdsChange,
 }) => {
-  // Selected IDs for comparison (max 3)
-  const [selectedIds, setSelectedIds] = useState<string[]>(
-    selectedCandidateIds && selectedCandidateIds.length > 0
-      ? selectedCandidateIds
-      : ['11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777']
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(selectedCandidateIds || []);
   const [subjects, setSubjects] = useState<ComparisonSubject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [candidateOptions, setCandidateOptions] = useState<Array<{ id: string; name: string; role: string }>>(PRESET_COHORTS);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [candidateOptions, setCandidateOptions] = useState<Array<{ id: string; name: string; role: string }>>([]);
 
   useEffect(() => {
-    if (selectedCandidateIds && selectedCandidateIds.length > 0) {
-      setSelectedIds(selectedCandidateIds);
-    }
+    setSelectedIds(selectedCandidateIds || []);
   }, [selectedCandidateIds]);
 
-  // Fetch available candidates from API if online
   useEffect(() => {
-    if (isBackendOnline) {
-      fetchCandidatesList()
-        .then((cands) => {
-          if (cands.length > 0) {
-            setCandidateOptions(
-              cands.map((c) => ({
-                id: c.id,
-                name: c.display_name,
-                role: c.role || 'backend',
-              }))
-            );
-          }
-        })
-        .catch(() => {});
+    if (isBackendOnline !== true) {
+      setCandidateOptions([]);
+      setSubjects([]);
+      if (isBackendOnline === false) {
+        setComparisonError('Backend unavailable. Candidate comparison is disabled rather than populated with synthetic scores.');
+      }
+      return;
     }
+
+    let cancelled = false;
+    setComparisonError(null);
+    fetchCandidatesList()
+      .then((candidates) => {
+        if (cancelled) return;
+        setCandidateOptions(
+          candidates.map((candidate) => ({
+            id: candidate.id,
+            name: candidate.display_name,
+            role: candidate.role || 'unspecified',
+          })),
+        );
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : 'Unknown candidate-list failure';
+        setCandidateOptions([]);
+        setComparisonError(`Could not load live candidate options. ${message}`);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isBackendOnline]);
 
-  // Load dossiers for selected candidates
   useEffect(() => {
+    let cancelled = false;
+
     async function loadComparisonData() {
-      setIsLoading(true);
-      const loaded: ComparisonSubject[] = [];
-
-      for (const id of selectedIds) {
-        const option = candidateOptions.find((c) => c.id === id) || PRESET_COHORTS.find((c) => c.id === id);
-        const name = option ? option.name : 'Candidate';
-        const role = option ? option.role : 'backend';
-
-        if (isBackendOnline) {
-          try {
-            const dossier = await fetchCandidateDossier(id);
-            loaded.push({ id, name, role, dossier });
-            continue;
-          } catch (e) {
-            // fallback below
-          }
-        }
-
-        // Mock fallback simulation
-        const mockCopy: Dossier = JSON.parse(JSON.stringify(MOCK_DOSSIER));
-        mockCopy.candidate_id = id;
-        mockCopy.role = role as CanonicalRole;
-        mockCopy.dossier_id = `mock-${id}`;
-
-        // Custom adjustments per sample cohort to showcase comparison
-        if (id === '77777777-7777-7777-7777-777777777777') {
-          // Devin Vance: lower coverage, contradiction flagged
-          mockCopy.rci = 69.8;
-          mockCopy.coverage = 0.25;
-          mockCopy.is_insufficient_evidence = true;
-          if (mockCopy.capability_conflicts.backend_engineering) {
-            mockCopy.capability_conflicts.backend_engineering.contradiction_diagnostic = -0.42;
-            mockCopy.capability_conflicts.backend_engineering.has_meaningful_conflict = true;
-          }
-        } else if (id === '66666666-6666-6666-6666-666666666666') {
-          // Jordan Blake: junior, sparse
-          mockCopy.rci = 64.2;
-          mockCopy.coverage = 0.18;
-          mockCopy.is_insufficient_evidence = true;
-        }
-
-        loaded.push({ id, name, role, dossier: mockCopy });
+      if (isBackendOnline !== true || selectedIds.length === 0) {
+        setSubjects([]);
+        return;
       }
 
-      setSubjects(loaded);
-      setIsLoading(false);
+      setIsLoading(true);
+      setComparisonError(null);
+      try {
+        const loaded = await Promise.all(
+          selectedIds.map(async (id) => {
+            const option = candidateOptions.find((candidate) => candidate.id === id);
+            if (!option) {
+              throw new Error(`Candidate ${id} is not present in the live candidate directory.`);
+            }
+            const dossier = await fetchCandidateDossier(id);
+            return { id, name: option.name, role: option.role, dossier } satisfies ComparisonSubject;
+          }),
+        );
+        if (!cancelled) setSubjects(loaded);
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : 'Unknown comparison failure';
+          setSubjects([]);
+          setComparisonError(`Live comparison could not be loaded. No mock dossiers were substituted. ${message}`);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     }
 
     loadComparisonData();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedIds, candidateOptions, isBackendOnline]);
 
   const toggleCandidateSelection = (id: string) => {
-    let nextIds: string[];
-    if (selectedIds.includes(id)) {
-      if (selectedIds.length <= 1) return; // Keep at least one
-      nextIds = selectedIds.filter((item) => item !== id);
-    } else {
-      if (selectedIds.length >= 3) {
-        // Replace last item
-        nextIds = [selectedIds[0], selectedIds[1], id];
-      } else {
-        nextIds = [...selectedIds, id];
-      }
-    }
-    setSelectedIds(nextIds);
-    if (onSelectedIdsChange) {
-      onSelectedIdsChange(nextIds);
-    }
-  };
+    const nextIds = selectedIds.includes(id)
+      ? selectedIds.filter((item) => item !== id)
+      : selectedIds.length >= 3
+      ? [...selectedIds.slice(1), id]
+      : [...selectedIds, id];
 
-  const handlePrint = () => {
-    window.print();
+    setSelectedIds(nextIds);
+    onSelectedIdsChange?.(nextIds);
   };
 
   const handleDownloadMarkdown = () => {
-    if (subjects.length === 0) return;
-    let md = `# Candidate Comparative Evaluation Matrix\n\n`;
-    md += `**Generated At:** ${new Date().toISOString()}\n`;
-    md += `**Evaluation Mode:** Employer Decision Support (Invariants: No Execution, Missing Evidence is Unknown)\n\n`;
+    if (!subjects.length) return;
+    const lines = [
+      '# CandidateX Live Comparison',
+      '',
+      `Generated: ${new Date().toISOString()}`,
+      '**Mode:** Human decision support. Missing evidence remains UNKNOWN.',
+      '',
+      `| Metric | ${subjects.map((subject) => subject.name).join(' | ')} |`,
+      `| :--- | ${subjects.map(() => ':---:').join(' | ')} |`,
+      `| Role | ${subjects.map((subject) => subject.role).join(' | ')} |`,
+      `| RCI | ${subjects.map((subject) => subject.dossier.rci == null ? 'UNKNOWN' : `${subject.dossier.rci.toFixed(1)} / 100`).join(' | ')} |`,
+      `| Coverage | ${subjects.map((subject) => `${(subject.dossier.coverage * 100).toFixed(1)}%`).join(' | ')} |`,
+      '',
+      `| Capability | ${subjects.map((subject) => subject.name).join(' | ')} |`,
+      `| :--- | ${subjects.map(() => ':---:').join(' | ')} |`,
+    ];
 
-    md += `## 1. High-Level Summary\n\n`;
-    md += `| Metric | ${subjects.map((s) => s.name).join(' | ')} |\n`;
-    md += `| :--- | ${subjects.map(() => ':---:').join(' | ')} |\n`;
-    md += `| **Role** | ${subjects.map((s) => s.role).join(' | ')} |\n`;
-    md += `| **Role Capability Index (RCI)** | ${subjects
-      .map((s) => (s.dossier.rci !== null ? `**${s.dossier.rci.toFixed(1)} / 100**` : 'UNKNOWN'))
-      .join(' | ')} |\n`;
-    md += `| **Evidence Coverage** | ${subjects
-      .map((s) => `${(s.dossier.coverage * 100).toFixed(1)}%`)
-      .join(' | ')} |\n`;
-    md += `| **Evidence Sufficiency** | ${subjects
-      .map((s) => (s.dossier.is_insufficient_evidence ? 'INSUFFICIENT' : 'SUFFICIENT'))
-      .join(' | ')} |\n\n`;
-
-    md += `## 2. 12 Core Capabilities Comparison\n\n`;
-    md += `| Capability | ${subjects.map((s) => `${s.name} (Score / n_eff)`).join(' | ')} |\n`;
-    md += `| :--- | ${subjects.map(() => ':---:').join(' | ')} |\n`;
-
-    Object.entries(CAPABILITY_LABELS).forEach(([capKey, label]) => {
-      const row = subjects.map((s) => {
-        const est = s.dossier.capability_estimates[capKey as CapabilityKey];
-        if (!est || !est.is_observed || est.estimate === null) return 'UNKNOWN';
-        return `${est.estimate.toFixed(1)} (n=${est.effective_evidence_count.toFixed(1)})`;
+    Object.entries(CAPABILITY_LABELS).forEach(([key, label]) => {
+      const values = subjects.map((subject) => {
+        const estimate = subject.dossier.capability_estimates[key as CapabilityKey];
+        return !estimate || !estimate.is_observed || estimate.estimate == null
+          ? 'UNKNOWN'
+          : `${estimate.estimate.toFixed(1)} (n_eff=${estimate.effective_evidence_count.toFixed(1)})`;
       });
-      md += `| **${label}** | ${row.join(' | ')} |\n`;
+      lines.push(`| ${label} | ${values.join(' | ')} |`);
     });
 
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `candidate_comparison_matrix.md`;
+    link.download = 'candidatex_live_comparison.md';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
+  const comparisonCapabilities = useMemo(() => Object.entries(CAPABILITY_LABELS), []);
+
   return (
     <div className="space-y-6">
-      {/* 1. Comparison Header & Cohort Selection */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <GlassCard variant="strong" glow="indigo" className="space-y-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
           <div>
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-indigo-400" />
-              <h1 className="text-xl font-bold text-white tracking-tight">
-                Candidate Comparative Capability Matrix
-              </h1>
-              <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-full text-xs font-semibold">
-                Side-by-Side Evaluation
-              </span>
+              <h1 className="text-xl font-bold text-white tracking-tight">Candidate Comparison</h1>
+              <GlowBadge variant="brand" size="sm">Live dossiers only</GlowBadge>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Objective decision support: Compare empirical capability estimates, evidence coverage, and contradiction diagnostics side-by-side.
-            </p>
+            <p className="text-xs text-slate-400 mt-1">Side-by-side capability estimates, coverage, and contradiction signals returned by the backend.</p>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleDownloadMarkdown}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm shadow-indigo-600/30"
-            >
-              <Download className="w-3.5 h-3.5" /> Download Matrix (.md)
+            <button type="button" disabled={!subjects.length} onClick={handleDownloadMarkdown} className="px-3 py-1.5 bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Export
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
-            >
-              <Printer className="w-3.5 h-3.5 text-indigo-400" /> Print Comparison
+            <button type="button" disabled={!subjects.length} onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 disabled:opacity-40 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium flex items-center gap-1.5">
+              <Printer className="w-3.5 h-3.5" /> Print
             </button>
           </div>
         </div>
 
-        {/* Candidate Selector Pills */}
         <div>
-          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <span>Select Candidates to Compare (Max 3):</span>
-            <span className="text-slate-500 font-normal">({selectedIds.length}/3 selected)</span>
-          </div>
+          <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Select live candidates (max 3)</div>
           <div className="flex flex-wrap gap-2">
-            {candidateOptions.map((cand) => {
-              const isSelected = selectedIds.includes(cand.id);
+            {candidateOptions.map((candidate) => {
+              const selected = selectedIds.includes(candidate.id);
               return (
-                <button
-                  key={cand.id}
-                  onClick={() => toggleCandidateSelection(cand.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
-                    isSelected
-                      ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 shadow-sm shadow-indigo-600/20'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${isSelected ? 'bg-indigo-400' : 'bg-slate-600'}`}
-                  />
-                  <span>{cand.name}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">({cand.role})</span>
+                <button key={candidate.id} type="button" onClick={() => toggleCandidateSelection(candidate.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${selected ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'}`}>
+                  {candidate.name} <span className="text-[10px] opacity-70">({candidate.role})</span>
                 </button>
               );
             })}
           </div>
+          {candidateOptions.length === 0 && isBackendOnline === true && (
+            <p className="text-xs text-slate-500 mt-2">No live candidates are available to compare yet.</p>
+          )}
         </div>
-      </div>
+      </GlassCard>
 
-      {/* Decision Support Banner */}
       <div className="p-3.5 bg-indigo-950/30 border border-indigo-800/40 rounded-xl flex items-center gap-3 text-xs text-indigo-200">
         <Shield className="w-4 h-4 text-indigo-400 shrink-0" />
-        <div>
-          <span className="font-semibold">Platform Invariant: Employer Decision Support Only.</span> CCI presents empirical capability signals side-by-side to assist technical interviewers. Unobserved capabilities evaluate to <code>UNKNOWN</code> and never penalize with an arbitrary 0.0.
-        </div>
+        <div><span className="font-semibold">Decision support only.</span> Comparison displays observed evidence and UNKNOWN states. It does not auto-select or reject a candidate.</div>
       </div>
 
-      {isLoading ? (
-        <div className="p-12 text-center text-slate-400 text-sm bg-slate-900 border border-slate-800 rounded-xl animate-pulse">
-          Loading comparative candidate dossiers...
+      {comparisonError && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{comparisonError}</span>
         </div>
-      ) : (
+      )}
+
+      {isLoading && (
+        <GlassCard className="p-12 text-center text-slate-400 text-sm">Loading live comparison dossiers…</GlassCard>
+      )}
+
+      {!isLoading && !comparisonError && subjects.length === 0 && (
+        <GlassCard className="p-12 text-center">
+          <Users className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+          <p className="text-sm text-slate-300 font-medium">No live comparison loaded</p>
+          <p className="text-xs text-slate-500 mt-1">Select evaluated candidates from the backend directory. CandidateX does not fabricate comparison rows.</p>
+        </GlassCard>
+      )}
+
+      {!isLoading && subjects.length > 0 && (
         <>
-          {/* 2. Executive Scorecards Side-by-Side */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {subjects.map((sub) => {
-              const coveragePct = Math.round(sub.dossier.coverage * 100);
-              const isLowCov = sub.dossier.coverage < 0.30 || sub.dossier.is_insufficient_evidence;
-              const hasConflict = Object.values(sub.dossier.capability_conflicts).some(
-                (c) => c.has_meaningful_conflict
-              );
-
+            {subjects.map((subject) => {
+              const hasConflict = Object.values(subject.dossier.capability_conflicts).some((conflict) => conflict.has_meaningful_conflict);
+              const lowCoverage = subject.dossier.coverage < 0.30 || subject.dossier.is_insufficient_evidence;
               return (
-                <div
-                  key={sub.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-3 mb-3">
-                      <div>
-                        <h3 className="font-bold text-white text-base tracking-tight">{sub.name}</h3>
-                        <span className="text-xs text-slate-400 font-mono uppercase">
-                          {sub.role.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase border ${
-                          hasConflict
-                            ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-                            : isLowCov
-                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                            : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                        }`}
-                      >
-                        {hasConflict ? 'Conflict Flag' : isLowCov ? 'Sparse Evidence' : 'Robust Evidence'}
-                      </span>
+                <GlassCard key={subject.id} variant="default" className="space-y-4">
+                  <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-3">
+                    <div>
+                      <h3 className="font-bold text-white text-base">{subject.name}</h3>
+                      <span className="text-xs text-slate-400 font-mono uppercase">{subject.role.replace('_', ' ')}</span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium block mb-0.5">
-                          RCI Score
-                        </span>
-                        <div className="text-2xl font-black text-indigo-400">
-                          {sub.dossier.rci !== null ? sub.dossier.rci.toFixed(1) : 'UNKNOWN'}
-                          <span className="text-xs text-slate-500 font-normal ml-1">/ 100</span>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium block mb-0.5">
-                          Coverage
-                        </span>
-                        <div
-                          className={`text-2xl font-black ${
-                            isLowCov ? 'text-amber-400' : 'text-emerald-400'
-                          }`}
-                        >
-                          {coveragePct}%
-                        </div>
-                        <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mt-1.5">
-                          <div
-                            className={`h-full ${isLowCov ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                            style={{ width: `${coveragePct}%` }}
-                          />
-                        </div>
-                      </div>
+                    <GlowBadge variant={hasConflict ? 'danger' : lowCoverage ? 'warning' : 'success'} size="sm">
+                      {hasConflict ? 'Conflict' : lowCoverage ? 'Sparse evidence' : 'Observed'}
+                    </GlowBadge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500 block">RCI</span>
+                      <div className="text-2xl font-black text-indigo-400">{subject.dossier.rci == null ? 'UNKNOWN' : subject.dossier.rci.toFixed(1)}</div>
                     </div>
-
-                    <div className="text-xs text-slate-400 space-y-1 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/80">
-                      <div className="flex justify-between">
-                        <span>Observed Capabilities:</span>
-                        <span className="font-mono text-slate-200">
-                          {
-                            Object.values(sub.dossier.capability_estimates).filter((e) => e.is_observed)
-                              .length
-                          }{' '}
-                          / 12
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Interview Probes:</span>
-                        <span className="font-mono text-slate-200">
-                          {sub.dossier.interview_probes.length} prioritized
-                        </span>
-                      </div>
+                    <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500 block">Coverage</span>
+                      <div className={`text-2xl font-black ${lowCoverage ? 'text-amber-400' : 'text-emerald-400'}`}>{(subject.dossier.coverage * 100).toFixed(1)}%</div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => onSelectCandidateDossier && onSelectCandidateDossier(sub.id, sub.name)}
-                    className="w-full mt-3 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 border border-slate-700"
-                  >
-                    <span>View Technical Dossier</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  {onSelectCandidateDossier && (
+                    <button type="button" onClick={() => onSelectCandidateDossier(subject.id, subject.name)} className="w-full px-3 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 text-xs font-semibold hover:bg-indigo-500/20">Open dossier</button>
+                  )}
+                </GlassCard>
               );
             })}
           </div>
 
-          {/* 3. 12 Core Capabilities Comparative Breakdown */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-white text-base">
-                  12 Core Capabilities Comparative Matrix
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Side-by-side point estimates \(q_k\) and empirical evidence confidence intervals.
-                </p>
-              </div>
-            </div>
-
+          <GlassCard variant="subtle" noPadding className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 uppercase tracking-wider font-semibold">
-                    <th className="p-3.5 pl-5">Capability Dimension</th>
-                    {subjects.map((sub) => (
-                      <th key={sub.id} className="p-3.5 text-center">
-                        <div className="text-slate-200 font-bold text-sm">{sub.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono lowercase">
-                          {sub.role}
-                        </div>
-                      </th>
-                    ))}
+                  <tr className="border-b border-white/[0.06] text-slate-500 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-3 px-4">Capability</th>
+                    {subjects.map((subject) => <th key={subject.id} className="py-3 px-4 text-center">{subject.name}</th>)}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300 font-sans">
-                  {(Object.keys(CAPABILITY_LABELS) as CapabilityKey[]).map((capKey) => {
-                    const label = CAPABILITY_LABELS[capKey];
-
-                    // Find max estimate among observed subjects
-                    let maxVal = -1;
-                    subjects.forEach((s) => {
-                      const est = s.dossier.capability_estimates[capKey];
-                      if (est?.is_observed && est.estimate !== null && est.estimate > maxVal) {
-                        maxVal = est.estimate;
-                      }
-                    });
-
-                    return (
-                      <tr key={capKey} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="p-3.5 pl-5 font-medium text-slate-200">
-                          {label}
-                        </td>
-                        {subjects.map((sub) => {
-                          const est = sub.dossier.capability_estimates[capKey];
-                          const isHighest =
-                            est?.is_observed &&
-                            est.estimate !== null &&
-                            est.estimate === maxVal &&
-                            subjects.length > 1;
-
-                          return (
-                            <td key={sub.id} className="p-3.5 text-center">
-                              {est?.is_observed && est.estimate !== null ? (
-                                <div className="inline-flex flex-col items-center gap-0.5">
-                                  <span
-                                    className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
-                                      isHighest
-                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                        : est.estimate >= 80
-                                        ? 'bg-indigo-500/15 text-indigo-300'
-                                        : 'bg-slate-800 text-slate-300'
-                                    }`}
-                                  >
-                                    {est.estimate.toFixed(1)} / 100
-                                  </span>
-                                  <span className="text-[10px] text-slate-500 font-mono">
-                                    {est.effective_evidence_count.toFixed(1)} n_eff
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded bg-slate-800/80 text-slate-500 font-mono text-[11px]">
-                                  UNKNOWN
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                <tbody className="divide-y divide-white/[0.04]">
+                  {comparisonCapabilities.map(([key, label]) => (
+                    <tr key={key} className="hover:bg-white/[0.02]">
+                      <td className="py-3 px-4 text-slate-300 font-medium">{label}</td>
+                      {subjects.map((subject) => {
+                        const estimate = subject.dossier.capability_estimates[key as CapabilityKey];
+                        const value = !estimate || !estimate.is_observed || estimate.estimate == null ? null : estimate.estimate;
+                        return <td key={subject.id} className="py-3 px-4 text-center font-mono text-slate-300">{value == null ? 'UNKNOWN' : value.toFixed(1)}</td>;
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* 4. Contradiction Diagnostics Comparison */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">
-                Contradiction Diagnostics Comparison (\(D_k \in [-1, 1]\))
-              </h3>
-              <p className="text-xs text-slate-400">
-                Identifies divergence between declared resume claims and deterministic repository artifacts.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {subjects.map((sub) => {
-                const conflicts = Object.values(sub.dossier.capability_conflicts);
-                const flagged = conflicts.filter((c) => c.has_meaningful_conflict);
-
-                return (
-                  <div
-                    key={sub.id}
-                    className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <span className="font-bold text-sm text-slate-200">{sub.name}</span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                          flagged.length > 0
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        }`}
-                      >
-                        {flagged.length > 0 ? `${flagged.length} Conflict(s)` : 'All Consistent'}
-                      </span>
-                    </div>
-
-                    {flagged.length > 0 ? (
-                      <div className="space-y-2">
-                        {flagged.map((f) => (
-                          <div
-                            key={f.capability_key}
-                            className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs"
-                          >
-                            <div className="font-semibold text-rose-300">
-                              {CAPABILITY_LABELS[f.capability_key] || f.capability_key}
-                            </div>
-                            <div className="text-[11px] text-rose-400/90 font-mono mt-0.5">
-                              Diagnostic D_k: {f.contradiction_diagnostic.toFixed(2)} (Contradiction)
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-500 italic py-2">
-                        No meaningful discrepancies between claims and codebase artifacts detected.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 5. Combined Technical Interview Inquiry Probes */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">
-                Tailored Technical Interview Questions
-              </h3>
-              <p className="text-xs text-slate-400">
-                Top-priority inquiries generated to resolve candidate-specific uncertainty gaps during live panel rounds.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {subjects.map((sub) => {
-                const topProbes = sub.dossier.interview_probes.slice(0, 2);
-
-                return (
-                  <div
-                    key={sub.id}
-                    className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3"
-                  >
-                    <div className="font-bold text-sm text-slate-200 border-b border-slate-800 pb-2">
-                      Questions for {sub.name}
-                    </div>
-
-                    {topProbes.map((probe, idx) => {
-                      const matchedQ = sub.dossier.interview_questions.find(
-                        (q) => q.target_capability === probe.capability_key
-                      );
-
-                      return (
-                        <div
-                          key={probe.capability_key}
-                          className="p-3 bg-slate-900 border-l-2 border-indigo-500 rounded-r-lg space-y-1.5"
-                        >
-                          <div className="text-xs font-semibold text-indigo-300">
-                            Probe #{idx + 1}: {CAPABILITY_LABELS[probe.capability_key] || probe.capability_key}
-                          </div>
-                          <div className="text-xs text-slate-200">
-                            {matchedQ?.question_text ||
-                              `Discuss production challenges and architectural boundaries in ${probe.capability_key}.`}
-                          </div>
-                          {matchedQ?.verification_guidance && (
-                            <div className="text-[11px] text-indigo-400/90 bg-indigo-950/40 p-1.5 rounded">
-                              <span className="font-semibold">Listen for:</span>{' '}
-                              {matchedQ.verification_guidance}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          </GlassCard>
         </>
       )}
     </div>
