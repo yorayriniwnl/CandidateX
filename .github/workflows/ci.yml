@@ -62,6 +62,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Next.js Linter & Typecheck
+        run: pnpm --filter web lint
+
       - name: Next.js Production Build
         run: pnpm --filter web build
 
@@ -87,12 +90,16 @@ jobs:
       - name: Run SSRF & IMDS Protection Tests
         run: |
           cd services/backend
-          pytest tests/test_ssrf.py -v
+          pytest tests/security/test_ssrf.py tests/security/repositories/test_safe_workspace.py -v
 
-      - name: Run Formal Math Calibration & Theorem Tests
+      - name: Run Formal Math Calibration & Theorem Audit (Theorems 1-10)
         run: |
           cd services/backend
-          pytest tests/test_scoring.py tests/test_math_theorems.py -v
+          pytest tests/unit/scoring/ tests/test_paper_theorems_audit.py -v
+
+      - name: Run Research Simulation Quick Sanity Check
+        run: |
+          python research/run_paper_experiments.py --quick
 
       - name: Audit Invariant: No Untrusted Code Execution
         run: |
