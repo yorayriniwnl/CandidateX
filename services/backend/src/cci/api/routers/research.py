@@ -26,7 +26,7 @@ CANONICAL_ROLES = [
     "data_engineer",
 ]
 
-SUPPLEMENTARY_ABLATION = {
+SUPPLEMENTARY_ABLATION: Dict[str, Any] = {
     "metadata": {
         "evidence_layer": "supplementary_implementation_ablation",
         "total_candidates": 4800,
@@ -317,7 +317,15 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if delta_t < 0 or lambda_rate < 0:
             raise HTTPException(status_code=400, detail="delta_t_months and lambda_rate must be non-negative")
         value = math.exp(-lambda_rate * delta_t)
-        return CalculationResponse(1, THEOREMS_CATALOG[0].name, "exp(-lambda * delta_t)", round(value, 4), {"exponent": -lambda_rate * delta_t}, 0.0 < value <= 1.0, "Paper-aligned exponential recency discount.")
+        return CalculationResponse(
+            theorem_id=1,
+            theorem_name=THEOREMS_CATALOG[0].name,
+            formula="exp(-lambda * delta_t)",
+            result=round(value, 4),
+            intermediate_steps={"exponent": -lambda_rate * delta_t},
+            bounds_satisfied=0.0 < value <= 1.0,
+            explanation="Paper-aligned exponential recency discount.",
+        )
 
     if request.theorem_id == 2:
         keys = ["authority", "ownership", "recency", "verifiability", "complexity", "reliability"]
@@ -346,7 +354,15 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         sum_c = sum(values)
         sum_sq = sum(value * value for value in values)
         n_eff = (sum_c * sum_c) / sum_sq if sum_sq else 0.0
-        return CalculationResponse(4, THEOREMS_CATALOG[3].name, "(sum c)^2/sum(c^2)", round(n_eff, 4), {"raw_count": len(values), "sum_c": sum_c, "sum_sq": sum_sq}, (n_eff == 0.0 and sum_c == 0.0) or 1.0 <= n_eff <= len(values) + 1e-9, "Kish effective evidence count.")
+        return CalculationResponse(
+            theorem_id=4,
+            theorem_name=THEOREMS_CATALOG[3].name,
+            formula="(sum c)^2/sum(c^2)",
+            result=round(n_eff, 4),
+            intermediate_steps={"raw_count": len(values), "sum_c": sum_c, "sum_sq": sum_sq},
+            bounds_satisfied=(n_eff == 0.0 and sum_c == 0.0) or 1.0 <= n_eff <= len(values) + 1e-9,
+            explanation="Kish effective evidence count.",
+        )
 
     if request.theorem_id == 6:
         weights = [float(v) for v in p.get("weights", [])]
@@ -359,7 +375,15 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if weight_sum <= 0:
             raise HTTPException(status_code=400, detail="sum of weights must be positive")
         rci = sum(w * q for w, q in zip(weights, estimates)) / weight_sum
-        return CalculationResponse(6, THEOREMS_CATALOG[5].name, "sum(w*q)/sum(w)", round(rci, 4), {"observed_weight_mass": weight_sum}, 0.0 <= rci <= 100.0, "RCI normalized over observed capability weight mass.")
+        return CalculationResponse(
+            theorem_id=6,
+            theorem_name=THEOREMS_CATALOG[5].name,
+            formula="sum(w*q)/sum(w)",
+            result=round(rci, 4),
+            intermediate_steps={"observed_weight_mass": weight_sum},
+            bounds_satisfied=0.0 <= rci <= 100.0,
+            explanation="RCI normalized over observed capability weight mass.",
+        )
 
     if request.theorem_id == 7:
         positive = float(p.get("positive_support", 0.0))
@@ -368,7 +392,15 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         if positive < 0 or negative < 0 or epsilon <= 0:
             raise HTTPException(status_code=400, detail="support values must be non-negative and epsilon positive")
         value = (positive - negative) / (positive + negative + epsilon)
-        return CalculationResponse(7, THEOREMS_CATALOG[6].name, "(P-N)/(P+N+epsilon)", round(value, 4), {"P": positive, "N": negative, "epsilon": epsilon}, -1.0 <= value <= 1.0, "Directional contradiction diagnostic.")
+        return CalculationResponse(
+            theorem_id=7,
+            theorem_name=THEOREMS_CATALOG[6].name,
+            formula="(P-N)/(P+N+epsilon)",
+            result=round(value, 4),
+            intermediate_steps={"P": positive, "N": negative, "epsilon": epsilon},
+            bounds_satisfied=-1.0 <= value <= 1.0,
+            explanation="Directional contradiction diagnostic.",
+        )
 
     if request.theorem_id == 8:
         role_weight = float(p.get("role_weight", 0.2))
@@ -388,7 +420,13 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
             theorem_name=THEOREMS_CATALOG[7].name,
             formula="w_k[alpha(1-Cov_k)+beta*CIwidth_k+gamma*Conf_k]",
             result=round(value, 4),
-            intermediate_steps={"coverage_gap": gap, "weighted_gap_term": alpha * gap, "uncertainty_term": beta * ci_width, "conflict_term": gamma * conflict, "inner_bracket": inner},
+            intermediate_steps={
+                "coverage_gap": gap,
+                "weighted_gap_term": alpha * gap,
+                "uncertainty_term": beta * ci_width,
+                "conflict_term": gamma * conflict,
+                "inner_bracket": inner,
+            },
             bounds_satisfied=value >= 0.0,
             explanation="Paper-aligned interview probe priority calculation.",
         )
