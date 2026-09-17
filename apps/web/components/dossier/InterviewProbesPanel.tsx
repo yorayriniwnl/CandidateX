@@ -5,12 +5,8 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
-  HelpCircle,
   ListOrdered,
   MessageSquare,
-  ShieldAlert,
-  Sparkles,
-  Target,
 } from 'lucide-react';
 import { CapabilityKey, InterviewQuestion, ProbePriority } from '../../types/cci';
 
@@ -39,13 +35,15 @@ export const InterviewProbesPanel: React.FC<{
 }> = ({ probes, questions, onSelectCapability, selectedCapability, onOpenScorecard, onInspectEvidence }) => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
-  // Group questions by capability
-  const questionsByCapability: Record<CapabilityKey, InterviewQuestion[]> = {} as any;
-  questions.forEach((q) => {
-    if (!questionsByCapability[q.target_capability]) {
-      questionsByCapability[q.target_capability] = [];
+  const questionsByCapability: Record<CapabilityKey, InterviewQuestion[]> = {} as Record<
+    CapabilityKey,
+    InterviewQuestion[]
+  >;
+  questions.forEach((question) => {
+    if (!questionsByCapability[question.target_capability]) {
+      questionsByCapability[question.target_capability] = [];
     }
-    questionsByCapability[q.target_capability].push(q);
+    questionsByCapability[question.target_capability].push(question);
   });
 
   const sortedProbes = [...probes].sort((a, b) => a.rank - b.rank);
@@ -60,7 +58,7 @@ export const InterviewProbesPanel: React.FC<{
           <div>
             <h2 className="text-base font-semibold text-slate-100">Prioritized Technical Interview Probes</h2>
             <p className="text-xs text-slate-400">
-              Ranked 1..12 by information value I_k = w_k · (1 - Cov_k) + α · s_k + β · C_k
+              Paper Eq. (11): I_k = w_k · [α(1−Cov_k) + β·CIwidth_k + γ·Conf_k]
             </p>
           </div>
         </div>
@@ -81,6 +79,10 @@ export const InterviewProbesPanel: React.FC<{
         </div>
       </div>
 
+      <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-2 text-[11px] text-indigo-200">
+        Priority combines role importance, evidence-coverage gap, uncertainty interval width, and contradiction severity. It directs interviewer attention; it is not a hire/reject score.
+      </div>
+
       <div className="space-y-3 pt-1">
         {sortedProbes.map((probe) => {
           const capQuestions = questionsByCapability[probe.capability_key] || [];
@@ -96,7 +98,6 @@ export const InterviewProbesPanel: React.FC<{
                   : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
               }`}
             >
-              {/* Probe Priority Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <span
@@ -112,7 +113,7 @@ export const InterviewProbesPanel: React.FC<{
                     <div className="flex items-center gap-2">
                       <h3
                         className="text-sm font-semibold text-slate-100 cursor-pointer hover:text-indigo-400 transition-colors"
-                        onClick={() => onSelectCapability && onSelectCapability(probe.capability_key)}
+                        onClick={() => onSelectCapability?.(probe.capability_key)}
                       >
                         {CAPABILITY_LABELS[probe.capability_key] || probe.capability_key}
                       </h3>
@@ -128,58 +129,54 @@ export const InterviewProbesPanel: React.FC<{
                   </div>
                 </div>
 
-                {/* Mathematical Decomposition Badges */}
-                <div className="flex items-center gap-2 text-[11px] font-mono">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
                   <span
                     className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Role Weight (w_k)"
+                    title="Role weight w_k"
                   >
                     w: {(probe.role_weight * 100).toFixed(0)}%
                   </span>
                   <span
                     className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Coverage Gap Term: w_k * (1 - Cov_k)"
+                    title="Coverage gap (1 - Cov_k)"
                   >
                     gap: {probe.coverage_gap_term.toFixed(3)}
                   </span>
                   <span
                     className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Uncertainty / Dispersion Term"
+                    title="Normalized confidence-interval width"
                   >
-                    uncert: {probe.uncertainty_term.toFixed(3)}
+                    CIwidth: {probe.uncertainty_term.toFixed(3)}
                   </span>
                   <span
                     className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Contradiction Term"
+                    title="Contradiction severity term"
                   >
-                    contra: {probe.contradiction_term.toFixed(3)}
+                    Conf: {probe.contradiction_term.toFixed(3)}
                   </span>
                 </div>
               </div>
 
-              {/* Grounded Questions for this capability */}
               {capQuestions.length > 0 ? (
                 <div className="mt-3.5 space-y-2 border-t border-slate-800/80 pt-3">
-                  {capQuestions.map((q) => {
-                    const isExpanded = expandedQuestionId === q.question_id;
-
+                  {capQuestions.map((question) => {
+                    const isExpanded = expandedQuestionId === question.question_id;
                     return (
                       <div
-                        key={q.question_id}
+                        key={question.question_id}
                         className="bg-slate-900/90 border border-slate-800 rounded-lg p-3 space-y-2"
                       >
                         <div
                           className="flex items-start justify-between gap-3 cursor-pointer select-none"
-                          onClick={() => setExpandedQuestionId(isExpanded ? null : q.question_id)}
+                          onClick={() =>
+                            setExpandedQuestionId(isExpanded ? null : question.question_id)
+                          }
                         >
                           <div className="flex items-start gap-2 text-xs text-slate-200">
                             <MessageSquare className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                            <span className="font-medium leading-relaxed">{q.question_text}</span>
+                            <span className="font-medium leading-relaxed">{question.question_text}</span>
                           </div>
-                          <button
-                            type="button"
-                            className="text-slate-400 hover:text-slate-200 shrink-0 p-1"
-                          >
+                          <button type="button" className="text-slate-400 hover:text-slate-200 shrink-0 p-1">
                             {isExpanded ? (
                               <ChevronDown className="w-4 h-4" />
                             ) : (
@@ -188,49 +185,47 @@ export const InterviewProbesPanel: React.FC<{
                           </button>
                         </div>
 
-                        {/* Rationale / Verification guidance accordion */}
                         {isExpanded && (
                           <div className="pt-2 border-t border-slate-800/60 text-xs space-y-2.5 text-slate-300">
                             <div>
                               <span className="font-semibold text-indigo-300 block mb-0.5">
                                 Grounded Rationale:
                               </span>
-                              <p className="text-slate-400 leading-relaxed">{q.rationale}</p>
+                              <p className="text-slate-400 leading-relaxed">{question.rationale}</p>
                             </div>
-
                             <div>
                               <span className="font-semibold text-emerald-300 block mb-0.5">
                                 Verification Guidance for Interviewer:
                               </span>
                               <p className="text-slate-300 bg-slate-950 p-2.5 rounded border border-slate-800 font-sans leading-relaxed">
-                                {q.verification_guidance}
+                                {question.verification_guidance}
                               </p>
                             </div>
 
-                            {q.suggested_followups && q.suggested_followups.length > 0 && (
+                            {question.suggested_followups && question.suggested_followups.length > 0 && (
                               <div>
                                 <span className="font-semibold text-slate-400 block mb-1">
                                   Suggested Follow-up Probes:
                                 </span>
                                 <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
-                                  {q.suggested_followups.map((fu, idx) => (
-                                    <li key={idx}>{fu}</li>
+                                  {question.suggested_followups.map((followup, index) => (
+                                    <li key={index}>{followup}</li>
                                   ))}
                                 </ul>
                               </div>
                             )}
 
-                            {q.grounding_evidence_ids && q.grounding_evidence_ids.length > 0 && (
+                            {question.grounding_evidence_ids && question.grounding_evidence_ids.length > 0 && (
                               <div className="text-[11px] font-mono text-slate-500 pt-1 flex items-center gap-1.5">
                                 <span>Grounding Evidence IDs:</span>
                                 <div className="flex flex-wrap gap-1">
-                                  {q.grounding_evidence_ids.map((id) => (
+                                  {question.grounding_evidence_ids.map((id) => (
                                     <button
                                       key={id}
                                       type="button"
-                                      onClick={() => onInspectEvidence && onInspectEvidence(id)}
+                                      onClick={() => onInspectEvidence?.(id)}
                                       className="px-1.5 py-0.5 bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/50 text-indigo-400 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
-                                      title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
+                                      title={`Inspect confidence decomposition for ${id}`}
                                     >
                                       {id}
                                     </button>
@@ -254,9 +249,9 @@ export const InterviewProbesPanel: React.FC<{
         })}
       </div>
 
-      <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-800/80">
-        <span>* Questions are grounded directly in extracted repository evidence and CV declarations.</span>
-        <span>Interviewers remain the ultimate evaluators of candidate technical depth.</span>
+      <div className="pt-2 text-[11px] text-slate-500 flex flex-col sm:flex-row gap-1 sm:items-center sm:justify-between border-t border-slate-800/80">
+        <span>* Questions remain linked to extracted evidence and candidate declarations.</span>
+        <span>Human interviewers remain the final evaluators.</span>
       </div>
     </div>
   );
