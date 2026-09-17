@@ -1,0 +1,49 @@
+name: CandidateX repaired frontend verification
+
+on:
+  push:
+    branches:
+      - chatgpt/candidatex-final-audit-20260918
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Overlay repaired frontend snapshot
+        shell: bash
+        run: |
+          tar -xzf .ci/frontend-repair-payload.tgz -C "$GITHUB_WORKSPACE"
+          rm -f apps/web/data/mockDossier.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pinned pnpm
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.15.1 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend integrity tests
+        run: pnpm --filter web test
+
+      - name: Frontend syntax/import integrity
+        run: pnpm --filter web syntaxcheck
+
+      - name: Frontend strict typecheck
+        run: pnpm --filter web typecheck
+
+      - name: Frontend production build
+        run: pnpm --filter web build
