@@ -7,6 +7,10 @@ on:
     paths:
       - '.candidatex_repair/**'
       - '.github/workflows/apply-candidatex-repair.yml'
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
