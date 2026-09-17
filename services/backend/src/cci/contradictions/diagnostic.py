@@ -1,27 +1,30 @@
 """Contradiction diagnostic D_k between positive and negative evidence."""
 
-from typing import List, Optional
 from cci.domain.contracts import CapabilityConflict, EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey
 
 
 def compute_contradiction_diagnostic(
-    evidence_records: List[EvidenceRecord],
+    evidence_records: list[EvidenceRecord],
     capability: CapabilityKey,
-    config: Optional[ScoringConfig] = None,
+    config: ScoringConfig | None = None,
 ) -> CapabilityConflict:
     """Computes contradiction diagnostic:
-    
+
         D_k = (P_k - N_k) / (P_k + N_k + epsilon)
-        
+
     where P_k is confidence sum of positive evidence and N_k is confidence sum of negative evidence.
     D_k is strictly bounded within [-1.0, 1.0].
     """
     cfg = config or ScoringConfig()
     eps = cfg.epsilon
 
-    relevant = [e for e in evidence_records if e.target_capability == capability and e.confidence > 0.0]
-    
+    relevant = [
+        e
+        for e in evidence_records
+        if e.target_capability == capability and e.confidence > 0.0
+    ]
+
     pos_records = [e for e in relevant if e.is_positive_support]
     neg_records = [e for e in relevant if not e.is_positive_support]
 

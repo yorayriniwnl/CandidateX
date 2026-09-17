@@ -11,40 +11,41 @@ import socket
 import ssl
 import urllib.parse
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
-import httpx
+from typing import Any
 
+import httpx
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
-from cci.security.ssrf import SSRFSecurityError, safe_http_get, validate_safe_url
+from cci.security.ssrf import SSRFSecurityError, safe_http_get
 
 EXTRACTOR_VERSION = "1.0.0"
 
 
-def inspect_tls_certificate(hostname: str, port: int = 443) -> Dict[str, any]:
+def inspect_tls_certificate(hostname: str, port: int = 443) -> dict[str, Any]:
     """Inspects TLS certificate validity and issuer in an SSRF-safe manner."""
     try:
         # Validate hostname before making TLS handshake
         from cci.security.ssrf import resolve_and_validate_hostname
+
         resolve_and_validate_hostname(hostname)
 
         context = ssl.create_default_context()
         with socket.create_connection((hostname, port), timeout=4.0) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                cert = ssock.getpeercert()
+                cert: Any = ssock.getpeercert()
                 version = ssock.version()
                 return {
                     "is_valid": True,
                     "tls_version": version,
-                    "subject": dict(x[0] for x in cert.get("subject", ())),
-                    "issuer": dict(x[0] for x in cert.get("issuer", ())),
+                    "subject": cert.get("subject") if cert else None,
+                    "issuer": cert.get("subject") if cert else None,
                     "notAfter": cert.get("notAfter"),
                 }
     except Exception as e:
         return {"is_valid": False, "error": str(e)}
 
 
-def analyze_security_headers(headers: httpx.Headers) -> Dict[str, any]:
+def analyze_security_headers(headers: httpx.Headers) -> dict[str, Any]:
     """Inspects HTTP response headers for defensive security practices."""
     h_lower = {k.lower(): v for k, v in headers.items()}
 
@@ -79,13 +80,15 @@ def analyze_security_headers(headers: httpx.Headers) -> Dict[str, any]:
     }
 
 
-def analyze_html_structure(html: str) -> Dict[str, any]:
+def analyze_html_structure(html: str) -> dict[str, Any]:
     """Statically inspects HTML response for semantic structure and responsive metadata."""
     html_lower = html.lower()
 
     has_viewport = bool(re.search(r'<meta[^>]+name=["\']viewport["\']', html_lower))
-    has_title = bool(re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE))
-    has_semantic_tags = any(tag in html_lower for tag in ("<main", "<nav", "<header", "<footer", "<article"))
+    has_title = bool(re.search(r"<title[^>]*>([^<]+)</title>", html, re.IGNORECASE))
+    has_semantic_tags = any(
+        tag in html_lower for tag in ("<main", "<nav", "<header", "<footer", "<article")
+    )
     has_og_tags = bool(re.search(r'<meta[^>]+property=["\']og:', html_lower))
 
     score = 70.0
@@ -112,15 +115,18 @@ def analyze_html_structure(html: str) -> Dict[str, any]:
 
 def inspect_live_deployment(
     deployment_url: str,
-    commit_sha: Optional[str] = None,
-    mock_response: Optional[httpx.Response] = None,
+    commit_sha: str | None = None,
+    mock_response: httpx.Response | None = None,
     skip_tls_socket: bool = False,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects a candidate live deployment URL and produces structured EvidenceInput objects."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     parsed = urllib.parse.urlparse(deployment_url)
     hostname = parsed.hostname or deployment_url
-    revision = commit_sha or f"deployment-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    revision = (
+        commit_sha
+        or f"deployment-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    )
 
     # 1. Fetch HTTP response safely via SSRF guard (or mock response in unit tests)
     if mock_response is not None:
@@ -128,7 +134,7 @@ def inspect_live_deployment(
     else:
         try:
             response = safe_http_get(deployment_url)
-        except SSRFSecurityError as e:
+        except SSRFSecurityError:
             # Prohibited or unreachable destination - no positive evidence generated
             return []
         except Exception:
@@ -140,8 +146,16 @@ def inspect_live_deployment(
 
     # 2. DevOps & Cloud Delivery Evidence (Live deployed application)
     headers_dict = {k.lower(): v for k, v in response.headers.items()}
-    cdn_hints = [h for h in headers_dict if any(c in h for c in ("cf-", "vercel", "netlify", "fastly", "x-amz-", "fly-"))]
-    cdn_desc = f"CDN/Edge platform detected ({', '.join(cdn_hints[:2])})" if cdn_hints else "Production web server"
+    cdn_hints = [
+        h
+        for h in headers_dict
+        if any(c in h for c in ("cf-", "vercel", "netlify", "fastly", "x-amz-", "fly-"))
+    ]
+    cdn_desc = (
+        f"CDN/Edge platform detected ({', '.join(cdn_hints[:2])})"
+        if cdn_hints
+        else "Production web server"
+    )
 
     evidence.append(
         EvidenceInput(

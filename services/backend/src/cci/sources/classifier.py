@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from urllib.parse import urlparse
+
 from cci.domain.contracts import CandidateManifest
 from cci.domain.enums import ScanDepth
 from cci.intake.canonicalizer import normalize_url
@@ -10,6 +11,7 @@ from cci.intake.canonicalizer import normalize_url
 @dataclass(frozen=True)
 class RepositoryClassification:
     """Outcome of repository scanning depth evaluation."""
+
     repo_url: str
     scan_depth: ScanDepth
     is_ambiguous: bool
@@ -21,7 +23,7 @@ def classify_repository_scan_depth(
     manifest: CandidateManifest,
 ) -> RepositoryClassification:
     """Classifies repository into DEEP or LIGHT scan according to paper rules:
-    
+
     1. Explicit CV project repo -> DEEP
     2. Remaining repo on supplied account -> LIGHT
     3. Ambiguous mapping -> uncertainty flag (never guess).

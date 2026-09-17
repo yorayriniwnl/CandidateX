@@ -5,6 +5,7 @@ from enum import Enum
 
 class CanonicalRole(str, Enum):
     """The six canonical engineering roles defined by the formal CCI framework."""
+
     BACKEND = "backend"
     FRONTEND = "frontend"
     FULLSTACK = "fullstack"
@@ -15,6 +16,7 @@ class CanonicalRole(str, Enum):
 
 class CapabilityKey(str, Enum):
     """The twelve core technical capabilities evaluated across all roles."""
+
     BACKEND_ENGINEERING = "backend_engineering"
     FRONTEND_ENGINEERING = "frontend_engineering"
     DATABASE_ENGINEERING = "database_engineering"
@@ -31,6 +33,7 @@ class CapabilityKey(str, Enum):
 
 class RequirementPriority(str, Enum):
     """Priority level for job description requirements."""
+
     MANDATORY = "mandatory"
     PREFERRED = "preferred"
     NICE_TO_HAVE = "nice_to_have"
@@ -39,6 +42,7 @@ class RequirementPriority(str, Enum):
 
 class RequirementStatus(str, Enum):
     """Paper-compatible evaluation status for a requirement."""
+
     SATISFIED = "satisfied"
     PARTIALLY_SATISFIED = "partially_satisfied"
     CONTRADICTED = "contradicted"
@@ -47,6 +51,7 @@ class RequirementStatus(str, Enum):
 
 class AnalysisStatus(str, Enum):
     """Lifecycle status of an end-to-end or stage analysis."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -57,6 +62,7 @@ class AnalysisStatus(str, Enum):
 
 class AnalysisStage(str, Enum):
     """Explicit pipeline execution stages."""
+
     PARSING_CV = "PARSING_CV"
     INGESTING_SOURCES = "INGESTING_SOURCES"
     ANALYZING_ARTIFACTS = "ANALYZING_ARTIFACTS"
@@ -71,6 +77,7 @@ class AnalysisStage(str, Enum):
 
 class SourceFamily(str, Enum):
     """The seven distinct source families analyzed in CCI."""
+
     RESUME = "resume"
     GITHUB = "github"
     DEPLOYMENT = "deployment"
@@ -82,6 +89,7 @@ class SourceFamily(str, Enum):
 
 class SourceState(str, Enum):
     """Operational/observation state of an evidence source."""
+
     OBSERVED = "observed"
     UNAVAILABLE = "unavailable"
     RATE_LIMITED = "rate_limited"
@@ -94,18 +102,21 @@ class SourceState(str, Enum):
 
 class ScanDepth(str, Enum):
     """Repository scanning depth classification."""
+
     DEEP = "deep"
     LIGHT = "light"
 
 
 class ReliabilityState(str, Enum):
     """State of source family reliability posterior."""
+
     PRIOR = "prior"
     CALIBRATED = "calibrated"
 
 
 class ClaimStatus(str, Enum):
     """Corroboration state of a candidate self-claim."""
+
     CORROBORATED = "corroborated"
     PARTIAL = "partial"
     UNKNOWN = "unknown"
@@ -114,6 +125,7 @@ class ClaimStatus(str, Enum):
 
 class GraphNodeType(str, Enum):
     """Node types in Candidate Evidence Graph (CEG)."""
+
     CANDIDATE = "Candidate"
     IDENTITY = "Identity"
     SOURCE = "Source"
@@ -127,6 +139,7 @@ class GraphNodeType(str, Enum):
 
 class GraphEdgeType(str, Enum):
     """Edge types in Candidate Evidence Graph (CEG)."""
+
     AUTHORED_BY = "AUTHORED_BY"
     CONTRIBUTES_TO = "CONTRIBUTES_TO"
     DERIVED_FROM = "DERIVED_FROM"

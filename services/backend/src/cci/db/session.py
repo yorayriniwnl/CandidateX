@@ -1,13 +1,16 @@
 """Database session and engine management."""
 
-from typing import Generator
+from collections.abc import Generator
+
+# Engine configuration with dialect-specific options
+from typing import Any
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from cci.config import settings
 
-# Engine configuration with dialect-specific options
-engine_kwargs = {}
+engine_kwargs: dict[str, Any] = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:

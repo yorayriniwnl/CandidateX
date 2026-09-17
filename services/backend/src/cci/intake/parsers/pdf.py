@@ -2,8 +2,8 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-import fitz  # PyMuPDF
+
+import fitz  # type: ignore  # PyMuPDF
 
 URL_REGEX = re.compile(
     r"\b(?:https?://|www\.|git@)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s()<>]+)?",
@@ -14,22 +14,23 @@ URL_REGEX = re.compile(
 @dataclass
 class ParsedDocument:
     """Standardized output of document extraction."""
+
     raw_text: str
-    embedded_urls: List[str] = field(default_factory=list)
-    visible_urls: List[str] = field(default_factory=list)
-    metadata: Dict[str, str] = field(default_factory=dict)
+    embedded_urls: list[str] = field(default_factory=list)
+    visible_urls: list[str] = field(default_factory=list)
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
     """Extracts text and embedded hyperlink annotations from digital PDF.
-    
+
     Strict invariant: no OCR is performed in v1, and no URLs are invented.
     """
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    
-    text_chunks: List[str] = []
-    embedded_urls: List[str] = []
-    visible_urls: List[str] = []
+
+    text_chunks: list[str] = []
+    embedded_urls: list[str] = []
+    visible_urls: list[str] = []
 
     for page_idx in range(len(doc)):
         page = doc[page_idx]
@@ -48,7 +49,7 @@ def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
             visible_urls.append(match.group(0).strip())
 
     doc.close()
-    
+
     full_text = "\n".join(text_chunks)
     return ParsedDocument(
         raw_text=full_text,

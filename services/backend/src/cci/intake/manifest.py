@@ -1,18 +1,27 @@
 """Candidate evidence manifest builder implementing the paper-mandated extraction pipeline."""
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from cci.domain.contracts import CandidateManifest
-from cci.intake.canonicalizer import classify_url, deduplicate_urls, normalize_url
+from cci.intake.canonicalizer import classify_url, deduplicate_urls
 from cci.intake.parsers import ParsedDocument
 
 EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
 # Standard resume section headers
 SECTION_PATTERNS = {
-    "skills": re.compile(r"^(?:technical\s+)?skills\b|^(?:core\s+)?technologies\b|^competencies\b", re.IGNORECASE),
-    "projects": re.compile(r"^(?:personal\s+|academic\s+|selected\s+)?projects\b", re.IGNORECASE),
-    "experience": re.compile(r"^(?:work\s+|professional\s+)?experience\b|^employment\b|^history\b", re.IGNORECASE),
+    "skills": re.compile(
+        r"^(?:technical\s+)?skills\b|^(?:core\s+)?technologies\b|^competencies\b",
+        re.IGNORECASE,
+    ),
+    "projects": re.compile(
+        r"^(?:personal\s+|academic\s+|selected\s+)?projects\b", re.IGNORECASE
+    ),
+    "experience": re.compile(
+        r"^(?:work\s+|professional\s+)?experience\b|^employment\b|^history\b",
+        re.IGNORECASE,
+    ),
     "education": re.compile(r"^education\b|^academics\b", re.IGNORECASE),
 }
 
@@ -30,14 +39,16 @@ def extract_candidate_name(text: str) -> str:
         if re.search(r"https?://|www\.|\+?\d[\d\s-]{7,}", line):
             continue
         # Clean potential title or label noise
-        clean_name = re.sub(r"^(resume|curriculum vitae|cv)[:\s-]*", "", line, flags=re.IGNORECASE).strip()
+        clean_name = re.sub(
+            r"^(resume|curriculum vitae|cv)[:\s-]*", "", line, flags=re.IGNORECASE
+        ).strip()
         if len(clean_name) > 1 and len(clean_name.split()) <= 5:
             return clean_name
 
     return lines[0][:100]
 
 
-def extract_candidate_email(text: str) -> Optional[str]:
+def extract_candidate_email(text: str) -> str | None:
     """Extracts primary contact email."""
     match = EMAIL_REGEX.search(text)
     if match:
@@ -45,9 +56,9 @@ def extract_candidate_email(text: str) -> Optional[str]:
     return None
 
 
-def segment_sections(text: str) -> Dict[str, List[str]]:
+def segment_sections(text: str) -> dict[str, list[str]]:
     """Segments resume text into standard sections based on detected headings."""
-    sections: Dict[str, List[str]] = {
+    sections: dict[str, list[str]] = {
         "header": [],
         "skills": [],
         "projects": [],
@@ -74,7 +85,7 @@ def segment_sections(text: str) -> Dict[str, List[str]]:
     return sections
 
 
-def extract_skills_from_section(skill_lines: List[str]) -> List[str]:
+def extract_skills_from_section(skill_lines: list[str]) -> list[str]:
     """Extracts normalized technical skill tokens from skills section."""
     skills = []
     for line in skill_lines:
@@ -90,10 +101,10 @@ def extract_skills_from_section(skill_lines: List[str]) -> List[str]:
     return skills
 
 
-def extract_project_claims(project_lines: List[str]) -> List[Dict[str, Any]]:
+def extract_project_claims(project_lines: list[str]) -> list[dict[str, Any]]:
     """Groups project lines into structured project claim records."""
-    claims: List[Dict[str, Any]] = []
-    current_proj: Optional[Dict[str, Any]] = None
+    claims: list[dict[str, Any]] = []
+    current_proj: dict[str, Any] | None = None
 
     for line in project_lines:
         # Project titles are typically short or contain bullet indicators
@@ -120,10 +131,10 @@ def extract_project_claims(project_lines: List[str]) -> List[Dict[str, Any]]:
 
 def build_candidate_manifest(
     document: ParsedDocument,
-    display_name_override: Optional[str] = None,
+    display_name_override: str | None = None,
 ) -> CandidateManifest:
     """Builds a verified CandidateManifest following the paper-mandated order:
-    
+
     1. Embedded hyperlinks
     2. Visible URLs
     3. Deterministic URL/platform classification
@@ -138,13 +149,13 @@ def build_candidate_manifest(
     canonical_urls = deduplicate_urls(raw_urls)
 
     # Classify URLs strictly by platform
-    github_urls: List[str] = []
-    linkedin_urls: List[str] = []
-    coding_profile_urls: List[str] = []
-    credential_urls: List[str] = []
-    deployment_urls: List[str] = []
-    portfolio_urls: List[str] = []
-    project_links: List[str] = []
+    github_urls: list[str] = []
+    linkedin_urls: list[str] = []
+    coding_profile_urls: list[str] = []
+    credential_urls: list[str] = []
+    deployment_urls: list[str] = []
+    portfolio_urls: list[str] = []
+    project_links: list[str] = []
 
     for url in canonical_urls:
         cat = classify_url(url)

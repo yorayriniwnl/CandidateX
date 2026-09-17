@@ -1,10 +1,21 @@
+from typing import Any
+
 """FastAPI entrypoint for Candidate Capability Intelligence (CCI)."""
 
 from datetime import datetime, timezone
+
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from cci import __version__
+from cci.api.routers import (
+    candidates_router,
+    dossier_router,
+    jobs_router,
+    overrides_router,
+    pipeline_router,
+    research_router,
+)
 from cci.config import settings
 
 app = FastAPI(
@@ -23,16 +34,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-
-from cci.api.routers import (
-    candidates_router,
-    dossier_router,
-    jobs_router,
-    overrides_router,
-    pipeline_router,
-    research_router,
 )
 
 app.include_router(dossier_router)
@@ -55,7 +56,7 @@ app.include_router(research_router)
     tags=["System"],
     summary="Health check endpoint alias",
 )
-def healthz():
+def healthz() -> Any:
     """Liveness and health check endpoint."""
     return {
         "status": "healthy",

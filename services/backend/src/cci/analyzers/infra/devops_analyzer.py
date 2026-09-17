@@ -6,8 +6,8 @@ All analysis is strictly static inspection of configuration artifacts.
 """
 
 import re
+
 import yaml
-from typing import List, Optional
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
@@ -20,15 +20,27 @@ def analyze_dockerfile(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Dockerfiles for multi-stage builds, non-root users, healthchecks, and layer caching."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
-    from_stages = re.findall(r"^FROM\s+([^\s]+)(?:\s+AS\s+([a-zA-Z0-9_-]+))?", content, re.IGNORECASE | re.MULTILINE)
+    from_stages = re.findall(
+        r"^FROM\s+([^\s]+)(?:\s+AS\s+([a-zA-Z0-9_-]+))?",
+        content,
+        re.IGNORECASE | re.MULTILINE,
+    )
     is_multistage = len(from_stages) > 1 or any(stage[1] for stage in from_stages)
-    has_copy_from = bool(re.search(r"^COPY\s+--from=", content, re.IGNORECASE | re.MULTILINE))
-    has_nonroot_user = bool(re.search(r"^USER\s+(?!root\b)([a-zA-Z0-9_-]+)", content, re.IGNORECASE | re.MULTILINE))
-    has_healthcheck = bool(re.search(r"^HEALTHCHECK\s+", content, re.IGNORECASE | re.MULTILINE))
+    has_copy_from = bool(
+        re.search(r"^COPY\s+--from=", content, re.IGNORECASE | re.MULTILINE)
+    )
+    has_nonroot_user = bool(
+        re.search(
+            r"^USER\s+(?!root\b)([a-zA-Z0-9_-]+)", content, re.IGNORECASE | re.MULTILINE
+        )
+    )
+    has_healthcheck = bool(
+        re.search(r"^HEALTHCHECK\s+", content, re.IGNORECASE | re.MULTILINE)
+    )
 
     # Base Dockerfile evaluation
     score = 72.0
@@ -67,9 +79,9 @@ def analyze_docker_compose(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects docker-compose files for multi-service architectures, networks, volumes, and healthchecks."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     try:
         data = yaml.safe_load(content)
@@ -79,12 +91,20 @@ def analyze_docker_compose(
     if isinstance(data, dict) and "services" in data:
         services = data.get("services", {})
         service_count = len(services) if isinstance(services, dict) else 0
-        has_volumes = "volumes" in data or any("volumes" in svc for svc in services.values() if isinstance(svc, dict))
-        has_networks = "networks" in data or any("networks" in svc for svc in services.values() if isinstance(svc, dict))
-        has_healthchecks = any("healthcheck" in svc for svc in services.values() if isinstance(svc, dict))
+        has_volumes = "volumes" in data or any(
+            "volumes" in svc for svc in services.values() if isinstance(svc, dict)
+        )
+        has_networks = "networks" in data or any(
+            "networks" in svc for svc in services.values() if isinstance(svc, dict)
+        )
+        has_healthchecks = any(
+            "healthcheck" in svc for svc in services.values() if isinstance(svc, dict)
+        )
 
         score = 74.0
-        features = [f"{service_count} orchestrated services ({', '.join(list(services.keys())[:4])})"]
+        features = [
+            f"{service_count} orchestrated services ({', '.join(list(services.keys())[:4])})"
+        ]
         if has_networks:
             score += 5.0
             features.append("custom network topology")
@@ -119,9 +139,9 @@ def analyze_ci_workflow(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects GitHub Actions, GitLab CI, or other workflow definitions for testing, matrix, and caching."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     try:
         data = yaml.safe_load(content)
@@ -133,10 +153,26 @@ def analyze_ci_workflow(
         job_names = list(jobs.keys()) if isinstance(jobs, dict) else []
         content_lower = content.lower()
 
-        has_test_job = any(term in j.lower() for j in job_names for term in ("test", "pytest", "unit", "spec", "check")) or "pytest" in content_lower or "npm test" in content_lower or "go test" in content_lower
+        has_test_job = (
+            any(
+                term in j.lower()
+                for j in job_names
+                for term in ("test", "pytest", "unit", "spec", "check")
+            )
+            or "pytest" in content_lower
+            or "npm test" in content_lower
+            or "go test" in content_lower
+        )
         has_matrix = "strategy:" in content_lower and "matrix:" in content_lower
         has_cache = "actions/cache" in content or "cache:" in content_lower
-        has_deploy = any(term in j.lower() for j in job_names for term in ("deploy", "release", "publish")) or "deploy" in content_lower
+        has_deploy = (
+            any(
+                term in j.lower()
+                for j in job_names
+                for term in ("deploy", "release", "publish")
+            )
+            or "deploy" in content_lower
+        )
 
         score = 75.0
         features = []
@@ -177,9 +213,9 @@ def analyze_kubernetes_manifest(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Kubernetes manifests for Deployments, resource limits, and health probes."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     try:
         docs = list(yaml.safe_load_all(content))
@@ -233,9 +269,9 @@ def analyze_terraform_hcl(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Terraform HCL files for infrastructure resource declarations and module definitions."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     resources = re.findall(r'\bresource\s+"([^"]+)"\s+"([^"]+)"', content)
     modules = re.findall(r'\bmodule\s+"([^"]+)"', content)
@@ -245,7 +281,9 @@ def analyze_terraform_hcl(
         features = []
         if resources:
             score += 4.0
-            features.append(f"{len(resources)} cloud resources ({', '.join(r[0] for r in resources[:3])})")
+            features.append(
+                f"{len(resources)} cloud resources ({', '.join(r[0] for r in resources[:3])})"
+            )
         if modules:
             score += 5.0
             features.append(f"{len(modules)} reusable infrastructure modules")

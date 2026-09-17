@@ -7,10 +7,9 @@ pure-functional mathematical calculations.
 
 from __future__ import annotations
 
-import json
 import math
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -20,6 +19,7 @@ router = APIRouter(prefix="/api/v1/research", tags=["Research & Formal Theorems"
 # Data Models
 # ---------------------------------------------------------------------------
 
+
 class TheoremMetadata(BaseModel):
     id: int
     name: str
@@ -28,7 +28,7 @@ class TheoremMetadata(BaseModel):
     description: str
     bound_statement: str
     physical_intuition: str
-    key_properties: List[str]
+    key_properties: list[str]
 
 
 class AblationRow(BaseModel):
@@ -55,16 +55,20 @@ class AblationStudyResponse(BaseModel):
     total_candidates: int
     total_seeds: int
     roles_count: int
-    models: List[AblationRow]
-    role_breakdown: List[RoleBreakdownRow]
+    models: list[AblationRow]
+    role_breakdown: list[RoleBreakdownRow]
     latex_table: str
     markdown_table: str
     notes: str
 
 
 class CalculationRequest(BaseModel):
-    theorem_id: int = Field(..., ge=1, le=10, description="Theorem ID to evaluate (1..10)")
-    parameters: Dict[str, Any] = Field(..., description="Parameter map for the theorem formula")
+    theorem_id: int = Field(
+        ..., ge=1, le=10, description="Theorem ID to evaluate (1..10)"
+    )
+    parameters: dict[str, Any] = Field(
+        ..., description="Parameter map for the theorem formula"
+    )
 
 
 class CalculationResponse(BaseModel):
@@ -72,7 +76,7 @@ class CalculationResponse(BaseModel):
     theorem_name: str
     formula: str
     result: float
-    intermediate_steps: Dict[str, Any]
+    intermediate_steps: dict[str, Any]
     bounds_satisfied: bool
     explanation: str
 
@@ -81,7 +85,7 @@ class CalculationResponse(BaseModel):
 # Static Theorem Catalog (Theorems 1 through 10)
 # ---------------------------------------------------------------------------
 
-THEOREMS_CATALOG: List[TheoremMetadata] = [
+THEOREMS_CATALOG: list[TheoremMetadata] = [
     TheoremMetadata(
         id=1,
         name="Recency Decay Monotonicity & Asymptotics",
@@ -230,13 +234,14 @@ THEOREMS_CATALOG: List[TheoremMetadata] = [
 # Router Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/theorems",
-    response_model=List[TheoremMetadata],
+    response_model=list[TheoremMetadata],
     summary="Get All 10 Conference Paper Theorems",
     description="Returns the formal mathematical formulations, bound proofs, and physical intuitions for Theorems 1 through 10.",
 )
-def get_all_theorems() -> List[TheoremMetadata]:
+def get_all_theorems() -> list[TheoremMetadata]:
     return THEOREMS_CATALOG
 
 
@@ -248,8 +253,7 @@ def get_all_theorems() -> List[TheoremMetadata]:
 )
 def get_ablation_study() -> AblationStudyResponse:
     # Attempt to load from research/results/ablation_results.json if available
-    research_path = Path(__file__).resolve().parents[6] / "research" / "results" / "ablation_results.json"
-    
+
     models = [
         AblationRow(
             model_name="FULL_CCI",
@@ -300,12 +304,54 @@ def get_ablation_study() -> AblationStudyResponse:
     ]
 
     role_breakdown = [
-        RoleBreakdownRow(role="backend", display_name="Backend Engineering", full_cci_mae=1.892, no_decay_mae=1.918, no_ownership_mae=2.180, uniform_weights_mae=3.120),
-        RoleBreakdownRow(role="frontend", display_name="Frontend Engineering", full_cci_mae=1.954, no_decay_mae=2.012, no_ownership_mae=2.245, uniform_weights_mae=3.210),
-        RoleBreakdownRow(role="devops", display_name="DevOps & Cloud", full_cci_mae=1.931, no_decay_mae=1.960, no_ownership_mae=2.198, uniform_weights_mae=3.145),
-        RoleBreakdownRow(role="ml_engineer", display_name="Machine Learning", full_cci_mae=1.980, no_decay_mae=2.045, no_ownership_mae=2.290, uniform_weights_mae=3.280),
-        RoleBreakdownRow(role="fullstack", display_name="Fullstack Engineering", full_cci_mae=1.915, no_decay_mae=1.942, no_ownership_mae=2.175, uniform_weights_mae=3.090),
-        RoleBreakdownRow(role="mobile", display_name="Mobile Engineering", full_cci_mae=1.986, no_decay_mae=2.022, no_ownership_mae=2.215, uniform_weights_mae=3.185),
+        RoleBreakdownRow(
+            role="backend",
+            display_name="Backend Engineering",
+            full_cci_mae=1.892,
+            no_decay_mae=1.918,
+            no_ownership_mae=2.180,
+            uniform_weights_mae=3.120,
+        ),
+        RoleBreakdownRow(
+            role="frontend",
+            display_name="Frontend Engineering",
+            full_cci_mae=1.954,
+            no_decay_mae=2.012,
+            no_ownership_mae=2.245,
+            uniform_weights_mae=3.210,
+        ),
+        RoleBreakdownRow(
+            role="devops",
+            display_name="DevOps & Cloud",
+            full_cci_mae=1.931,
+            no_decay_mae=1.960,
+            no_ownership_mae=2.198,
+            uniform_weights_mae=3.145,
+        ),
+        RoleBreakdownRow(
+            role="ml_engineer",
+            display_name="Machine Learning",
+            full_cci_mae=1.980,
+            no_decay_mae=2.045,
+            no_ownership_mae=2.290,
+            uniform_weights_mae=3.280,
+        ),
+        RoleBreakdownRow(
+            role="fullstack",
+            display_name="Fullstack Engineering",
+            full_cci_mae=1.915,
+            no_decay_mae=1.942,
+            no_ownership_mae=2.175,
+            uniform_weights_mae=3.090,
+        ),
+        RoleBreakdownRow(
+            role="mobile",
+            display_name="Mobile Engineering",
+            full_cci_mae=1.986,
+            no_decay_mae=2.022,
+            no_ownership_mae=2.215,
+            uniform_weights_mae=3.185,
+        ),
     ]
 
     latex_table = r"""\begin{table}[t]
@@ -360,7 +406,10 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         delta_t = float(p.get("delta_t_months", 0.0))
         lambda_val = float(p.get("lambda_rate", 0.03))
         if delta_t < 0 or lambda_val < 0:
-            raise HTTPException(status_code=400, detail="delta_t_months and lambda_rate must be non-negative")
+            raise HTTPException(
+                status_code=400,
+                detail="delta_t_months and lambda_rate must be non-negative",
+            )
         decay = math.exp(-lambda_val * delta_t)
         return CalculationResponse(
             theorem_id=1,
@@ -384,7 +433,10 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         factors = [a, o, t, v, x, r]
         for f in factors:
             if not (0.0 <= f <= 1.0):
-                raise HTTPException(status_code=400, detail=f"All factors must be in [0.0, 1.0], got {f}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"All factors must be in [0.0, 1.0], got {f}",
+                )
 
         product = a * o * t * v * x * r
         composite = math.pow(product, 1.0 / 6.0) if product > 0 else 0.0
@@ -407,7 +459,9 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         # Theorem 4: Kish Effective Sample Size: (sum c)^2 / sum(c^2)
         confidences = p.get("confidences", [0.8, 0.8, 0.8])
         if not isinstance(confidences, list) or len(confidences) == 0:
-            raise HTTPException(status_code=400, detail="confidences must be a non-empty list of floats")
+            raise HTTPException(
+                status_code=400, detail="confidences must be a non-empty list of floats"
+            )
         c_vals = [float(c) for c in confidences]
         sum_c = sum(c_vals)
         sum_sq = sum(c * c for c in c_vals)
@@ -429,11 +483,16 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         weights = p.get("weights", [0.25, 0.25, 0.25, 0.25])
         estimates = p.get("estimates", [85.0, 90.0, 75.0, 80.0])
         if len(weights) != len(estimates):
-            raise HTTPException(status_code=400, detail="weights and estimates lists must have equal length")
+            raise HTTPException(
+                status_code=400,
+                detail="weights and estimates lists must have equal length",
+            )
 
         w_sum = sum(weights)
         if w_sum <= 0:
-            raise HTTPException(status_code=400, detail="Sum of weights must be positive")
+            raise HTTPException(
+                status_code=400, detail="Sum of weights must be positive"
+            )
         weighted_score = sum(w * e for w, e in zip(weights, estimates))
         rci = weighted_score / w_sum
 
@@ -442,7 +501,10 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
             theorem_name="Role Capability Index (RCI)",
             formula="100 * sum(w_k * q_k) / sum(w_k)",
             result=round(rci, 2),
-            intermediate_steps={"observed_weight_mass": w_sum, "weighted_sum": weighted_score},
+            intermediate_steps={
+                "observed_weight_mass": w_sum,
+                "weighted_sum": weighted_score,
+            },
             bounds_satisfied=0.0 <= rci <= 100.0,
             explanation=f"Computed RCI = {rci:.2f}/100 normalized over observed weight mass {w_sum:.2f}.",
         )
@@ -453,7 +515,10 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         n_k = float(p.get("negative_support", 0.0))
         epsilon = 0.0001
         if p_k < 0 or n_k < 0:
-            raise HTTPException(status_code=400, detail="positive_support and negative_support must be non-negative")
+            raise HTTPException(
+                status_code=400,
+                detail="positive_support and negative_support must be non-negative",
+            )
 
         denom = p_k + n_k + epsilon
         d_k = (p_k - n_k) / denom

@@ -9,13 +9,12 @@ ABLATION CONFIGURATIONS:
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 from scipy import stats
 
-from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
+from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.research.simulation import SimulatedCandidate, SimulatedObservation
-from cci.scoring.capability import compute_capability_score
 from cci.scoring.recency import compute_recency_factor
 from cci.scoring.reliability import DEFAULT_PRIORS, calculate_beta_mean
 from cci.scoring.weights import compute_softmax_weights
@@ -69,16 +68,16 @@ def _compute_ablation_confidence(
 def evaluate_candidate_ablation(
     candidate: SimulatedCandidate,
     mode: AblationMode,
-    role_weights: Dict[CapabilityKey, float],
-    true_weights: Optional[Dict[CapabilityKey, float]] = None,
-) -> Tuple[Optional[float], float, Dict[CapabilityKey, float]]:
+    role_weights: dict[CapabilityKey, float],
+    true_weights: dict[CapabilityKey, float] | None = None,
+) -> tuple[float | None, float, dict[CapabilityKey, float]]:
     """Evaluates a simulated candidate's capability scores and RCI under ablation."""
     # Group observations by capability
-    obs_by_cap: Dict[CapabilityKey, List[SimulatedObservation]] = {}
+    obs_by_cap: dict[CapabilityKey, list[SimulatedObservation]] = {}
     for obs in candidate.observations:
         obs_by_cap.setdefault(obs.capability_key, []).append(obs)
 
-    estimated_q: Dict[CapabilityKey, float] = {}
+    estimated_q: dict[CapabilityKey, float] = {}
 
     for cap_key in CapabilityKey:
         cap_obs = obs_by_cap.get(cap_key, [])
@@ -97,33 +96,36 @@ def evaluate_candidate_ablation(
     if not estimated_q:
         return None, 0.0, estimated_q
 
-    w_sum = sum(role_weights[k] for k in estimated_q.keys())
+    w_sum = sum(role_weights[k] for k in estimated_q)
     if w_sum <= 0.0:
         return None, 0.0, estimated_q
 
-    weighted_q = sum(role_weights[k] * estimated_q[k] for k in estimated_q.keys())
+    weighted_q = sum(role_weights[k] * estimated_q[k] for k in estimated_q)
     rci_est = weighted_q / w_sum
 
     # Compute ground truth RCI over the same observed capabilities for fair comparison
     target_w = true_weights if true_weights is not None else role_weights
-    target_w_sum = sum(target_w[k] for k in estimated_q.keys())
+    target_w_sum = sum(target_w[k] for k in estimated_q)
     if target_w_sum <= 0.0:
         return None, 0.0, estimated_q
-    weighted_true = sum(target_w[k] * candidate.ground_truth_capabilities[k] for k in estimated_q.keys())
+    weighted_true = sum(
+        target_w[k] * candidate.ground_truth_capabilities[k] for k in estimated_q
+    )
     rci_true = weighted_true / target_w_sum
 
     return rci_est, rci_true, estimated_q
 
 
 def run_ablation_evaluation(
-    cohort: List[SimulatedCandidate],
+    cohort: list[SimulatedCandidate],
     mode: AblationMode,
     role: CanonicalRole,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Runs ablation evaluation across a candidate cohort and computes paper metrics."""
     # Default role importance
     raw_importances = {k: 1.0 for k in CapabilityKey}
     from cci.research.simulation import ROLE_CAPABILITY_PROFILES
+
     prof = ROLE_CAPABILITY_PROFILES.get(role, {})
     for k, (mean_val, _) in prof.items():
         raw_importances[k] = mean_val / 50.0
@@ -135,9 +137,9 @@ def run_ablation_evaluation(
     else:
         eval_weights = true_role_weights
 
-    est_rcis: List[float] = []
-    true_rcis: List[float] = []
-    cap_errors: List[float] = []
+    est_rcis: list[float] = []
+    true_rcis: list[float] = []
+    cap_errors: list[float] = []
 
     for cand in cohort:
         rci_est, rci_true, q_hats = evaluate_candidate_ablation(

@@ -1,16 +1,14 @@
 """Dependency manifest parsers converting package specifications into provenance-linked EvidenceInput."""
 
-import json
 import re
-import tomllib
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
+import defusedxml.ElementTree as ET
+import tomllib
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
-DEPENDENCY_CAPABILITY_MAP: Dict[str, CapabilityKey] = {
+DEPENDENCY_CAPABILITY_MAP: dict[str, CapabilityKey] = {
     # Backend
     "fastapi": CapabilityKey.BACKEND_ENGINEERING,
     "django": CapabilityKey.BACKEND_ENGINEERING,
@@ -21,7 +19,6 @@ DEPENDENCY_CAPABILITY_MAP: Dict[str, CapabilityKey] = {
     "spring-boot": CapabilityKey.BACKEND_ENGINEERING,
     "grpc": CapabilityKey.BACKEND_ENGINEERING,
     "uvicorn": CapabilityKey.BACKEND_ENGINEERING,
-
     # Frontend
     "react": CapabilityKey.FRONTEND_ENGINEERING,
     "next": CapabilityKey.FRONTEND_ENGINEERING,
@@ -29,7 +26,6 @@ DEPENDENCY_CAPABILITY_MAP: Dict[str, CapabilityKey] = {
     "angular": CapabilityKey.FRONTEND_ENGINEERING,
     "svelte": CapabilityKey.FRONTEND_ENGINEERING,
     "tailwindcss": CapabilityKey.FRONTEND_ENGINEERING,
-
     # Database
     "sqlalchemy": CapabilityKey.DATABASE_ENGINEERING,
     "prisma": CapabilityKey.DATABASE_ENGINEERING,
@@ -39,24 +35,20 @@ DEPENDENCY_CAPABILITY_MAP: Dict[str, CapabilityKey] = {
     "typeorm": CapabilityKey.DATABASE_ENGINEERING,
     "mongoose": CapabilityKey.DATABASE_ENGINEERING,
     "redis": CapabilityKey.DATABASE_ENGINEERING,
-
     # DevOps / Cloud
     "boto3": CapabilityKey.DEVOPS_CLOUD,
     "pulumi": CapabilityKey.DEVOPS_CLOUD,
     "kubernetes": CapabilityKey.DEVOPS_CLOUD,
-
     # Machine Learning
     "torch": CapabilityKey.MACHINE_LEARNING,
     "tensorflow": CapabilityKey.MACHINE_LEARNING,
     "scikit-learn": CapabilityKey.MACHINE_LEARNING,
     "transformers": CapabilityKey.MACHINE_LEARNING,
-
     # Data Engineering
     "pyspark": CapabilityKey.DATA_ENGINEERING,
     "kafka-python": CapabilityKey.DATA_ENGINEERING,
     "dbt-core": CapabilityKey.DATA_ENGINEERING,
     "apache-airflow": CapabilityKey.DATA_ENGINEERING,
-
     # Testing
     "pytest": CapabilityKey.TESTING_QUALITY,
     "jest": CapabilityKey.TESTING_QUALITY,
@@ -70,17 +62,17 @@ DEPENDENCY_CAPABILITY_MAP: Dict[str, CapabilityKey] = {
 @dataclass(frozen=True)
 class ParsedDependency:
     name: str
-    version: Optional[str]
+    version: str | None
     is_dev: bool
     line_number: int
     raw_line: str
 
 
-def parse_package_json(content: str) -> List[ParsedDependency]:
+def parse_package_json(content: str) -> list[ParsedDependency]:
     """Parses package.json dependencies and devDependencies with line numbers."""
-    deps: List[ParsedDependency] = []
+    deps: list[ParsedDependency] = []
     lines = content.split("\n")
-    
+
     current_section = None
     for idx, line in enumerate(lines, start=1):
         if '"dependencies"' in line:
@@ -109,9 +101,9 @@ def parse_package_json(content: str) -> List[ParsedDependency]:
     return deps
 
 
-def parse_requirements_txt(content: str) -> List[ParsedDependency]:
+def parse_requirements_txt(content: str) -> list[ParsedDependency]:
     """Parses requirements.txt line by line."""
-    deps: List[ParsedDependency] = []
+    deps: list[ParsedDependency] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
@@ -135,9 +127,9 @@ def parse_requirements_txt(content: str) -> List[ParsedDependency]:
     return deps
 
 
-def parse_pyproject_toml(content: str) -> List[ParsedDependency]:
+def parse_pyproject_toml(content: str) -> list[ParsedDependency]:
     """Parses pyproject.toml dependencies."""
-    deps: List[ParsedDependency] = []
+    deps: list[ParsedDependency] = []
     lines = content.split("\n")
 
     try:
@@ -176,9 +168,9 @@ def parse_pyproject_toml(content: str) -> List[ParsedDependency]:
     return deps
 
 
-def parse_go_mod(content: str) -> List[ParsedDependency]:
+def parse_go_mod(content: str) -> list[ParsedDependency]:
     """Parses go.mod require directives."""
-    deps: List[ParsedDependency] = []
+    deps: list[ParsedDependency] = []
     lines = content.split("\n")
 
     in_require = False
@@ -209,9 +201,9 @@ def parse_go_mod(content: str) -> List[ParsedDependency]:
     return deps
 
 
-def parse_pom_xml(content: str) -> List[ParsedDependency]:
+def parse_pom_xml(content: str) -> list[ParsedDependency]:
     """Parses Maven pom.xml dependencies."""
-    deps: List[ParsedDependency] = []
+    deps: list[ParsedDependency] = []
     try:
         root = ET.fromstring(content)
         # Strip XML namespaces for simplified query
@@ -220,7 +212,6 @@ def parse_pom_xml(content: str) -> List[ParsedDependency]:
                 elem.tag = elem.tag.split("}", 1)[1]
 
         for dep in root.findall(".//dependency"):
-            group = dep.find("groupId")
             artifact = dep.find("artifactId")
             version = dep.find("version")
 
@@ -242,7 +233,9 @@ def parse_pom_xml(content: str) -> List[ParsedDependency]:
     return deps
 
 
-def extract_manifest_dependencies(file_path: str, content: str) -> List[ParsedDependency]:
+def extract_manifest_dependencies(
+    file_path: str, content: str
+) -> list[ParsedDependency]:
     """Dispatches manifest parsing based on file path name."""
     norm_path = file_path.replace("\\", "/").lower()
     fname = norm_path.split("/")[-1]
@@ -261,18 +254,18 @@ def extract_manifest_dependencies(file_path: str, content: str) -> List[ParsedDe
 
 
 def dependencies_to_evidence(
-    deps: List[ParsedDependency],
+    deps: list[ParsedDependency],
     repo_url: str,
     file_path: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Converts parsed dependencies into EvidenceInput candidates.
-    
+
     INVARIANT: Does NOT convert mere framework presence into unearned capability mastery.
     Assigns moderate baseline support score (55.0) reflecting dependency declaration.
     """
-    evidence_list: List[EvidenceInput] = []
+    evidence_list: list[EvidenceInput] = []
 
     for dep in deps:
         # Match against known capability mapping

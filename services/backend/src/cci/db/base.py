@@ -3,35 +3,37 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
 from sqlalchemy import (
     DateTime,
     ForeignKey,
-    String,
     event,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     mapped_column,
 )
-from sqlalchemy.types import JSON, TypeDecorator, CHAR
+from sqlalchemy.types import CHAR, JSON, TypeDecorator
 
 
-class GUID(TypeDecorator):
+class GUID(TypeDecorator[Any]):
     """Platform-independent GUID/UUID type.
     Uses PostgreSQL's UUID type, otherwise uses CHAR(36), storing as stringified hex.
     """
+
     impl = CHAR
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         if dialect.name == "postgresql":
             return dialect.type_descriptor(PG_UUID(as_uuid=True))
         else:
             return dialect.type_descriptor(CHAR(36))
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if value is None:
             return value
         elif dialect.name == "postgresql":
@@ -42,7 +44,7 @@ class GUID(TypeDecorator):
             else:
                 return str(uuid.UUID(value))
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is None:
             return value
         if isinstance(value, uuid.UUID):
@@ -50,12 +52,13 @@ class GUID(TypeDecorator):
         return uuid.UUID(value)
 
 
-class JSONType(TypeDecorator):
+class JSONType(TypeDecorator[Any]):
     """Platform-independent JSON type using JSONB on Postgres and JSON on SQLite."""
+
     impl = JSON
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         if dialect.name == "postgresql":
             return dialect.type_descriptor(JSONB())
         else:
@@ -64,11 +67,11 @@ class JSONType(TypeDecorator):
 
 class Base(DeclarativeBase):
     """Base declarative class for all CCI entities."""
-    pass
 
 
 class TimestampMixin:
     """Standard timestamp tracking mixin."""
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -84,6 +87,7 @@ class TimestampMixin:
 
 class UUIDPrimaryKeyMixin:
     """Standard UUID primary key."""
+
     id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         primary_key=True,
@@ -94,6 +98,7 @@ class UUIDPrimaryKeyMixin:
 
 class TenantMixin:
     """Multi-tenancy organization scoping."""
+
     organization_id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -104,11 +109,12 @@ class TenantMixin:
 
 class ImmutableModelMixin:
     """Marker mixin for entities whose rows must never be mutated once written."""
+
     __is_immutable__ = True
 
 
 @event.listens_for(Base, "before_update", propagate=True)
-def guard_immutable_entities(mapper, connection, target):
+def guard_immutable_entities(_mapper: Any, _connection: Any, target: Any) -> None:
     """Enforces database-layer immutability for marked models."""
     if getattr(target, "__is_immutable__", False):
         raise ValueError(

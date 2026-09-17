@@ -1,8 +1,6 @@
 """Capability estimates, RCI, and Coverage API schemas."""
 
-from typing import Dict, List, Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
 
 from cci.domain.contracts import (
     AnalysisScore,
@@ -12,13 +10,15 @@ from cci.domain.contracts import (
     RoleProfile,
 )
 from cci.domain.enums import CapabilityKey
+from pydantic import BaseModel
 
 
 class ScoringOverviewResponse(BaseModel):
     """Interviewer score summary combining RCI, Coverage, and capability details."""
+
     analysis_run_id: UUID
     overall_score: AnalysisScore
     role_profile: RoleProfile
-    capabilities: Dict[CapabilityKey, CapabilityEstimate]
-    uncertainties: Dict[CapabilityKey, CapabilityUncertainty]
-    conflicts: Dict[CapabilityKey, CapabilityConflict]
+    capabilities: dict[CapabilityKey, CapabilityEstimate]
+    uncertainties: dict[CapabilityKey, CapabilityUncertainty]
+    conflicts: dict[CapabilityKey, CapabilityConflict]

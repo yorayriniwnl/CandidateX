@@ -1,7 +1,7 @@
 """Cluster bootstrap confidence interval implementation."""
 
 from collections import defaultdict
-from typing import List, Optional, Tuple
+
 import numpy as np
 
 from cci.domain.contracts import EvidenceRecord
@@ -9,22 +9,26 @@ from cci.domain.enums import CapabilityKey
 
 
 def cluster_bootstrap_ci(
-    evidence_records: List[EvidenceRecord],
+    evidence_records: list[EvidenceRecord],
     capability: CapabilityKey,
     n_resamples: int = 1000,
     confidence_level: float = 0.95,
-    seed: Optional[int] = 42,
-) -> Tuple[Optional[float], Optional[float]]:
+    seed: int | None = 42,
+) -> tuple[float | None, float | None]:
     """Calculates non-parametric cluster bootstrap confidence intervals for q_k.
-    
+
     When at least 2 distinct clusters exist, clusters are resampled with replacement.
     When cluster count < 2, falls back to weighted dispersion / SE approximation.
     Deterministic when seed is provided.
-    
+
     Returns:
         (ci_lower, ci_upper) tuple clamped to [0.0, 100.0], or (None, None) if no evidence.
     """
-    relevant = [e for e in evidence_records if e.target_capability == capability and e.confidence > 0.0]
+    relevant = [
+        e
+        for e in evidence_records
+        if e.target_capability == capability and e.confidence > 0.0
+    ]
     if not relevant:
         return None, None
 
@@ -41,12 +45,15 @@ def cluster_bootstrap_ci(
     total_c = sum(e.confidence for e in relevant)
     if total_c <= 0.0:
         return None, None
-        
+
     base_q = sum(e.confidence * e.support_score for e in relevant) / total_c
 
     # If insufficient clusters, fall back to standard error normal approximation
     if k_clusters < 2:
-        weighted_var = sum(e.confidence * ((e.support_score - base_q) ** 2) for e in relevant) / total_c
+        weighted_var = (
+            sum(e.confidence * ((e.support_score - base_q) ** 2) for e in relevant)
+            / total_c
+        )
         se = np.sqrt(max(0.0, weighted_var)) / np.sqrt(max(1.0, len(relevant)))
         z_crit = 1.96  # approx 95%
         ci_lower = max(0.0, min(100.0, float(base_q - z_crit * se)))
@@ -59,16 +66,16 @@ def cluster_bootstrap_ci(
 
     for _ in range(n_resamples):
         sampled_cluster_indices = rng.choice(k_clusters, size=k_clusters, replace=True)
-        
+
         sample_sum_cz = 0.0
         sample_sum_c = 0.0
-        
+
         for idx in sampled_cluster_indices:
             c_key = cluster_keys[idx]
             for rec in clusters[c_key]:
                 sample_sum_cz += rec.confidence * rec.support_score
                 sample_sum_c += rec.confidence
-                
+
         if sample_sum_c > 0.0:
             boot_estimates.append(sample_sum_cz / sample_sum_c)
         else:

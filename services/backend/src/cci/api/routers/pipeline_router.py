@@ -1,14 +1,14 @@
+from typing import Any
+
 """Pipeline orchestration and lifecycle management API router."""
 
-from typing import Any, Dict, List, Optional
 from uuid import UUID
-
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
 
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.pipeline.service import pipeline_service
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
 
@@ -16,20 +16,20 @@ router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
 class PipelineRunRequest(BaseModel):
     candidate_id: UUID
     role: CanonicalRole = CanonicalRole.BACKEND
-    jd_text: Optional[str] = None
-    cv_text: Optional[str] = None
-    repo_urls: Optional[List[str]] = Field(default_factory=list)
-    declared_claims: Optional[List[str]] = Field(default_factory=list)
-    expert_weight_overrides: Optional[Dict[CapabilityKey, float]] = None
+    jd_text: str | None = None
+    cv_text: str | None = None
+    repo_urls: list[str] | None = Field(default_factory=list)
+    declared_claims: list[str] | None = Field(default_factory=list)
+    expert_weight_overrides: dict[CapabilityKey, float] | None = None
 
 
 class StageProgressResponse(BaseModel):
     stage: str
     label: str
     status: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    details: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    details: str | None = None
 
 
 class PipelineStatusResponse(BaseModel):
@@ -37,17 +37,17 @@ class PipelineStatusResponse(BaseModel):
     candidate_id: UUID
     role: CanonicalRole
     status: str
-    current_stage: Optional[str] = None
-    stages: List[StageProgressResponse]
-    dossier_id: Optional[UUID] = None
-    rci: Optional[float] = None
-    coverage: Optional[float] = None
-    error: Optional[str] = None
+    current_stage: str | None = None
+    stages: list[StageProgressResponse]
+    dossier_id: UUID | None = None
+    rci: float | None = None
+    coverage: float | None = None
+    error: str | None = None
 
 
 class PipelineRescoreRequest(BaseModel):
     run_id: UUID
-    weights: Dict[CapabilityKey, float]
+    weights: dict[CapabilityKey, float]
 
 
 @router.post(
@@ -56,7 +56,7 @@ class PipelineRescoreRequest(BaseModel):
     status_code=status.HTTP_200_OK,
     summary="Trigger end-to-end Candidate Capability Intelligence pipeline",
 )
-def run_pipeline(request: PipelineRunRequest):
+def run_pipeline(request: PipelineRunRequest) -> Any:
     """Executes the full 10-stage analysis pipeline and returns execution state."""
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id,
@@ -99,7 +99,7 @@ def run_pipeline(request: PipelineRunRequest):
     response_model=PipelineStatusResponse,
     summary="Get pipeline execution progress and result summary",
 )
-def get_pipeline_status(run_id: UUID):
+def get_pipeline_status(run_id: UUID) -> Any:
     """Retrieves current stage and progress for an active or completed analysis run."""
     state = pipeline_service.get_pipeline_state(run_id)
     if not state:
@@ -139,7 +139,7 @@ def get_pipeline_status(run_id: UUID):
     response_model=Dossier,
     summary="Pure functional rescore of candidate dossier with expert weights",
 )
-def rescore_pipeline(request: PipelineRescoreRequest):
+def rescore_pipeline(request: PipelineRescoreRequest) -> Any:
     """Pure functional recalculation of RCI without re-running analyzers or re-crawling."""
     rescored = pipeline_service.rescore_run(
         run_id=request.run_id,

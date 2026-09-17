@@ -1,13 +1,27 @@
 """Formal paper-aligned scoring functions for CCI."""
 
-from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
+from cci.scoring.capability import (
+    compute_capability_score,
+    compute_effective_evidence_count,
+)
 from cci.scoring.confidence import (
     compute_confidence_from_factors,
     compute_evidence_confidence,
 )
-from cci.scoring.capability import (
-    compute_capability_score,
-    compute_effective_evidence_count,
+from cci.scoring.ownership import (
+    assemble_confidence_factors,
+    estimate_repository_ownership,
+)
+from cci.scoring.rci import (
+    compute_evidence_coverage,
+    compute_rci,
+    evaluate_analysis_score,
+)
+from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
+from cci.scoring.reliability import (
+    calibrate_from_observations,
+    compute_source_reliability,
+    get_default_reliability_snapshots,
 )
 from cci.scoring.weights import (
     apply_expert_overrides,
@@ -15,39 +29,24 @@ from cci.scoring.weights import (
     compute_role_importances,
     compute_softmax_weights,
 )
-from cci.scoring.rci import (
-    compute_evidence_coverage,
-    compute_rci,
-    evaluate_analysis_score,
-)
-
-from cci.scoring.reliability import (
-    calibrate_from_observations,
-    compute_source_reliability,
-    get_default_reliability_snapshots,
-)
-from cci.scoring.ownership import (
-    assemble_confidence_factors,
-    estimate_repository_ownership,
-)
 
 __all__ = [
-    "calculate_elapsed_years",
-    "compute_recency_factor",
-    "compute_confidence_from_factors",
-    "compute_evidence_confidence",
-    "compute_capability_score",
-    "compute_effective_evidence_count",
-    "compute_role_importances",
-    "compute_softmax_weights",
-    "build_role_profile",
     "apply_expert_overrides",
+    "assemble_confidence_factors",
+    "build_role_profile",
+    "calculate_elapsed_years",
+    "calibrate_from_observations",
+    "compute_capability_score",
+    "compute_confidence_from_factors",
+    "compute_effective_evidence_count",
+    "compute_evidence_confidence",
     "compute_evidence_coverage",
     "compute_rci",
-    "evaluate_analysis_score",
+    "compute_recency_factor",
+    "compute_role_importances",
+    "compute_softmax_weights",
     "compute_source_reliability",
-    "calibrate_from_observations",
-    "get_default_reliability_snapshots",
     "estimate_repository_ownership",
-    "assemble_confidence_factors",
+    "evaluate_analysis_score",
+    "get_default_reliability_snapshots",
 ]

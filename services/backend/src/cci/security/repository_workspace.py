@@ -1,28 +1,29 @@
+from typing import Any
+
 """Safe sandboxed repository workspace enforcing strict containment invariants."""
 
 import os
 import shutil
+import stat
 import tempfile
 import time
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Generator, List, Optional, Tuple
 
 # Security limits
 DEFAULT_MAX_WORKTREE_BYTES = 500 * 1024 * 1024  # 500 MB
-DEFAULT_MAX_PATHS = 100_000                     # 100k paths
-DEFAULT_MAX_FILE_BYTES = 5 * 1024 * 1024        # 5 MB per text file
-DEFAULT_TIMEOUT_SECONDS = 120                   # 2 minutes wall-clock timeout
+DEFAULT_MAX_PATHS = 100_000  # 100k paths
+DEFAULT_MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB per text file
+DEFAULT_TIMEOUT_SECONDS = 120  # 2 minutes wall-clock timeout
 
 
 class WorkspaceSecurityError(Exception):
     """Raised when repository workspace security boundaries are violated."""
-    pass
 
 
 @dataclass(frozen=True)
 class InspectedFile:
     """Safe representation of an inspected repository file."""
+
     relative_path: str
     absolute_path: str
     byte_size: int
@@ -52,7 +53,7 @@ def verify_path_containment(target_path: str, workspace_root: str) -> bool:
 
 class SafeRepositoryWorkspace:
     """Context manager providing sandboxed repository file inspection.
-    
+
     SECURITY INVARIANTS:
     1. Candidate repository code is NEVER executed, built, installed, or tested.
     2. Git hooks are disabled.
@@ -66,7 +67,7 @@ class SafeRepositoryWorkspace:
 
     def __init__(
         self,
-        base_dir: Optional[str] = None,
+        base_dir: str | None = None,
         max_worktree_bytes: int = DEFAULT_MAX_WORKTREE_BYTES,
         max_paths: int = DEFAULT_MAX_PATHS,
         max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
@@ -77,8 +78,8 @@ class SafeRepositoryWorkspace:
         self.max_paths = max_paths
         self.max_file_bytes = max_file_bytes
         self.timeout_seconds = timeout_seconds
-        
-        self.workspace_dir: Optional[str] = None
+
+        self.workspace_dir: str | None = None
         self.start_time: float = 0.0
 
     def __enter__(self) -> "SafeRepositoryWorkspace":
@@ -86,7 +87,7 @@ class SafeRepositoryWorkspace:
         self.start_time = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type: Any, _exc_val: Any, _exc_tb: Any) -> None:
         self.cleanup()
 
     def cleanup(self) -> None:
@@ -98,7 +99,7 @@ class SafeRepositoryWorkspace:
                     for fname in files:
                         p = os.path.join(root, fname)
                         try:
-                            os.chmod(p, 0o777)
+                            os.chmod(p, stat.S_IWRITE)
                         except Exception:
                             pass
                 shutil.rmtree(self.workspace_dir, ignore_errors=True)
@@ -120,14 +121,14 @@ class SafeRepositoryWorkspace:
                 f"Repository inspection exceeded wall-clock timeout of {self.timeout_seconds}s."
             )
 
-    def scan_files(self) -> List[InspectedFile]:
+    def scan_files(self) -> list[InspectedFile]:
         """Walks the workspace under strict containment rules and returns safe file metadata."""
         if not self.workspace_dir:
             raise RuntimeError("Workspace not active.")
 
         total_bytes = 0
         total_paths = 0
-        inspected: List[InspectedFile] = []
+        inspected: list[InspectedFile] = []
 
         for root, dirs, files in os.walk(self.workspace_dir, followlinks=False):
             self.check_timeout()
@@ -179,7 +180,9 @@ class SafeRepositoryWorkspace:
                         f"Repository exceeded maximum worktree capacity of {self.max_worktree_bytes} bytes."
                     )
 
-                rel_path = os.path.relpath(filepath, self.workspace_dir).replace("\\", "/")
+                rel_path = os.path.relpath(filepath, self.workspace_dir).replace(
+                    "\\", "/"
+                )
                 is_too_large = file_size > self.max_file_bytes
                 binary = False if is_too_large else is_binary_file(filepath)
 

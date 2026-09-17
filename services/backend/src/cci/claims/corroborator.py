@@ -7,7 +7,7 @@ INVARIANTS:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from cci.domain.contracts import EvidenceRecord
@@ -17,25 +17,27 @@ from cci.domain.enums import CapabilityKey, ClaimStatus
 @dataclass
 class ExtractedClaimInput:
     """A technical claim extracted from the candidate's CV or profile."""
+
     claim_id: UUID = field(default_factory=uuid4)
     claim_text: str = ""
     target_capability: CapabilityKey = CapabilityKey.BACKEND_ENGINEERING
-    technology_keywords: List[str] = field(default_factory=list)
+    technology_keywords: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ClaimCorroborationResult:
     """Result of cross-referencing a candidate self-claim against technical evidence."""
+
     claim_id: UUID
     claim_text: str
     target_capability: CapabilityKey
     status: ClaimStatus
     confidence: float
-    grounding_evidence_ids: List[UUID]
-    citation_urls: List[str]
+    grounding_evidence_ids: list[UUID]
+    citation_urls: list[str]
     explanation: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "claim_id": str(self.claim_id),
             "claim_text": self.claim_text,
@@ -49,14 +51,14 @@ class ClaimCorroborationResult:
 
 
 def corroborate_candidate_claims(
-    claims: List[ExtractedClaimInput],
-    evidence_records: List[EvidenceRecord],
-) -> List[ClaimCorroborationResult]:
+    claims: list[ExtractedClaimInput],
+    evidence_records: list[EvidenceRecord],
+) -> list[ClaimCorroborationResult]:
     """Evaluates each candidate self-claim against registered technical evidence."""
-    results: List[ClaimCorroborationResult] = []
+    results: list[ClaimCorroborationResult] = []
 
     # Index evidence by capability for fast lookups
-    evidence_by_cap: Dict[CapabilityKey, List[EvidenceRecord]] = {}
+    evidence_by_cap: dict[CapabilityKey, list[EvidenceRecord]] = {}
     for ev in evidence_records:
         evidence_by_cap.setdefault(ev.target_capability, []).append(ev)
 
@@ -79,8 +81,8 @@ def corroborate_candidate_claims(
             continue
 
         # Check for keyword-specific evidence or capability support
-        matched_pos_evidence: List[EvidenceRecord] = []
-        matched_neg_evidence: List[EvidenceRecord] = []
+        matched_pos_evidence: list[EvidenceRecord] = []
+        matched_neg_evidence: list[EvidenceRecord] = []
 
         keywords_lower = [k.lower() for k in claim.technology_keywords]
 
@@ -90,7 +92,9 @@ def corroborate_candidate_claims(
             symbol = prov.get("symbol_or_line", "")
             art_path = prov.get("artifact_path", "")
             text_lower = f"{raw_text} {symbol} {art_path} {ev.source_locator}".lower()
-            keyword_hit = any(k in text_lower for k in keywords_lower) if keywords_lower else True
+            keyword_hit = (
+                any(k in text_lower for k in keywords_lower) if keywords_lower else True
+            )
 
             if keyword_hit:
                 if ev.is_positive_support:
@@ -106,8 +110,14 @@ def corroborate_candidate_claims(
         # Calculate corroboration metrics
         pos_confidence_sum = sum(e.confidence for e in matched_pos_evidence)
         neg_confidence_sum = sum(e.confidence for e in matched_neg_evidence)
-        grounding_ids = [e.evidence_id for e in matched_pos_evidence + matched_neg_evidence]
-        citation_urls = list(dict.fromkeys(e.source_locator for e in matched_pos_evidence + matched_neg_evidence))
+        grounding_ids = [
+            e.evidence_id for e in matched_pos_evidence + matched_neg_evidence
+        ]
+        citation_urls = list(
+            dict.fromkeys(
+                e.source_locator for e in matched_pos_evidence + matched_neg_evidence
+            )
+        )
 
         if matched_neg_evidence and neg_confidence_sum > pos_confidence_sum:
             status = ClaimStatus.CONTRADICTED
@@ -124,7 +134,9 @@ def corroborate_candidate_claims(
         else:
             status = ClaimStatus.UNKNOWN
             conf = 0.0
-            explanation = "Insufficient technical evidence to corroborate or contradict claim."
+            explanation = (
+                "Insufficient technical evidence to corroborate or contradict claim."
+            )
 
         results.append(
             ClaimCorroborationResult(

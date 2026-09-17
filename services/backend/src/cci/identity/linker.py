@@ -1,8 +1,6 @@
 """Technical identity linkage strictly grounded in candidate-supplied evidence."""
 
-import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -12,24 +10,26 @@ from cci.domain.contracts import CandidateManifest
 @dataclass(frozen=True)
 class IdentityLinkRecord:
     """Provenance relationship connecting an external digital identity to candidate evidence."""
+
     link_id: UUID
     identity_id: UUID
-    source_document_id: Optional[UUID]
+    source_document_id: UUID | None
     extraction_method: str  # embedded_hyperlink, visible_url, manifest_field
     confidence: float
-    metadata: Dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class IdentityRecord:
     """External platform account attributed strictly through candidate-supplied evidence."""
+
     identity_id: UUID
     candidate_id: UUID
     platform: str
     identifier: str  # username, repo slug, or unique handle
     profile_url: str
     is_verified: bool
-    links: List[IdentityLinkRecord] = field(default_factory=list)
+    links: list[IdentityLinkRecord] = field(default_factory=list)
 
 
 def extract_platform_identifier(url: str, platform: str) -> str:
@@ -65,7 +65,7 @@ def extract_platform_identifier(url: str, platform: str) -> str:
 
 class TechnicalIdentityLinker:
     """Deterministic identity linker operating strictly under closed-world assumptions.
-    
+
     INVARIANTS:
     1. No name-based internet searching or discovery is ever initiated.
     2. Identity links are generated strictly from candidate-supplied evidence.
@@ -75,10 +75,10 @@ class TechnicalIdentityLinker:
     def link_manifest_identities(
         candidate_id: UUID,
         manifest: CandidateManifest,
-        source_document_id: Optional[UUID] = None,
-    ) -> List[IdentityRecord]:
+        source_document_id: UUID | None = None,
+    ) -> list[IdentityRecord]:
         """Derives verified digital identities from candidate manifest."""
-        identities: List[IdentityRecord] = []
+        identities: list[IdentityRecord] = []
 
         # Platform URL mappings
         url_groups = [
@@ -121,9 +121,13 @@ class TechnicalIdentityLinker:
 
     @staticmethod
     def apply_correction(
-        current_identities: List[IdentityRecord],
-        rejected_urls: List[str],
-    ) -> List[IdentityRecord]:
+        current_identities: list[IdentityRecord],
+        rejected_urls: list[str],
+    ) -> list[IdentityRecord]:
         """Prunes incorrectly parsed or candidate-disputed URLs without modifying historical provenance."""
         rejected_set = set(rejected_urls)
-        return [ident for ident in current_identities if ident.profile_url not in rejected_set]
+        return [
+            ident
+            for ident in current_identities
+            if ident.profile_url not in rejected_set
+        ]

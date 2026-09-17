@@ -1,17 +1,27 @@
 """Deterministic URL normalization, deduplication, and platform classification."""
 
 import re
-from typing import Dict, List, Optional, Set
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 TRACKING_PARAMS = {
-    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-    "ref", "source", "fbclid", "gclid", "mc_cid", "mc_eid",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "ref",
+    "source",
+    "fbclid",
+    "gclid",
+    "mc_cid",
+    "mc_eid",
 }
 
 PLATFORM_PATTERNS = {
     "github": re.compile(r"^https?://(www\.)?github\.com(/.*)?$", re.IGNORECASE),
-    "linkedin": re.compile(r"^https?://([a-z]{2,3}\.)?linkedin\.com/in(/.*)?$", re.IGNORECASE),
+    "linkedin": re.compile(
+        r"^https?://([a-z]{2,3}\.)?linkedin\.com/in(/.*)?$", re.IGNORECASE
+    ),
     "coding_profile": re.compile(
         r"^https?://(www\.)?(leetcode\.com|kaggle\.com|hackerrank\.com|codeforces\.com|topcoder\.com|codechef\.com)(/.*)?$",
         re.IGNORECASE,
@@ -27,7 +37,7 @@ PLATFORM_PATTERNS = {
 }
 
 
-def normalize_url(raw_url: str) -> Optional[str]:
+def normalize_url(raw_url: str) -> str | None:
     """Canonicalizes a URL by normalizing scheme, host, stripping tracking params, and formatting SSH git URLs."""
     if not raw_url or not isinstance(raw_url, str):
         return None
@@ -42,7 +52,11 @@ def normalize_url(raw_url: str) -> Optional[str]:
 
     # Add default https scheme if missing but looks like a web address
     if not re.match(r"^[a-zA-Z]+://", cleaned):
-        if cleaned.startswith("github.com") or cleaned.startswith("linkedin.com") or cleaned.startswith("www."):
+        if (
+            cleaned.startswith("github.com")
+            or cleaned.startswith("linkedin.com")
+            or cleaned.startswith("www.")
+        ):
             cleaned = "https://" + cleaned
         else:
             return None
@@ -68,14 +82,15 @@ def normalize_url(raw_url: str) -> Optional[str]:
 
     # Clean path: strip .git suffix, reduce multiple slashes, strip trailing slash
     path = parsed.path
-    if path.endswith(".git"):
-        path = path[:-4]
+    path = path.removesuffix(".git")
     path = re.sub(r"/+", "/", path).rstrip("/")
 
     # Strip marketing and tracking query parameters
     if parsed.query:
         query_pairs = parse_qsl(parsed.query, keep_blank_values=False)
-        cleaned_pairs = [(k, v) for k, v in query_pairs if k.lower() not in TRACKING_PARAMS]
+        cleaned_pairs = [
+            (k, v) for k, v in query_pairs if k.lower() not in TRACKING_PARAMS
+        ]
         query = urlencode(cleaned_pairs)
     else:
         query = ""
@@ -85,17 +100,17 @@ def normalize_url(raw_url: str) -> Optional[str]:
     return canonical
 
 
-def deduplicate_urls(urls: List[str]) -> List[str]:
+def deduplicate_urls(urls: list[str]) -> list[str]:
     """Normalizes and deduplicates a list of URLs, preserving order."""
-    seen: Set[str] = set()
-    result: List[str] = []
-    
+    seen: set[str] = set()
+    result: list[str] = []
+
     for u in urls:
         norm = normalize_url(u)
         if norm and norm not in seen:
             seen.add(norm)
             result.append(norm)
-            
+
     return result
 
 
@@ -110,7 +125,7 @@ def classify_url(url: str) -> str:
     # Fallback heuristics
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
-    
+
     # Portfolio / personal domain indicator
     if any(term in domain for term in ("portfolio", "blog", "me.", "dev.", "site")):
         return "portfolio"

@@ -1,12 +1,11 @@
 """DOCX parser with embedded hyperlink relationship extraction using python-docx."""
 
 import io
-import re
-from typing import List
+
 import docx
 from docx.opc.constants import RELATIONSHIP_TYPE
 
-from cci.intake.parsers.pdf import ParsedDocument, URL_REGEX
+from cci.intake.parsers.pdf import URL_REGEX, ParsedDocument
 
 HYPERLINK_REL_TYPE = RELATIONSHIP_TYPE.HYPERLINK
 
@@ -16,9 +15,9 @@ def parse_docx_document(docx_bytes: bytes) -> ParsedDocument:
     stream = io.BytesIO(docx_bytes)
     doc = docx.Document(stream)
 
-    text_chunks: List[str] = []
-    embedded_urls: List[str] = []
-    visible_urls: List[str] = []
+    text_chunks: list[str] = []
+    embedded_urls: list[str] = []
+    visible_urls: list[str] = []
 
     # 1. Extract embedded relationship hyperlinks from document part
     for rel_id, rel in doc.part.rels.items():

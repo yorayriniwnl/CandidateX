@@ -1,12 +1,12 @@
 """Candidate directory and manifest API router."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
+
+import cci.db.repository as repo
+from cci.db.session import SessionLocal
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-
-from cci.db.session import SessionLocal
-import cci.db.repository as repo
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
 
@@ -14,11 +14,11 @@ router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
 class CandidateSummaryResponse(BaseModel):
     id: UUID
     display_name: str
-    primary_email: Optional[str] = None
+    primary_email: str | None = None
     has_completed_dossier: bool
-    rci: Optional[float] = None
-    coverage: Optional[float] = None
-    role: Optional[str] = None
+    rci: float | None = None
+    coverage: float | None = None
+    role: str | None = None
     has_meaningful_conflict: bool = False
     created_at: str
 
@@ -26,19 +26,21 @@ class CandidateSummaryResponse(BaseModel):
 class CandidateDetailResponse(BaseModel):
     id: UUID
     display_name: str
-    primary_email: Optional[str] = None
-    manifest_data: Dict[str, Any]
+    primary_email: str | None = None
+    manifest_data: dict[str, Any]
     is_active: bool
     created_at: str
 
 
 @router.get(
     "",
-    response_model=List[CandidateSummaryResponse],
+    response_model=list[CandidateSummaryResponse],
     status_code=status.HTTP_200_OK,
     summary="List all candidates with evaluation and dossier summary",
 )
-def list_candidates(organization_id: Optional[UUID] = None) -> List[CandidateSummaryResponse]:
+def list_candidates(
+    organization_id: UUID | None = None,
+) -> list[CandidateSummaryResponse]:
     """Lists candidates along with their latest evaluation score summary."""
     try:
         with SessionLocal() as db:
@@ -52,7 +54,10 @@ def list_candidates(organization_id: Optional[UUID] = None) -> List[CandidateSum
                 role_val = dossier.role.value if dossier else None
                 has_conflict = False
                 if dossier:
-                    has_conflict = any(conf.has_meaningful_conflict for conf in dossier.capability_conflicts.values())
+                    has_conflict = any(
+                        conf.has_meaningful_conflict
+                        for conf in dossier.capability_conflicts.values()
+                    )
 
                 summaries.append(
                     CandidateSummaryResponse(
@@ -64,7 +69,9 @@ def list_candidates(organization_id: Optional[UUID] = None) -> List[CandidateSum
                         coverage=coverage,
                         role=role_val,
                         has_meaningful_conflict=has_conflict,
-                        created_at=c.created_at.isoformat() if hasattr(c, "created_at") and c.created_at else "",
+                        created_at=c.created_at.isoformat()
+                        if hasattr(c, "created_at") and c.created_at
+                        else "",
                     )
                 )
             return summaries
@@ -94,7 +101,9 @@ def get_candidate(candidate_id: UUID) -> CandidateDetailResponse:
                 primary_email=cand.primary_email,
                 manifest_data=cand.manifest_data,
                 is_active=cand.is_active,
-                created_at=cand.created_at.isoformat() if hasattr(cand, "created_at") and cand.created_at else "",
+                created_at=cand.created_at.isoformat()
+                if hasattr(cand, "created_at") and cand.created_at
+                else "",
             )
     except HTTPException:
         raise

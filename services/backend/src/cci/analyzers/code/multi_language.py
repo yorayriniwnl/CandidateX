@@ -1,7 +1,7 @@
 """Multi-language structural code analyzer for TypeScript/JS, Go, Java, and C/C++."""
 
 import re
-from typing import List
+
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
@@ -12,16 +12,19 @@ def analyze_typescript_javascript(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes TypeScript and JavaScript source code for routes, async patterns, and interfaces."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
         trimmed = line.strip()
 
         # 1. Express / Next.js / Router endpoints
-        route_match = re.search(r'\b(app|router)\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']', trimmed)
+        route_match = re.search(
+            r'\b(app|router)\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']',
+            trimmed,
+        )
         if route_match:
             router_obj, method, path = route_match.groups()
             evidence.append(
@@ -48,7 +51,9 @@ def analyze_typescript_javascript(
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: async function",
-                    target_capability=CapabilityKey.FRONTEND_ENGINEERING if file_path.endswith((".tsx", ".jsx")) else CapabilityKey.BACKEND_ENGINEERING,
+                    target_capability=CapabilityKey.FRONTEND_ENGINEERING
+                    if file_path.endswith((".tsx", ".jsx"))
+                    else CapabilityKey.BACKEND_ENGINEERING,
                     observed_score=74.0,
                     is_positive_support=True,
                     raw_support_text=f"Asynchronous function handler:\n{trimmed}",
@@ -99,16 +104,19 @@ def analyze_go_source(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes Go source code for HTTP handlers, concurrency, and error handling."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
         trimmed = line.strip()
 
         # 1. HTTP routes (net/http, Gin, Chi)
-        if re.search(r'\b(HandleFunc|\.GET|\.POST|\.PUT|\.DELETE)\s*\(\s*["\']([^"\']+)["\']', trimmed):
+        if re.search(
+            r'\b(HandleFunc|\.GET|\.POST|\.PUT|\.DELETE)\s*\(\s*["\']([^"\']+)["\']',
+            trimmed,
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -167,16 +175,25 @@ def analyze_java_source(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes Java source code for Spring MVC annotations and service boundaries."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
         trimmed = line.strip()
 
         # Spring RestController / Endpoints
-        if any(ann in trimmed for ann in ("@GetMapping", "@PostMapping", "@PutMapping", "@DeleteMapping", "@RequestMapping")):
+        if any(
+            ann in trimmed
+            for ann in (
+                "@GetMapping",
+                "@PostMapping",
+                "@PutMapping",
+                "@DeleteMapping",
+                "@RequestMapping",
+            )
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -218,16 +235,24 @@ def analyze_c_cpp_source(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes C/C++ source code for memory management and algorithmic patterns."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
         trimmed = line.strip()
 
         # Smart pointers / RAII
-        if any(term in trimmed for term in ("std::unique_ptr", "std::shared_ptr", "std::make_unique", "std::make_shared")):
+        if any(
+            term in trimmed
+            for term in (
+                "std::unique_ptr",
+                "std::shared_ptr",
+                "std::make_unique",
+                "std::make_shared",
+            )
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -244,7 +269,15 @@ def analyze_c_cpp_source(
             )
 
         # Standard algorithms / data structures
-        if any(term in trimmed for term in ("std::vector", "std::unordered_map", "std::sort", "std::priority_queue")):
+        if any(
+            term in trimmed
+            for term in (
+                "std::vector",
+                "std::unordered_map",
+                "std::sort",
+                "std::priority_queue",
+            )
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,

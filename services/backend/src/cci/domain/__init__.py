@@ -1,20 +1,5 @@
 """Domain contracts and canonical enums for Candidate Capability Intelligence (CCI)."""
 
-from cci.domain.enums import (
-    AnalysisStage,
-    AnalysisStatus,
-    CanonicalRole,
-    CapabilityKey,
-    ClaimStatus,
-    GraphEdgeType,
-    GraphNodeType,
-    ReliabilityState,
-    RequirementPriority,
-    RequirementStatus,
-    ScanDepth,
-    SourceFamily,
-    SourceState,
-)
 from cci.domain.contracts import (
     AnalysisScore,
     CandidateManifest,
@@ -32,6 +17,21 @@ from cci.domain.contracts import (
     RoleProfile,
     ScoringConfig,
     SourceReliabilitySnapshot,
+)
+from cci.domain.enums import (
+    AnalysisStage,
+    AnalysisStatus,
+    CanonicalRole,
+    CapabilityKey,
+    ClaimStatus,
+    GraphEdgeType,
+    GraphNodeType,
+    ReliabilityState,
+    RequirementPriority,
+    RequirementStatus,
+    ScanDepth,
+    SourceFamily,
+    SourceState,
 )
 
 __all__ = [

@@ -22,7 +22,6 @@ CRITICAL INVARIANTS:
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from cci.claims.corroborator import ExtractedClaimInput, corroborate_candidate_claims
@@ -33,10 +32,8 @@ from cci.domain.contracts import (
     Dossier,
     EvidenceConfidenceFactors,
     EvidenceRecord,
-    InterviewQuestion,
     NormalizedRequirement,
     OwnershipAssessment,
-    ProbePriority,
 )
 from cci.domain.enums import (
     AnalysisStage,
@@ -53,23 +50,17 @@ from cci.jobs.parser import extract_requirements_from_jd
 from cci.probes.priority import compute_probe_priorities
 from cci.scoring.capability import (
     compute_capability_score,
-    compute_effective_evidence_count,
 )
-from cci.scoring.confidence import compute_evidence_confidence
 from cci.scoring.ownership import (
-    assemble_confidence_factors,
     estimate_repository_ownership,
 )
 from cci.scoring.rci import compute_evidence_coverage, compute_rci
-from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import (
-    compute_source_reliability,
     get_default_reliability_snapshots,
 )
 from cci.scoring.weights import (
     apply_expert_overrides,
     build_role_profile,
-    compute_softmax_weights,
 )
 from cci.uncertainty.bootstrap import cluster_bootstrap_ci
 from cci.uncertainty.diagnostics import compute_uncertainty_diagnostics
@@ -87,9 +78,9 @@ class StageProgress:
     stage: AnalysisStage
     label: str
     status: str = "pending"  # pending, running, completed, failed
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    details: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    details: str | None = None
 
 
 @dataclass
@@ -98,16 +89,20 @@ class PipelineExecutionState:
     candidate_id: UUID
     role: CanonicalRole
     status: PipelineStatus = PipelineStatus.PENDING
-    current_stage: Optional[AnalysisStage] = None
-    stages: List[StageProgress] = field(default_factory=list)
-    dossier: Optional[Dossier] = None
-    ceg_graph: Optional[CandidateEvidenceGraph] = None
-    error: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    current_stage: AnalysisStage | None = None
+    stages: list[StageProgress] = field(default_factory=list)
+    dossier: Dossier | None = None
+    ceg_graph: CandidateEvidenceGraph | None = None
+    error: str | None = None
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    updated_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
 
-def _init_stage_progress() -> List[StageProgress]:
+def _init_stage_progress() -> list[StageProgress]:
     stage_labels = [
         (AnalysisStage.PARSING_CV, "1. Parse CV Manifest"),
         (AnalysisStage.INGESTING_SOURCES, "2. Canonicalize Sources"),
@@ -126,12 +121,12 @@ def _init_stage_progress() -> List[StageProgress]:
 def execute_analysis_pipeline(
     candidate_id: UUID,
     role: CanonicalRole,
-    jd_text: Optional[str] = None,
-    cv_text: Optional[str] = None,
-    repo_urls: Optional[List[str]] = None,
-    declared_claims: Optional[List[str]] = None,
-    custom_evidence: Optional[List[EvidenceRecord]] = None,
-    expert_weight_overrides: Optional[Dict[CapabilityKey, float]] = None,
+    jd_text: str | None = None,
+    cv_text: str | None = None,
+    repo_urls: list[str] | None = None,
+    declared_claims: list[str] | None = None,
+    custom_evidence: list[EvidenceRecord] | None = None,
+    expert_weight_overrides: dict[CapabilityKey, float] | None = None,
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
     run_id = uuid4()
@@ -143,19 +138,19 @@ def execute_analysis_pipeline(
         stages=_init_stage_progress(),
     )
 
-    def advance_stage(stage: AnalysisStage, details: Optional[str] = None):
+    def advance_stage(stage: AnalysisStage, _description: str) -> None:
         state.current_stage = stage
         now_str = datetime.now(timezone.utc).isoformat()
         for sp in state.stages:
             if sp.stage == stage:
                 sp.status = "running"
                 sp.started_at = now_str
-                sp.details = details
+                sp.details = ""
             elif sp.status == "running":
                 sp.status = "completed"
                 sp.completed_at = now_str
 
-    def complete_current_stage():
+    def complete_current_stage() -> None:
         now_str = datetime.now(timezone.utc).isoformat()
         for sp in state.stages:
             if sp.status == "running":
@@ -166,8 +161,10 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 1: PARSING_CV
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.PARSING_CV, "Extracting candidate manifest and declarations")
-        discovered_claims: List[str] = declared_claims or []
+        advance_stage(
+            AnalysisStage.PARSING_CV, "Extracting candidate manifest and declarations"
+        )
+        discovered_claims: list[str] = declared_claims or []
         if cv_text and not discovered_claims:
             # Simple sentence splitting for extracted claims from CV text
             lines = [ln.strip() for ln in cv_text.split("\n") if len(ln.strip()) > 15]
@@ -176,29 +173,37 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 2: INGESTING_SOURCES
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.INGESTING_SOURCES, "Validating URLs and closed-world boundary")
-        valid_repos: List[str] = []
+        advance_stage(
+            AnalysisStage.INGESTING_SOURCES, "Validating URLs and closed-world boundary"
+        )
+        valid_repos: list[str] = []
         if repo_urls:
             for u in repo_urls:
                 try:
                     norm = normalize_url(u)
-                    valid_repos.append(norm)
+                    valid_repos.append(str(norm))
                 except Exception:
                     valid_repos.append(u)
 
         # ----------------------------------------------------------------------
         # Stage 3: ANALYZING_ARTIFACTS
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.ANALYZING_ARTIFACTS, "Static code, DB, and deployment analysis")
+        advance_stage(
+            AnalysisStage.ANALYZING_ARTIFACTS,
+            "Static code, DB, and deployment analysis",
+        )
         # Invariant: candidate code is NEVER executed
         # Synthetic / extracted evidence items populated from static analysis
-        raw_evidence: List[EvidenceRecord] = []
+        raw_evidence: list[EvidenceRecord] = []
         if custom_evidence:
             raw_evidence = list(custom_evidence)
         else:
             # Provide baseline calibrated static evidence representing repository analysis
-            now_dt = datetime.now(timezone.utc)
-            locator = valid_repos[0] if valid_repos else "https://github.com/candidate/service"
+            locator = (
+                valid_repos[0]
+                if valid_repos
+                else "https://github.com/candidate/service"
+            )
             rev = "HEAD"
             conf_factors_be = EvidenceConfidenceFactors(
                 artifact_integrity=0.95,
@@ -235,6 +240,7 @@ def execute_analysis_pipeline(
                     support_score=85.0,
                     confidence_factors=conf_factors_be,
                     confidence=conf_factors_be.composite_confidence,
+                    cluster_id=None,
                     provenance={
                         "source_locator": locator,
                         "artifact_path": "src/api/routes.py",
@@ -251,6 +257,7 @@ def execute_analysis_pipeline(
                     support_score=82.0,
                     confidence_factors=conf_factors_db,
                     confidence=conf_factors_db.composite_confidence,
+                    cluster_id=None,
                     provenance={
                         "source_locator": locator,
                         "artifact_path": "alembic/versions/001_initial.py",
@@ -267,6 +274,7 @@ def execute_analysis_pipeline(
                     support_score=70.0,
                     confidence_factors=conf_factors_test,
                     confidence=conf_factors_test.composite_confidence,
+                    cluster_id=None,
                     provenance={
                         "source_locator": locator,
                         "artifact_path": "tests/test_api.py",
@@ -278,20 +286,28 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 4: BUILDING_EVIDENCE
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.BUILDING_EVIDENCE, f"Indexed {len(raw_evidence)} immutable records")
+        advance_stage(
+            AnalysisStage.BUILDING_EVIDENCE,
+            f"Indexed {len(raw_evidence)} immutable records",
+        )
 
         # ----------------------------------------------------------------------
         # Stage 5: CALIBRATING_RELIABILITY
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.CALIBRATING_RELIABILITY, "Calibrating source family reliability posteriors")
-        reliability_snapshots = get_default_reliability_snapshots()
+        advance_stage(
+            AnalysisStage.CALIBRATING_RELIABILITY,
+            "Calibrating source family reliability posteriors",
+        )
 
         # ----------------------------------------------------------------------
         # Stage 6: ESTIMATING_OWNERSHIP
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.ESTIMATING_OWNERSHIP, "Computing ownership attribution vectors")
-        ownership_assessments: List[OwnershipAssessment] = []
-        for r_url in (valid_repos or ["https://github.com/candidate/repo"]):
+        advance_stage(
+            AnalysisStage.ESTIMATING_OWNERSHIP,
+            "Computing ownership attribution vectors",
+        )
+        ownership_assessments: list[OwnershipAssessment] = []
+        for r_url in valid_repos or ["https://github.com/candidate/repo"]:
             assessment = estimate_repository_ownership(
                 repository_url=r_url,
                 candidate_identifier="candidate",
@@ -307,14 +323,19 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 7: COMPUTING_UNCERTAINTY
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.COMPUTING_UNCERTAINTY, "Generating cluster bootstrap confidence intervals")
-        cap_records: Dict[CapabilityKey, List[EvidenceRecord]] = {}
+        advance_stage(
+            AnalysisStage.COMPUTING_UNCERTAINTY,
+            "Generating cluster bootstrap confidence intervals",
+        )
+        cap_records: dict[CapabilityKey, list[EvidenceRecord]] = {}
         for ev in raw_evidence:
             cap_records.setdefault(ev.target_capability, []).append(ev)
 
-        capability_estimates: Dict[CapabilityKey, CapabilityEstimate] = {}
+        capability_estimates: dict[CapabilityKey, CapabilityEstimate] = {}
         for cap in CapabilityKey:
-            ci_bounds = cluster_bootstrap_ci(raw_evidence, cap, n_resamples=200, seed=42)
+            ci_bounds = cluster_bootstrap_ci(
+                raw_evidence, cap, n_resamples=200, seed=42
+            )
 
             estimate = compute_capability_score(
                 evidence_records=raw_evidence,
@@ -328,14 +349,16 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         advance_stage(AnalysisStage.SCORING, "Computing Role Capability Index (RCI)")
         # Parse JD requirements or use canonical profile
-        norm_reqs: List[NormalizedRequirement] = []
+        norm_reqs: list[NormalizedRequirement] = []
         if jd_text:
             extracted_reqs = extract_requirements_from_jd(jd_text)
             norm_reqs = extracted_reqs
 
         profile = build_role_profile(norm_reqs, role)
         if expert_weight_overrides:
-            profile = apply_expert_overrides(profile, expert_weight_overrides, justification="Expert adjustment")
+            profile = apply_expert_overrides(
+                profile, expert_weight_overrides, justification="Expert adjustment"
+            )
 
         role_weights = profile.softmax_weights
         rci_score = compute_rci(capability_estimates, role_weights)
@@ -344,10 +367,15 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 9: PRIORITIZING_PROBES
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.PRIORITIZING_PROBES, "Computing contradiction diagnostics D_k and probe ranking")
-        capability_conflicts: Dict[CapabilityKey, CapabilityConflict] = {}
+        advance_stage(
+            AnalysisStage.PRIORITIZING_PROBES,
+            "Computing contradiction diagnostics D_k and probe ranking",
+        )
+        capability_conflicts: dict[CapabilityKey, CapabilityConflict] = {}
         for cap in CapabilityKey:
-            capability_conflicts[cap] = compute_contradiction_diagnostic(raw_evidence, cap)
+            capability_conflicts[cap] = compute_contradiction_diagnostic(
+                raw_evidence, cap
+            )
 
         uncertainties = {
             cap: compute_uncertainty_diagnostics(est)
@@ -375,7 +403,10 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 10: GENERATING_DOSSIER
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.GENERATING_DOSSIER, "Assembling heterogeneous CEG and immutable dossier")
+        advance_stage(
+            AnalysisStage.GENERATING_DOSSIER,
+            "Assembling heterogeneous CEG and immutable dossier",
+        )
         # Build CEG
         ceg = CandidateEvidenceGraph()
         for cap in CapabilityKey:
@@ -399,7 +430,9 @@ def execute_analysis_pipeline(
                         "label": f"ev_{ev.target_capability.value}",
                         "score": ev.support_score,
                         "confidence": ev.confidence,
-                        "source_locator": ev.provenance.get("source_locator", "unknown"),
+                        "source_locator": ev.provenance.get(
+                            "source_locator", "unknown"
+                        ),
                         "artifact_path": ev.provenance.get("artifact_path", "unknown"),
                     },
                 )
@@ -436,8 +469,9 @@ def execute_analysis_pipeline(
         state.ceg_graph = ceg
         state.updated_at = datetime.now(timezone.utc).isoformat()
 
-    except Exception as e:
+    except Exception:
         import traceback
+
         state.status = PipelineStatus.FAILED
         state.error = traceback.format_exc()
         state.updated_at = datetime.now(timezone.utc).isoformat()
@@ -447,7 +481,7 @@ def execute_analysis_pipeline(
 
 def rescore_dossier(
     dossier: Dossier,
-    new_weights: Dict[CapabilityKey, float],
+    new_weights: dict[CapabilityKey, float],
 ) -> Dossier:
     """Pure functional rescore of candidate dossier with expert weight overrides.
 

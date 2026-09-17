@@ -5,7 +5,7 @@ All analysis is strictly static AST/regex inspection of schema definitions.
 """
 
 import re
-from typing import List, Optional
+
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
@@ -18,16 +18,20 @@ def analyze_sql_content(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects raw SQL schema and migration files for tables, indexes, keys, and partitioning."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     lines = content.split("\n")
 
     for idx, line in enumerate(lines, start=1):
         trimmed = line.strip()
 
         # 1. CREATE TABLE
-        tbl_match = re.search(r"\bCREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_.\"`]+)", trimmed, re.IGNORECASE)
+        tbl_match = re.search(
+            r"\bCREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_.\"`]+)",
+            trimmed,
+            re.IGNORECASE,
+        )
         if tbl_match:
             tbl_name = tbl_match.group(2)
             evidence.append(
@@ -46,7 +50,11 @@ def analyze_sql_content(
             )
 
         # 2. Indexes: CREATE INDEX, UNIQUE INDEX, Composite Indexes
-        idx_match = re.search(r"\bCREATE\s+(UNIQUE\s+)?INDEX\s+(IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_.\"`]+)\s+ON\s+([a-zA-Z0-9_.\"`]+)\s*\(([^)]+)\)", trimmed, re.IGNORECASE)
+        idx_match = re.search(
+            r"\bCREATE\s+(UNIQUE\s+)?INDEX\s+(IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_.\"`]+)\s+ON\s+([a-zA-Z0-9_.\"`]+)\s*\(([^)]+)\)",
+            trimmed,
+            re.IGNORECASE,
+        )
         if idx_match:
             is_unique = bool(idx_match.group(1))
             idx_name = idx_match.group(3)
@@ -71,7 +79,11 @@ def analyze_sql_content(
             )
 
         # 3. Foreign key constraints / Referential integrity
-        if re.search(r"\bFOREIGN\s+KEY\b|\bREFERENCES\s+[a-zA-Z0-9_.\"`]+\s*\(", trimmed, re.IGNORECASE):
+        if re.search(
+            r"\bFOREIGN\s+KEY\b|\bREFERENCES\s+[a-zA-Z0-9_.\"`]+\s*\(",
+            trimmed,
+            re.IGNORECASE,
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -88,7 +100,11 @@ def analyze_sql_content(
             )
 
         # 4. Advanced: Partitioning / Stored Procedures / Triggers
-        if re.search(r"\bPARTITION\s+BY\b|\bCREATE\s+TRIGGER\b|\bCREATE\s+(OR\s+REPLACE\s+)?FUNCTION\b", trimmed, re.IGNORECASE):
+        if re.search(
+            r"\bPARTITION\s+BY\b|\bCREATE\s+TRIGGER\b|\bCREATE\s+(OR\s+REPLACE\s+)?FUNCTION\b",
+            trimmed,
+            re.IGNORECASE,
+        ):
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -113,9 +129,9 @@ def analyze_alembic_migration(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Python Alembic migration scripts for operations and bidirectional reversibility."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     has_upgrade = "def upgrade()" in content
     has_downgrade = "def downgrade()" in content
@@ -123,15 +139,24 @@ def analyze_alembic_migration(
     has_reversible_downgrade = False
     if has_downgrade:
         down_part = content.split("def downgrade()")[1].split("def ")[0]
-        has_reversible_downgrade = "op." in down_part and "pass" not in down_part.strip()
+        has_reversible_downgrade = (
+            "op." in down_part and "pass" not in down_part.strip()
+        )
 
     # Operations detected
-    ops = re.findall(r"op\.(create_table|add_column|create_index|create_foreign_key|alter_column|drop_table)", content)
+    ops = re.findall(
+        r"op\.(create_table|add_column|create_index|create_foreign_key|alter_column|drop_table)",
+        content,
+    )
     unique_ops = sorted(set(ops))
 
     if has_upgrade and unique_ops:
         score = 85.0 if has_reversible_downgrade else 76.0
-        downgrade_desc = "Fully bidirectional / reversible migration" if has_reversible_downgrade else "One-way / unreversed migration"
+        downgrade_desc = (
+            "Fully bidirectional / reversible migration"
+            if has_reversible_downgrade
+            else "One-way / unreversed migration"
+        )
         evidence.append(
             EvidenceInput(
                 source_family=SourceFamily.GITHUB,
@@ -156,9 +181,9 @@ def analyze_prisma_schema(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Prisma schema.prisma for models, relations, and composite indices."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     models = re.findall(r"\bmodel\s+([a-zA-Z0-9_]+)\s*\{", content)
     has_relations = "@relation" in content
     has_indices = "@@index" in content
@@ -166,7 +191,9 @@ def analyze_prisma_schema(
 
     if models:
         score = 72.0
-        features = [f"{len(models)} models ({', '.join(models[:4])}{'...' if len(models) > 4 else ''})"]
+        features = [
+            f"{len(models)} models ({', '.join(models[:4])}{'...' if len(models) > 4 else ''})"
+        ]
         if has_relations:
             score += 6.0
             features.append("relational references (@relation)")

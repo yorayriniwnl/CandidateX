@@ -16,14 +16,14 @@ from cci.analyzers.code.multi_language import (
 from cci.analyzers.code.python_analyzer import analyze_python_source
 
 __all__ = [
+    "analyze_c_cpp_source",
+    "analyze_go_source",
+    "analyze_java_source",
+    "analyze_python_source",
+    "analyze_typescript_javascript",
     "dependencies_to_evidence",
     "extract_manifest_dependencies",
     "parse_package_json",
     "parse_requirements_txt",
     "run_code_intelligence",
-    "analyze_c_cpp_source",
-    "analyze_go_source",
-    "analyze_java_source",
-    "analyze_typescript_javascript",
-    "analyze_python_source",
 ]

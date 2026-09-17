@@ -5,19 +5,19 @@ candidate capability estimates, evidence coverage, contradiction diagnostics,
 and prioritized interview inquiry probes.
 """
 
-from datetime import datetime, timezone
 import html
-import json
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from datetime import datetime, timezone
 
 from cci.domain.contracts import Dossier
-from cci.domain.enums import CapabilityKey
 
 
 def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
     """Generates a standardized GitHub Flavored Markdown Technical Brief."""
-    gen_time = dossier.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC") if hasattr(dossier, "generated_at") and dossier.generated_at else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    gen_time = (
+        dossier.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if hasattr(dossier, "generated_at") and dossier.generated_at
+        else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
     coverage_pct = round(dossier.coverage * 100, 1)
     rci_display = f"{dossier.rci:.1f} / 100" if dossier.rci is not None else "UNKNOWN"
     role_title = dossier.role.value.replace("_", " ").title()
@@ -55,55 +55,77 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         cap_name = cap_key.value.replace("_", " ").title()
         cov_pct = f"{round(est.coverage_k * 100, 1)}%"
         if est.is_observed and est.estimate is not None:
-            ci_str = f"[{est.ci_lower:.1f}, {est.ci_upper:.1f}]" if (est.ci_lower is not None and est.ci_upper is not None) else "N/A"
+            ci_str = (
+                f"[{est.ci_lower:.1f}, {est.ci_upper:.1f}]"
+                if (est.ci_lower is not None and est.ci_upper is not None)
+                else "N/A"
+            )
             lines.append(
                 f"| **{cap_name}** | **{est.estimate:.1f}** | {ci_str} | "
                 f"{est.effective_evidence_count:.1f} | {est.raw_evidence_count} | {cov_pct} | `OBSERVED` |"
             )
         else:
-            lines.append(f"| **{cap_name}** | *UNKNOWN* | N/A | 0.0 | 0 | {cov_pct} | `UNKNOWN` |")
+            lines.append(
+                f"| **{cap_name}** | *UNKNOWN* | N/A | 0.0 | 0 | {cov_pct} | `UNKNOWN` |"
+            )
 
-    lines.extend([
-        "",
-        "---",
-        "",
-        "## 3. Contradiction Diagnostics ($D_k \\in [-1, 1]$)",
-        "",
-        "Contradiction diagnostic $D_k = \\frac{P_k - N_k}{P_k + N_k + \\epsilon}$ quantifies consensus vs contradiction between claims and observed code realities:",
-        "",
-        "| Capability | Diagnostic $D_k$ | Positive Support ($P_k$) | Contradictory Support ($N_k$) | Consensus Interpretation | Flagged |",
-        "| :--- | :---: | :---: | :---: | :--- | :---: |",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 3. Contradiction Diagnostics ($D_k \\in [-1, 1]$)",
+            "",
+            "Contradiction diagnostic $D_k = \\frac{P_k - N_k}{P_k + N_k + \\epsilon}$ quantifies consensus vs contradiction between claims and observed code realities:",
+            "",
+            "| Capability | Diagnostic $D_k$ | Positive Support ($P_k$) | Contradictory Support ($N_k$) | Consensus Interpretation | Flagged |",
+            "| :--- | :---: | :---: | :---: | :--- | :---: |",
+        ]
+    )
 
     for cap_key, conflict in dossier.capability_conflicts.items():
         cap_name = cap_key.value.replace("_", " ").title()
         d_val = conflict.contradiction_diagnostic
-        interpretation = "Strong Consensus" if d_val > 0.4 else "Moderate Consensus" if d_val > 0.0 else "Discrepancy / Contradiction"
+        interpretation = (
+            "Strong Consensus"
+            if d_val > 0.4
+            else "Moderate Consensus"
+            if d_val > 0.0
+            else "Discrepancy / Contradiction"
+        )
         flag = "⚠️ YES" if conflict.has_meaningful_conflict else "CLEAR"
         lines.append(
             f"| **{cap_name}** | `{d_val:+.2f}` | {conflict.positive_support_sum:.2f} | "
             f"{conflict.negative_support_sum:.2f} | {interpretation} | {flag} |"
         )
 
-    lines.extend([
-        "",
-        "---",
-        "",
-        "## 4. Prioritized Technical Interview Inquiry Probes",
-        "",
-        "Ranked by information gain $I_k = w_k \\cdot \\sigma_k \\cdot (1 + \\gamma |D_k|)$ to resolve maximum technical uncertainty:",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 4. Prioritized Technical Interview Inquiry Probes",
+            "",
+            "Ranked by information gain $I_k = w_k \\cdot \\sigma_k \\cdot (1 + \\gamma |D_k|)$ to resolve maximum technical uncertainty:",
+            "",
+        ]
+    )
 
     for idx, probe in enumerate(dossier.interview_probes[:6], 1):
         cap_name = probe.capability_key.value.replace("_", " ").title()
-        lines.append(f"### Probe {idx}: {cap_name} (Priority Score: `{probe.priority_score:.2f}`)")
+        lines.append(
+            f"### Probe {idx}: {cap_name} (Priority Score: `{probe.priority_score:.2f}`)"
+        )
         lines.append(
             f"- **Role Weight ($w_k$):** `{probe.role_weight:.3f}` | "
             f"**Coverage Gap:** `{probe.coverage_gap_term:.2f}` | "
             f"**Contradiction Term:** `{probe.contradiction_term:.2f}`"
         )
-        matched_qs = [q for q in dossier.interview_questions if q.target_capability == probe.capability_key]
+        matched_qs = [
+            q
+            for q in dossier.interview_questions
+            if q.target_capability == probe.capability_key
+        ]
         if matched_qs:
             for q in matched_qs:
                 lines.append(f"- **Suggested Inquiry:** {q.question_text}")
@@ -113,19 +135,23 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         lines.append("")
 
     if dossier.claims_corroboration:
-        lines.extend([
-            "---",
-            "",
-            "## 5. Candidate Self-Claims Corroboration",
-            "",
-            "| Declared Resume Claim | Status | Corroborating Evidence Records |",
-            "| :--- | :---: | :--- |",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "## 5. Candidate Self-Claims Corroboration",
+                "",
+                "| Declared Resume Claim | Status | Corroborating Evidence Records |",
+                "| :--- | :---: | :--- |",
+            ]
+        )
         for claim in dossier.claims_corroboration:
             c_text = claim.get("claim_text", "")
             status_badge = str(claim.get("status", "unknown")).upper()
             ev_count = len(claim.get("grounding_evidence_ids", []))
-            lines.append(f"| {c_text} | **`{status_badge}`** | {ev_count} empirical records |")
+            lines.append(
+                f"| {c_text} | **`{status_badge}`** | {ev_count} empirical records |"
+            )
         lines.append("")
 
     return "\n".join(lines)
@@ -133,7 +159,11 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
 
 def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
     """Generates a standalone, responsive, printable HTML Technical Brief."""
-    gen_time = dossier.generated_at.strftime("%B %d, %Y - %H:%M UTC") if hasattr(dossier, "generated_at") and dossier.generated_at else datetime.now(timezone.utc).strftime("%B %d, %Y - %H:%M UTC")
+    gen_time = (
+        dossier.generated_at.strftime("%B %d, %Y - %H:%M UTC")
+        if hasattr(dossier, "generated_at") and dossier.generated_at
+        else datetime.now(timezone.utc).strftime("%B %d, %Y - %H:%M UTC")
+    )
     coverage_pct = round(dossier.coverage * 100, 1)
     rci_display = f"{dossier.rci:.1f}" if dossier.rci is not None else "UNKNOWN"
     role_title = dossier.role.value.replace("_", " ").title()
@@ -145,8 +175,18 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         cap_name = html.escape(cap_key.value.replace("_", " ").title())
         cov_val = round(est.coverage_k * 100, 1)
         if est.is_observed and est.estimate is not None:
-            score_cls = "score-high" if est.estimate >= 80 else "score-med" if est.estimate >= 60 else "score-low"
-            ci_str = f"[{est.ci_lower:.1f}, {est.ci_upper:.1f}]" if (est.ci_lower is not None and est.ci_upper is not None) else "—"
+            score_cls = (
+                "score-high"
+                if est.estimate >= 80
+                else "score-med"
+                if est.estimate >= 60
+                else "score-low"
+            )
+            ci_str = (
+                f"[{est.ci_lower:.1f}, {est.ci_upper:.1f}]"
+                if (est.ci_lower is not None and est.ci_upper is not None)
+                else "—"
+            )
             row = f"""
             <tr>
                 <td><strong>{cap_name}</strong></td>
@@ -186,13 +226,23 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         cap_name = html.escape(cap_key.value.replace("_", " ").title())
         d_val = conf.contradiction_diagnostic
         if d_val > 0.4:
-            diag_badge = f'<span class="badge badge-consensus">{d_val:+.2f} Consensus</span>'
+            diag_badge = (
+                f'<span class="badge badge-consensus">{d_val:+.2f} Consensus</span>'
+            )
         elif d_val > 0.0:
-            diag_badge = f'<span class="badge badge-moderate">{d_val:+.2f} Moderate</span>'
+            diag_badge = (
+                f'<span class="badge badge-moderate">{d_val:+.2f} Moderate</span>'
+            )
         else:
-            diag_badge = f'<span class="badge badge-conflict">{d_val:+.2f} Contradiction</span>'
+            diag_badge = (
+                f'<span class="badge badge-conflict">{d_val:+.2f} Contradiction</span>'
+            )
 
-        flag_badge = '<span class="badge badge-alert">⚠️ Discrepancy</span>' if conf.has_meaningful_conflict else '<span class="badge badge-clear">Consistent</span>'
+        flag_badge = (
+            '<span class="badge badge-alert">⚠️ Discrepancy</span>'
+            if conf.has_meaningful_conflict
+            else '<span class="badge badge-clear">Consistent</span>'
+        )
         conflict_rows.append(f"""
         <tr>
             <td><strong>{cap_name}</strong></td>
@@ -207,7 +257,11 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
     probe_cards = []
     for idx, probe in enumerate(dossier.interview_probes[:6], 1):
         cap_name = html.escape(probe.capability_key.value.replace("_", " ").title())
-        qs = [q for q in dossier.interview_questions if q.target_capability == probe.capability_key]
+        qs = [
+            q
+            for q in dossier.interview_questions
+            if q.target_capability == probe.capability_key
+        ]
         questions_html = ""
         for q in qs:
             q_text = html.escape(q.question_text)
@@ -217,7 +271,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
             <div class="probe-question">
                 <div class="probe-question-text"><strong>Q:</strong> {q_text}</div>
                 <div class="probe-guidance"><strong>Evaluation Guidance:</strong> {guide}</div>
-                {f'<div class="probe-rationale"><strong>Evidence Gap:</strong> {rationale}</div>' if rationale else ''}
+                {f'<div class="probe-rationale"><strong>Evidence Gap:</strong> {rationale}</div>' if rationale else ""}
             </div>
             """
 
@@ -240,7 +294,13 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
     for c in dossier.claims_corroboration:
         c_text = html.escape(c.get("claim_text", ""))
         st = str(c.get("status", "unknown")).upper()
-        st_cls = "badge-observed" if st == "SUPPORTED" else "badge-conflict" if st == "CONTRADICTED" else "badge-unknown"
+        st_cls = (
+            "badge-observed"
+            if st == "SUPPORTED"
+            else "badge-conflict"
+            if st == "CONTRADICTED"
+            else "badge-unknown"
+        )
         ev_count = len(c.get("grounding_evidence_ids", []))
         claims_rows.append(f"""
         <tr>
@@ -666,14 +726,22 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         </div>
 
         <!-- Low Coverage Alert -->
-        {'<div class="alert-banner"><strong>Low Evidence Coverage Alert:</strong> Direct evidence coverage is below 30% (' + str(coverage_pct) + '%). The candidate capability index reflects only observed dimensions; prioritize technical interviews on unobserved gaps.</div>' if (dossier.coverage < 0.30 or dossier.is_insufficient_evidence) else ''}
+        {
+        '<div class="alert-banner"><strong>Low Evidence Coverage Alert:</strong> Direct evidence coverage is below 30% ('
+        + str(coverage_pct)
+        + "%). The candidate capability index reflects only observed dimensions; prioritize technical interviews on unobserved gaps.</div>"
+        if (dossier.coverage < 0.30 or dossier.is_insufficient_evidence)
+        else ""
+    }
 
         <!-- Header Card -->
         <div class="header-card">
             <div class="header-title-row">
                 <div>
                     <h1>{cand_safe}</h1>
-                    <p class="mono text-muted" style="margin-top: 4px;">Candidate ID: {dossier.candidate_id} • Generated: {gen_time}</p>
+                    <p class="mono text-muted" style="margin-top: 4px;">Candidate ID: {
+        dossier.candidate_id
+    } • Generated: {gen_time}</p>
                 </div>
                 <div>
                     <span class="role-pill">{html.escape(role_title)}</span>
@@ -684,18 +752,28 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
             <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Role Capability Index (RCI)</div>
-                    <div class="metric-value">{rci_display} <span style="font-size: 14px; color: var(--text-sub);">/ 100</span></div>
+                    <div class="metric-value">{
+        rci_display
+    } <span style="font-size: 14px; color: var(--text-sub);">/ 100</span></div>
                     <div class="metric-sub">Observed technical dimensions</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Evidence Coverage</div>
-                    <div class="metric-value" style="color: {'var(--accent-amber)' if dossier.coverage < 0.30 else 'var(--accent-emerald)'};">{coverage_pct}%</div>
+                    <div class="metric-value" style="color: {
+        "var(--accent-amber)" if dossier.coverage < 0.30 else "var(--accent-emerald)"
+    };">{coverage_pct}%</div>
                     <div class="metric-sub">Role requirement satisfaction</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Empirical Status</div>
-                    <div class="metric-value" style="font-size: 22px; color: {'var(--accent-amber)' if dossier.is_insufficient_evidence else 'var(--accent-emerald)'};">
-                        {'INSUFFICIENT' if dossier.is_insufficient_evidence else 'ROBUST'}
+                    <div class="metric-value" style="font-size: 22px; color: {
+        "var(--accent-amber)"
+        if dossier.is_insufficient_evidence
+        else "var(--accent-emerald)"
+    };">
+                        {
+        "INSUFFICIENT" if dossier.is_insufficient_evidence else "ROBUST"
+    }
                     </div>
                     <div class="metric-sub">Evidence threshold verification</div>
                 </div>
@@ -716,7 +794,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                 </tr>
             </thead>
             <tbody>
-                {''.join(capability_rows)}
+                {"".join(capability_rows)}
             </tbody>
         </table>
 
@@ -733,7 +811,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                 </tr>
             </thead>
             <tbody>
-                {''.join(conflict_rows)}
+                {"".join(conflict_rows)}
             </tbody>
         </table>
 
@@ -741,11 +819,12 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         <div class="section-title">3. Prioritized Technical Interview Inquiry Probes</div>
         <p class="text-sub" style="margin-bottom: 14px;">Inquiries prioritized by information gain <em>I_k</em> to resolve maximum candidate uncertainty during interview rounds.</p>
         <div class="probes-container">
-            {''.join(probe_cards)}
+            {"".join(probe_cards)}
         </div>
 
         <!-- 4. Self-Claims Matrix -->
-        {f'''
+        {
+        f'''
         <div class="section-title">4. Candidate Self-Claims Corroboration</div>
         <table>
             <thead>
@@ -759,7 +838,10 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                 {''.join(claims_rows)}
             </tbody>
         </table>
-        ''' if claims_rows else ''}
+        '''
+        if claims_rows
+        else ""
+    }
 
         <!-- Footer -->
         <footer>

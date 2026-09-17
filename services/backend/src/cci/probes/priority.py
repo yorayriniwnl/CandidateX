@@ -1,6 +1,7 @@
 """Interview probe priority ranking from paper-aligned formulation."""
 
-from typing import Dict, List, Optional
+from typing import Any
+
 from cci.domain.contracts import (
     CapabilityConflict,
     CapabilityEstimate,
@@ -14,15 +15,15 @@ from cci.domain.enums import CapabilityKey
 
 def compute_probe_priorities(
     role_profile: RoleProfile,
-    capabilities: Dict[CapabilityKey, CapabilityEstimate],
-    uncertainties: Dict[CapabilityKey, CapabilityUncertainty],
-    conflicts: Dict[CapabilityKey, CapabilityConflict],
-    config: Optional[ScoringConfig] = None,
-) -> List[ProbePriority]:
+    capabilities: dict[CapabilityKey, CapabilityEstimate],
+    uncertainties: dict[CapabilityKey, CapabilityUncertainty],
+    conflicts: dict[CapabilityKey, CapabilityConflict],
+    config: ScoringConfig | None = None,
+) -> list[ProbePriority]:
     """Computes ranked interview inquiry targets:
-    
+
         I_k = w_k * [alpha * (1 - Cov_k) + beta * CIwidth_k + gamma * Conf_k]
-        
+
     Returns list of ProbePriority sorted descending by priority_score I_k,
     with rank assigned from 1 to 12.
     """
@@ -32,11 +33,11 @@ def compute_probe_priorities(
     gamma = cfg.probe_gamma
 
     weights = role_profile.softmax_weights
-    unranked_probes = []
+    unranked_probes: list[dict[str, Any]] = []
 
     for cap in CapabilityKey:
         w_k = weights.get(cap, 0.0)
-        
+
         est = capabilities.get(cap)
         cov_k = est.coverage_k if est is not None else 0.0
         coverage_gap = max(0.0, 1.0 - cov_k)
@@ -56,22 +57,26 @@ def compute_probe_priorities(
             conf_term = 0.0
 
         # Composite probe priority I_k
-        inner_bracket = (alpha * coverage_gap) + (beta * norm_ci_width) + (gamma * conf_term)
+        inner_bracket = (
+            (alpha * coverage_gap) + (beta * norm_ci_width) + (gamma * conf_term)
+        )
         I_k = float(w_k * inner_bracket)
 
-        unranked_probes.append({
-            "capability_key": cap,
-            "priority_score": I_k,
-            "role_weight": w_k,
-            "coverage_gap_term": coverage_gap,
-            "uncertainty_term": norm_ci_width,
-            "contradiction_term": conf_term,
-        })
+        unranked_probes.append(
+            {
+                "capability_key": cap,
+                "priority_score": I_k,
+                "role_weight": w_k,
+                "coverage_gap_term": coverage_gap,
+                "uncertainty_term": norm_ci_width,
+                "contradiction_term": conf_term,
+            }
+        )
 
     # Sort descending by priority score
     unranked_probes.sort(key=lambda x: x["priority_score"], reverse=True)
 
-    ranked_probes: List[ProbePriority] = []
+    ranked_probes: list[ProbePriority] = []
     for rank_idx, item in enumerate(unranked_probes, start=1):
         ranked_probes.append(
             ProbePriority(

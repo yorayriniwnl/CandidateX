@@ -1,7 +1,7 @@
 """End-to-end pipeline orchestration package for Candidate Capability Intelligence (CCI)."""
 
+from cci.domain.enums import AnalysisStage
 from cci.pipeline.orchestrator import (
-    AnalysisStage,
     PipelineExecutionState,
     PipelineStatus,
     execute_analysis_pipeline,
@@ -11,10 +11,10 @@ from cci.pipeline.service import PipelineService, pipeline_service
 
 __all__ = [
     "AnalysisStage",
-    "PipelineStatus",
     "PipelineExecutionState",
-    "execute_analysis_pipeline",
-    "rescore_dossier",
     "PipelineService",
+    "PipelineStatus",
+    "execute_analysis_pipeline",
     "pipeline_service",
+    "rescore_dossier",
 ]

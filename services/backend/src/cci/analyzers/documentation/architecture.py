@@ -2,9 +2,8 @@
 
 import json
 import re
-from typing import List, Set
-import yaml
 
+import yaml
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
@@ -15,12 +14,16 @@ def analyze_readme(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes README documentation for setup instructions, API docs, and diagrams-as-code."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     # 1. Setup / Getting Started documentation
-    setup_match = re.search(r"^#{1,3}\s+(getting\s+started|installation|setup|quickstart|prerequisites)", content, re.IGNORECASE | re.MULTILINE)
+    setup_match = re.search(
+        r"^#{1,3}\s+(getting\s+started|installation|setup|quickstart|prerequisites)",
+        content,
+        re.IGNORECASE | re.MULTILINE,
+    )
     if setup_match:
         evidence.append(
             EvidenceInput(
@@ -40,10 +43,16 @@ def analyze_readme(
     # 2. Diagrams as code (Mermaid / PlantUML) or architecture diagrams
     has_mermaid = "```mermaid" in content.lower()
     has_plantuml = "@startuml" in content.lower()
-    has_arch_diagram = re.search(r"!\[.*(architecture|diagram|design|flow).*\]\(.*\)", content, re.IGNORECASE)
+    has_arch_diagram = re.search(
+        r"!\[.*(architecture|diagram|design|flow).*\]\(.*\)", content, re.IGNORECASE
+    )
 
     if has_mermaid or has_plantuml or has_arch_diagram:
-        diag_type = "Mermaid" if has_mermaid else ("PlantUML" if has_plantuml else "Architecture Diagram Image")
+        diag_type = (
+            "Mermaid"
+            if has_mermaid
+            else ("PlantUML" if has_plantuml else "Architecture Diagram Image")
+        )
         evidence.append(
             EvidenceInput(
                 source_family=SourceFamily.GITHUB,
@@ -68,14 +77,17 @@ def analyze_adr(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes Architecture Decision Records (ADRs)."""
-    evidence: List[EvidenceInput] = []
-    
+    evidence: list[EvidenceInput] = []
+
     # Check for standard ADR structure: Context, Decision, Consequences
-    has_context = bool(re.search(r"^#{1,3}\s+context", content, re.IGNORECASE | re.MULTILINE))
-    has_decision = bool(re.search(r"^#{1,3}\s+decision", content, re.IGNORECASE | re.MULTILINE))
-    has_consequences = bool(re.search(r"^#{1,3}\s+consequences?", content, re.IGNORECASE | re.MULTILINE))
+    has_context = bool(
+        re.search(r"^#{1,3}\s+context", content, re.IGNORECASE | re.MULTILINE)
+    )
+    has_decision = bool(
+        re.search(r"^#{1,3}\s+decision", content, re.IGNORECASE | re.MULTILINE)
+    )
 
     if has_context and has_decision:
         evidence.append(
@@ -102,16 +114,16 @@ def analyze_openapi_spec(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Analyzes OpenAPI/Swagger specifications for API documentation rigor."""
-    evidence: List[EvidenceInput] = []
-    
+    evidence: list[EvidenceInput] = []
+
     try:
         if file_path.endswith((".yaml", ".yml")):
             data = yaml.safe_load(content)
         else:
             data = json.loads(content)
-            
+
         if isinstance(data, dict) and ("openapi" in data or "swagger" in data):
             paths = data.get("paths", {})
             path_count = len(paths) if isinstance(paths, dict) else 0
@@ -137,19 +149,27 @@ def analyze_openapi_spec(
 
 
 def analyze_layer_boundaries(
-    all_relative_paths: List[str],
+    all_relative_paths: list[str],
     repo_url: str,
     commit_sha: str,
     extractor_version: str = "1.0.0",
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Evaluates modularity and clean architectural layer separation in directory structure."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
-    detected_layers: Set[str] = set()
+    detected_layers: set[str] = set()
     for path in all_relative_paths:
         parts = path.replace("\\", "/").lower().split("/")
         for part in parts:
-            if part in ("domain", "services", "adapters", "repositories", "controllers", "models", "api"):
+            if part in (
+                "domain",
+                "services",
+                "adapters",
+                "repositories",
+                "controllers",
+                "models",
+                "api",
+            ):
                 detected_layers.add(part)
 
     # If repository demonstrates at least 3 distinct architectural layers

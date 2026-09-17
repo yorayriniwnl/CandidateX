@@ -13,19 +13,19 @@ INVARIANTS:
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple
+
 from cci.domain.contracts import SourceReliabilitySnapshot
 from cci.domain.enums import ReliabilityState, SourceFamily
 
 # Canonical default Beta priors: (alpha, beta)
-DEFAULT_PRIORS: Dict[SourceFamily, Tuple[float, float]] = {
-    SourceFamily.GITHUB: (10.0, 2.0),       # Mean: 10/12 ≈ 0.8333
-    SourceFamily.DEPLOYMENT: (8.0, 2.0),    # Mean: 8/10 = 0.8000
-    SourceFamily.DATABASE: (9.0, 2.0),      # Mean: 9/11 ≈ 0.8182
-    SourceFamily.CODING: (8.0, 3.0),        # Mean: 8/11 ≈ 0.7273
-    SourceFamily.CERTIFICATE: (7.0, 3.0),   # Mean: 7/10 = 0.7000
-    SourceFamily.RESUME: (5.0, 5.0),        # Mean: 5/10 = 0.5000 (self-report bias discount)
-    SourceFamily.LINKEDIN: (6.0, 4.0),      # Mean: 6/10 = 0.6000
+DEFAULT_PRIORS: dict[SourceFamily, tuple[float, float]] = {
+    SourceFamily.GITHUB: (10.0, 2.0),  # Mean: 10/12 ≈ 0.8333
+    SourceFamily.DEPLOYMENT: (8.0, 2.0),  # Mean: 8/10 = 0.8000
+    SourceFamily.DATABASE: (9.0, 2.0),  # Mean: 9/11 ≈ 0.8182
+    SourceFamily.CODING: (8.0, 3.0),  # Mean: 8/11 ≈ 0.7273
+    SourceFamily.CERTIFICATE: (7.0, 3.0),  # Mean: 7/10 = 0.7000
+    SourceFamily.RESUME: (5.0, 5.0),  # Mean: 5/10 = 0.5000 (self-report bias discount)
+    SourceFamily.LINKEDIN: (6.0, 4.0),  # Mean: 6/10 = 0.6000
 }
 
 
@@ -45,30 +45,38 @@ def calculate_beta_variance(tp: int, fp: int, alpha: float, beta: float) -> floa
     total = a + b
     if total <= 0.0:
         return 0.0
-    return (a * b) / ((total ** 2) * (total + 1.0))
+    return (a * b) / ((total**2) * (total + 1.0))
 
 
 def compute_source_reliability(
     source_family: SourceFamily,
     true_positives: int = 0,
     false_positives: int = 0,
-    alpha_prior: Optional[float] = None,
-    beta_prior: Optional[float] = None,
+    alpha_prior: float | None = None,
+    beta_prior: float | None = None,
     version: str = "1.0.0",
 ) -> SourceReliabilitySnapshot:
     """Computes an immutable SourceReliabilitySnapshot given TP/FP counts and priors."""
     if true_positives < 0 or false_positives < 0:
-        raise ValueError("True positive and false positive counts must be non-negative integers")
+        raise ValueError(
+            "True positive and false positive counts must be non-negative integers"
+        )
 
     default_alpha, default_beta = DEFAULT_PRIORS.get(source_family, (5.0, 5.0))
     alpha = alpha_prior if alpha_prior is not None else default_alpha
     beta = beta_prior if beta_prior is not None else default_beta
 
     if alpha <= 0.0 or beta <= 0.0:
-        raise ValueError("Beta prior parameters alpha and beta must be strictly positive")
+        raise ValueError(
+            "Beta prior parameters alpha and beta must be strictly positive"
+        )
 
     mean = calculate_beta_mean(true_positives, false_positives, alpha, beta)
-    state = ReliabilityState.CALIBRATED if (true_positives > 0 or false_positives > 0) else ReliabilityState.PRIOR
+    state = (
+        ReliabilityState.CALIBRATED
+        if (true_positives > 0 or false_positives > 0)
+        else ReliabilityState.PRIOR
+    )
 
     return SourceReliabilitySnapshot(
         source_family=source_family,
@@ -102,9 +110,8 @@ def calibrate_from_observations(
     )
 
 
-def get_default_reliability_snapshots() -> Dict[SourceFamily, SourceReliabilitySnapshot]:
+def get_default_reliability_snapshots() -> dict[
+    SourceFamily, SourceReliabilitySnapshot
+]:
     """Generates default prior reliability snapshots for all 7 canonical source families."""
-    return {
-        sf: compute_source_reliability(source_family=sf)
-        for sf in SourceFamily
-    }
+    return {sf: compute_source_reliability(source_family=sf) for sf in SourceFamily}

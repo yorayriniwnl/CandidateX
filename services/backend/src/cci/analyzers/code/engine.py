@@ -1,7 +1,7 @@
 """Unified Static Code & Architecture Intelligence Engine."""
 
 import os
-from typing import List
+
 from cci.analyzers.code.dependencies import (
     dependencies_to_evidence,
     extract_manifest_dependencies,
@@ -29,20 +29,22 @@ def run_code_intelligence(
     workspace_root: str,
     repo_url: str,
     commit_sha: str,
-    artifacts: List[IndexedArtifact],
-) -> List[EvidenceInput]:
+    artifacts: list[IndexedArtifact],
+) -> list[EvidenceInput]:
     """Runs static code, dependency, and architecture analysis across indexed artifacts.
-    
+
     INVARIANTS:
     1. Candidate repository code is NEVER executed.
     2. Framework presence is not converted into unearned mastery.
     3. Exact provenance is preserved on every EvidenceInput.
     """
-    evidence_results: List[EvidenceInput] = []
-    all_paths: List[str] = [a.relative_path for a in artifacts]
+    evidence_results: list[EvidenceInput] = []
+    all_paths: list[str] = [a.relative_path for a in artifacts]
 
     # 1. Structural layer boundary evaluation
-    boundary_evidence = analyze_layer_boundaries(all_paths, repo_url, commit_sha, EXTRACTOR_VERSION)
+    boundary_evidence = analyze_layer_boundaries(
+        all_paths, repo_url, commit_sha, EXTRACTOR_VERSION
+    )
     evidence_results.extend(boundary_evidence)
 
     # 2. Per-artifact static inspection
@@ -109,15 +111,33 @@ def run_code_intelligence(
         # G. Architecture / Documentation
         if "readme" in rel_lower:
             evidence_results.extend(
-                analyze_readme(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                analyze_readme(
+                    content,
+                    artifact.relative_path,
+                    repo_url,
+                    commit_sha,
+                    EXTRACTOR_VERSION,
+                )
             )
         elif "/adr/" in rel_lower or rel_lower.startswith("adr/"):
             evidence_results.extend(
-                analyze_adr(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                analyze_adr(
+                    content,
+                    artifact.relative_path,
+                    repo_url,
+                    commit_sha,
+                    EXTRACTOR_VERSION,
+                )
             )
         elif artifact.category == "openapi":
             evidence_results.extend(
-                analyze_openapi_spec(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                analyze_openapi_spec(
+                    content,
+                    artifact.relative_path,
+                    repo_url,
+                    commit_sha,
+                    EXTRACTOR_VERSION,
+                )
             )
 
     return evidence_results

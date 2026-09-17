@@ -8,8 +8,7 @@ INVARIANTS:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
-from uuid import uuid4
+from typing import Any
 
 from cci.domain.enums import CapabilityKey, GraphEdgeType, GraphNodeType
 
@@ -17,29 +16,31 @@ from cci.domain.enums import CapabilityKey, GraphEdgeType, GraphNodeType
 @dataclass
 class CEGNode:
     """A node in the Candidate Evidence Graph."""
+
     node_id: str
     node_type: GraphNodeType
-    properties: Dict[str, Any] = field(default_factory=dict)
+    properties: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class CEGEdge:
     """A directed edge in the Candidate Evidence Graph."""
+
     edge_id: str
     source_id: str
     target_id: str
     edge_type: GraphEdgeType
-    properties: Dict[str, Any] = field(default_factory=dict)
+    properties: dict[str, Any] = field(default_factory=dict)
 
 
 class CandidateEvidenceGraph:
     """Heterogeneous Candidate Evidence Graph (CEG)."""
 
-    def __init__(self):
-        self.nodes: Dict[str, CEGNode] = {}
-        self.edges: Dict[str, CEGEdge] = {}
-        self._out_edges: Dict[str, List[str]] = {}
-        self._in_edges: Dict[str, List[str]] = {}
+    def __init__(self, evidence_records: list[Any] | None = None) -> None:
+        self.nodes: dict[str, CEGNode] = {}
+        self.edges: dict[str, CEGEdge] = {}
+        self._out_edges: dict[str, list[str]] = {}
+        self._in_edges: dict[str, list[str]] = {}
 
     def add_node(self, node: CEGNode) -> None:
         """Adds a node to the graph."""
@@ -60,16 +61,16 @@ class CandidateEvidenceGraph:
         self._out_edges[edge.source_id].append(edge.edge_id)
         self._in_edges[edge.target_id].append(edge.edge_id)
 
-    def get_node(self, node_id: str) -> Optional[CEGNode]:
+    def get_node(self, node_id: str) -> CEGNode | None:
         """Retrieves a node by its identifier."""
         return self.nodes.get(node_id)
 
     def get_edges(
         self,
-        source_id: Optional[str] = None,
-        target_id: Optional[str] = None,
-        edge_type: Optional[GraphEdgeType] = None,
-    ) -> List[CEGEdge]:
+        source_id: str | None = None,
+        target_id: str | None = None,
+        edge_type: GraphEdgeType | None = None,
+    ) -> list[CEGEdge]:
         """Queries edges by source, target, and/or type."""
         candidates = []
         if source_id is not None:
@@ -93,14 +94,16 @@ class CandidateEvidenceGraph:
 
         return results
 
-    def trace_provenance(self, capability_key: CapabilityKey) -> List[Dict[str, Any]]:
+    def trace_provenance(self, capability_key: CapabilityKey) -> list[dict[str, Any]]:
         """Traces backwards from a Capability node to all supporting Evidence, Artifacts, and Sources."""
         cap_node_id = f"cap_{capability_key.value}"
         if cap_node_id not in self.nodes:
             return []
 
         # Find all incoming SUPPORTS_CAPABILITY edges to this capability node
-        evidence_edges = self.get_edges(target_id=cap_node_id, edge_type=GraphEdgeType.SUPPORTS_CAPABILITY)
+        evidence_edges = self.get_edges(
+            target_id=cap_node_id, edge_type=GraphEdgeType.SUPPORTS_CAPABILITY
+        )
         traces = []
 
         for e_edge in evidence_edges:
@@ -108,7 +111,7 @@ class CandidateEvidenceGraph:
             if not ev_node:
                 continue
 
-            trace_entry: Dict[str, Any] = {
+            trace_entry: dict[str, Any] = {
                 "capability": capability_key.value,
                 "evidence_id": ev_node.node_id,
                 "evidence_properties": ev_node.properties,
@@ -117,29 +120,38 @@ class CandidateEvidenceGraph:
             }
 
             # Find incoming DERIVED_FROM edges to evidence
-            artifact_edges = self.get_edges(source_id=ev_node.node_id, edge_type=GraphEdgeType.DERIVED_FROM)
+            artifact_edges = self.get_edges(
+                source_id=ev_node.node_id, edge_type=GraphEdgeType.DERIVED_FROM
+            )
             for art_edge in artifact_edges:
                 art_node = self.nodes.get(art_edge.target_id)
                 if art_node:
-                    trace_entry["artifacts"].append({
-                        "artifact_id": art_node.node_id,
-                        "properties": art_node.properties,
-                    })
+                    trace_entry["artifacts"].append(
+                        {
+                            "artifact_id": art_node.node_id,
+                            "properties": art_node.properties,
+                        }
+                    )
                     # Trace artifact -> source
-                    src_edges = self.get_edges(source_id=art_node.node_id, edge_type=GraphEdgeType.CONTRIBUTES_TO)
+                    src_edges = self.get_edges(
+                        source_id=art_node.node_id,
+                        edge_type=GraphEdgeType.CONTRIBUTES_TO,
+                    )
                     for src_edge in src_edges:
                         src_node = self.nodes.get(src_edge.target_id)
                         if src_node:
-                            trace_entry["sources"].append({
-                                "source_id": src_node.node_id,
-                                "properties": src_node.properties,
-                            })
+                            trace_entry["sources"].append(
+                                {
+                                    "source_id": src_node.node_id,
+                                    "properties": src_node.properties,
+                                }
+                            )
 
             traces.append(trace_entry)
 
         return traces
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes graph to a JSON-compatible dictionary."""
         return {
             "nodes": [
@@ -163,7 +175,7 @@ class CandidateEvidenceGraph:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CandidateEvidenceGraph":
+    def from_dict(cls, data: dict[str, Any]) -> "CandidateEvidenceGraph":
         """Reconstructs graph from serialized dictionary."""
         graph = cls()
         for nd in data.get("nodes", []):
@@ -189,14 +201,25 @@ class CandidateEvidenceGraph:
     def to_api_response(self, candidate_id: Any, analysis_run_id: Any) -> Any:
         """Projects CEG to the API contract CEGGraphResponse schema."""
         from uuid import UUID
+
         from cci.api.contracts.graph import (
             CEGEdge as ApiEdge,
+        )
+        from cci.api.contracts.graph import (
             CEGGraphResponse,
+        )
+        from cci.api.contracts.graph import (
             CEGNode as ApiNode,
         )
 
-        cand_uuid = candidate_id if isinstance(candidate_id, UUID) else UUID(str(candidate_id))
-        run_uuid = analysis_run_id if isinstance(analysis_run_id, UUID) else UUID(str(analysis_run_id))
+        cand_uuid = (
+            candidate_id if isinstance(candidate_id, UUID) else UUID(str(candidate_id))
+        )
+        run_uuid = (
+            analysis_run_id
+            if isinstance(analysis_run_id, UUID)
+            else UUID(str(analysis_run_id))
+        )
 
         nodes = [
             ApiNode(
@@ -225,4 +248,3 @@ class CandidateEvidenceGraph:
             edges=edges,
             metadata={"total_nodes": len(nodes), "total_edges": len(edges)},
         )
-

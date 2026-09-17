@@ -7,7 +7,7 @@ INVARIANTS:
 """
 
 import os
-from typing import List
+
 from cci.analyzers.database.schema_analyzer import (
     analyze_alembic_migration,
     analyze_prisma_schema,
@@ -35,10 +35,10 @@ def run_db_test_infra_intelligence(
     workspace_root: str,
     repo_url: str,
     commit_sha: str,
-    artifacts: List[IndexedArtifact],
-) -> List[EvidenceInput]:
+    artifacts: list[IndexedArtifact],
+) -> list[EvidenceInput]:
     """Runs static database, testing, and devops analysis across indexed artifacts."""
-    evidence_results: List[EvidenceInput] = []
+    evidence_results: list[EvidenceInput] = []
 
     for artifact in artifacts:
         if artifact.is_binary or artifact.is_too_large:
@@ -57,58 +57,136 @@ def run_db_test_infra_intelligence(
         rel_lower = artifact.relative_path.lower().replace("\\", "/")
 
         # 1. Database & Migrations
-        if artifact.category == "database" or "migration" in rel_lower or "alembic" in rel_lower:
+        if (
+            artifact.category == "database"
+            or "migration" in rel_lower
+            or "alembic" in rel_lower
+        ):
             if rel_lower.endswith(".sql"):
                 evidence_results.extend(
-                    analyze_sql_content(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_sql_content(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif rel_lower.endswith(".py"):
                 evidence_results.extend(
-                    analyze_alembic_migration(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_alembic_migration(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif rel_lower.endswith("schema.prisma"):
                 evidence_results.extend(
-                    analyze_prisma_schema(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_prisma_schema(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
 
         # 2. Testing
-        elif artifact.category == "tests" or "/test" in rel_lower or rel_lower.startswith("test"):
+        elif (
+            artifact.category == "tests"
+            or "/test" in rel_lower
+            or rel_lower.startswith("test")
+        ):
             if rel_lower.endswith(".py"):
                 evidence_results.extend(
-                    analyze_python_test_file(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_python_test_file(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif rel_lower.endswith((".ts", ".tsx", ".js", ".jsx")):
                 evidence_results.extend(
-                    analyze_js_ts_test_file(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_js_ts_test_file(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif rel_lower.endswith(".go"):
                 evidence_results.extend(
-                    analyze_go_test_file(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_go_test_file(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
 
         # 3. CI/CD Workflows
         elif artifact.category == "ci":
             evidence_results.extend(
-                analyze_ci_workflow(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                analyze_ci_workflow(
+                    content,
+                    artifact.relative_path,
+                    repo_url,
+                    commit_sha,
+                    EXTRACTOR_VERSION,
+                )
             )
 
         # 4. Infrastructure & DevOps
         elif artifact.category == "infra":
             if "dockerfile" in rel_lower:
                 evidence_results.extend(
-                    analyze_dockerfile(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_dockerfile(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif "compose" in rel_lower:
                 evidence_results.extend(
-                    analyze_docker_compose(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_docker_compose(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
-            elif "kubernetes" in rel_lower or "/k8s/" in rel_lower or rel_lower.startswith("k8s/"):
+            elif (
+                "kubernetes" in rel_lower
+                or "/k8s/" in rel_lower
+                or rel_lower.startswith("k8s/")
+            ):
                 evidence_results.extend(
-                    analyze_kubernetes_manifest(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_kubernetes_manifest(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
             elif rel_lower.endswith((".tf", ".tfvars")):
                 evidence_results.extend(
-                    analyze_terraform_hcl(content, artifact.relative_path, repo_url, commit_sha, EXTRACTOR_VERSION)
+                    analyze_terraform_hcl(
+                        content,
+                        artifact.relative_path,
+                        repo_url,
+                        commit_sha,
+                        EXTRACTOR_VERSION,
+                    )
                 )
 
     return evidence_results

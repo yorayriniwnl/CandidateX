@@ -3,39 +3,107 @@
 import hashlib
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 
 from cci.domain.enums import ScanDepth
-from cci.security.repository_workspace import InspectedFile, SafeRepositoryWorkspace
+from cci.security.repository_workspace import SafeRepositoryWorkspace
 
 # Path/filename matching patterns for technical artifact categories
 CATEGORY_RULES = [
-    ("manifests", re.compile(r"(^|/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg|Pipfile|go\.mod|go\.sum|pom\.xml|build\.gradle|Cargo\.toml|composer\.json|Gemfile)$", re.IGNORECASE)),
-    ("ci", re.compile(r"(^|/)(\.github/workflows/.*|\.gitlab-ci\.yml|Jenkinsfile|\.circleci/.*|\.travis\.yml|azure-pipelines\.yml)$", re.IGNORECASE)),
-    ("database", re.compile(r"(^|/)(migrations?/.*|alembic/.*|prisma/schema\.prisma|\.sql$)", re.IGNORECASE)),
-    ("infra", re.compile(r"(^|/)(Dockerfile.*|docker-compose.*\.ya?ml|compose\.ya?ml|.*\.tf|.*\.tfvars|kubernetes/.*|k8s/.*|helm/.*)$", re.IGNORECASE)),
-    ("openapi", re.compile(r"(^|/)(openapi\.(json|ya?ml)|swagger\.(json|ya?ml))$", re.IGNORECASE)),
-    ("tests", re.compile(r"(^|/)(tests?/.*|__tests__/.*|.*[._-](test|spec)\.[a-zA-Z0-9]+)$", re.IGNORECASE)),
-    ("docs", re.compile(r"(^|/)(README(\.[a-zA-Z0-9]+)?|CONTRIBUTING.*|ADR.*|CHANGELOG.*|docs?/.*\.md)$", re.IGNORECASE)),
-    ("config", re.compile(r"(^|/)(tsconfig\.json|\.eslintrc.*|babel\.config.*|vitest\.config.*|pytest\.ini|\.env\.example)$", re.IGNORECASE)),
+    (
+        "manifests",
+        re.compile(
+            r"(^|/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg|Pipfile|go\.mod|go\.sum|pom\.xml|build\.gradle|Cargo\.toml|composer\.json|Gemfile)$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "ci",
+        re.compile(
+            r"(^|/)(\.github/workflows/.*|\.gitlab-ci\.yml|Jenkinsfile|\.circleci/.*|\.travis\.yml|azure-pipelines\.yml)$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "database",
+        re.compile(
+            r"(^|/)(migrations?/.*|alembic/.*|prisma/schema\.prisma|\.sql$)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "infra",
+        re.compile(
+            r"(^|/)(Dockerfile.*|docker-compose.*\.ya?ml|compose\.ya?ml|.*\.tf|.*\.tfvars|kubernetes/.*|k8s/.*|helm/.*)$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "openapi",
+        re.compile(
+            r"(^|/)(openapi\.(json|ya?ml)|swagger\.(json|ya?ml))$", re.IGNORECASE
+        ),
+    ),
+    (
+        "tests",
+        re.compile(
+            r"(^|/)(tests?/.*|__tests__/.*|.*[._-](test|spec)\.[a-zA-Z0-9]+)$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "docs",
+        re.compile(
+            r"(^|/)(README(\.[a-zA-Z0-9]+)?|CONTRIBUTING.*|ADR.*|CHANGELOG.*|docs?/.*\.md)$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "config",
+        re.compile(
+            r"(^|/)(tsconfig\.json|\.eslintrc.*|babel\.config.*|vitest\.config.*|pytest\.ini|\.env\.example)$",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 SOURCE_EXTENSIONS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java",
-    ".c", ".cpp", ".cc", ".h", ".hpp", ".cs", ".rb", ".php",
-    ".scala", ".kt", ".swift", ".sh", ".bash", ".sql",
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cpp",
+    ".cc",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".scala",
+    ".kt",
+    ".swift",
+    ".sh",
+    ".bash",
+    ".sql",
 }
 
 
 @dataclass(frozen=True)
 class IndexedArtifact:
     """Indexed artifact metadata preserving exact immutable revision and content hash."""
+
     artifact_id: UUID
     relative_path: str
-    category: str  # source, manifests, tests, ci, database, infra, docs, openapi, config
+    category: (
+        str  # source, manifests, tests, ci, database, infra, docs, openapi, config
+    )
     byte_size: int
     content_sha256: str
     is_binary: bool
@@ -45,6 +113,7 @@ class IndexedArtifact:
 @dataclass(frozen=True)
 class RepositorySnapshotMetadata:
     """Point-in-time immutable acquisition snapshot of a repository."""
+
     snapshot_id: UUID
     repo_url: str
     default_branch: str
@@ -53,7 +122,7 @@ class RepositorySnapshotMetadata:
     fetched_at: datetime
     snapshot_fingerprint: str  # SHA256 of combined artifact hashes
     total_artifacts: int
-    artifacts_by_category: Dict[str, int]
+    artifacts_by_category: dict[str, int]
 
 
 def categorize_file(rel_path: str) -> str:
@@ -86,15 +155,15 @@ def index_repository_artifacts(
     commit_sha: str,
     default_branch: str = "main",
     scan_depth: ScanDepth = ScanDepth.DEEP,
-) -> Tuple[RepositorySnapshotMetadata, List[IndexedArtifact]]:
+) -> tuple[RepositorySnapshotMetadata, list[IndexedArtifact]]:
     """Traverses workspace and produces immutable artifact index and snapshot metadata.
-    
+
     INVARIANT: Never infers technical capability or executes candidate code. Only acquires facts.
     """
     inspected_files = workspace.scan_files()
-    indexed_artifacts: List[IndexedArtifact] = []
-    category_counts: Dict[str, int] = {}
-    artifact_hashes: List[str] = []
+    indexed_artifacts: list[IndexedArtifact] = []
+    category_counts: dict[str, int] = {}
+    artifact_hashes: list[str] = []
 
     for file_info in inspected_files:
         cat = categorize_file(file_info.relative_path)
@@ -118,7 +187,9 @@ def index_repository_artifacts(
 
     # Sort hashes deterministically for snapshot fingerprint
     artifact_hashes.sort()
-    composite_payload = f"{repo_url}::{commit_sha}::{'|'.join(artifact_hashes)}".encode("utf-8")
+    composite_payload = (
+        f"{repo_url}::{commit_sha}::{'|'.join(artifact_hashes)}".encode()
+    )
     snapshot_fp = hashlib.sha256(composite_payload).hexdigest()
 
     metadata = RepositorySnapshotMetadata(

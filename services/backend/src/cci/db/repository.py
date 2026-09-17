@@ -4,25 +4,25 @@ Provides type-safe bridge between Pydantic domain contracts and SQLAlchemy model
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID, uuid4
+
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from cci.db import models
 from cci.db.base import Base
-import cci.db.models as models
 from cci.domain.contracts import (
     CandidateManifest,
-    CapabilityEstimate,
     Dossier,
     EvidenceRecord,
     NormalizedRequirement,
     RoleProfile,
 )
-from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.domain.enums import CanonicalRole
 
 
-def init_db(engine) -> None:
+def init_db(engine: Any) -> None:
     """Initializes all database tables from declarative models."""
     Base.metadata.create_all(bind=engine)
 
@@ -31,8 +31,8 @@ def save_organization(
     session: Session,
     name: str,
     slug: str,
-    org_id: Optional[UUID] = None,
-    settings: Optional[dict] = None,
+    org_id: UUID | None = None,
+    settings: dict[str, Any] | None = None,
 ) -> models.Organization:
     """Creates or updates an organization record."""
     stmt = select(models.Organization).where(models.Organization.slug == slug)
@@ -59,7 +59,7 @@ def save_user(
     full_name: str,
     hashed_password: str = "pbkdf2_sha256$insecure_dev_hash",
     role: str = "interviewer",
-    user_id: Optional[UUID] = None,
+    user_id: UUID | None = None,
 ) -> models.User:
     """Creates or returns an existing user."""
     stmt = select(models.User).where(models.User.email == email)
@@ -87,16 +87,18 @@ def save_job_description(
     title: str,
     canonical_role: CanonicalRole,
     raw_text: str,
-    job_id: Optional[UUID] = None,
-    role_profile: Optional[RoleProfile] = None,
-    requirements: Optional[List[NormalizedRequirement]] = None,
+    job_id: UUID | None = None,
+    role_profile: RoleProfile | None = None,
+    requirements: list[NormalizedRequirement] | None = None,
 ) -> models.JobDescription:
     """Creates a job description along with its derived role profile and requirements."""
     jd = models.JobDescription(
         id=job_id or uuid4(),
         organization_id=organization_id,
         title=title,
-        canonical_role=canonical_role.value if hasattr(canonical_role, "value") else str(canonical_role),
+        canonical_role=canonical_role.value
+        if hasattr(canonical_role, "value")
+        else str(canonical_role),
         raw_text=raw_text,
         is_active=True,
     )
@@ -106,9 +108,17 @@ def save_job_description(
     if role_profile:
         rp_entity = models.RoleProfileEntity(
             job_description_id=jd.id,
-            canonical_role=role_profile.canonical_role.value if hasattr(role_profile.canonical_role, "value") else str(role_profile.canonical_role),
-            raw_importances={k.value if hasattr(k, "value") else str(k): v for k, v in role_profile.raw_importances.items()},
-            softmax_weights={k.value if hasattr(k, "value") else str(k): v for k, v in role_profile.softmax_weights.items()},
+            canonical_role=role_profile.canonical_role.value
+            if hasattr(role_profile.canonical_role, "value")
+            else str(role_profile.canonical_role),
+            raw_importances={
+                k.value if hasattr(k, "value") else str(k): v
+                for k, v in role_profile.raw_importances.items()
+            },
+            softmax_weights={
+                k.value if hasattr(k, "value") else str(k): v
+                for k, v in role_profile.softmax_weights.items()
+            },
             temperature_used=1.0,
             is_overridden=role_profile.is_overridden,
         )
@@ -121,8 +131,13 @@ def save_job_description(
                 job_description_id=jd.id,
                 source_text=req.source_text,
                 normalized_name=req.normalized_name,
-                priority=req.priority.value if hasattr(req.priority, "value") else str(req.priority),
-                capability_mappings=[k.value if hasattr(k, "value") else str(k) for k in req.capability_mappings],
+                priority=req.priority.value
+                if hasattr(req.priority, "value")
+                else str(req.priority),
+                capability_mappings=[
+                    k.value if hasattr(k, "value") else str(k)
+                    for k in req.capability_mappings
+                ],
                 technology_mentions=req.technology_mentions,
                 mention_frequency=req.mention_frequency,
                 semantic_specificity=req.semantic_specificity,
@@ -140,7 +155,7 @@ def save_candidate(
     session: Session,
     organization_id: UUID,
     manifest: CandidateManifest,
-    candidate_id: Optional[UUID] = None,
+    candidate_id: UUID | None = None,
 ) -> models.Candidate:
     """Persists a candidate entity and its manifest-extracted identities and sources."""
     cid = candidate_id or uuid4()
@@ -174,13 +189,11 @@ def save_candidate(
         session.add(ident)
 
     # Add external sources
-    all_sources = [
-        ("github", u) for u in manifest.github_urls
-    ] + [
-        ("portfolio", u) for u in manifest.portfolio_urls
-    ] + [
-        ("deployment", u) for u in manifest.deployment_urls
-    ]
+    all_sources = (
+        [("github", u) for u in manifest.github_urls]
+        + [("portfolio", u) for u in manifest.portfolio_urls]
+        + [("deployment", u) for u in manifest.deployment_urls]
+    )
 
     for fam, url in all_sources:
         src = models.CandidateSource(
@@ -200,10 +213,10 @@ def save_analysis_run(
     candidate_id: UUID,
     target_role: CanonicalRole,
     organization_id: UUID,
-    run_id: Optional[UUID] = None,
-    job_description_id: Optional[UUID] = None,
+    run_id: UUID | None = None,
+    job_description_id: UUID | None = None,
     status: str = "completed",
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> models.AnalysisRun:
     """Creates or updates an analysis run record."""
     rid = run_id or uuid4()
@@ -217,7 +230,9 @@ def save_analysis_run(
         organization_id=organization_id,
         candidate_id=candidate_id,
         job_description_id=job_description_id,
-        target_role=target_role.value if hasattr(target_role, "value") else str(target_role),
+        target_role=target_role.value
+        if hasattr(target_role, "value")
+        else str(target_role),
         status=status,
         error_message=error_message,
         config_version="1.0.0",
@@ -232,14 +247,22 @@ def save_analysis_run(
 def save_evidence_records(
     session: Session,
     analysis_run_id: UUID,
-    evidence_records: List[EvidenceRecord],
-) -> List[models.Evidence]:
+    evidence_records: list[EvidenceRecord],
+) -> list[models.Evidence]:
     """Persists immutable evidence records and their capability links."""
-    entities: List[models.Evidence] = []
+    entities: list[models.Evidence] = []
     for ev in evidence_records:
         cf = ev.confidence_factors
-        cap_val = ev.target_capability.value if hasattr(ev.target_capability, "value") else str(ev.target_capability)
-        fam_val = ev.source_family.value if hasattr(ev.source_family, "value") else str(ev.source_family)
+        cap_val = (
+            ev.target_capability.value
+            if hasattr(ev.target_capability, "value")
+            else str(ev.target_capability)
+        )
+        fam_val = (
+            ev.source_family.value
+            if hasattr(ev.source_family, "value")
+            else str(ev.source_family)
+        )
 
         entity = models.Evidence(
             id=ev.evidence_id,
@@ -283,7 +306,7 @@ def save_dossier(
     session: Session,
     dossier: Dossier,
     organization_id: UUID,
-    custom_evidence: Optional[List[EvidenceRecord]] = None,
+    custom_evidence: list[EvidenceRecord] | None = None,
 ) -> models.DossierSnapshot:
     """Persists a complete Dossier snapshot and its relational evaluation components."""
     # Ensure Candidate exists or is attached
@@ -313,7 +336,9 @@ def save_dossier(
         )
 
     # 1. Overall Score Entity
-    observed_count = sum(1 for e in dossier.capability_estimates.values() if e.is_observed)
+    observed_count = sum(
+        1 for e in dossier.capability_estimates.values() if e.is_observed
+    )
     score_entity = models.AnalysisScoreEntity(
         analysis_run_id=dossier.analysis_run_id,
         rci=dossier.rci,
@@ -343,7 +368,11 @@ def save_dossier(
         )
         session.add(est_entity)
 
-        ci_w = (est.ci_upper - est.ci_lower) if (est.ci_upper is not None and est.ci_lower is not None) else 0.0
+        ci_w = (
+            (est.ci_upper - est.ci_lower)
+            if (est.ci_upper is not None and est.ci_lower is not None)
+            else 0.0
+        )
         unc_entity = models.CapabilityUncertaintyEntity(
             analysis_run_id=dossier.analysis_run_id,
             capability_key=ck_str,
@@ -369,7 +398,11 @@ def save_dossier(
 
     # 4. Interview Probes & Questions
     for probe in dossier.interview_probes:
-        ck_str = probe.capability_key.value if hasattr(probe.capability_key, "value") else str(probe.capability_key)
+        ck_str = (
+            probe.capability_key.value
+            if hasattr(probe.capability_key, "value")
+            else str(probe.capability_key)
+        )
         probe_entity = models.InterviewProbePriority(
             analysis_run_id=dossier.analysis_run_id,
             capability_key=ck_str,
@@ -384,7 +417,11 @@ def save_dossier(
         session.flush()
 
         # Add corresponding questions
-        matching_questions = [q for q in dossier.interview_questions if q.target_capability == probe.capability_key]
+        matching_questions = [
+            q
+            for q in dossier.interview_questions
+            if q.target_capability == probe.capability_key
+        ]
         for q in matching_questions:
             q_entity = models.InterviewQuestionEntity(
                 id=q.question_id,
@@ -420,11 +457,17 @@ def save_dossier(
     sec_order = 0
     # Strengths section
     strong_caps = [
-        (k, est) for k, est in dossier.capability_estimates.items()
+        (k, est)
+        for k, est in dossier.capability_estimates.items()
         if est.is_observed and est.estimate is not None and est.estimate >= 70.0
     ]
     if strong_caps:
-        strong_md = "\n".join([f"- **{k.value}**: Score {est.estimate:.1f}/100 (Coverage: {est.coverage_k*100:.0f}%)" for k, est in strong_caps])
+        strong_md = "\n".join(
+            [
+                f"- **{k.value}**: Score {est.estimate:.1f}/100 (Coverage: {est.coverage_k * 100:.0f}%)"
+                for k, est in strong_caps
+            ]
+        )
         item = models.DossierItem(
             dossier_snapshot_id=snapshot.id,
             section_type="strong_area",
@@ -438,11 +481,17 @@ def save_dossier(
 
     # Uncertain / Gaps section
     gap_caps = [
-        (k, est) for k, est in dossier.capability_estimates.items()
+        (k, est)
+        for k, est in dossier.capability_estimates.items()
         if not est.is_observed or est.coverage_k < 0.35
     ]
     if gap_caps:
-        gap_md = "\n".join([f"- **{k.value}**: Coverage {est.coverage_k*100:.0f}% (State: {'UNKNOWN' if not est.is_observed else 'Low Coverage'})" for k, est in gap_caps])
+        gap_md = "\n".join(
+            [
+                f"- **{k.value}**: Coverage {est.coverage_k * 100:.0f}% (State: {'UNKNOWN' if not est.is_observed else 'Low Coverage'})"
+                for k, est in gap_caps
+            ]
+        )
         item = models.DossierItem(
             dossier_snapshot_id=snapshot.id,
             section_type="uncertain_area",
@@ -458,12 +507,16 @@ def save_dossier(
     return snapshot
 
 
-def get_candidate_by_id(session: Session, candidate_id: UUID) -> Optional[models.Candidate]:
+def get_candidate_by_id(
+    session: Session, candidate_id: UUID
+) -> models.Candidate | None:
     """Retrieves a candidate by UUID."""
     return session.get(models.Candidate, candidate_id)
 
 
-def list_candidates(session: Session, organization_id: Optional[UUID] = None) -> List[models.Candidate]:
+def list_candidates(
+    session: Session, organization_id: UUID | None = None
+) -> list[models.Candidate]:
     """Lists candidates, optionally scoped by organization."""
     stmt = select(models.Candidate)
     if organization_id:
@@ -472,7 +525,9 @@ def list_candidates(session: Session, organization_id: Optional[UUID] = None) ->
     return list(session.execute(stmt).scalars().all())
 
 
-def list_jobs(session: Session, organization_id: Optional[UUID] = None) -> List[models.JobDescription]:
+def list_jobs(
+    session: Session, organization_id: UUID | None = None
+) -> list[models.JobDescription]:
     """Lists active job descriptions."""
     stmt = select(models.JobDescription)
     if organization_id:
@@ -481,7 +536,7 @@ def list_jobs(session: Session, organization_id: Optional[UUID] = None) -> List[
     return list(session.execute(stmt).scalars().all())
 
 
-def get_dossier_by_candidate_id(session: Session, candidate_id: UUID) -> Optional[Dossier]:
+def get_dossier_by_candidate_id(session: Session, candidate_id: UUID) -> Dossier | None:
     """Retrieves and reconstructs the latest complete Dossier for a candidate from DB."""
     stmt = (
         select(models.AnalysisRun)
@@ -493,7 +548,9 @@ def get_dossier_by_candidate_id(session: Session, candidate_id: UUID) -> Optiona
     if not run:
         return None
 
-    snap_stmt = select(models.DossierSnapshot).where(models.DossierSnapshot.analysis_run_id == run.id)
+    snap_stmt = select(models.DossierSnapshot).where(
+        models.DossierSnapshot.analysis_run_id == run.id
+    )
     snapshot = session.execute(snap_stmt).scalars().first()
     if not snapshot or not snapshot.summary_payload:
         return None

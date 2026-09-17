@@ -2,12 +2,12 @@
 
 import math
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+
 from cci.domain.contracts import NormalizedRequirement, RoleProfile, ScoringConfig
 from cci.domain.enums import CanonicalRole, CapabilityKey, RequirementPriority
 
 # Baseline role priors giving canonical role archetypes non-zero baseline importances
-ROLE_BASELINE_PRIORS: Dict[CanonicalRole, Dict[CapabilityKey, float]] = {
+ROLE_BASELINE_PRIORS: dict[CanonicalRole, dict[CapabilityKey, float]] = {
     CanonicalRole.BACKEND: {
         CapabilityKey.BACKEND_ENGINEERING: 3.0,
         CapabilityKey.DATABASE_ENGINEERING: 2.5,
@@ -96,22 +96,22 @@ ROLE_BASELINE_PRIORS: Dict[CanonicalRole, Dict[CapabilityKey, float]] = {
 
 
 def compute_role_importances(
-    requirements: List[NormalizedRequirement],
+    requirements: list[NormalizedRequirement],
     role: CanonicalRole,
-    config: Optional[ScoringConfig] = None,
-) -> Dict[CapabilityKey, float]:
+    config: ScoringConfig | None = None,
+) -> dict[CapabilityKey, float]:
     """Computes unnormalized importance u_k for each of the 12 capabilities:
-    
-        u_k = u_baseline,k + eta1*m_k + eta2*p_k + eta3*ln(1 + f_k) + eta4*s_k
+
+    u_k = u_baseline,k + eta1*m_k + eta2*p_k + eta3*ln(1 + f_k) + eta4*s_k
     """
     cfg = config or ScoringConfig()
     baselines = ROLE_BASELINE_PRIORS.get(role, {cap: 1.0 for cap in CapabilityKey})
 
-    m_counts: Dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    p_counts: Dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    freq_sums: Dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    spec_sums: Dict[CapabilityKey, float] = {cap: 0.0 for cap in CapabilityKey}
-    req_counts: Dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
+    m_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
+    p_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
+    freq_sums: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
+    spec_sums: dict[CapabilityKey, float] = {cap: 0.0 for cap in CapabilityKey}
+    req_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
 
     for req in requirements:
         for cap in req.capability_mappings:
@@ -123,7 +123,7 @@ def compute_role_importances(
             spec_sums[cap] += req.semantic_specificity
             req_counts[cap] += 1
 
-    importances: Dict[CapabilityKey, float] = {}
+    importances: dict[CapabilityKey, float] = {}
     for cap in CapabilityKey:
         base = baselines.get(cap, 1.0)
         m_k = m_counts[cap]
@@ -132,11 +132,11 @@ def compute_role_importances(
         avg_s_k = (spec_sums[cap] / req_counts[cap]) if req_counts[cap] > 0 else 0.0
 
         u_k = (
-            base +
-            cfg.eta1_mandatory * m_k +
-            cfg.eta2_preferred * p_k +
-            cfg.eta3_frequency * math.log(1.0 + f_k) +
-            cfg.eta4_specificity * avg_s_k
+            base
+            + cfg.eta1_mandatory * m_k
+            + cfg.eta2_preferred * p_k
+            + cfg.eta3_frequency * math.log(1.0 + f_k)
+            + cfg.eta4_specificity * avg_s_k
         )
         importances[cap] = max(0.0, float(u_k))
 
@@ -144,19 +144,19 @@ def compute_role_importances(
 
 
 def compute_softmax_weights(
-    importances: Dict[CapabilityKey, float],
+    importances: dict[CapabilityKey, float],
     temperature: float = 1.0,
-) -> Dict[CapabilityKey, float]:
+) -> dict[CapabilityKey, float]:
     """Computes temperature-scaled softmax role weights w_k:
-    
+
         w_k = exp(u_k / T) / sum_j exp(u_j / T)
-        
+
     Guaranteed: w_k in (0, 1) and sum(w_k) == 1.0.
     """
     T = max(1e-6, float(temperature))
     max_u = max(importances.values()) if importances else 0.0
 
-    exp_values: Dict[CapabilityKey, float] = {}
+    exp_values: dict[CapabilityKey, float] = {}
     for cap, u in importances.items():
         # Numerically stable softmax: shift by max_u
         exp_values[cap] = math.exp((u - max_u) / T)
@@ -177,9 +177,9 @@ def compute_softmax_weights(
 
 
 def build_role_profile(
-    requirements: List[NormalizedRequirement],
+    requirements: list[NormalizedRequirement],
     role: CanonicalRole,
-    config: Optional[ScoringConfig] = None,
+    config: ScoringConfig | None = None,
 ) -> RoleProfile:
     """Builds a verified RoleProfile model."""
     cfg = config or ScoringConfig()
@@ -197,9 +197,9 @@ def build_role_profile(
 
 def apply_expert_overrides(
     original_profile: RoleProfile,
-    overridden_weights: Dict[CapabilityKey, float],
+    overridden_weights: dict[CapabilityKey, float],
     justification: str,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ) -> RoleProfile:
     """Applies expert manual weight adjustments, normalizes, and records audit trail."""
     # Ensure all capabilities are present
@@ -207,7 +207,9 @@ def apply_expert_overrides(
     if total <= 0.0:
         raise ValueError("Overridden weights sum must be strictly greater than 0.")
 
-    normalized_weights = {cap: max(0.0, overridden_weights.get(cap, 0.0)) / total for cap in CapabilityKey}
+    normalized_weights = {
+        cap: max(0.0, overridden_weights.get(cap, 0.0)) / total for cap in CapabilityKey
+    }
     # Float drift correction
     diff = 1.0 - sum(normalized_weights.values())
     first_key = next(iter(normalized_weights))
@@ -217,7 +219,9 @@ def apply_expert_overrides(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "user_id": user_id,
         "justification": justification,
-        "original_weights": {k.value: v for k, v in original_profile.softmax_weights.items()},
+        "original_weights": {
+            k.value: v for k, v in original_profile.softmax_weights.items()
+        },
         "overridden_weights": {k.value: v for k, v in normalized_weights.items()},
     }
 

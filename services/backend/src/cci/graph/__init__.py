@@ -7,7 +7,7 @@ from cci.graph.ceg import (
 )
 
 __all__ = [
-    "CandidateEvidenceGraph",
-    "CEGNode",
     "CEGEdge",
+    "CEGNode",
+    "CandidateEvidenceGraph",
 ]

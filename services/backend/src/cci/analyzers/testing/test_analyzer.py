@@ -7,7 +7,7 @@ All analysis is strictly static AST/regex inspection of test suites.
 
 import ast
 import re
-from typing import List
+
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
 
@@ -20,21 +20,22 @@ def analyze_python_test_file(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Python test files (pytest/unittest) for test cases, fixtures, mocks, and property testing."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
     try:
         tree = ast.parse(content, filename=file_path)
     except SyntaxError:
-        return _regex_fallback_python_test(content, file_path, repo_url, commit_sha, extractor_version)
+        return _regex_fallback_python_test(
+            content, file_path, repo_url, commit_sha, extractor_version
+        )
 
     test_funcs = []
     fixtures = []
     parameterized = []
     has_hypothesis = False
     has_mocks = False
-    has_testclient = False
 
     for node in ast.walk(tree):
         # 1. Imports check
@@ -45,10 +46,11 @@ def analyze_python_test_file(
             mod_str = " ".join(mod_names).lower()
             if "hypothesis" in mod_str:
                 has_hypothesis = True
-            if any(m in mod_str for m in ("mock", "unittest.mock", "pytest_mock", "responses", "respx")):
+            if any(
+                m in mod_str
+                for m in ("mock", "unittest.mock", "pytest_mock", "responses", "respx")
+            ):
                 has_mocks = True
-            if any(c in mod_str for c in ("testclient", "supertest", "httpx")):
-                has_testclient = True
 
         # 2. Function definitions
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -162,9 +164,9 @@ def _regex_fallback_python_test(
     repo_url: str,
     commit_sha: str,
     extractor_version: str,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Fallback regex extractor for Python test files when AST parse encounters syntax issues."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
     test_funcs = re.findall(r"\bdef\s+(test_[a-zA-Z0-9_]+)\s*\(", content)
     if test_funcs:
         evidence.append(
@@ -190,14 +192,17 @@ def analyze_js_ts_test_file(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects JavaScript/TypeScript test files (Jest, Vitest, Mocha) for test suites, mocks, and fixtures."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
-    describes = re.findall(r"\bdescribe\s*\(\s*['\"`]", content)
     it_tests = re.findall(r"\b(it|test)\s*\(\s*['\"`]", content)
-    has_mocks = bool(re.search(r"\b(jest\.mock|vi\.mock|jest\.fn|vi\.fn|sinon\.stub)\b", content))
-    has_lifecycle = bool(re.search(r"\b(beforeEach|afterEach|beforeAll|afterAll)\b", content))
+    has_mocks = bool(
+        re.search(r"\b(jest\.mock|vi\.mock|jest\.fn|vi\.fn|sinon\.stub)\b", content)
+    )
+    has_lifecycle = bool(
+        re.search(r"\b(beforeEach|afterEach|beforeAll|afterAll)\b", content)
+    )
     has_supertest = bool(re.search(r"\b(request\(app\)|supertest)\b", content))
 
     if it_tests:
@@ -273,17 +278,28 @@ def analyze_go_test_file(
     repo_url: str,
     commit_sha: str,
     extractor_version: str = EXTRACTOR_VERSION,
-) -> List[EvidenceInput]:
+) -> list[EvidenceInput]:
     """Inspects Go test files for Test functions, subtests (t.Run), and table-driven tests."""
-    evidence: List[EvidenceInput] = []
+    evidence: list[EvidenceInput] = []
 
-    test_funcs = re.findall(r"\bfunc\s+(Test[a-zA-Z0-9_]+)\s*\(\s*([a-zA-Z0-9_]+\s*\*testing\.T)\s*\)", content)
+    test_funcs = re.findall(
+        r"\bfunc\s+(Test[a-zA-Z0-9_]+)\s*\(\s*([a-zA-Z0-9_]+\s*\*testing\.T)\s*\)",
+        content,
+    )
     has_subtests = "t.Run(" in content
-    has_table_tests = bool(re.search(r"tests\s*:=\s*\[\]struct\s*\{|testCases\s*:=\s*\[\]struct\s*\{", content))
+    has_table_tests = bool(
+        re.search(
+            r"tests\s*:=\s*\[\]struct\s*\{|testCases\s*:=\s*\[\]struct\s*\{", content
+        )
+    )
 
     if test_funcs:
         score = 84.0 if has_table_tests else (80.0 if has_subtests else 74.0)
-        desc = "Table-driven Go test suite" if has_table_tests else ("Go subtest suite (t.Run)" if has_subtests else "Go test suite")
+        desc = (
+            "Table-driven Go test suite"
+            if has_table_tests
+            else ("Go subtest suite (t.Run)" if has_subtests else "Go test suite")
+        )
         evidence.append(
             EvidenceInput(
                 source_family=SourceFamily.GITHUB,

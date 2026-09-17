@@ -15,4 +15,3 @@ __all__ = [
     "pipeline_router",
     "research_router",
 ]
-

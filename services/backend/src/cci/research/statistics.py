@@ -5,14 +5,15 @@ Implements Wilcoxon signed-rank paired tests, effect size estimation (Cliff's de
 and paper-ready LaTeX / Markdown reporting.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import numpy as np
 from scipy import stats
 
 from cci.research.ablation import AblationMode
 
 
-def calculate_cliffs_delta(x: List[float], y: List[float]) -> float:
+def calculate_cliffs_delta(x: list[float], y: list[float]) -> float:
     """Computes non-parametric Cliff's delta effect size between two distributions."""
     nx = len(x)
     ny = len(y)
@@ -32,9 +33,9 @@ def calculate_cliffs_delta(x: List[float], y: List[float]) -> float:
 
 
 def compute_wilcoxon_comparison(
-    full_cci_errors: List[float],
-    ablation_errors: List[float],
-) -> Dict[str, Any]:
+    full_cci_errors: list[float],
+    ablation_errors: list[float],
+) -> dict[str, Any]:
     """Performs Wilcoxon signed-rank test comparing Full CCI error distribution against an ablation."""
     if len(full_cci_errors) != len(ablation_errors):
         raise ValueError("Paired Wilcoxon test requires equal-length error vectors")
@@ -70,8 +71,8 @@ def compute_wilcoxon_comparison(
 
 
 def format_markdown_ablation_table(
-    ablation_results: Dict[str, Dict[str, float]],
-    statistical_tests: Optional[Dict[str, Dict[str, Any]]] = None,
+    ablation_results: dict[str, dict[str, float]],
+    statistical_tests: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Generates a formatted Markdown table suitable for documentation and reports."""
     lines = [
@@ -83,21 +84,27 @@ def format_markdown_ablation_table(
         sig_str = "Baseline" if mode_name == AblationMode.FULL_CCI.value else "-"
         if statistical_tests and mode_name in statistical_tests:
             sig_info = statistical_tests[mode_name]
-            sig_str = "Yes (***)" if sig_info.get("is_significant") else f"p={sig_info.get('p_value', 1.0):.3e}"
+            sig_str = (
+                "Yes (***)"
+                if sig_info.get("is_significant")
+                else f"p={sig_info.get('p_value', 1.0):.3e}"
+            )
 
         mae_str = f"{metrics.get('rci_mae', 0.0):.3f}"
         rmse_str = f"{metrics.get('rci_rmse', 0.0):.3f}"
         rho_str = f"{metrics.get('spearman_rho', 0.0):.3f}"
         tau_str = f"{metrics.get('kendall_tau', 0.0):.3f}"
 
-        lines.append(f"| **{mode_name}** | {mae_str} | {rmse_str} | {rho_str} | {tau_str} | {sig_str} |")
+        lines.append(
+            f"| **{mode_name}** | {mae_str} | {rmse_str} | {rho_str} | {tau_str} | {sig_str} |"
+        )
 
     return "\n".join(lines)
 
 
 def format_latex_ablation_table(
-    ablation_results: Dict[str, Dict[str, float]],
-    statistical_tests: Optional[Dict[str, Dict[str, Any]]] = None,
+    ablation_results: dict[str, dict[str, float]],
+    statistical_tests: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Generates a publication-quality LaTeX table for conference paper submission."""
     lines = [
@@ -124,13 +131,17 @@ def format_latex_ablation_table(
         tau_str = f"{metrics.get('kendall_tau', 0.0):.3f}"
 
         name_display = mode_name.replace("_", r"\_")
-        lines.append(f"{name_display} & {mae_str} & {rmse_str} & {rho_str} & {tau_str} \\\\")
+        lines.append(
+            f"{name_display} & {mae_str} & {rmse_str} & {rho_str} & {tau_str} \\\\"
+        )
 
-    lines.extend([
-        r"\bottomrule",
-        r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}",
-        r"\end{tabular}",
-        r"\end{table}",
-    ])
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
+    )
 
     return "\n".join(lines)

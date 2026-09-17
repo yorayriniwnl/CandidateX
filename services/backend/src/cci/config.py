@@ -1,7 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
-from typing import List, Union
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,10 +18,12 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     API_PORT: int = 8000
-    API_HOST: str = "0.0.0.0"
+    API_HOST: str = "127.0.0.1"
     API_V1_PREFIX: str = "/v1"
-    SECRET_KEY: str = "cci_insecure_development_secret_key_change_in_production_min_32_bytes"
-    CORS_ORIGINS: List[str] = [
+    SECRET_KEY: str = (
+        "cci_insecure_development_secret_key_change_in_production_min_32_bytes"
+    )
+    CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
@@ -49,22 +50,23 @@ class Settings(BaseSettings):
     LOW_COVERAGE_THRESHOLD: float = 0.35
     CONTRADICTION_EPSILON: float = 1e-5
     PROBE_ALPHA: float = 0.40  # Coverage gap weight
-    PROBE_BETA: float = 0.35   # CI width / uncertainty weight
+    PROBE_BETA: float = 0.35  # CI width / uncertainty weight
     PROBE_GAMMA: float = 0.25  # Contradiction weight
 
     # Optional External Integrations
-    GITHUB_TOKEN: Union[str, None] = None
+    GITHUB_TOKEN: str | None = None
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+    def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, list):
             return v
         import json
+
         try:
-            return json.loads(v)
+            return list(json.loads(v))
         except Exception:
             return ["http://localhost:3000"]
 

@@ -9,7 +9,6 @@ INVARIANTS:
 3. Provenance and feature vectors are fully preserved on every OwnershipAssessment.
 """
 
-from typing import Dict, List, Optional
 from uuid import uuid4
 
 from cci.domain.contracts import EvidenceConfidenceFactors, OwnershipAssessment
@@ -28,11 +27,11 @@ def estimate_repository_ownership(
     is_fork: bool = False,
     is_owner: bool = True,
     is_vendor_or_generated: bool = False,
-    candidate_pr_count: int = 0,
-    total_pr_count: int = 0,
+    _candidate_pr_count: int = 0,
+    _total_pr_count: int = 0,
 ) -> OwnershipAssessment:
     """Estimates candidate ownership attribution o_e in [0, 1] with feature vector and audit trail."""
-    features: Dict[str, float] = {
+    features: dict[str, float] = {
         "candidate_commits": float(candidate_commits),
         "total_commits": float(total_commits),
         "candidate_lines": float(candidate_lines),
@@ -41,13 +40,15 @@ def estimate_repository_ownership(
         "is_owner": 1.0 if is_owner else 0.0,
         "is_vendor": 1.0 if is_vendor_or_generated else 0.0,
     }
-    limitations: List[str] = []
+    limitations: list[str] = []
 
     # 1. Vendor or auto-generated codebase
     if is_vendor_or_generated:
         score = 0.05
         conf = 0.95
-        limitations.append("Vendor library or auto-generated code detected; minimal candidate ownership attributed.")
+        limitations.append(
+            "Vendor library or auto-generated code detected; minimal candidate ownership attributed."
+        )
         return OwnershipAssessment(
             assessment_id=uuid4(),
             repository_url=repository_url,
@@ -67,12 +68,16 @@ def estimate_repository_ownership(
         if candidate_commits == 0:
             score = 0.10
             conf = 0.90
-            limitations.append("Repository is a fork with zero candidate commits; attribution capped at 0.10.")
+            limitations.append(
+                "Repository is a fork with zero candidate commits; attribution capped at 0.10."
+            )
         else:
             commit_ratio = candidate_commits / max(1, total_commits)
             score = min(0.70, max(0.15, commit_ratio * 0.85))
             conf = 0.85
-            limitations.append("Repository is a fork; maximum ownership attribution capped at 0.70.")
+            limitations.append(
+                "Repository is a fork; maximum ownership attribution capped at 0.70."
+            )
 
         return OwnershipAssessment(
             assessment_id=uuid4(),
@@ -108,7 +113,9 @@ def estimate_repository_ownership(
 
     # 4. Collaborative multi-contributor project
     commit_ratio = candidate_commits / max(1, total_commits)
-    line_ratio = (candidate_lines / max(1, total_lines)) if total_lines > 0 else commit_ratio
+    line_ratio = (
+        (candidate_lines / max(1, total_lines)) if total_lines > 0 else commit_ratio
+    )
     features["commit_ratio"] = commit_ratio
     features["line_ratio"] = line_ratio
 
@@ -118,7 +125,9 @@ def estimate_repository_ownership(
 
     score = max(0.15, min(0.95, weighted_score))
     conf = 0.88
-    limitations.append("Multi-contributor repository; ownership weighted across commit and line proportions.")
+    limitations.append(
+        "Multi-contributor repository; ownership weighted across commit and line proportions."
+    )
 
     return OwnershipAssessment(
         assessment_id=uuid4(),
