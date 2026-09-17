@@ -108,7 +108,7 @@ jobs:
           python ../../scripts/seed_db.py --db-url "sqlite:///ci_test.db" --reset --samples 2
           rm -f ci_test.db
 
-      - name: Audit Invariant: No Untrusted Code Execution
+      - name: "Audit Invariant: No Untrusted Code Execution"
         run: |
           # Verify that candidate files are never executed via eval/exec/subprocess in analyzers
           ! grep -rnE "exec\(|eval\(" services/backend/src/cci/analyzers/
