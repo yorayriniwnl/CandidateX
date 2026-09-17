@@ -14,7 +14,7 @@
 
 ## Verification evidence
 
-- Vercel successfully built intermediate CandidateX branch heads containing the major UI and methodology changes. Recheck the final branch head immediately before integration.
+- CandidateX Vercel preview builds are used as the frontend/build gate for this branch and must be rechecked on the final commit before integration.
 - The companion portfolio repository built successfully on Vercel with corrected CandidateX benchmark/provenance copy.
 - GitHub Actions currently cannot provide a valid backend/frontend test verdict: every observed job is terminated before a runner is assigned (`steps: []`, `runner_id: 0`, empty runner name). This is documented separately in `docs/verification/ci-external-runner-note.md`.
 
