@@ -1,6 +1,6 @@
 # Candidate Capability Intelligence (CCI)
 
-[![CI Pipeline](https://github.com/CandidateX/CandidateX/actions/workflows/ci.yml/badge.svg)](https://github.com/CandidateX/CandidateX/actions)
+[![CI Pipeline](https://github.com/yorayriniwnl/CandidateX/actions/workflows/ci.yml/badge.svg)](https://github.com/yorayriniwnl/CandidateX/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -141,7 +141,7 @@ python research/run_paper_experiments.py
 | **FULL_CCI** | **1.943** | **2.469** | **0.943** | **0.794** | Baseline |
 | **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes ($^{***}$, $p = 2.0 \times 10^{-72}$) |
 | **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes ($^{***}$, $p = 0.0$) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | 0.939 | 0.785 | Yes ($^{***}$, $p = 0.0$) |
+| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | **0.939** | 0.785 | Yes ($^{***}$, $p = 0.0$) |
 | **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | Two-sided $p = 4.1 \times 10^{-29}$ |
 
 Publication artifacts are automatically emitted to:
