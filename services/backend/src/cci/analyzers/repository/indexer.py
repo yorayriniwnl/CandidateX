@@ -3,19 +3,19 @@
 import hashlib
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Tuple
 from uuid import UUID, uuid4
 
 from cci.domain.enums import ScanDepth
-from cci.security.repository_workspace import InspectedFile, SafeRepositoryWorkspace
+from cci.security.repository_workspace import SafeRepositoryWorkspace
 
 # Path/filename matching patterns for technical artifact categories
 CATEGORY_RULES = [
     ("manifests", re.compile(r"(^|/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg|Pipfile|go\.mod|go\.sum|pom\.xml|build\.gradle|Cargo\.toml|composer\.json|Gemfile)$", re.IGNORECASE)),
     ("ci", re.compile(r"(^|/)(\.github/workflows/.*|\.gitlab-ci\.yml|Jenkinsfile|\.circleci/.*|\.travis\.yml|azure-pipelines\.yml)$", re.IGNORECASE)),
-    ("database", re.compile(r"(^|/)(migrations?/.*|alembic/.*|prisma/schema\.prisma|\.sql$)", re.IGNORECASE)),
+    ("database", re.compile(r"(^|/)(migrations?/.*|alembic/.*|prisma/schema\.prisma|.*\.sql)$", re.IGNORECASE)),
     ("infra", re.compile(r"(^|/)(Dockerfile.*|docker-compose.*\.ya?ml|compose\.ya?ml|.*\.tf|.*\.tfvars|kubernetes/.*|k8s/.*|helm/.*)$", re.IGNORECASE)),
     ("openapi", re.compile(r"(^|/)(openapi\.(json|ya?ml)|swagger\.(json|ya?ml))$", re.IGNORECASE)),
     ("tests", re.compile(r"(^|/)(tests?/.*|__tests__/.*|.*[._-](test|spec)\.[a-zA-Z0-9]+)$", re.IGNORECASE)),
@@ -33,6 +33,7 @@ SOURCE_EXTENSIONS = {
 @dataclass(frozen=True)
 class IndexedArtifact:
     """Indexed artifact metadata preserving exact immutable revision and content hash."""
+
     artifact_id: UUID
     relative_path: str
     category: str  # source, manifests, tests, ci, database, infra, docs, openapi, config
@@ -45,6 +46,7 @@ class IndexedArtifact:
 @dataclass(frozen=True)
 class RepositorySnapshotMetadata:
     """Point-in-time immutable acquisition snapshot of a repository."""
+
     snapshot_id: UUID
     repo_url: str
     default_branch: str
@@ -88,7 +90,7 @@ def index_repository_artifacts(
     scan_depth: ScanDepth = ScanDepth.DEEP,
 ) -> Tuple[RepositorySnapshotMetadata, List[IndexedArtifact]]:
     """Traverses workspace and produces immutable artifact index and snapshot metadata.
-    
+
     INVARIANT: Never infers technical capability or executes candidate code. Only acquires facts.
     """
     inspected_files = workspace.scan_files()
@@ -100,7 +102,6 @@ def index_repository_artifacts(
         cat = categorize_file(file_info.relative_path)
         category_counts[cat] = category_counts.get(cat, 0) + 1
 
-        # Calculate SHA256
         content_hash = compute_file_sha256(file_info.absolute_path)
         artifact_hashes.append(content_hash)
 
@@ -116,7 +117,6 @@ def index_repository_artifacts(
             )
         )
 
-    # Sort hashes deterministically for snapshot fingerprint
     artifact_hashes.sort()
     composite_payload = f"{repo_url}::{commit_sha}::{'|'.join(artifact_hashes)}".encode("utf-8")
     snapshot_fp = hashlib.sha256(composite_payload).hexdigest()
