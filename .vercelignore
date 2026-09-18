@@ -1,0 +1,12 @@
+﻿services/
+research/
+docs/
+examples/
+reports/
+*.db
+*.sqlite
+.coverage
+apps/web/.next/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
