@@ -21,7 +21,7 @@ import {
   CalculationResponse,
 } from '../types/cci';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '/backend' : 'http://localhost:8000');
 
 export interface CandidateSummary {
   id: string;

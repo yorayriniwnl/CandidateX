@@ -1,8 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "buildCommand": "pnpm --filter web build",
-  "outputDirectory": "apps/web/.next",
+  "experimentalServices": {
+    "web": {
+      "entrypoint": "apps/web",
+      "routePrefix": "/",
+      "framework": "nextjs"
+    },
+    "api": {
+      "entrypoint": "services/backend/app.py",
+      "routePrefix": "/backend",
+      "maxDuration": 300
+    }
+  },
   "git": {
     "deploymentEnabled": {
       "chatgpt/*": false
