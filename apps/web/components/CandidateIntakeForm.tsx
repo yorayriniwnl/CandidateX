@@ -94,32 +94,18 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     file: 'Shreshth_Nigam_Fullstack_CV.pdf',
   },
   {
-    id: '66666666-6666-6666-6666-666666666666',
-    name: 'Jordan Blake',
-    email: 'jordan.blake@example.com',
-    role: 'Backend (Junior)',
-    badge: 'Sparse Evidence',
-    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    repos: [
-      'https://github.com/jordanblake-dev/mini-calculator-script',
-    ],
-    deployments: [],
-    skills: ['Python', 'Basic Scripting'],
-    file: 'Jordan_Blake_Junior_CV.pdf',
-  },
-  {
     id: '77777777-7777-7777-7777-777777777777',
-    name: 'Devin Vance',
-    email: 'devin.vance@example.com',
+    name: 'P Ajay Kumar',
+    email: '2329195@kiit.ac.in',
     role: 'Backend (Conflict Test)',
     badge: 'Contradiction Flag',
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     repos: [
-      'https://github.com/devinvance-dev/distributed-order-service',
+      'https://github.com/pajaykumar-dev/distributed-order-service',
     ],
     deployments: [],
     skills: ['Python', 'Unindexed Database Claims', 'Microservices'],
-    file: 'Devin_Vance_CV.pdf',
+    file: 'P_Ajay_Kumar_CV.pdf',
   },
 ];
 

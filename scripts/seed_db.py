@@ -93,7 +93,7 @@ def create_evidence_record(
     )
 
 
-def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> None:
+def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> None:
     """Orchestrates database table initialization and comprehensive data seeding."""
     print("=" * 76)
     print("  Candidate Capability Intelligence (CCI) — Database Seeder")
@@ -328,46 +328,19 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
                 ],
             },
             {
-                "id": UUID("66666666-6666-6666-6666-666666666666"),
-                "name": "Jordan Blake (Sparse / Junior)",
-                "email": "jordan.blake@example.com",
-                "role": CanonicalRole.BACKEND,
-                "org_id": org_acme.id,
-                "cv_file": "",
-                "jd_role": CanonicalRole.BACKEND,
-                "repos": [
-                    "https://github.com/jordanblake-dev/mini-calculator-script",
-                ],
-                "evidence": [
-                    create_evidence_record(
-                        "https://github.com/jordanblake-dev/mini-calculator-script",
-                        CapabilityKey.BACKEND_ENGINEERING,
-                        62.0,
-                        artifact_integrity=0.80,
-                        ownership_score=0.70,
-                        recency_factor=0.60,
-                        verification_level=0.50,
-                        depth_specificity=0.40,
-                        source_reliability=0.70,
-                        raw_support="Simple single-file script without modular abstractions or tests",
-                        artifact_path="calc.py",
-                    ),
-                ],
-            },
-            {
                 "id": UUID("77777777-7777-7777-7777-777777777777"),
-                "name": "Devin Vance (Contradictory / Discrepancy)",
-                "email": "devin.vance@example.com",
+                "name": "P Ajay Kumar (Contradictory / Discrepancy)",
+                "email": "2329195@kiit.ac.in",
                 "role": CanonicalRole.BACKEND,
                 "org_id": org_acme.id,
                 "cv_file": "",
                 "jd_role": CanonicalRole.BACKEND,
                 "repos": [
-                    "https://github.com/devinvance-dev/distributed-order-service",
+                    "https://github.com/pajaykumar-dev/distributed-order-service",
                 ],
                 "evidence": [
                     create_evidence_record(
-                        "https://github.com/devinvance-dev/distributed-order-service",
+                        "https://github.com/pajaykumar-dev/distributed-order-service",
                         CapabilityKey.DATABASE_ENGINEERING,
                         88.0,
                         is_pos=True,
@@ -375,7 +348,7 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
                         artifact_path="docs/database_claims.md",
                     ),
                     create_evidence_record(
-                        "https://github.com/devinvance-dev/distributed-order-service",
+                        "https://github.com/pajaykumar-dev/distributed-order-service",
                         CapabilityKey.DATABASE_ENGINEERING,
                         15.0,
                         is_pos=False,
@@ -383,7 +356,7 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 7) -> N
                         artifact_path="src/db/queries.py",
                     ),
                     create_evidence_record(
-                        "https://github.com/devinvance-dev/distributed-order-service",
+                        "https://github.com/pajaykumar-dev/distributed-order-service",
                         CapabilityKey.BACKEND_ENGINEERING,
                         70.0,
                         is_pos=True,
@@ -490,8 +463,8 @@ def main():
     parser.add_argument(
         "--samples",
         type=int,
-        default=7,
-        help="Number of candidate cohorts to seed (default: 7)",
+        default=6,
+        help="Number of candidate cohorts to seed (default: 6)",
     )
     args = parser.parse_args()
 

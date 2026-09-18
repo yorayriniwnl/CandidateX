@@ -29,8 +29,7 @@ interface ComparisonSubject {
 
 const PRESET_COHORTS = [
   { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'backend' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'Devin Vance', role: 'backend' },
-  { id: '66666666-6666-6666-6666-666666666666', name: 'Jordan Blake', role: 'backend' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'backend' },
   { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', role: 'frontend' },
   { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ml_engineer' },
   { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'devops_cloud' },
@@ -127,7 +126,7 @@ export const CandidateComparison: React.FC<{
 
         // Custom adjustments per sample cohort to showcase comparison
         if (id === '77777777-7777-7777-7777-777777777777') {
-          // Devin Vance: lower coverage, contradiction flagged
+          // P Ajay Kumar: lower coverage, contradiction flagged
           mockCopy.rci = 69.8;
           mockCopy.coverage = 0.25;
           mockCopy.is_insufficient_evidence = true;
@@ -135,11 +134,6 @@ export const CandidateComparison: React.FC<{
             mockCopy.capability_conflicts.backend_engineering.contradiction_diagnostic = -0.42;
             mockCopy.capability_conflicts.backend_engineering.has_meaningful_conflict = true;
           }
-        } else if (id === '66666666-6666-6666-6666-666666666666') {
-          // Jordan Blake: junior, sparse
-          mockCopy.rci = 64.2;
-          mockCopy.coverage = 0.18;
-          mockCopy.is_insufficient_evidence = true;
         }
 
         loaded.push({ id, name, role, dossier: mockCopy });
