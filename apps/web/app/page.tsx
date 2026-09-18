@@ -54,14 +54,14 @@ export default function HomePage() {
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>({
     candidate_id: '11111111-1111-1111-1111-111111111111',
-    full_name: 'Alice Chen',
-    primary_email: 'alice.chen@example.com',
-    github_usernames: ['alicechen-dev'],
+    full_name: 'Ayush Roy',
+    primary_email: '2329027@kiit.ac.in',
+    github_usernames: ['ayush-dev'],
     github_repositories: [
-      'https://github.com/alicechen-dev/distributed-payment-engine',
-      'https://github.com/alicechen-dev/pg-partition-manager',
+      'https://github.com/ayush-dev/distributed-payment-engine',
+      'https://github.com/ayush-dev/pg-partition-manager',
     ],
-    deployment_urls: ['https://alicechen.dev'],
+    deployment_urls: ['https://yorayriniwnl.in'],
     portfolio_urls: [],
     declared_skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
     extraction_metadata: {},
@@ -362,7 +362,7 @@ export default function HomePage() {
                 <DossierView
                   initialDossier={currentDossier}
                   graph={currentGraph}
-                  candidateName={manifest?.full_name || 'Alice Chen'}
+                  candidateName={manifest?.full_name || 'Ayush Roy'}
                   onSelectCandidate={handleSelectCandidateFromDirectory}
                 />
               )}

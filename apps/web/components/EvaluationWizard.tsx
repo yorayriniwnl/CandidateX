@@ -28,21 +28,21 @@ interface QuickDemoProfile {
 const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    name: 'Alice Chen',
+    name: 'Ayush Roy',
     role: 'backend',
     label: 'Senior Distributed Backend',
     badge: 'High Coverage (RCI 90.0)',
     variant: 'success',
     manifest: {
       candidate_id: '11111111-1111-1111-1111-111111111111',
-      full_name: 'Alice Chen',
-      primary_email: 'alice.chen@example.com',
-      github_usernames: ['alicechen-dev'],
+      full_name: 'Ayush Roy',
+      primary_email: '2329027@kiit.ac.in',
+      github_usernames: ['ayush-dev'],
       github_repositories: [
-        'https://github.com/alicechen-dev/distributed-payment-engine',
-        'https://github.com/alicechen-dev/pg-partition-manager',
+        'https://github.com/ayush-dev/distributed-payment-engine',
+        'https://github.com/ayush-dev/pg-partition-manager',
       ],
-      deployment_urls: ['https://alicechen.dev'],
+      deployment_urls: ['https://yorayriniwnl.in'],
       portfolio_urls: [],
       declared_skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
       extraction_metadata: {},
@@ -50,15 +50,15 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    name: 'Elena Rostova',
+    name: 'Archi Srivastava',
     role: 'frontend',
     label: 'Staff Frontend Platform',
     badge: 'Design Systems (RCI 86.0)',
     variant: 'brand',
     manifest: {
       candidate_id: '22222222-2222-2222-2222-222222222222',
-      full_name: 'Elena Rostova',
-      primary_email: 'elena.rostova@example.com',
+      full_name: 'Archi Srivastava',
+      primary_email: '2329100@kiit.ac.in',
       github_usernames: ['erostova-web'],
       github_repositories: [
         'https://github.com/erostova-web/a11y-kit-react',

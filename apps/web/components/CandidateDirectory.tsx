@@ -27,8 +27,8 @@ import { AnimatedCounter } from './ui/AnimatedCounter';
 const FALLBACK_CANDIDATES: CandidateSummary[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    display_name: 'Alice Chen',
-    primary_email: 'alice.chen@example.com',
+    display_name: 'Ayush Roy',
+    primary_email: '2329027@kiit.ac.in',
     has_completed_dossier: true,
     rci: 90.0,
     coverage: 0.18,
@@ -38,8 +38,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    display_name: 'Elena Rostova',
-    primary_email: 'elena.rostova@example.com',
+    display_name: 'Archi Srivastava',
+    primary_email: '2329100@kiit.ac.in',
     has_completed_dossier: true,
     rci: 86.0,
     coverage: 0.182,
@@ -49,8 +49,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
-    display_name: 'Dr. Marcus Thorne',
-    primary_email: 'marcus.thorne@example.com',
+    display_name: 'Atmaja Tripathy',
+    primary_email: '2329179@kiit.ac.in',
     has_completed_dossier: true,
     rci: 88.0,
     coverage: 0.18,
@@ -60,8 +60,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
-    display_name: 'Tariq Mansour',
-    primary_email: 'tariq.mansour@example.com',
+    display_name: 'Shreya',
+    primary_email: '2329065@kiit.ac.in',
     has_completed_dossier: true,
     rci: 89.0,
     coverage: 0.18,
@@ -71,8 +71,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '55555555-5555-5555-5555-555555555555',
-    display_name: "Samuel O'Connor",
-    primary_email: 'samuel.oconnor@example.com',
+    display_name: 'Shreshth Nigam',
+    primary_email: '2329064@kiit.ac.in',
     has_completed_dossier: true,
     rci: 89.0,
     coverage: 0.18,

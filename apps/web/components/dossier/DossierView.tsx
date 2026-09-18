@@ -44,7 +44,7 @@ export const DossierView: React.FC<{
   graph: CEGGraph;
   candidateName?: string;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ initialDossier, graph, candidateName = 'Alice Developer', onSelectCandidate }) => {
+}> = ({ initialDossier, graph, candidateName = 'Ayush Roy', onSelectCandidate }) => {
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
   const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('overview');
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
