@@ -1,13 +1,15 @@
 """Research, Theorems, and Formal Math Router for Candidate Capability Intelligence (CCI).
 
-Provides endpoints to inspect all 10 conference paper theorems, access
-empirical ablation study reproduction results (Table 1), and execute live
+Provides endpoints to inspect prototype mathematical properties and access
+archived executable prototype experiment results, and execute live
 pure-functional mathematical calculations.
 """
 
 from __future__ import annotations
 
 import math
+import json
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -46,9 +48,9 @@ class RoleBreakdownRow(BaseModel):
     role: str
     display_name: str
     full_cci_mae: float
-    no_decay_mae: float
-    no_ownership_mae: float
-    uniform_weights_mae: float
+    no_decay_mae: float | None = None
+    no_ownership_mae: float | None = None
+    uniform_weights_mae: float | None = None
 
 
 class AblationStudyResponse(BaseModel):
@@ -135,9 +137,9 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         latex_formula=r"n_{\text{eff},k} = \frac{(\sum c_{e,k})^2}{\sum c_{e,k}^2}",
         description="Measures statistical information content accounting for non-uniform confidence dispersion.",
         bound_statement=r"1.0 \le n_{\text{eff},k} \le N, \quad n_{\text{eff},k} = N \iff c_1 = \dots = c_N",
-        physical_intuition="Guards against false precision: 10 low-confidence observations provide less statistical power than 1 verified proof.",
+        physical_intuition="Kish effective count measures relative weight inequality, not absolute confidence. Equal positive weights give n_eff = N.",
         key_properties=[
-            "Directly scales bootstrap confidence interval width",
+            "Reported separately from project-cluster bootstrap intervals",
             "Strictly penalized by high confidence inequality across evidence items",
             "Upper-bounded by raw observation count N",
         ],
@@ -248,148 +250,32 @@ def get_all_theorems() -> list[TheoremMetadata]:
 @router.get(
     "/ablation-study",
     response_model=AblationStudyResponse,
-    summary="Get Table 1 Architecture Ablation Study Reproduction Data",
+    summary="Get archived executable prototype experiment results",
     description="Returns the empirical benchmark results across N=4,800 candidates for Full CCI vs 4 ablated architectures.",
 )
 def get_ablation_study() -> AblationStudyResponse:
-    # Attempt to load from research/results/ablation_results.json if available
-
-    models = [
-        AblationRow(
-            model_name="FULL_CCI",
-            display_name="Full CCI (Proposed Architecture)",
-            mae=1.943,
-            rmse=2.469,
-            spearman_rho=0.943,
-            kendall_tau=0.794,
-            statistical_significance="Baseline",
-            is_baseline=True,
-        ),
-        AblationRow(
-            model_name="NO_RECENCY_DECAY",
-            display_name="Ablation A: Without Recency Decay",
-            mae=1.975,
-            rmse=2.505,
-            spearman_rho=0.943,
-            kendall_tau=0.794,
-            statistical_significance="p < 0.001 (***)",
-        ),
-        AblationRow(
-            model_name="NO_OWNERSHIP_DISCOUNT",
-            display_name="Ablation B: Without Ownership Discount",
-            mae=2.219,
-            rmse=2.813,
-            spearman_rho=0.933,
-            kendall_tau=0.775,
-            statistical_significance="p < 0.001 (***)",
-        ),
-        AblationRow(
-            model_name="UNIFORM_WEIGHTS",
-            display_name="Ablation C: Uniform Role Weights (1/12)",
-            mae=3.172,
-            rmse=3.761,
-            spearman_rho=0.939,
-            kendall_tau=0.785,
-            statistical_significance="p < 0.001 (***)",
-        ),
-        AblationRow(
-            model_name="UNCALIBRATED_SOURCES",
-            display_name="Ablation D: Uncalibrated Sources",
-            mae=1.922,
-            rmse=2.446,
-            spearman_rho=0.942,
-            kendall_tau=0.792,
-            statistical_significance="p = 1.000",
-        ),
-    ]
-
-    role_breakdown = [
-        RoleBreakdownRow(
-            role="backend",
-            display_name="Backend Engineering",
-            full_cci_mae=1.892,
-            no_decay_mae=1.918,
-            no_ownership_mae=2.180,
-            uniform_weights_mae=3.120,
-        ),
-        RoleBreakdownRow(
-            role="frontend",
-            display_name="Frontend Engineering",
-            full_cci_mae=1.954,
-            no_decay_mae=2.012,
-            no_ownership_mae=2.245,
-            uniform_weights_mae=3.210,
-        ),
-        RoleBreakdownRow(
-            role="devops",
-            display_name="DevOps & Cloud",
-            full_cci_mae=1.931,
-            no_decay_mae=1.960,
-            no_ownership_mae=2.198,
-            uniform_weights_mae=3.145,
-        ),
-        RoleBreakdownRow(
-            role="ml_engineer",
-            display_name="Machine Learning",
-            full_cci_mae=1.980,
-            no_decay_mae=2.045,
-            no_ownership_mae=2.290,
-            uniform_weights_mae=3.280,
-        ),
-        RoleBreakdownRow(
-            role="fullstack",
-            display_name="Fullstack Engineering",
-            full_cci_mae=1.915,
-            no_decay_mae=1.942,
-            no_ownership_mae=2.175,
-            uniform_weights_mae=3.090,
-        ),
-        RoleBreakdownRow(
-            role="mobile",
-            display_name="Mobile Engineering",
-            full_cci_mae=1.986,
-            no_decay_mae=2.022,
-            no_ownership_mae=2.215,
-            uniform_weights_mae=3.185,
-        ),
-    ]
-
-    latex_table = r"""\begin{table}[t]
-\centering
-\caption{Model Architecture Ablation Study ($N = 4,800$, 6 roles, 16 seeds).}
-\label{tab:ablation_study}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Evaluation Model} & \textbf{MAE} $\downarrow$ & \textbf{RMSE} $\downarrow$ & \textbf{Spearman $\rho$} $\uparrow$ & \textbf{Kendall $\tau$} $\uparrow$ \\
-\midrule
-Full CCI (Proposed) & \textbf{1.943} & \textbf{2.469} & \textbf{0.943} & \textbf{0.794} \\
-w/o Recency Decay & 1.975$^{\ast\ast\ast}$ & 2.505 & 0.943 & 0.794 \\
-w/o Ownership Discount & 2.219$^{\ast\ast\ast}$ & 2.813 & 0.933 & 0.775 \\
-Uniform Role Weights (1/12) & 3.172$^{\ast\ast\ast}$ & 3.761 & 0.939 & 0.785 \\
-Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\
-\bottomrule
-\multicolumn{5}{l}{\footnotesize $^{\ast\ast\ast}p < 0.001$ via paired Wilcoxon signed-rank test against Full CCI.}
-\end{tabular}
-\end{table}"""
-
-    markdown_table = """| Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |
-|:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|
-| **FULL_CCI** | 1.943 | 2.469 | 0.943 | 0.794 | Baseline |
-| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes (***) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes (***) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | 0.939 | 0.785 | Yes (***) |
-| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | p=1.000e+00 |"""
-
-    return AblationStudyResponse(
-        total_candidates=4800,
-        total_seeds=16,
-        roles_count=6,
-        models=models,
-        role_breakdown=role_breakdown,
-        latex_table=latex_table,
-        markdown_table=markdown_table,
-        notes="Ablation experiments conducted across 16 pseudo-random seeds x 300 candidates across 6 canonical engineering roles. Statistical significance calculated via paired Wilcoxon signed-rank test.",
-    )
+    artifact_dir = Path(__file__).resolve().parents[6] / "research" / "results"
+    try:
+        artifact = json.loads((artifact_dir / "ablation_results.json").read_text(encoding="utf-8"))
+        markdown = (artifact_dir / "table_ablation_study.md").read_text(encoding="utf-8")
+        latex = (artifact_dir / "table_ablation_study.tex").read_text(encoding="utf-8")
+    except (OSError, ValueError) as error:
+        raise HTTPException(503, "Archived prototype experiment artifacts unavailable") from error
+    models = []
+    for mode, values in artifact["ablation_summary"].items():
+        comparison = artifact["statistical_tests"].get(mode)
+        significance = "Baseline" if comparison is None else f"One-sided p={comparison['p_value']:.3g}; two-sided p={comparison['two_sided_p_value']:.3g}"
+        models.append(AblationRow(model_name=mode, display_name=mode.replace("_", " ").title(),
+            mae=round(values["rci_mae"], 3), rmse=round(values["rci_rmse"], 3),
+            spearman_rho=round(values["spearman_rho"], 3), kendall_tau=round(values["kendall_tau"], 3),
+            statistical_significance=significance, is_baseline=mode == "FULL_CCI"))
+    role_breakdown = [RoleBreakdownRow(role=role, display_name=role.replace("_", " ").title(),
+                      full_cci_mae=values["rci_mae"])
+                      for role, values in artifact["per_role_summary"].items()]
+    return AblationStudyResponse(total_candidates=artifact["metadata"]["total_candidates"],
+        total_seeds=len(artifact["metadata"]["seeds"]), roles_count=len(artifact["metadata"]["roles"]),
+        models=models, role_breakdown=role_breakdown, latex_table=latex, markdown_table=markdown,
+        notes="Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. Source reliability uses configured priors. These synthetic results do not establish real-world hiring accuracy.")
 
 
 @router.post(

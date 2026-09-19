@@ -141,7 +141,7 @@ class NormalizedRequirement(BaseModel):
     )
     priority: RequirementPriority = Field(default=RequirementPriority.MANDATORY)
     capability_mappings: list[CapabilityKey] = Field(
-        ..., min_length=1, description="Mapped core capabilities"
+        ..., description="Mapped core capabilities; empty when the requirement is unresolved"
     )
     technology_mentions: list[str] = Field(
         default_factory=list, description="Specific libraries, frameworks, tools"

@@ -12,6 +12,7 @@ from cci.api.routers.dossier import _DOSSIER_STORE, register_dossier
 from cci.db.models.audit import AuditEvent
 from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
+from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.enums import CapabilityKey
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
@@ -77,6 +78,7 @@ class RecruiterOverrideResponse(BaseModel):
     recorded_at: str
     dossier: Dossier
     persistence: str = "session"
+    graph: CEGGraphResponse
 
 
 class ProbeEvaluationItem(BaseModel):
@@ -186,7 +188,8 @@ def record_recruiter_override(
       except Exception as error:
         raise HTTPException(503, "Override could not be persisted; the original dossier is unchanged.") from error
 
-    register_dossier(updated_dossier, build_dossier_graph(updated_dossier))
+    graph = build_dossier_graph(updated_dossier)
+    register_dossier(updated_dossier, graph)
 
     # Track in in-memory fallback log
     _AUDIT_LOG_STORE.append(
@@ -218,6 +221,7 @@ def record_recruiter_override(
         justification=request.justification,
         recorded_at=now_iso,
         dossier=updated_dossier,
+        graph=graph.to_api_response(candidate_id, updated_dossier.analysis_run_id),
         persistence="database" if request.organization_id else "session",
     )
 

@@ -147,3 +147,44 @@ def test_failed_persistent_override_does_not_publish_success(monkeypatch):
         "organization_id": str(uuid4()), "justification": "Persist a reviewed override"})
     assert response.status_code == 503
     assert get_stored_dossier(candidate) == previous
+
+
+def test_unrecognized_jd_does_not_invent_architecture_requirements():
+    baseline = run_demo()
+    unknown = run_demo(jd_text="Must have synergistic paradigms.")
+    assert unknown["dossier"]["role_weights"] == baseline["dossier"]["role_weights"]
+    assert unknown["dossier"]["role_requirements"][0]["capability_mappings"] == []
+
+
+def test_research_role_breakdown_matches_archived_artifact():
+    from pathlib import Path
+    import json
+    artifact = json.loads((Path(__file__).resolve().parents[3] / "research/results/ablation_results.json").read_text())
+    response = client.get("/api/v1/research/ablation-study")
+    assert response.status_code == 200
+    result = response.json()
+    assert {r["role"] for r in result["role_breakdown"]} == set(artifact["metadata"]["roles"])
+    for row in result["role_breakdown"]:
+        assert row["full_cci_mae"] == pytest.approx(artifact["per_role_summary"][row["role"]]["rci_mae"])
+        assert row["no_decay_mae"] is None  # No per-role ablation data was archived.
+
+
+def test_legacy_override_returns_the_confirmed_graph_and_dossier_together():
+    data = run_demo()
+    response = client.post("/api/v1/overrides/recruiter", json={"candidate_id": data["dossier"]["candidate_id"],
+        "role_weights": {"backend_engineering": 1}, "justification": "Backend-focused interview"})
+    assert response.status_code == 200
+    revised = response.json()
+    assert revised["graph"]["analysis_run_id"] == revised["dossier"]["analysis_run_id"]
+    assert {q["question_id"] for q in revised["dossier"]["interview_questions"]} <= {n["id"] for n in revised["graph"]["nodes"]}
+
+
+def test_rescore_recomputes_insufficient_evidence_flag():
+    from cci.domain.contracts import EvidenceRecord
+    data = run_demo()
+    evidence = [EvidenceRecord.model_validate(e) for e in data["dossier"]["evidence_records"] if e["target_capability"] == "backend_engineering"]
+    state = execute_analysis_pipeline(uuid4(), CanonicalRole.BACKEND, custom_evidence=evidence)
+    assert state.dossier.is_insufficient_evidence
+    rescored = rescore_dossier(state.dossier, {CapabilityKey.BACKEND_ENGINEERING: 1})
+    assert rescored.coverage == 1
+    assert not rescored.is_insufficient_evidence
