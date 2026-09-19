@@ -34,6 +34,7 @@ from cci.domain.contracts import (
     EvidenceRecord,
     NormalizedRequirement,
     OwnershipAssessment,
+    ScoringConfig,
 )
 from cci.domain.enums import (
     AnalysisStage,
@@ -44,7 +45,8 @@ from cci.domain.enums import (
     SourceFamily,
 )
 from cci.dossier.builder import build_candidate_dossier, generate_interview_questions
-from cci.graph.ceg import CandidateEvidenceGraph, CEGEdge, CEGNode
+from cci.graph.ceg import CandidateEvidenceGraph
+from cci.graph.builder import build_dossier_graph
 from cci.intake.canonicalizer import normalize_url
 from cci.jobs.parser import extract_requirements_from_jd
 from cci.probes.priority import compute_probe_priorities
@@ -125,6 +127,8 @@ def execute_analysis_pipeline(
     declared_claims: list[str] | None = None,
     custom_evidence: list[EvidenceRecord] | None = None,
     expert_weight_overrides: dict[CapabilityKey, float] | None = None,
+    evidence_mode: str = "provided",
+    scenario: str | None = None,
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
     run_id = uuid4()
@@ -143,7 +147,7 @@ def execute_analysis_pipeline(
             if sp.stage == stage:
                 sp.status = "running"
                 sp.started_at = now_str
-                sp.details = ""
+                sp.details = _description
             elif sp.status == "running":
                 sp.status = "completed"
                 sp.completed_at = now_str
@@ -190,96 +194,12 @@ def execute_analysis_pipeline(
             AnalysisStage.ANALYZING_ARTIFACTS,
             "Static code, DB, and deployment analysis",
         )
-        # Invariant: candidate code is NEVER executed
-        # Synthetic / extracted evidence items populated from static analysis
-        raw_evidence: list[EvidenceRecord] = []
-        if custom_evidence:
-            raw_evidence = list(custom_evidence)
+        # No source adapter is implied by a URL. Only supplied observations are scored.
+        raw_evidence = list(custom_evidence or [])
+        if not raw_evidence:
+            state.stages[2].details = "No registered observations supplied; capabilities remain unknown."
         else:
-            # Provide baseline calibrated static evidence representing repository analysis
-            locator = (
-                valid_repos[0]
-                if valid_repos
-                else "https://github.com/candidate/service"
-            )
-            rev = "HEAD"
-            conf_factors_be = EvidenceConfidenceFactors(
-                artifact_integrity=0.95,
-                ownership_score=0.92,
-                recency_factor=0.95,
-                verification_level=0.90,
-                depth_specificity=0.88,
-                source_reliability=0.85,
-            )
-            conf_factors_db = EvidenceConfidenceFactors(
-                artifact_integrity=0.92,
-                ownership_score=0.90,
-                recency_factor=0.90,
-                verification_level=0.85,
-                depth_specificity=0.85,
-                source_reliability=0.85,
-            )
-            conf_factors_test = EvidenceConfidenceFactors(
-                artifact_integrity=0.90,
-                ownership_score=0.88,
-                recency_factor=0.90,
-                verification_level=0.80,
-                depth_specificity=0.80,
-                source_reliability=0.85,
-            )
-            raw_evidence = [
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_backend_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    support_score=85.0,
-                    confidence_factors=conf_factors_be,
-                    confidence=conf_factors_be.composite_confidence,
-                    cluster_id=None,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "src/api/routes.py",
-                        "raw_support_text": "Asynchronous FastAPI endpoints with dependency injection",
-                    },
-                ),
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_database_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    support_score=82.0,
-                    confidence_factors=conf_factors_db,
-                    confidence=conf_factors_db.composite_confidence,
-                    cluster_id=None,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "alembic/versions/001_initial.py",
-                        "raw_support_text": "Reversible relational schema migration with B-tree index",
-                    },
-                ),
-                EvidenceRecord(
-                    evidence_id=uuid4(),
-                    fingerprint="fp_testing_001",
-                    source_family=SourceFamily.GITHUB,
-                    source_locator=locator,
-                    immutable_revision=rev,
-                    target_capability=CapabilityKey.TESTING_QUALITY,
-                    support_score=70.0,
-                    confidence_factors=conf_factors_test,
-                    confidence=conf_factors_test.composite_confidence,
-                    cluster_id=None,
-                    provenance={
-                        "source_locator": locator,
-                        "artifact_path": "tests/test_api.py",
-                        "raw_support_text": "Unit and integration tests with pytest fixtures",
-                    },
-                ),
-            ]
+            state.stages[2].details = f"Scoring {len(raw_evidence)} {evidence_mode} observations; candidate code not executed."
 
         # ----------------------------------------------------------------------
         # Stage 4: BUILDING_EVIDENCE
@@ -294,7 +214,7 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         advance_stage(
             AnalysisStage.CALIBRATING_RELIABILITY,
-            "Calibrating source family reliability posteriors",
+            "Using reliability factors attached to supplied observations; demo counts are simulated.",
         )
 
         # ----------------------------------------------------------------------
@@ -305,18 +225,15 @@ def execute_analysis_pipeline(
             "Computing ownership attribution vectors",
         )
         ownership_assessments: list[OwnershipAssessment] = []
-        for r_url in valid_repos or ["https://github.com/candidate/repo"]:
-            assessment = estimate_repository_ownership(
-                repository_url=r_url,
-                candidate_identifier="candidate",
-                candidate_commits=45,
-                total_commits=50,
-                candidate_lines=3900,
-                total_lines=4500,
-                is_fork=False,
-                is_owner=True,
-            )
-            ownership_assessments.append(assessment)
+        for ev in raw_evidence:
+            if ev.source_family != SourceFamily.GITHUB:
+                continue
+            ownership_assessments.append(OwnershipAssessment(
+                repository_url=ev.source_locator, candidate_identifier=str(candidate_id),
+                ownership_score=ev.confidence_factors.ownership_score,
+                model_name="SuppliedEvidenceOwnership",
+                limitations=["Simulated attribution" if evidence_mode == "synthetic" else "Attribution supplied with evidence; not independently verified"],
+            ))
 
         # ----------------------------------------------------------------------
         # Stage 7: COMPUTING_UNCERTAINTY
@@ -387,63 +304,17 @@ def execute_analysis_pipeline(
             conflicts=capability_conflicts,
         )
 
-        # Corroborate claims
-        claim_inputs = [
-            ExtractedClaimInput(
-                claim_id=uuid4(),
-                claim_text=c_text,
-                target_capability=CapabilityKey.BACKEND_ENGINEERING,
-            )
-            for c_text in discovered_claims
-        ]
+        # Only map claims recognized by the controlled ontology; never guess a capability.
+        claim_inputs = []
+        for claim in discovered_claims:
+            for requirement in extract_requirements_from_jd(claim):
+                if not requirement.technology_mentions:
+                    continue
+                for cap in requirement.capability_mappings:
+                    claim_inputs.append(ExtractedClaimInput(
+                        claim_id=uuid4(), claim_text=claim, target_capability=cap))
         corroborated_claims = corroborate_candidate_claims(claim_inputs, raw_evidence)
-
-        # ----------------------------------------------------------------------
-        # Stage 10: GENERATING_DOSSIER
-        # ----------------------------------------------------------------------
-        advance_stage(
-            AnalysisStage.GENERATING_DOSSIER,
-            "Assembling heterogeneous CEG and immutable dossier",
-        )
-        # Build CEG
-        ceg = CandidateEvidenceGraph()
-        for cap in CapabilityKey:
-            cap_node_id = f"cap_{cap.value}"
-            ceg.add_node(
-                CEGNode(
-                    node_id=cap_node_id,
-                    node_type=GraphNodeType.CAPABILITY,
-                    properties={"label": cap.value},
-                )
-            )
-
-        for ev in raw_evidence:
-            ev_id = str(ev.evidence_id)
-            cap_node_id = f"cap_{ev.target_capability.value}"
-            ceg.add_node(
-                CEGNode(
-                    node_id=ev_id,
-                    node_type=GraphNodeType.EVIDENCE,
-                    properties={
-                        "label": f"ev_{ev.target_capability.value}",
-                        "score": ev.support_score,
-                        "confidence": ev.confidence,
-                        "source_locator": ev.provenance.get(
-                            "source_locator", "unknown"
-                        ),
-                        "artifact_path": ev.provenance.get("artifact_path", "unknown"),
-                    },
-                )
-            )
-            ceg.add_edge(
-                CEGEdge(
-                    edge_id=f"e_{ev_id}_{cap_node_id}",
-                    source_id=ev_id,
-                    target_id=cap_node_id,
-                    edge_type=GraphEdgeType.SUPPORTS_CAPABILITY,
-                    properties={"weight": ev.confidence},
-                )
-            )
+        advance_stage(AnalysisStage.GENERATING_DOSSIER, "Link evidence, sources, artifacts, requirements, and interview questions")
 
         dossier = build_candidate_dossier(
             candidate_id=candidate_id,
@@ -458,9 +329,20 @@ def execute_analysis_pipeline(
             evidence_records=raw_evidence,
             rci=rci_score,
             coverage=coverage_score,
-            is_insufficient_evidence=(coverage_score < 0.30),
+            is_insufficient_evidence=(coverage_score < ScoringConfig().low_coverage_threshold),
         )
 
+        dossier = dossier.model_copy(update={
+            "evidence_records": raw_evidence, "evidence_mode": evidence_mode,
+            "scenario": scenario, "role_weights": role_weights,
+            "system_limitations": dossier.system_limitations + [
+                "Synthetic observations for method demonstration; no real candidate assessment." if evidence_mode == "synthetic"
+                else "Only registered observations are scored; URL and CV text alone do not establish technical capability.",
+                "Prototype role weights include canonical-role priors; JD mapping uses a controlled synonym ontology.",
+                "Confidence intervals require at least two independent project clusters.",
+            ],
+        })
+        ceg = build_dossier_graph(dossier)
         complete_current_stage()
         state.status = PipelineStatus.COMPLETED
         state.dossier = dossier
@@ -480,6 +362,7 @@ def execute_analysis_pipeline(
 def rescore_dossier(
     dossier: Dossier,
     new_weights: dict[CapabilityKey, float],
+    justification: str = "Research demonstration weight override",
 ) -> Dossier:
     """Pure functional rescore of candidate dossier with expert weight overrides.
 
@@ -492,7 +375,7 @@ def rescore_dossier(
     overridden_profile = apply_expert_overrides(
         original_profile=profile,
         overridden_weights=new_weights,
-        justification="Functional rescore override",
+        justification=justification,
     )
     role_weights = overridden_profile.softmax_weights
 
@@ -523,23 +406,18 @@ def rescore_dossier(
     new_questions = generate_interview_questions(
         probes=new_probes,
         capability_conflicts=dossier.capability_conflicts,
-        evidence_records=[],
+        evidence_records=dossier.evidence_records,
     )
 
-    # Return new immutable Dossier instance
-    return Dossier(
-        dossier_id=uuid4(),
-        candidate_id=dossier.candidate_id,
-        analysis_run_id=dossier.analysis_run_id,
-        role=dossier.role,
-        rci=new_rci,
-        coverage=new_cov,
-        is_insufficient_evidence=dossier.is_insufficient_evidence,
-        capability_estimates=dossier.capability_estimates,
-        capability_conflicts=dossier.capability_conflicts,
-        role_requirements=dossier.role_requirements,
-        ownership_assessments=dossier.ownership_assessments,
-        claims_corroboration=dossier.claims_corroboration,
-        interview_probes=new_probes,
-        interview_questions=new_questions,
-    )
+    # A new snapshot retains all evidence, limitations and prior override history.
+    return dossier.model_copy(update={
+        "dossier_id": uuid4(), "generated_at": datetime.now(timezone.utc),
+        "rci": new_rci, "coverage": new_cov,
+        "is_insufficient_evidence": new_cov < ScoringConfig().low_coverage_threshold,
+        "role_weights": role_weights, "interview_probes": new_probes,
+        "interview_questions": new_questions,
+        "override_history": [*dossier.override_history, {
+            **(overridden_profile.override_audit or {}),
+            "previous_dossier_id": str(dossier.dossier_id),
+        }],
+    })

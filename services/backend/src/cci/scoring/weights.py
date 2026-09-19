@@ -203,6 +203,8 @@ def apply_expert_overrides(
 ) -> RoleProfile:
     """Applies expert manual weight adjustments, normalizes, and records audit trail."""
     # Ensure all capabilities are present
+    if any(not math.isfinite(v) or v < 0 for v in overridden_weights.values()):
+        raise ValueError("Weights must be finite and non-negative")
     total = sum(overridden_weights.values())
     if total <= 0.0:
         raise ValueError("Overridden weights sum must be strictly greater than 0.")

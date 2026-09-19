@@ -188,7 +188,7 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         id=8,
         name="Information-Theoretic Probe Priority Monotonicity",
         category="Interview Probes",
-        latex_formula=r"I_k = w_k \cdot (1 - \text{Cov}_k) + \alpha \cdot s_k + \beta \cdot C_k",
+        latex_formula=r"I_k = w_k [\alpha (1 - \text{Cov}_k) + \beta\,\text{CIwidth}_k + \gamma\,\text{Conf}_k]",
         description="Ranks technical interview inquiries by potential information gain to maximize interview ROI.",
         bound_statement=r"\frac{\partial I_k}{\partial (1 - \text{Cov}_k)} > 0, \quad I_k \ge 0",
         physical_intuition="Directs interviewers to probe high-weight unverified requirements and active contradictions first.",
@@ -537,20 +537,22 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         # Theorem 8: Probe Priority I_k
         w_k = float(p.get("role_weight", 0.20))
         cov_k = float(p.get("coverage", 0.50))
-        s_k = float(p.get("dispersion", 0.10))
+        from cci.domain.contracts import ScoringConfig
+        from cci.probes.priority import probe_priority_score
+        width = float(p.get("ci_width", p.get("dispersion", 0.10)))
         c_k = float(p.get("contradiction", 0.0))
-        alpha = float(p.get("alpha", 0.25))
-        beta = float(p.get("beta", 0.35))
-
-        gap_term = w_k * (1.0 - cov_k)
-        uncert_term = alpha * s_k
-        contra_term = beta * c_k
-        i_k = gap_term + uncert_term + contra_term
+        if not all(math.isfinite(v) and 0 <= v <= 1 for v in (w_k, cov_k, width, c_k)):
+            raise HTTPException(400, "Weight, coverage, normalized CI width and conflict must be in [0, 1]")
+        cfg = ScoringConfig()
+        gap_term = w_k * cfg.probe_alpha * (1 - cov_k)
+        uncert_term = w_k * cfg.probe_beta * width
+        contra_term = w_k * cfg.probe_gamma * c_k
+        i_k = probe_priority_score(w_k, 1 - cov_k, width, c_k, cfg)
 
         return CalculationResponse(
             theorem_id=8,
             theorem_name="Information-Theoretic Probe Priority",
-            formula="w_k * (1 - Cov_k) + alpha * s_k + beta * C_k",
+            formula="w_k * [0.40 * (1 - Cov_k) + 0.35 * normalized_CI_width + 0.25 * conflict]",
             result=round(i_k, 4),
             intermediate_steps={
                 "coverage_gap_term": gap_term,

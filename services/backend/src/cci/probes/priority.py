@@ -13,6 +13,13 @@ from cci.domain.contracts import (
 from cci.domain.enums import CapabilityKey
 
 
+def probe_priority_score(weight: float, coverage_gap: float, normalized_ci_width: float,
+                         conflict: float, config: ScoringConfig | None = None) -> float:
+    """Equation 8; q and CI width use the prototype's documented 0..100 scale."""
+    cfg = config or ScoringConfig()
+    return weight * (cfg.probe_alpha * coverage_gap + cfg.probe_beta * normalized_ci_width + cfg.probe_gamma * conflict)
+
+
 def compute_probe_priorities(
     role_profile: RoleProfile,
     capabilities: dict[CapabilityKey, CapabilityEstimate],
@@ -60,7 +67,7 @@ def compute_probe_priorities(
         inner_bracket = (
             (alpha * coverage_gap) + (beta * norm_ci_width) + (gamma * conf_term)
         )
-        I_k = float(w_k * inner_bracket)
+        I_k = probe_priority_score(w_k, coverage_gap, norm_ci_width, conf_term, cfg)
 
         unranked_probes.append(
             {

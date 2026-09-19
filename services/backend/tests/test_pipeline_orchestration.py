@@ -20,6 +20,7 @@ from cci.pipeline.orchestrator import (
     rescore_dossier,
 )
 from cci.pipeline.service import pipeline_service
+from cci.research.scenarios import DemoRequest, make_scenario
 
 client = TestClient(app)
 
@@ -33,6 +34,8 @@ def test_pipeline_10_stages_execution():
         jd_text="Looking for Backend Engineer with Python, FastAPI, and Postgres experience.",
         cv_text="Alice Developer\nImplemented distributed key-value cache handling 10k RPS.\nBuilt database migrations.",
         repo_urls=["https://github.com/candidate/distributed-cache"],
+        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="sparse"))[0],
+        evidence_mode="synthetic",
     )
 
     assert state.status == PipelineStatus.COMPLETED
@@ -86,6 +89,8 @@ def test_functional_rescore_without_recrawling():
     state = execute_analysis_pipeline(
         candidate_id=cand_id,
         role=CanonicalRole.BACKEND,
+        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="sparse"))[0],
+        evidence_mode="synthetic",
     )
     assert state.dossier is not None
     original_rci = state.dossier.rci
@@ -129,7 +134,7 @@ def test_pipeline_api_lifecycle():
     run_id = data["analysis_run_id"]
     assert data["status"] == "completed"
     assert data["dossier_id"] is not None
-    assert data["rci"] is not None
+    assert data["rci"] is None  # URLs and self-claims are not analyzed observations
     assert len(data["stages"]) == 10
 
     # 2. Query Status
@@ -150,7 +155,7 @@ def test_pipeline_api_lifecycle():
     rescore_resp = client.post("/api/v1/pipeline/rescore", json=rescore_payload)
     assert rescore_resp.status_code == 200
     rescored_data = rescore_resp.json()
-    assert rescored_data["rci"] is not None
+    assert rescored_data["rci"] is None
 
 
 def test_pipeline_api_404_not_found():

@@ -506,6 +506,11 @@ class Dossier(BaseModel):
     claims_corroboration: list[dict[str, Any]]
     interview_probes: list[ProbePriority]
     interview_questions: list[InterviewQuestion]
+    evidence_records: list[EvidenceRecord] = Field(default_factory=list)
+    evidence_mode: str = "provided"
+    scenario: str | None = None
+    role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)
+    override_history: list[dict[str, Any]] = Field(default_factory=list)
     system_limitations: list[str] = Field(
         default_factory=lambda: [
             "CCI is employer decision support only; does not make autonomous hire/reject decisions.",
