@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, RefreshCw, Sliders, X, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
-import { CapabilityEstimate, CapabilityKey, CanonicalRole } from '../../types/cci';
+import { CapabilityEstimate, CapabilityKey, CanonicalRole, Dossier, CEGGraph } from '../../types/cci';
 import { submitRecruiterOverride } from '../../lib/api';
 
 const ALL_CAPABILITIES: { key: CapabilityKey; label: string }[] = [
@@ -114,9 +114,11 @@ export const ExpertWeightOverrideModal: React.FC<{
   currentWeights: Record<CapabilityKey, number>;
   estimates: Record<CapabilityKey, CapabilityEstimate>;
   candidateId?: string;
-  onApplyWeights: (weights: Record<CapabilityKey, number>) => void;
+  onApplyWeights: (weights: Record<CapabilityKey, number>, dossier: Dossier, graph: CEGGraph) => void;
 }> = ({ isOpen, onClose, currentRole, currentWeights, estimates, candidateId, onApplyWeights }) => {
   const [weights, setWeights] = useState<Record<CapabilityKey, number>>({ ...currentWeights });
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [justification, setJustification] = useState(
     'Recruiter adjustments aligned with specialized hiring requirements.'
   );
@@ -175,23 +177,24 @@ export const ExpertWeightOverrideModal: React.FC<{
       });
     }
 
-    if (candidateId) {
-      submitRecruiterOverride({
-        candidate_id: candidateId,
-        role_weights: finalWeights,
+    if (!candidateId || totalSum <= 0 || saving) return;
+    setSaving(true); setSaveError('');
+    try {
+      const result = await submitRecruiterOverride({
+        candidate_id: candidateId, role_weights: finalWeights,
         justification: justification || 'Recruiter role weight override',
-      }).catch((err) => {
-        console.warn('Backend override persistence warning:', err);
       });
-    }
-
-    onApplyWeights(finalWeights);
-    onClose();
+      onApplyWeights(finalWeights, result.dossier, result.graph);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Override failed. The dossier is unchanged.');
+    } finally { setSaving(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {saveError && <p role="alert" className="p-4 text-red-200">{saveError}</p>}
         {/* Modal Header */}
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -329,6 +332,7 @@ export const ExpertWeightOverrideModal: React.FC<{
             <button
               type="button"
               onClick={handleSave}
+              disabled={saving || totalSum <= 0 || !candidateId}
               className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-md transition-colors flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />

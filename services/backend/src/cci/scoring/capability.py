@@ -108,7 +108,7 @@ def compute_capability_score(
     coverage_k = min(1.0, max(0.0, sum_c / tau_k))
 
     # Distinct clusters
-    clusters = {e.cluster_id for e in relevant if e.cluster_id is not None}
+    clusters = {e.cluster_id or e.source_locator for e in relevant}
     cluster_count = len(clusters)
 
     ci_lower = None

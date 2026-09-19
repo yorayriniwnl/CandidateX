@@ -102,13 +102,13 @@ class CandidateEvidenceGraph:
 
         # Find all incoming SUPPORTS_CAPABILITY edges to this capability node
         evidence_edges = self.get_edges(
-            target_id=cap_node_id, edge_type=GraphEdgeType.SUPPORTS_CAPABILITY
+            target_id=cap_node_id
         )
         traces = []
 
         for e_edge in evidence_edges:
             ev_node = self.nodes.get(e_edge.source_id)
-            if not ev_node:
+            if not ev_node or ev_node.node_type != GraphNodeType.EVIDENCE:
                 continue
 
             trace_entry: dict[str, Any] = {

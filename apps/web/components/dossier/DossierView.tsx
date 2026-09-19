@@ -44,7 +44,8 @@ export const DossierView: React.FC<{
   graph: CEGGraph;
   candidateName?: string;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ initialDossier, graph, candidateName = 'Ayush Roy', onSelectCandidate }) => {
+}> = ({ initialDossier, graph: initialGraph, candidateName = 'Ayush Roy', onSelectCandidate }) => {
+  const [graph, setGraph] = useState<CEGGraph>(initialGraph);
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
   const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('overview');
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
@@ -55,7 +56,8 @@ export const DossierView: React.FC<{
 
   React.useEffect(() => {
     setDossier(initialDossier);
-  }, [initialDossier]);
+    setGraph(initialGraph);
+  }, [initialDossier, initialGraph]);
 
   const [customWeights, setCustomWeights] = useState<Record<CapabilityKey, number>>({
     backend_engineering: 0.25,
@@ -72,31 +74,16 @@ export const DossierView: React.FC<{
     machine_learning: 0.01,
   });
 
-  const handleApplyWeights = (newWeights: Record<CapabilityKey, number>) => {
+  const handleApplyWeights = (newWeights: Record<CapabilityKey, number>, confirmedDossier: Dossier, confirmedGraph: CEGGraph) => {
     setCustomWeights(newWeights);
-
-    let observedWeightSum = 0;
-    let weightedScoreSum = 0;
-
-    Object.entries(dossier.capability_estimates).forEach(([key, est]) => {
-      if (est.is_observed && est.estimate !== null) {
-        const w = newWeights[key as CapabilityKey] || 0;
-        observedWeightSum += w;
-        weightedScoreSum += w * est.estimate;
-      }
-    });
-
-    const newRci = observedWeightSum > 0 ? weightedScoreSum / observedWeightSum : null;
-
-    setDossier((prev) => ({
-      ...prev,
-      rci: newRci,
-    }));
-
-    setTimeout(() => {
-      setAuditRefreshTrigger((t) => t + 1);
-    }, 300);
+    setDossier(confirmedDossier);
+    setGraph(confirmedGraph);
+    setAuditRefreshTrigger(t => t + 1);
   };
+
+  React.useEffect(() => {
+    if (initialDossier.role_weights) setCustomWeights(initialDossier.role_weights);
+  }, [initialDossier]);
 
   const probeCount = dossier.interview_probes?.length || 0;
 

@@ -81,20 +81,9 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     created_at: new Date().toISOString(),
   },
   {
-    id: '66666666-6666-6666-6666-666666666666',
-    display_name: 'Jordan Blake',
-    primary_email: 'jordan.blake@example.com',
-    has_completed_dossier: true,
-    rci: 62.0,
-    coverage: 0.0,
-    role: 'backend',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
     id: '77777777-7777-7777-7777-777777777777',
-    display_name: 'Devin Vance',
-    primary_email: 'devin.vance@example.com',
+    display_name: 'P Ajay Kumar',
+    primary_email: '2329195@kiit.ac.in',
     has_completed_dossier: true,
     rci: 69.9,
     coverage: 0.0,
@@ -135,7 +124,7 @@ export const CandidateDirectory: React.FC<{
   onCompareCandidates,
   initialSelectedForComparison,
 }) => {
-  const [candidates, setCandidates] = useState<CandidateSummary[]>(FALLBACK_CANDIDATES);
+  const [candidates, setCandidates] = useState<CandidateSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -158,12 +147,10 @@ export const CandidateDirectory: React.FC<{
     if (isBackendOnline) {
       fetchCandidatesList()
         .then((data) => {
-          if (data && data.length > 0) {
-            setCandidates(data);
-          }
+          setCandidates(data || []);
         })
         .catch(() => {
-          // Graceful fallback to default candidates
+          setCandidates([]);
         });
     }
   }, [isBackendOnline]);

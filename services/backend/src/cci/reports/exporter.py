@@ -24,6 +24,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
 
     lines = [
         f"# Candidate Technical Intelligence Brief: {candidate_name}",
+        f"**Evidence mode:** {dossier.evidence_mode} | **Scenario:** {dossier.scenario or 'none'}",
         f"**Role:** {role_title} | **Candidate ID:** `{dossier.candidate_id}`",
         f"**Generated:** {gen_time} | **Platform:** Candidate Capability Intelligence (CCI) v0.1.0-paper",
         "",
@@ -154,6 +155,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
             )
         lines.append("")
 
+    lines.extend(["", "## Limitations", *[f"- {item}" for item in dossier.system_limitations]])
     return "\n".join(lines)
 
 
@@ -705,6 +707,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
     </style>
 </head>
 <body>
+<p><strong>Evidence mode: {html.escape(dossier.evidence_mode)}. Scenario: {html.escape(dossier.scenario or "none")}. Synthetic runs demonstrate the method; they do not assess real candidates.</strong></p>
     <div class="container">
         <!-- Action Bar (Screen only) -->
         <div class="action-bar">

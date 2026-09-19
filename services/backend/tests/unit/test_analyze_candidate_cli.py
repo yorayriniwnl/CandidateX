@@ -39,8 +39,7 @@ Requirements:
     dossier = state.dossier
 
     # Check that dossier contracts are populated
-    assert dossier.rci is not None
-    assert 0.0 <= dossier.rci <= 100.0
+    assert dossier.rci is None  # CV claims alone do not establish observed capability
     assert 0.0 <= dossier.coverage <= 1.0
     assert len(dossier.capability_estimates) == 12
     assert len(dossier.interview_probes) > 0
@@ -60,5 +59,5 @@ Requirements:
 
     # Functional rescore
     rescored = rescore_dossier(dossier, {"backend_engineering": 0.5, "database_engineering": 0.5})
-    assert rescored.rci is not None
+    assert rescored.rci is None
     assert rescored.dossier_id != dossier.dossier_id

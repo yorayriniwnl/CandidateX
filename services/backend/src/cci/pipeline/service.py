@@ -5,6 +5,7 @@ from uuid import UUID
 
 from cci.domain.contracts import Dossier, EvidenceRecord
 from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.graph.builder import build_dossier_graph
 from cci.pipeline.orchestrator import (
     PipelineExecutionState,
     execute_analysis_pipeline,
@@ -30,6 +31,8 @@ class PipelineService:
         declared_claims: list[str] | None = None,
         custom_evidence: list[EvidenceRecord] | None = None,
         expert_weight_overrides: dict[CapabilityKey, float] | None = None,
+        evidence_mode: str = "provided",
+        scenario: str | None = None,
     ) -> PipelineExecutionState:
         """Executes the analysis pipeline and stores execution state."""
         state = execute_analysis_pipeline(
@@ -41,6 +44,7 @@ class PipelineService:
             declared_claims=declared_claims,
             custom_evidence=custom_evidence,
             expert_weight_overrides=expert_weight_overrides,
+            evidence_mode=evidence_mode, scenario=scenario,
         )
 
         with self._lock:
@@ -70,6 +74,7 @@ class PipelineService:
         self,
         run_id: UUID,
         new_weights: dict[CapabilityKey, float],
+        justification: str = "Research demonstration weight override",
     ) -> Dossier | None:
         """Functional rescore of an existing pipeline run's dossier."""
         with self._lock:
@@ -77,7 +82,8 @@ class PipelineService:
             if not state or not state.dossier:
                 return None
 
-            rescored = rescore_dossier(state.dossier, new_weights)
+            rescored = rescore_dossier(state.dossier, new_weights, justification)
+            state.ceg_graph = build_dossier_graph(rescored)
             state.dossier = rescored
             self._dossiers_by_id[rescored.dossier_id] = rescored
             try:

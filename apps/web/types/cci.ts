@@ -145,6 +145,8 @@ export interface ClaimCorroboration {
 }
 
 export interface Dossier {
+  evidence_mode?: string;
+  role_weights?: Record<CapabilityKey, number>;
   dossier_id: string;
   candidate_id: string;
   analysis_run_id: string;
@@ -250,9 +252,9 @@ export interface RoleBreakdownRow {
   role: string;
   display_name: string;
   full_cci_mae: number;
-  no_decay_mae: number;
-  no_ownership_mae: number;
-  uniform_weights_mae: number;
+  no_decay_mae: number | null;
+  no_ownership_mae: number | null;
+  uniform_weights_mae: number | null;
 }
 
 export interface AblationStudyResponse {

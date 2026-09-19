@@ -79,9 +79,9 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
     latex_formula: 'n_{\\text{eff},k} = \\frac{(\\sum c_{e,k})^2}{\\sum c_{e,k}^2}',
     description: 'Measures statistical information content accounting for non-uniform confidence dispersion.',
     bound_statement: '1.0 \\le n_{\\text{eff},k} \\le N, \\quad n_{\\text{eff},k} = N \\iff c_1 = \\dots = c_N',
-    physical_intuition: 'Guards against false precision: 10 low-confidence observations provide less statistical power than 1 verified proof.',
+    physical_intuition: 'Kish effective count measures relative weight inequality. Equal weights have effective count N, even when every confidence is low. Coverage separately reflects absolute confidence.',
     key_properties: [
-      'Directly scales bootstrap confidence interval width',
+      'Reported separately from project-cluster bootstrap intervals',
       'Strictly penalized by high confidence inequality across evidence items',
       'Upper-bounded by raw observation count N',
     ],
@@ -132,7 +132,7 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
     id: 8,
     name: 'Information-Theoretic Probe Priority Monotonicity',
     category: 'Interview Probes',
-    latex_formula: 'I_k = w_k \\cdot (1 - \\text{Cov}_k) + \\alpha \\cdot s_k + \\beta \\cdot C_k',
+    latex_formula: 'I_k = w_k [0.40(1-Cov_k) + 0.35 CIwidth_k + 0.25 Conf_k]',
     description: 'Ranks technical interview inquiries by potential information gain to maximize interview ROI.',
     bound_statement: '\\frac{\\partial I_k}{\\partial (1 - \\text{Cov}_k)} > 0, \\quad I_k \\ge 0',
     physical_intuition: 'Directs interviewers to probe high-weight unverified requirements and active contradictions first.',
@@ -222,14 +222,7 @@ const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   },
 ];
 
-const DEFAULT_ROLE_BREAKDOWN: RoleBreakdownRow[] = [
-  { role: 'backend', display_name: 'Backend Engineering', full_cci_mae: 1.892, no_decay_mae: 1.918, no_ownership_mae: 2.180, uniform_weights_mae: 3.120 },
-  { role: 'frontend', display_name: 'Frontend Engineering', full_cci_mae: 1.954, no_decay_mae: 2.012, no_ownership_mae: 2.245, uniform_weights_mae: 3.210 },
-  { role: 'devops', display_name: 'DevOps & Cloud', full_cci_mae: 1.931, no_decay_mae: 1.960, no_ownership_mae: 2.198, uniform_weights_mae: 3.145 },
-  { role: 'ml_engineer', display_name: 'Machine Learning', full_cci_mae: 1.980, no_decay_mae: 2.045, no_ownership_mae: 2.290, uniform_weights_mae: 3.280 },
-  { role: 'fullstack', display_name: 'Fullstack Engineering', full_cci_mae: 1.915, no_decay_mae: 1.942, no_ownership_mae: 2.175, uniform_weights_mae: 3.090 },
-  { role: 'mobile', display_name: 'Mobile Engineering', full_cci_mae: 1.986, no_decay_mae: 2.022, no_ownership_mae: 2.215, uniform_weights_mae: 3.185 },
-];
+const DEFAULT_ROLE_BREAKDOWN: RoleBreakdownRow[] = [];
 
 export const ResearchTheoremsExplorer: React.FC<{
   isBackendOnline?: boolean | null;
@@ -321,7 +314,7 @@ Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\\\
   const handleDownloadMarkdown = () => {
     const content =
       ablationData?.markdown_table ||
-      `# Paper Reproducibility: Table 1 - Model Architecture Ablation Study
+      `# Executable Prototype Experiment - Model Architecture Ablation Study
 
 Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
 
@@ -357,14 +350,14 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-white tracking-tight">
-                Conference Paper Research &amp; Formal Theorems Explorer
+                Prototype Methodology &amp; Research Context
               </h1>
               <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded font-mono text-[10px] font-bold">
                 10 THEOREMS
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Rigorous mathematical proofs, interactive theorem simulators, and Table 1 reproduction benchmarks ($N = 4,800$).
+              Interactive method illustrations and the separate executable prototype experiment (4,800 simulated candidates per mode). This is not the manuscript Table 1 benchmark.
             </p>
           </div>
         </div>
@@ -380,7 +373,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>10 Theorems &amp; Math Sandbox</span>
+            <span>Method Properties &amp; Math Sandbox</span>
           </button>
           <button
             onClick={() => setSubTab('ablation')}
@@ -391,7 +384,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
             }`}
           >
             <Table className="w-3.5 h-3.5" />
-            <span>Table 1 Ablation Study</span>
+            <span>Prototype Ablation Study</span>
           </button>
         </div>
       </div>
@@ -734,7 +727,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
           {/* Catalog of All 10 Theorems */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Complete Conference Paper Theorem Catalog (10 Theorems)
+              Prototype Mathematical Properties (not numbered paper theorems)
             </h3>
 
             {filteredTheorems.map((theorem) => {
@@ -816,14 +809,14 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
         </div>
       )}
 
-      {/* Mode 2: Table 1 Ablation Study & Reproduction */}
+      {/* Mode 2: Prototype Ablation Study & Reproduction */}
       {subTab === 'ablation' && (
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <h2 className="text-base font-bold text-white">
-                  Table 1: Model Architecture Ablation Study
+                  Prototype Experiment: Model Architecture Ablation Study
                 </h2>
                 <p className="text-xs text-slate-400">
                   Empirical benchmarks across N = 4,800 simulated candidates and 6 canonical roles (16 seeds).
@@ -837,7 +830,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Download Table 1 (.tex)</span>
+                  <span>Download prototype results (.tex)</span>
                 </button>
                 <button
                   type="button"
@@ -845,7 +838,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Download Table 1 (.md)</span>
+                  <span>Download prototype results (.md)</span>
                 </button>
               </div>
             </div>
@@ -933,9 +926,9 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                     <tr key={row.role} className="hover:bg-slate-800/30">
                       <td className="py-2.5 pl-2 font-medium text-slate-100">{row.display_name}</td>
                       <td className="py-2.5 text-center text-emerald-400 font-bold">{row.full_cci_mae.toFixed(3)}</td>
-                      <td className="py-2.5 text-center text-slate-300">{row.no_decay_mae.toFixed(3)}</td>
-                      <td className="py-2.5 text-center text-slate-300">{row.no_ownership_mae.toFixed(3)}</td>
-                      <td className="py-2.5 text-center text-rose-400">{row.uniform_weights_mae.toFixed(3)}</td>
+                      <td className="py-2.5 text-center text-slate-300">{row.no_decay_mae?.toFixed(3) ?? 'Not archived'}</td>
+                      <td className="py-2.5 text-center text-slate-300">{row.no_ownership_mae?.toFixed(3) ?? 'Not archived'}</td>
+                      <td className="py-2.5 text-center text-rose-400">{row.uniform_weights_mae?.toFixed(3) ?? 'Not archived'}</td>
                     </tr>
                   ))}
                 </tbody>

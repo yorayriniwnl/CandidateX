@@ -26,8 +26,8 @@ def compute_uncertainty_diagnostics(
     if estimate.ci_lower is not None and estimate.ci_upper is not None:
         ci_width = max(0.0, float(estimate.ci_upper - estimate.ci_lower))
     else:
-        # Fallback based on asymptotic SE
-        ci_width = max(0.0, float(2.0 * 1.96 * estimate.standard_error))
+        # Conservative probe priority when the interval is not estimable.
+        ci_width = 100.0
 
     # Epistemic uncertainty: composite of coverage gap and CI width
     coverage_gap = 1.0 - estimate.coverage_k

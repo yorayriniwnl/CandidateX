@@ -95,10 +95,9 @@ export async function triggerPipelineRun(
     candidate_id: candidateId,
     role: role,
     jd_text: jdText || '',
-    cv_text: manifest?.declared_skills ? `Candidate Skills: ${manifest.declared_skills.join(', ')}` : '',
+    cv_text: '',
     repo_urls: [
       ...(manifest?.github_repositories || []),
-      ...(manifest?.deployment_urls || []),
     ],
     declared_claims: manifest?.declared_skills || [],
   };
@@ -275,6 +274,8 @@ export interface RecruiterOverridePayload {
 }
 
 export interface RecruiterOverrideResponse {
+  graph: CEGGraph;
+  persistence: 'session' | 'database';
   override_id: string;
   candidate_id: string;
   previous_rci: number | null;

@@ -8,7 +8,8 @@ from cci.domain.contracts import Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.pipeline.service import pipeline_service
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+import math
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
 
@@ -48,6 +49,14 @@ class PipelineStatusResponse(BaseModel):
 class PipelineRescoreRequest(BaseModel):
     run_id: UUID
     weights: dict[CapabilityKey, float]
+    justification: str = Field(default="Research demonstration weight override", min_length=3, max_length=2000)
+
+    @field_validator("weights")
+    @classmethod
+    def validate_weights(cls, weights):
+        if not weights or any(not math.isfinite(v) or v < 0 for v in weights.values()) or sum(weights.values()) <= 0:
+            raise ValueError("Supply finite non-negative weights with a positive total")
+        return weights
 
 
 @router.post(
@@ -144,6 +153,7 @@ def rescore_pipeline(request: PipelineRescoreRequest) -> Any:
     rescored = pipeline_service.rescore_run(
         run_id=request.run_id,
         new_weights=request.weights,
+        justification=request.justification,
     )
     if not rescored:
         raise HTTPException(

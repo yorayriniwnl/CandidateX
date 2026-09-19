@@ -18,7 +18,7 @@ def cluster_bootstrap_ci(
     """Calculates non-parametric cluster bootstrap confidence intervals for q_k.
 
     When at least 2 distinct clusters exist, clusters are resampled with replacement.
-    When cluster count < 2, falls back to weighted dispersion / SE approximation.
+    When cluster count < 2, an interval is not estimable and is returned as unknown.
     Deterministic when seed is provided.
 
     Returns:
@@ -35,7 +35,7 @@ def cluster_bootstrap_ci(
     # Group records by cluster_id (defaulting to evidence_id if cluster_id is missing)
     clusters = defaultdict(list)
     for e in relevant:
-        c_id = e.cluster_id or str(e.evidence_id)
+        c_id = e.cluster_id or e.source_locator
         clusters[c_id].append(e)
 
     cluster_keys = list(clusters.keys())
@@ -48,17 +48,9 @@ def cluster_bootstrap_ci(
 
     base_q = sum(e.confidence * e.support_score for e in relevant) / total_c
 
-    # If insufficient clusters, fall back to standard error normal approximation
+    # One project cannot establish sampling uncertainty across projects.
     if k_clusters < 2:
-        weighted_var = (
-            sum(e.confidence * ((e.support_score - base_q) ** 2) for e in relevant)
-            / total_c
-        )
-        se = np.sqrt(max(0.0, weighted_var)) / np.sqrt(max(1.0, len(relevant)))
-        z_crit = 1.96  # approx 95%
-        ci_lower = max(0.0, min(100.0, float(base_q - z_crit * se)))
-        ci_upper = max(0.0, min(100.0, float(base_q + z_crit * se)))
-        return ci_lower, ci_upper
+        return None, None
 
     # Non-parametric cluster bootstrap
     rng = np.random.RandomState(seed)

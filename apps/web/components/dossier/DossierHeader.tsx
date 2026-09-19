@@ -29,8 +29,7 @@ const CANONICAL_CANDIDATE_LIST = [
   { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ML Engineer (Senior)' },
   { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'DevOps / SRE (Staff)' },
   { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', role: 'Fullstack (Principal)' },
-  { id: '66666666-6666-6666-6666-666666666666', name: 'Jordan Blake', role: 'Backend (Junior)' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'Devin Vance', role: 'Backend (Discrepancy Demo)' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'Backend (Discrepancy Demo)' },
 ];
 
 export const DossierHeader: React.FC<{

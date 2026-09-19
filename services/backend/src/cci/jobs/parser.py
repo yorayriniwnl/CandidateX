@@ -180,11 +180,12 @@ def extract_requirements_from_jd(
     for line in lines:
         line_lower = line.lower()
 
+        is_heading = line.endswith(":") or line_lower in {"requirements", "must have", "mandatory requirements", "preferred qualifications", "nice to have"}
         # Check for section header priority changes
-        if MANDATORY_MARKERS.search(line_lower) and len(line.split()) <= 6:
+        if MANDATORY_MARKERS.search(line_lower) and is_heading and len(line.split()) <= 6 and not any(re.search(r"\b" + re.escape(term) + r"\b", line_lower) for term in CONTROLLED_SYNONYM_MAP):
             current_priority = RequirementPriority.MANDATORY
             continue
-        elif PREFERRED_MARKERS.search(line_lower) and len(line.split()) <= 6:
+        elif PREFERRED_MARKERS.search(line_lower) and is_heading and len(line.split()) <= 6 and not any(re.search(r"\b" + re.escape(term) + r"\b", line_lower) for term in CONTROLLED_SYNONYM_MAP):
             current_priority = RequirementPriority.PREFERRED
             continue
 
@@ -226,7 +227,7 @@ def extract_requirements_from_jd(
                     source_text=line,
                     normalized_name=clean_name or line[:60],
                     priority=priority,
-                    capability_mappings=list(matched_caps),
+                    capability_mappings=sorted(matched_caps, key=lambda cap: cap.value),
                     technology_mentions=matched_techs,
                     mention_frequency=max_freq,
                     semantic_specificity=avg_spec,
@@ -245,9 +246,7 @@ def extract_requirements_from_jd(
                     source_text=line,
                     normalized_name=first_words,
                     priority=priority,
-                    capability_mappings=[
-                        CapabilityKey.SOFTWARE_ARCHITECTURE
-                    ],  # generic fallback
+                    capability_mappings=[],  # unresolved text must not invent a capability
                     technology_mentions=[],
                     mention_frequency=1,
                     semantic_specificity=0.3,  # low specificity
