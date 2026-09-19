@@ -3,8 +3,20 @@ from fastapi import APIRouter, HTTPException
 from cci.domain.contracts import ScoringConfig
 from cci.pipeline.service import pipeline_service
 from cci.research.scenarios import DemoRequest, make_scenario, evidence_digest, VERSION
+from cci.api.routers.pipeline_router import PipelineRescoreRequest
+from cci.graph.builder import build_dossier_graph
 
 router = APIRouter(prefix="/api/v1/research-demo", tags=["Research demonstration"])
+
+
+@router.post("/rescore")
+def rescore_demo(request: PipelineRescoreRequest):
+    dossier = pipeline_service.rescore_run(request.run_id, request.weights, request.justification)
+    if dossier is None:
+        raise HTTPException(404, "Run expired or not found. Run the demonstration again.")
+    graph = build_dossier_graph(dossier)
+    return {"dossier": dossier, "graph": graph.to_api_response(dossier.candidate_id, dossier.analysis_run_id),
+            "graph_snapshot": graph.to_dict()}
 
 
 @router.post("/run")

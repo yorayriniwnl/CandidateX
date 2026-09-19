@@ -372,6 +372,8 @@ def rescore_dossier(
     - Missing evidence remains UNKNOWN and does not penalize observed capabilities.
     """
     profile = build_role_profile(dossier.role_requirements, dossier.role)
+    if dossier.role_weights:
+        profile = profile.model_copy(update={"softmax_weights": dossier.role_weights})
     overridden_profile = apply_expert_overrides(
         original_profile=profile,
         overridden_weights=new_weights,

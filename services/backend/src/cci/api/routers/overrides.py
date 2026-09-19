@@ -1,6 +1,9 @@
 """Recruiter capability overrides and interview audit trail router."""
 
 from datetime import datetime, timezone
+import math
+from cci.pipeline.orchestrator import rescore_dossier
+from cci.graph.builder import build_dossier_graph
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -56,7 +59,7 @@ class RecruiterOverrideRequest(BaseModel):
         if not weights:
             raise ValueError("Role weights dictionary cannot be empty")
         for k, v in weights.items():
-            if v < 0.0:
+            if not math.isfinite(v) or v < 0.0:
                 raise ValueError(f"Weight for {k} cannot be negative; got {v}")
         return weights
 
@@ -73,6 +76,7 @@ class RecruiterOverrideResponse(BaseModel):
     justification: str
     recorded_at: str
     dossier: Dossier
+    persistence: str = "session"
 
 
 class ProbeEvaluationItem(BaseModel):
@@ -138,56 +142,25 @@ def record_recruiter_override(
             detail=f"Dossier not found for candidate ID {candidate_id}",
         )
 
-    # Normalize weights if needed
-    total_raw_weight = sum(request.role_weights.values())
-    if total_raw_weight <= 0.0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Sum of role weights must be greater than zero",
-        )
-
-    normalized_weights = {
-        k: v / total_raw_weight for k, v in request.role_weights.items()
-    }
-
-    # Functional recalculation of RCI strictly over observed capabilities
-    observed_weight_sum = 0.0
-    weighted_score_sum = 0.0
-    coverage_sum = 0.0
-
-    for key, est in dossier.capability_estimates.items():
-        w = normalized_weights.get(key, 0.0)
-        coverage_sum += w * min(1.0, est.coverage_k)
-        if est.is_observed and est.estimate is not None:
-            observed_weight_sum += w
-            weighted_score_sum += w * est.estimate
-
+    try:
+        updated_dossier = rescore_dossier(dossier, request.role_weights, request.justification)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    normalized_weights = updated_dossier.role_weights
     previous_rci = dossier.rci
-    new_rci = (
-        (weighted_score_sum / observed_weight_sum)
-        if observed_weight_sum > 0.0
-        else None
-    )
-    new_coverage = min(1.0, max(0.0, coverage_sum))
-    is_insufficient = new_coverage < 0.30
-
-    # Build updated Dossier snapshot
-    updated_dossier = dossier.model_copy(
-        update={
-            "rci": new_rci,
-            "coverage": new_coverage,
-            "is_insufficient_evidence": is_insufficient,
-            "generated_at": datetime.now(timezone.utc),
-        }
-    )
-    register_dossier(updated_dossier)
+    new_rci = updated_dossier.rci
+    new_coverage = updated_dossier.coverage
+    # Persistent overrides get a separate run, avoiding duplicate per-run score rows.
+    if request.organization_id:
+        updated_dossier = updated_dossier.model_copy(update={"analysis_run_id": uuid4()})
 
     override_id = uuid4()
     audit_event_id = uuid4()
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Persist audit trail and updated snapshot to database
-    try:
+    if request.organization_id:
+      try:
         with SessionLocal() as db:
             audit = AuditEvent(
                 id=audit_event_id,
@@ -210,9 +183,10 @@ def record_recruiter_override(
             if request.organization_id:
                 repo.save_dossier(db, updated_dossier, request.organization_id)
             db.commit()
-    except Exception:
-        # Transparent in-memory fallback
-        pass
+      except Exception as error:
+        raise HTTPException(503, "Override could not be persisted; the original dossier is unchanged.") from error
+
+    register_dossier(updated_dossier, build_dossier_graph(updated_dossier))
 
     # Track in in-memory fallback log
     _AUDIT_LOG_STORE.append(
@@ -244,6 +218,7 @@ def record_recruiter_override(
         justification=request.justification,
         recorded_at=now_iso,
         dossier=updated_dossier,
+        persistence="database" if request.organization_id else "session",
     )
 
 

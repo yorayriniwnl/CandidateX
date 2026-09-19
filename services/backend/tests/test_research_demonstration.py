@@ -122,3 +122,28 @@ def test_rescore_api_updates_graph_and_retains_original_snapshot():
     node_ids = {n["id"] for n in graph["nodes"]}
     assert all(q["question_id"] in node_ids for q in revised["interview_questions"])
     assert data["dossier"]["dossier_id"] != revised["dossier_id"]
+
+
+def test_demo_rescore_returns_graph_from_the_same_snapshot():
+    data = run_demo()
+    response = client.post("/api/v1/research-demo/rescore", json={"run_id": data["dossier"]["analysis_run_id"], "weights": {"backend_engineering": 1}})
+    assert response.status_code == 200
+    revised = response.json()
+    assert {q["question_id"] for q in revised["dossier"]["interview_questions"]} <= {n["id"] for n in revised["graph"]["nodes"]}
+
+
+def test_failed_persistent_override_does_not_publish_success(monkeypatch):
+    import cci.api.routers.overrides as overrides
+    from cci.api.routers.dossier import get_stored_dossier
+    data = run_demo()
+    from uuid import UUID
+    candidate = UUID(data["dossier"]["candidate_id"])
+    previous = get_stored_dossier(candidate)
+    def unavailable():
+        raise RuntimeError("Storage unavailable")
+    monkeypatch.setattr(overrides, "SessionLocal", unavailable)
+    response = client.post("/api/v1/overrides/recruiter", json={
+        "candidate_id": str(candidate), "role_weights": {"backend_engineering": 1},
+        "organization_id": str(uuid4()), "justification": "Persist a reviewed override"})
+    assert response.status_code == 503
+    assert get_stored_dossier(candidate) == previous
