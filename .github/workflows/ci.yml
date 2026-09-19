@@ -28,6 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          cache-dependency-path: 'services/backend/pyproject.toml'
 
       - name: Install Dependencies
         run: |
@@ -41,7 +42,7 @@ jobs:
           pytest -v --durations=10
 
   frontend-check:
-    name: Frontend Build & Typecheck (Node 20)
+    name: Frontend Build & Typecheck (Node 22)
     runs-on: ubuntu-latest
 
     steps:
@@ -53,10 +54,10 @@ jobs:
         with:
           version: 11.15.1
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install Dependencies
