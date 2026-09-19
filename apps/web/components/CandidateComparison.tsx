@@ -118,25 +118,7 @@ export const CandidateComparison: React.FC<{
           }
         }
 
-        // Mock fallback simulation
-        const mockCopy: Dossier = JSON.parse(JSON.stringify(MOCK_DOSSIER));
-        mockCopy.candidate_id = id;
-        mockCopy.role = role as CanonicalRole;
-        mockCopy.dossier_id = `mock-${id}`;
-
-        // Custom adjustments per sample cohort to showcase comparison
-        if (id === '77777777-7777-7777-7777-777777777777') {
-          // P Ajay Kumar: lower coverage, contradiction flagged
-          mockCopy.rci = 69.8;
-          mockCopy.coverage = 0.25;
-          mockCopy.is_insufficient_evidence = true;
-          if (mockCopy.capability_conflicts.backend_engineering) {
-            mockCopy.capability_conflicts.backend_engineering.contradiction_diagnostic = -0.42;
-            mockCopy.capability_conflicts.backend_engineering.has_meaningful_conflict = true;
-          }
-        }
-
-        loaded.push({ id, name, role, dossier: mockCopy });
+        // Missing dossiers stay unavailable; never manufacture a candidate assessment.
       }
 
       setSubjects(loaded);

@@ -50,3 +50,7 @@ Thumbs.db
 
 .vercel
 .env*
+
+# Browser verification artifacts
+apps/web/test-results/
+apps/web/playwright-report/

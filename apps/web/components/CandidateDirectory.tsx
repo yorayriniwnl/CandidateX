@@ -124,7 +124,7 @@ export const CandidateDirectory: React.FC<{
   onCompareCandidates,
   initialSelectedForComparison,
 }) => {
-  const [candidates, setCandidates] = useState<CandidateSummary[]>(FALLBACK_CANDIDATES);
+  const [candidates, setCandidates] = useState<CandidateSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -147,12 +147,10 @@ export const CandidateDirectory: React.FC<{
     if (isBackendOnline) {
       fetchCandidatesList()
         .then((data) => {
-          if (data && data.length > 0) {
-            setCandidates(data);
-          }
+          setCandidates(data || []);
         })
         .catch(() => {
-          // Graceful fallback to default candidates
+          setCandidates([]);
         });
     }
   }, [isBackendOnline]);

@@ -253,7 +253,7 @@ def audit_pillar_5_live_endpoints() -> AuditResult:
         ("FastAPI Research Ablation Benchmark", "http://127.0.0.1:8000/api/v1/research/ablation-study"),
         ("FastAPI Dossier Export (HTML)", "http://127.0.0.1:8000/api/v1/dossier/77777777-7777-7777-7777-777777777777/export?format=html"),
         ("FastAPI Governance Audit Trail", "http://127.0.0.1:8000/api/v1/overrides/audit/77777777-7777-7777-7777-777777777777"),
-        ("Next.js Recruitment Workstation", "http://localhost:3000/"),
+        ("Next.js Recruitment Workstation", "http://localhost:3001/"),
     ]
 
     checks = []

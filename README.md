@@ -2,11 +2,15 @@
 
 [![CI Pipeline](https://github.com/yorayriniwnl/CandidateX/actions/workflows/ci.yml/badge.svg)](https://github.com/yorayriniwnl/CandidateX/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
 
-> **Candidate Capability Intelligence (CCI)** is a formal, provenance-grounded technical capability evaluation and interview intelligence platform. Built strictly in alignment with the Max-Technical conference paper specification, CCI transforms messy, heterogeneous candidate artifacts (CVs, git commits, codebases, schemas, CI/CD configs, live deployments) into an interpretable **Candidate Evidence Graph (CEG)**, statistically rigorous capability estimates, contradiction diagnostics, and prioritized interview probes.
+> **CandidateX is an interactive research prototype** demonstrating role-aware evidence fusion, separate capability and coverage reporting, and evidence-linked interview preparation. Its main page runs controlled synthetic scenarios through the CCI backend. It does not assess arbitrary real candidates or reproduce the manuscript's headline benchmark.
+
+**Start here: [Research demonstration guide](docs/research-demonstration.md)** - local setup, presentation walkthrough, implementation conventions, experiment boundaries, and verification commands.
+
+Open `/research-demo` (also the default `/` route). The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface.
 
 ---
 
@@ -28,14 +32,14 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 
 1. **Employer Decision Support Only**: CCI assists human interviewers and hiring managers with structured evidence, diagnostics, and probe questions; it **never** makes autonomous hire/reject decisions.
 2. **Closed-World CV Candidate Manifest**: Analysis is strictly constrained to resources explicitly supplied by the candidate (e.g. CV, linked GitHub, portfolio links). No unconstrained scraping or unsupplied identity discovery.
-3. **Candidate Code is NEVER Executed**: Untrusted candidate repositories are analyzed purely via static deterministic AST parsers (Python, TypeScript/JavaScript, Go, Java, C++), dependency manifests, and infrastructure definitions. No test runners, containers, sub-processes, or headless JS browsers are ever launched against candidate code.
+3. **Candidate Code is NEVER Executed**: Untrusted candidate repositories are analyzed purely via a Python AST parser and text-pattern analyzers for TypeScript/JavaScript, Go, Java, and C++, dependency manifests, and infrastructure definitions. No test runners, containers, sub-processes, or headless JS browsers are ever launched against candidate code.
 4. **Missing Evidence is `UNKNOWN`**: A lack of evidence on a skill drops **Evidence Coverage**, but never assigns an arbitrary zero capability score.
 5. **Separation of RCI and Coverage**:
    - **Role Capability Index (RCI)** reflects estimated capability strictly across *observed* technical dimensions.
    - **Evidence Coverage** reflects the fraction of job-critical capabilities backed by sufficient empirical evidence.
-6. **Immutable Provenance**: Every evidence record is immutable and cryptographically fingerprinted with commit hash, file locator, and AST symbol path.
-7. **Purely Functional Rescoring**: Evidence acquisition is cached; re-evaluating a candidate against a revised Job Description or customized role weights is instantaneous and purely functional.
-8. **Strict SSRF Security**: Live deployment inspection enforces multi-layered SSRF guards: DNS pinning, RFC 1918 private IP blocking, loopback blocking, redirect hop validation, and cloud metadata defense (blocking `169.254.169.254`).
+6. **Traceable Provenance**: Demonstration observations carry content revisions, source locators, SHA-256 fingerprints, extractor versions, confidence factors, and project clusters. These are synthetic artifacts; database-wide append-only guarantees are not claimed.
+7. **Functional Rescoring**: Overrides reuse the current evidence snapshot and update scores, coverage, probes, questions, and graph together. Prior snapshots and justifications remain inspectable in the exported history.
+8. **No Live Acquisition in the Demonstration**: Synthetic source locators are never fetched. Deployment-inspection helpers require additional connection-level hardening before enabling untrusted live acquisition; DNS pinning is not established by the current helpers.
 
 ---
 
@@ -44,7 +48,7 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 ```
 CandidateX/
 ├── apps/
-│   └── web/                         # Next.js 15 App Router Frontend (React 19, Tailwind CSS)
+│   └── web/                         # Next.js 16 App Router Frontend (React 19, Tailwind CSS)
 │       ├── app/                     # Unified workspace: Directory, Intake, Pipeline, Dossier
 │       ├── components/              # CandidateDirectory, JobIntake, CandidateIntake, DossierViewer, CEGViewer
 │       ├── lib/                     # API client layer (jobs, candidates, pipeline, dossier)
@@ -63,7 +67,7 @@ CandidateX/
 │       │   ├── scoring/             # Mathematical core (recency, confidence, RCI, bootstrap CI)
 │       │   ├── intake/              # CV/JD parsers, hyperlink extractors, URL canonicalizers
 │       │   ├── acquisition/         # Safe workspace sandbox, git indexer, GitHub client
-│       │   ├── analyzers/           # Static AST parsers (5 langs), SQL/DB, DevOps/Cloud
+│       │   ├── analyzers/           # Python AST and polyglot text analyzers, SQL/DB, DevOps/Cloud
 │       │   ├── security/            # Strict SSRF guard, deployment inspectors
 │       │   ├── attribution/         # Heuristic ownership discount, Beta source calibration
 │       │   ├── graph/               # Heterogeneous Candidate Evidence Graph (CEG)
@@ -113,11 +117,12 @@ Confidence intervals are estimated via **Cluster Bootstrap Resampling** grouped 
 
 ### 5. Contradiction Diagnostics
 $$D_k = \frac{P_k - N_k}{P_k + N_k + \epsilon} \in [-1, 1]$$
-Quantifies consensus ($D_k \to 1$) vs. severe contradiction ($D_k \to -1$) between resume claims and observed codebase realities.
+Measures positive versus negative support balance. Meaningful conflict requires both kinds of evidence; a value near -1 means negative-support dominance, not necessarily conflicting observations.
 
 ### 6. Information-Gain Probe Prioritization
 Interview probes are prioritized to maximize uncertainty reduction:
-$$I_k = w_k \cdot \sigma_k \cdot (1 + \gamma |D_k|)$$
+$$I_k = w_k [0.40(1-\mathrm{Cov}_k) + 0.35\,\mathrm{CIwidth}_k + 0.25\,\mathrm{Conf}_k]$$
+Here interval width is normalized to [0, 1]. An unavailable interval uses a conservative maximal uncertainty term for probe prioritization.
 
 ### 7. Role Capability Index (RCI) & Evidence Coverage
 $$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{observed}} w_k}, \quad \text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \min\left(1.0, \frac{\sum_e c_{e,k}}{\tau_k}\right)$$
@@ -126,15 +131,15 @@ $$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{obse
 
 ## Paper Reproducibility & Ablation Studies
 
-The platform includes a research engine replicating the conference paper's Monte Carlo candidate cohort evaluation across **16 deterministic seeds** $\times$ **300 candidates** across the **6 canonical roles** ($N = 4,800$ simulated candidates total).
+The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho approximately 0.943 is not a reproduction of that result.
 
-To reproduce the publication tables:
-```bash
-python research/run_paper_experiments.py
+```powershell
+python research/run_paper_experiments.py --output-dir reports/research-demo-verification
 ```
-*(Or use `--quick` for a fast verification run across 120 candidates)*.
 
-### Publication Results ($N = 4,800$)
+Use `--quick` for a smaller smoke experiment. Neither experiment establishes real-world hiring accuracy.
+
+### Recorded Prototype Results ($N = 4,800$)
 
 | Evaluation Model | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
 |:-----------------|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
@@ -144,7 +149,7 @@ python research/run_paper_experiments.py
 | **UNIFORM_WEIGHTS** | 3.172 | 3.761 | **0.939** | 0.785 | Yes ($^{***}$, $p = 0.0$) |
 | **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | Two-sided $p = 4.1 \times 10^{-29}$ |
 
-Publication artifacts are automatically emitted to:
+The committed prototype artifacts are:
 - [`research/results/table_ablation_study.md`](research/results/table_ablation_study.md)
 - [`research/results/table_ablation_study.tex`](research/results/table_ablation_study.tex)
 - [`research/results/role_breakdown.md`](research/results/role_breakdown.md)
@@ -160,7 +165,7 @@ Publication artifacts are automatically emitted to:
 - Docker & Docker Compose (optional for local containerized run)
 
 ### 1. Database Seeding CLI
-Seed the SQLite or PostgreSQL database with multi-tenant organizations (`Acme Distributed Systems Corp`, `Apex AI Research Labs`), recruiters, 5 canonical role JDs, and 7 diverse candidate cohorts evaluated through the full 10-stage pipeline:
+The earlier workspace has an optional database seeder. It is not needed by the research demonstration. CV/JD declarations alone now yield unknown capability unless observations are supplied:
 ```bash
 # Seed default SQLite database (local_dev.db) with 7 canonical candidates
 python scripts/seed_db.py --samples 7
@@ -170,7 +175,7 @@ python scripts/seed_db.py --db-url "postgresql://postgres:postgres@localhost:543
 ```
 
 ### 2. Turnkey Candidate Analysis CLI
-Analyze arbitrary candidate materials through the full 10-stage pipeline and synthesize a Technical Dossier in seconds:
+The CLI parses supplied declarations and produces a dossier. Automated source acquisition is not wired into this path; without registered observations, technical capability remains unknown. For scored examples use the explicit research demonstration:
 ```bash
 # Run 10-stage pipeline on sample CV and JD fixtures (automatically infers candidate name)
 python scripts/analyze_candidate.py --cv examples/sample_backend_cv.txt --jd examples/sample_backend_jd.txt --role backend
@@ -181,7 +186,7 @@ python scripts/analyze_candidate.py --rescore-weights '{"backend_engineering": 0
 Dossier Markdown and JSON reports are generated in `reports/`.
 
 ### 3. Canonical Role Fixtures (`examples/`)
-The repository includes 5 production-grade CV and JD pairs for reproducible evaluation:
+The repository includes 5 sample CV and JD pairs for reproducible evaluation:
 - **Backend Engineering**: [`examples/sample_backend_cv.txt`](examples/sample_backend_cv.txt) & [`examples/sample_backend_jd.txt`](examples/sample_backend_jd.txt)
 - **Frontend Engineering**: [`examples/sample_frontend_cv.txt`](examples/sample_frontend_cv.txt) & [`examples/sample_frontend_jd.txt`](examples/sample_frontend_jd.txt)
 - **Machine Learning**: [`examples/sample_ml_cv.txt`](examples/sample_ml_cv.txt) & [`examples/sample_ml_jd.txt`](examples/sample_ml_jd.txt)
@@ -202,7 +207,7 @@ cd apps/web
 pnpm install
 pnpm dev
 ```
-Open `http://localhost:3000` to access the interactive recruitment platform:
+Open `http://localhost:3000` for the paper demonstration. The earlier `/workspace` interface contains:
 - **Candidate Directory**: Real-time search, role filtering, evidence status badges (`Robust`, `Sparse`, `Conflict Flagged`), and 1-click dossier navigation.
 - **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
 - **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
@@ -221,7 +226,7 @@ Open `http://localhost:3000` to access the interactive recruitment platform:
 | `GET` | `/api/v1/jobs` | Lists active job descriptions from the database |
 | `GET` | `/api/v1/candidates` | Lists all candidates with RCI, Coverage, and conflict indicators |
 | `GET` | `/api/v1/candidates/{id}` | Retrieves full candidate manifest data and intake records |
-| `POST` | `/api/v1/pipeline/analyze` | Executes 10-stage evaluation pipeline against submitted CV and JD |
+| `POST` | `/api/v1/pipeline/run` | Scores registered observations; declarations alone remain unknown |
 | `GET` | `/api/v1/dossier/{id}` | Retrieves generated Technical Dossier for a candidate |
 | `GET` | `/api/v1/dossier/{id}/export` | Exports formatted printable brief (`html`, `markdown`, or `json`) |
 | `GET` | `/api/v1/dossier/{id}/probes` | Retrieves prioritized interview probes with information-gain scores |
@@ -231,7 +236,7 @@ Open `http://localhost:3000` to access the interactive recruitment platform:
 
 ## Docker Deployment
 
-The entire stack is configured via `docker-compose.yml` with hardened security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
+Legacy container configuration is provided in `docker-compose.yml`; it is not the verified research-demo startup path. Database drivers, migrations, service routing, and worker state require validation before deployment. The configuration includes security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
 
 ```bash
 # Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
@@ -249,13 +254,8 @@ python scripts/smoke_test.py
 
 ## Verification & Test Matrix
 
-The test suite contains **134 passed tests** verifying all theorems, database persistence invariants, and end-to-end pipeline stages:
+Use the self-contained verification commands in the [demonstration guide](docs/research-demonstration.md#verification). Backend tests use a disposable database and explicit test fixtures. Browser tests exercise the production frontend against a real backend.
 
-- **Mathematical Theorems (Theorems 1–10)**: Strict adherence to conference paper proofs in [`test_paper_theorems_audit.py`](services/backend/tests/test_paper_theorems_audit.py).
-- **Security & SSRF Defense**: Link-local, loopback, RFC 1918 private IP, and IMDS protection in [`test_ssrf.py`](services/backend/tests/security/test_ssrf.py) and [`test_safe_workspace.py`](services/backend/tests/security/repositories/test_safe_workspace.py).
-- **Database Repository & Invariants**: ORM persistence, dual-representation conversions, and evidence immutability checks in [`test_db_seeding.py`](services/backend/tests/integration/test_db_seeding.py) and [`test_db_migration.py`](services/backend/tests/integration/test_db_migration.py).
-- **Static Multi-Language AST Parsers**: Deterministic code intelligence across Python, TypeScript/JavaScript, Go, Java, and C++ in [`test_code_analyzers.py`](services/backend/tests/golden/code_intel/test_code_analyzers.py).
-- **Database & DevOps Infrastructure**: Schema, migration, Docker, and CI/CD parsing in [`test_db_test_infra_analyzers.py`](services/backend/tests/golden/db_infra_golden/test_db_test_infra_analyzers.py).
-- **Job & Candidate APIs**: Endpoint contracts, request validation, and database fallbacks in [`test_jobs_and_candidates_api.py`](services/backend/tests/unit/api/test_jobs_and_candidates_api.py).
-- **End-to-End Orchestration**: 10-stage execution pipeline and functional rescore in [`test_pipeline_orchestration.py`](services/backend/tests/test_pipeline_orchestration.py).
-- **Research Reproducibility**: Monte Carlo simulation and statistical significance in [`test_run_paper_experiments.py`](services/backend/tests/unit/research/test_run_paper_experiments.py).
+- [Demonstration acceptance tests](services/backend/tests/test_research_demonstration.py): evidence integrity, deterministic scenarios, role/JD conditioning, missingness, provenance, consistent rescoring, validation and artifact alignment.
+- [Browser workflow tests](apps/web/tests/research-demo.spec.ts): controls through API responses, exports, failure states and mobile layout.
+- Existing suites cover mathematical properties, source parsers, database operations, and the separate simulation. Passing these tests does not independently validate real-world hiring accuracy or every production security property.

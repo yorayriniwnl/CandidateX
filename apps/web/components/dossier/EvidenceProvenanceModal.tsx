@@ -73,23 +73,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
     const found = graph.nodes.find((n) => n.id === nodeId);
     if (found) return found;
 
-    // Synthetic fallback if node ID referenced in claims/probes is not in mock graph
-    return {
-      id: nodeId,
-      type: 'evidence',
-      label: `Evidence Record (${nodeId})`,
-      properties: {
-        capability: 'backend_engineering',
-        score: 85,
-        confidence: 0.88,
-        authority: 0.94,
-        ownership: 0.92,
-        recency: 0.90,
-        verifiability: 0.87,
-        complexity: 0.89,
-        source_reliability: 0.91,
-      },
-    } as CEGNode;
+    return null;
   }, [nodeId, graph.nodes]);
 
   // Provenance Lineage: Incoming and Outgoing Edges
@@ -157,12 +141,14 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
     if (!node) return [];
     const p = node.properties || {};
 
-    const a = typeof p.authority === 'number' ? p.authority : 0.95;
-    const o = typeof p.ownership === 'number' ? p.ownership : 0.92;
-    const t = typeof p.recency === 'number' ? p.recency : 0.91;
-    const v = typeof p.verifiability === 'number' ? p.verifiability : 0.88;
-    const x = typeof p.complexity === 'number' ? p.complexity : 0.89;
-    const r = typeof p.source_reliability === 'number' ? p.source_reliability : 0.92;
+    const values = p.confidence_factors || {};
+    const a = values.artifact_integrity ?? p.authority;
+    const o = values.ownership_score ?? p.ownership;
+    const t = values.recency_factor ?? p.recency;
+    const v = values.verification_level ?? p.verifiability;
+    const x = values.depth_specificity ?? p.complexity;
+    const r = values.source_reliability ?? p.source_reliability;
+    if (![a, o, t, v, x, r].every(value => typeof value === 'number')) return [];
 
     return [
       {
@@ -229,7 +215,8 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
     return Math.pow(prod, 1.0 / 6.0);
   }, [factors]);
 
-  if (!isOpen || !node) return null;
+  if (!isOpen) return null;
+  if (!node || factors.length === 0) return <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"><div role="dialog" aria-modal="true" aria-label="Evidence unavailable" className="rounded-xl bg-slate-900 p-6"><p>No complete provenance record is available for this evidence. Values have not been substituted.</p><button type="button" className="mt-4 underline" onClick={onClose}>Close</button></div></div>;
 
   const targetCapability = (node.properties?.capability as CapabilityKey) || 'backend_engineering';
   const rawScore = typeof node.properties?.score === 'number' ? node.properties.score : 85;
