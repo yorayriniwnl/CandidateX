@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Clock, Loader2, ArrowRight, FileCheck, Layers } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, Clock, Loader2, ArrowRight, Layers } from 'lucide-react';
 import { AnalysisStage, PipelineStageInfo } from '../types/cci';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassButton } from '@/components/ui/GlassButton';
 
 export const PIPELINE_STAGES: { stage: AnalysisStage; label: string; desc: string }[] = [
   { stage: 'PARSING_CV', label: '1. CV Manifest Parsing', desc: 'Closed-world links & claim extraction' },
@@ -22,8 +25,11 @@ export const PipelineTracker: React.FC<{
   isComplete?: boolean;
   onViewDossier?: () => void;
 }> = ({ currentStageIndex = 9, isComplete = true, onViewDossier }) => {
+  // Calculate completion percentage for the line
+  const progressPercentage = isComplete ? 100 : (currentStageIndex / (PIPELINE_STAGES.length - 1)) * 100;
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+    <GlassCard className="p-6 space-y-6">
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
@@ -41,70 +47,90 @@ export const PipelineTracker: React.FC<{
         )}
       </div>
 
-      {/* Visual Stepper */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {PIPELINE_STAGES.map((s, idx) => {
-          const isDone = idx < currentStageIndex || isComplete;
-          const isActive = idx === currentStageIndex && !isComplete;
-          const isPending = idx > currentStageIndex && !isComplete;
+      {/* Vertical Timeline */}
+      <div className="relative pl-3">
+        {/* Animated connecting line */}
+        <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-slate-800 rounded-full" />
+        <div 
+          className="absolute left-[27px] top-4 w-0.5 rounded-full bg-gradient-to-b from-indigo-500 to-emerald-500 transition-all duration-500 ease-in-out"
+          style={{ height: `calc(${progressPercentage}% - 32px)` }}
+        />
 
-          return (
-            <div
-              key={s.stage}
-              className={`p-3 rounded-lg border transition-all flex items-start gap-3 ${
-                isDone
-                  ? 'bg-slate-950/60 border-emerald-500/30 text-slate-200'
-                  : isActive
-                  ? 'bg-blue-500/10 border-blue-500/50 text-blue-200'
-                  : 'bg-slate-950/20 border-slate-800/80 text-slate-500'
-              }`}
-            >
-              <div className="mt-0.5 shrink-0">
-                {isDone ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : isActive ? (
-                  <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                ) : (
-                  <Clock className="w-4 h-4 text-slate-600" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium truncate">{s.label}</span>
-                  <span
-                    className={`text-[10px] uppercase font-mono px-1.5 py-0.2 rounded ${
-                      isDone
-                        ? 'text-emerald-400 bg-emerald-500/10'
-                        : isActive
-                        ? 'text-blue-400 bg-blue-500/10'
-                        : 'text-slate-600'
-                    }`}
-                  >
-                    {isDone ? 'DONE' : isActive ? 'RUNNING' : 'QUEUED'}
-                  </span>
+        <div className="space-y-4 relative z-10">
+          {PIPELINE_STAGES.map((s, idx) => {
+            const isDone = idx < currentStageIndex || isComplete;
+            const isActive = idx === currentStageIndex && !isComplete;
+            
+            // Accent color classes based on state
+            const borderAccent = isDone ? 'border-l-emerald-500' : isActive ? 'border-l-indigo-500' : 'border-l-slate-700';
+
+            return (
+              <motion.div
+                key={s.stage}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.05 }}
+                className="flex items-center gap-4"
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 bg-slate-950 transition-colors shrink-0
+                  ${isDone ? 'border-emerald-500/50' : isActive ? 'border-indigo-500/50' : 'border-slate-800'}
+                `}>
+                  <AnimatePresence mode="wait">
+                    {isDone ? (
+                      <motion.div key="done" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      </motion.div>
+                    ) : isActive ? (
+                      <motion.div key="active" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                        <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="pending" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                        <Clock className="w-4 h-4 text-slate-600" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.desc}</p>
-              </div>
-            </div>
-          );
-        })}
+
+                <GlassCard variant="subtle" className={`flex-1 p-3 border-l-4 ${borderAccent} hover:border-l-4 transition-colors`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-200">{s.label}</span>
+                    <span
+                      className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-md ${
+                        isDone
+                          ? 'text-emerald-400 bg-emerald-500/10'
+                          : isActive
+                          ? 'text-indigo-400 bg-indigo-500/10'
+                          : 'text-slate-500 bg-slate-800/50'
+                      }`}
+                    >
+                      {isDone ? 'DONE' : isActive ? 'RUNNING' : 'QUEUED'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">{s.desc}</p>
+                </GlassCard>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
 
       {isComplete && (
-        <div className="pt-2 flex items-center justify-between border-t border-slate-800/80">
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-between border-t border-slate-800/80 gap-4">
           <div className="text-xs text-slate-400">
             <span className="font-semibold text-slate-300">14 Verified Evidence Records</span> synthesized into Candidate Evidence Graph.
           </div>
-          <button
-            type="button"
+          <GlassButton 
+            variant="primary" 
             onClick={onViewDossier}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+            icon={<ArrowRight className="w-4 h-4" />}
+            iconPosition="right"
+            className="animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.3)] bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500"
           >
-            <span>Open Technical Dossier</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+            Open Technical Dossier
+          </GlassButton>
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 };

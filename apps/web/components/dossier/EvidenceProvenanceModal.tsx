@@ -2,29 +2,25 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  AlertTriangle,
   ArrowRight,
-  Award,
   CheckCircle2,
-  Code,
-  ExternalLink,
   FileCode,
-  FileText,
-  GitBranch,
-  GitCommit,
-  HelpCircle,
   Info,
-  Layers,
   MessageSquare,
   Network,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
-  X,
-  XCircle,
+  HelpCircle,
 } from 'lucide-react';
-import { CEGGraph, CEGNode, CEGEdge, CapabilityKey, Dossier } from '../../types/cci';
+import { CEGGraph, CEGNode, CapabilityKey, Dossier } from '../../types/cci';
+import { GlassModal } from '@/components/ui/GlassModal';
+import { TabSlider } from '@/components/ui/TabSlider';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { GlowBadge } from '@/components/ui/GlowBadge';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { GlassCard } from '@/components/ui/GlassCard';
 
 const CAPABILITY_LABELS: Record<string, string> = {
   backend_engineering: 'Backend Engineering',
@@ -46,9 +42,7 @@ interface FactorDetail {
   symbol: string;
   value: number;
   description: string;
-  colorClass: string;
-  bgClass: string;
-  borderClass: string;
+  tooltipText: string;
 }
 
 interface EvidenceProvenanceModalProps {
@@ -66,17 +60,13 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
   graph,
   dossier,
 }) => {
-  const [activeTab, setActiveTab] = useState<'decomposition' | 'lineage' | 'claims_probes' | 'ast'>('decomposition');
+  const [activeTab, setActiveTab] = useState('decomposition');
 
   const node = useMemo(() => {
     if (!nodeId) return null;
-    const found = graph.nodes.find((n) => n.id === nodeId);
-    if (found) return found;
-
-    return null;
+    return graph.nodes.find((n) => n.id === nodeId) || null;
   }, [nodeId, graph.nodes]);
 
-  // Provenance Lineage: Incoming and Outgoing Edges
   const { incomingArtifacts, incomingSources, outgoingCapabilities, associatedClaims, associatedQuestions } = useMemo(() => {
     if (!node) {
       return {
@@ -101,7 +91,6 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
         if (parent.type === 'artifact') artNodes.push(parent);
         if (parent.type === 'source') srcNodes.push(parent);
 
-        // Grandparents (source -> artifact -> evidence)
         const grandEdges = graph.edges.filter((ge) => ge.target === parent.id);
         grandEdges.forEach((ge) => {
           const grandParent = graph.nodes.find((n) => n.id === ge.source);
@@ -117,12 +106,10 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
       if (child && child.type === 'capability') capNodes.push(child);
     });
 
-    // Match claims from dossier
     const matchingClaims = dossier.claims_corroboration.filter(
       (c) => c.grounding_evidence_ids && c.grounding_evidence_ids.includes(node.id)
     );
 
-    // Match questions from dossier
     const matchingQuestions = dossier.interview_questions.filter(
       (q) => q.grounding_evidence_ids && q.grounding_evidence_ids.includes(node.id)
     );
@@ -136,7 +123,6 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
     };
   }, [node, graph, dossier]);
 
-  // 6-Factor Confidence Decomposition (Theorem 2)
   const factors: FactorDetail[] = useMemo(() => {
     if (!node) return [];
     const p = node.properties || {};
@@ -156,59 +142,46 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
         symbol: 'a',
         value: a,
         description: 'Verified repository host, official enterprise organization, or authenticated source.',
-        colorClass: 'text-sky-400',
-        bgClass: 'bg-sky-500',
-        borderClass: 'border-sky-500/30',
+        tooltipText: 'Parser and artifact integrity score',
       },
       {
         name: 'Ownership Attribution',
         symbol: 'o',
         value: o,
-        description: 'Git author attribution, commit line share, and solo author weighting (penalty if fork).',
-        colorClass: 'text-emerald-400',
-        bgClass: 'bg-emerald-500',
-        borderClass: 'border-emerald-500/30',
+        description: 'Git author attribution, commit line share, and solo author weighting.',
+        tooltipText: 'Authorship attribution confidence',
       },
       {
         name: 'Recency Decay Factor',
         symbol: 't',
         value: t,
         description: 'Domain-calibrated half-life decay t = exp(-λ_k · Δt) against capability obsolescence.',
-        colorClass: 'text-amber-400',
-        bgClass: 'bg-amber-500',
-        borderClass: 'border-amber-500/30',
+        tooltipText: 'Temporal freshness based on age',
       },
       {
         name: 'Verifiability Score',
         symbol: 'v',
         value: v,
         description: 'Reproducibility score, test presence, and external citation corroboration.',
-        colorClass: 'text-indigo-400',
-        bgClass: 'bg-indigo-500',
-        borderClass: 'border-indigo-500/30',
+        tooltipText: 'Direct verification level',
       },
       {
         name: 'Structural Complexity',
         symbol: 'x',
         value: x,
         description: 'Static AST tree node density, cyclomatic complexity, and multi-file architecture.',
-        colorClass: 'text-purple-400',
-        bgClass: 'bg-purple-500',
-        borderClass: 'border-purple-500/30',
+        tooltipText: 'Technical depth and architectural complexity',
       },
       {
         name: 'Source Reliability',
         symbol: 'r',
         value: r,
         description: 'Empirical Bayesian Beta-Binomial posterior mean μ_s = α_s / (α_s + β_s).',
-        colorClass: 'text-rose-400',
-        bgClass: 'bg-rose-500',
-        borderClass: 'border-rose-500/30',
+        tooltipText: 'Bayesian posterior source family reliability',
       },
     ];
   }, [node]);
 
-  // Geometric Mean Composite Confidence
   const compositeConfidence = useMemo(() => {
     if (factors.length === 0) return 0;
     const prod = factors.reduce((acc, f) => acc * f.value, 1.0);
@@ -216,57 +189,48 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
   }, [factors]);
 
   if (!isOpen) return null;
-  if (!node || factors.length === 0) return <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"><div role="dialog" aria-modal="true" aria-label="Evidence unavailable" className="rounded-xl bg-slate-900 p-6"><p>No complete provenance record is available for this evidence. Values have not been substituted.</p><button type="button" className="mt-4 underline" onClick={onClose}>Close</button></div></div>;
+  if (!node || factors.length === 0) {
+    return (
+      <GlassModal isOpen={isOpen} onClose={onClose} title="Evidence Provenance Inspector">
+        <div className="p-6 text-center">
+          <p className="text-slate-400 mb-4">No complete provenance record is available for this evidence.</p>
+          <GlassButton onClick={onClose} variant="secondary">Close</GlassButton>
+        </div>
+      </GlassModal>
+    );
+  }
 
   const targetCapability = (node.properties?.capability as CapabilityKey) || 'backend_engineering';
   const rawScore = typeof node.properties?.score === 'number' ? node.properties.score : 85;
 
+  const tabs = [
+    { key: 'decomposition', label: '6-Factor Confidence Decomposition', icon: <Sparkles className="w-4 h-4" /> },
+    { key: 'lineage', label: 'CEG Backward Lineage Path', icon: <Network className="w-4 h-4" /> },
+    { key: 'claims_probes', label: `Corroborated Claims & Inquiries (${associatedClaims.length + associatedQuestions.length})`, icon: <MessageSquare className="w-4 h-4" /> },
+    { key: 'ast', label: 'Static AST Inspector', icon: <FileCode className="w-4 h-4" /> },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Modal Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white tracking-wide">{node.label}</h2>
-                <span className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded text-[11px] font-mono">
-                  {node.id}
-                </span>
-                <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded text-[11px] font-semibold">
-                  {CAPABILITY_LABELS[targetCapability] || targetCapability}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Backward Provenance Tracing &amp; Theorem 2 Multiplicative Confidence Composition
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <GlassModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Evidence Provenance Inspector"
+      subtitle={node.label}
+      size="xl"
+    >
+      <div className="flex flex-col h-full max-h-[85vh]">
         {/* Quick Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-950 border-b border-slate-800 text-xs">
-          <div className="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-950/50 border-b border-slate-800 text-xs">
+          <GlassCard variant="subtle" className="p-2.5">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
               Composite Confidence (c_e,k)
             </span>
             <div className="text-xl font-black text-indigo-400 font-mono mt-0.5">
               {(compositeConfidence * 100).toFixed(1)}%
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl">
+          <GlassCard variant="subtle" className="p-2.5">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
               Raw Evidence Score (z_e,k)
             </span>
@@ -274,9 +238,9 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
               {rawScore.toFixed(1)}
               <span className="text-xs text-slate-500 font-normal"> / 100</span>
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl">
+          <GlassCard variant="subtle" className="p-2.5">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
               Grounding Provenance
             </span>
@@ -284,9 +248,9 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
               <CheckCircle2 className="w-4 h-4" />
               <span>Full Chain Verified</span>
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl">
+          <GlassCard variant="subtle" className="p-2.5">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
               Execution Invariant
             </span>
@@ -294,67 +258,24 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
               <Shield className="w-3.5 h-3.5 text-sky-400" />
               <span>Static AST Only (No Exec)</span>
             </div>
-          </div>
+          </GlassCard>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 px-5 bg-slate-950/40 text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('decomposition')}
-            className={`py-3 px-4 font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'decomposition'
-                ? 'border-indigo-500 text-indigo-300 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>6-Factor Confidence Decomposition</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('lineage')}
-            className={`py-3 px-4 font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'lineage'
-                ? 'border-indigo-500 text-indigo-300 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Network className="w-4 h-4" />
-            <span>CEG Backward Lineage Path</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('claims_probes')}
-            className={`py-3 px-4 font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'claims_probes'
-                ? 'border-indigo-500 text-indigo-300 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Corroborated Claims &amp; Inquiries ({associatedClaims.length + associatedQuestions.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ast')}
-            className={`py-3 px-4 font-semibold border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'ast'
-                ? 'border-indigo-500 text-indigo-300 bg-indigo-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <FileCode className="w-4 h-4" />
-            <span>Static AST Inspector</span>
-          </button>
+        <div className="border-b border-slate-800 bg-slate-950/40">
+          <TabSlider
+            tabs={tabs}
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            size="sm"
+            className="px-4"
+          />
         </div>
 
         {/* Tab Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-300 text-xs">
-          {/* TAB 1: 6-Factor Decomposition */}
           {activeTab === 'decomposition' && (
             <div className="space-y-4">
-              {/* Theorem Callout */}
               <div className="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-1">
                 <div className="flex items-center gap-2 text-indigo-300 font-bold">
                   <Info className="w-4 h-4" />
@@ -364,54 +285,53 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                   c_(e,k) = (a &bull; o &bull; t &bull; v &bull; x &bull; r)^(1/6) &isin; [0, 1]
                 </p>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Strictly monotonic with respect to each component factor. If any factor is zero (e.g. unowned code or unverified claim), the entire composite confidence collapses to 0.0, guarding against false attribution.
+                  Strictly monotonic with respect to each component factor. If any factor is zero, the entire composite confidence collapses to 0.0, guarding against false attribution.
                 </p>
               </div>
 
-              {/* Factors Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {factors.map((f) => (
-                  <div
-                    key={f.symbol}
-                    className="p-3.5 bg-slate-950/80 border border-slate-800/90 rounded-xl space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-lg bg-slate-900 border ${f.borderClass} font-mono font-bold text-xs flex items-center justify-center ${f.colorClass}`}>
-                          {f.symbol}
+                {factors.map((f) => {
+                  let barColor: 'emerald' | 'indigo' | 'amber' = 'amber';
+                  if (f.value >= 0.7) barColor = 'emerald';
+                  else if (f.value >= 0.4) barColor = 'indigo';
+
+                  return (
+                    <GlassCard key={f.symbol} variant="subtle" className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-700 font-mono font-bold text-xs flex items-center justify-center text-slate-300">
+                            {f.symbol}
+                          </span>
+                          <Tooltip content={f.tooltipText}>
+                            <span className="font-semibold text-slate-100 flex items-center gap-1 cursor-help hover:text-indigo-300 transition-colors">
+                              {f.name} <HelpCircle className="w-3 h-3 text-slate-500" />
+                            </span>
+                          </Tooltip>
+                        </div>
+                        <span className="font-mono font-bold text-sm">
+                          {(f.value * 100).toFixed(1)}%
                         </span>
-                        <span className="font-semibold text-slate-100">{f.name}</span>
                       </div>
-                      <span className={`font-mono font-bold text-sm ${f.colorClass}`}>
-                        {(f.value * 100).toFixed(1)}%
-                      </span>
-                    </div>
 
-                    <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
-                      <div
-                        className={`h-full ${f.bgClass}`}
-                        style={{ width: `${Math.min(100, Math.max(0, f.value * 100))}%` }}
-                      />
-                    </div>
+                      <ProgressBar value={f.value} color={barColor} size="sm" showValue={false} animated />
 
-                    <p className="text-slate-400 text-[11px] leading-relaxed">{f.description}</p>
-                  </div>
-                ))}
+                      <p className="text-slate-400 text-[11px] leading-relaxed">{f.description}</p>
+                    </GlassCard>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* TAB 2: CEG Lineage Path */}
           {activeTab === 'lineage' && (
             <div className="space-y-4">
-              <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono mb-2">
+              <GlassCard variant="subtle" className="p-4">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono mb-4">
                   Complete Provenance Chain (Candidate Evidence Graph)
                 </span>
 
-                <div className="flex flex-col md:flex-row items-center gap-3 text-xs">
-                  {/* Step 1: Source */}
-                  <div className="flex-1 p-3 bg-slate-900 border border-slate-800 rounded-lg text-center w-full">
+                <div className="flex flex-col md:flex-row items-center gap-4 text-xs">
+                  <div className="flex-1 p-3 bg-slate-900/50 border border-slate-800 rounded-lg text-center w-full">
                     <span className="text-[10px] text-sky-400 font-mono block">1. RAW SOURCE</span>
                     <div className="font-bold text-slate-100 mt-1 truncate">
                       {incomingSources[0]?.label || 'ayush-dev/distributed-cache'}
@@ -419,10 +339,9 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                     <span className="text-[10px] text-slate-500 block">GitHub Repository</span>
                   </div>
 
-                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 hidden md:block" />
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 rotate-90 md:rotate-0" />
 
-                  {/* Step 2: Artifact */}
-                  <div className="flex-1 p-3 bg-slate-900 border border-slate-800 rounded-lg text-center w-full">
+                  <div className="flex-1 p-3 bg-slate-900/50 border border-slate-800 rounded-lg text-center w-full">
                     <span className="text-[10px] text-amber-400 font-mono block">2. PARSED ARTIFACT</span>
                     <div className="font-bold text-slate-100 mt-1 truncate">
                       {incomingArtifacts[0]?.label || 'socket_reactor.py'}
@@ -430,9 +349,8 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                     <span className="text-[10px] text-slate-500 block">Static AST Parser</span>
                   </div>
 
-                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 hidden md:block" />
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 rotate-90 md:rotate-0" />
 
-                  {/* Step 3: Evidence */}
                   <div className="flex-1 p-3 bg-indigo-950/40 border border-indigo-500/50 rounded-lg text-center w-full">
                     <span className="text-[10px] text-indigo-300 font-mono block">3. EVIDENCE RECORD</span>
                     <div className="font-bold text-white mt-1 truncate">{node.label}</div>
@@ -441,10 +359,9 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                     </span>
                   </div>
 
-                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 hidden md:block" />
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 rotate-90 md:rotate-0" />
 
-                  {/* Step 4: Capability */}
-                  <div className="flex-1 p-3 bg-slate-900 border border-slate-800 rounded-lg text-center w-full">
+                  <div className="flex-1 p-3 bg-slate-900/50 border border-slate-800 rounded-lg text-center w-full">
                     <span className="text-[10px] text-emerald-400 font-mono block">4. CORE CAPABILITY</span>
                     <div className="font-bold text-slate-100 mt-1 truncate">
                       {CAPABILITY_LABELS[targetCapability] || targetCapability}
@@ -452,9 +369,8 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                     <span className="text-[10px] text-slate-500 block">Dossier Aggregation</span>
                   </div>
                 </div>
-              </div>
+              </GlassCard>
 
-              {/* Edge Connections List */}
               <div className="space-y-2">
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
                   Graph Edges Associated with Evidence Node
@@ -463,9 +379,10 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                   {graph.edges
                     .filter((e) => e.source === node.id || e.target === node.id)
                     .map((e) => (
-                      <div
+                      <GlassCard
                         key={e.id}
-                        className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-between"
+                        variant="subtle"
+                        className="p-2.5 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-slate-400">{e.source}</span>
@@ -473,62 +390,55 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                           <span className="text-slate-200">{e.target}</span>
                         </div>
                         <span className="text-slate-500">weight: {e.weight.toFixed(2)}</span>
-                      </div>
+                      </GlassCard>
                     ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 3: Corroborated Claims & Questions */}
           {activeTab === 'claims_probes' && (
             <div className="space-y-4">
-              {/* Claims */}
               <div className="space-y-2">
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
                   Corroborated Self-Claims ({associatedClaims.length})
                 </span>
                 {associatedClaims.length > 0 ? (
                   associatedClaims.map((claim) => (
-                    <div
-                      key={claim.claim_id}
-                      className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5"
-                    >
+                    <GlassCard key={claim.claim_id} variant="subtle" className="p-3.5 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-200">{claim.claim_text}</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        <GlowBadge
+                          variant={
                             claim.status === 'corroborated'
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              ? 'success'
                               : claim.status === 'contradicted'
-                              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                              : 'bg-slate-800 text-slate-400 border border-slate-700'
-                          }`}
+                              ? 'danger'
+                              : 'neutral'
+                          }
+                          size="sm"
+                          className="uppercase"
                         >
                           {claim.status}
-                        </span>
+                        </GlowBadge>
                       </div>
                       <p className="text-slate-400 text-[11px] leading-relaxed">{claim.explanation}</p>
-                    </div>
+                    </GlassCard>
                   ))
                 ) : (
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-500 italic">
+                  <GlassCard variant="subtle" className="p-4 text-slate-500 italic text-center">
                     No candidate self-claims directly ground onto this specific evidence node.
-                  </div>
+                  </GlassCard>
                 )}
               </div>
 
-              {/* Questions */}
               <div className="space-y-2">
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
                   Grounded Technical Interview Probes ({associatedQuestions.length})
                 </span>
                 {associatedQuestions.length > 0 ? (
                   associatedQuestions.map((q) => (
-                    <div
-                      key={q.question_id}
-                      className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2"
-                    >
+                    <GlassCard key={q.question_id} variant="subtle" className="p-3.5 space-y-2">
                       <div className="flex items-start gap-2">
                         <MessageSquare className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                         <span className="font-medium text-slate-200 leading-relaxed">
@@ -536,28 +446,27 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                         </span>
                       </div>
                       {q.verification_guidance && (
-                        <div className="p-2.5 bg-slate-900 border border-slate-800/80 rounded-lg text-[11px] text-slate-300">
+                        <div className="p-2.5 bg-slate-900/50 border border-slate-800/80 rounded-lg text-[11px] text-slate-300">
                           <span className="font-semibold text-emerald-400 block mb-0.5">
                             Interviewer Verification Guidance:
                           </span>
                           {q.verification_guidance}
                         </div>
                       )}
-                    </div>
+                    </GlassCard>
                   ))
                 ) : (
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-500 italic">
+                  <GlassCard variant="subtle" className="p-4 text-slate-500 italic text-center">
                     No technical interview probe questions directly reference this specific evidence ID.
-                  </div>
+                  </GlassCard>
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB 4: Static AST Inspector */}
           {activeTab === 'ast' && (
             <div className="space-y-4">
-              <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-3 font-mono text-[11px]">
+              <GlassCard variant="subtle" className="p-4 space-y-3 font-mono text-[11px]">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div className="flex items-center gap-2">
                     <FileCode className="w-4 h-4 text-indigo-400" />
@@ -565,9 +474,9 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                       {incomingArtifacts[0]?.label || 'socket_reactor.py'}
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded text-[10px]">
+                  <GlowBadge variant="neutral" size="sm">
                     Static AST
-                  </span>
+                  </GlowBadge>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-slate-400">
@@ -591,14 +500,14 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
 
                 <div className="pt-2 border-t border-slate-800">
                   <span className="text-slate-500 block mb-1">Detected AST Signatures:</span>
-                  <div className="bg-slate-900 p-2.5 rounded border border-slate-800 text-slate-300 space-y-1">
+                  <div className="bg-slate-900/80 p-2.5 rounded border border-slate-800 text-slate-300 space-y-1">
                     <div>&bull; `AsyncIOEventLoop.create_server` (Non-blocking TCP socket reactor)</div>
                     <div>&bull; `HashRingPartitioner.get_node` (Consistent hashing ring)</div>
                     <div>&bull; `async with Lock()` (Concurrency synchronization primitive)</div>
                     <div>&bull; Zero dynamic code execution (Invariant verified)</div>
                   </div>
                 </div>
-              </div>
+              </GlassCard>
             </div>
           )}
         </div>
@@ -610,15 +519,11 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
             <span>Formal Auditability: Proof of provenance from raw code artifact to RCI point estimate.</span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors"
-          >
+          <GlassButton onClick={onClose} variant="ghost" size="sm">
             Close Inspector
-          </button>
+          </GlassButton>
         </div>
       </div>
-    </div>
+    </GlassModal>
   );
 };

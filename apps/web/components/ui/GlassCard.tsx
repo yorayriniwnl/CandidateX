@@ -6,9 +6,10 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
 interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
   children: React.ReactNode;
   variant?: 'default' | 'strong' | 'subtle';
-  glow?: 'none' | 'indigo' | 'violet' | 'emerald' | 'cyan';
+  glow?: 'none' | 'indigo' | 'violet' | 'emerald' | 'cyan' | 'amber' | 'rose';
   hoverLift?: boolean;
   noPadding?: boolean;
+  animateDelay?: number;
 }
 
 const glassStyles = {
@@ -23,13 +24,29 @@ const glowStyles = {
   violet: 'shadow-[0_0_15px_rgba(139,92,246,0.08)] hover:shadow-glow-violet',
   emerald: 'shadow-[0_0_15px_rgba(52,211,153,0.08)] hover:shadow-glow-emerald',
   cyan: 'shadow-[0_0_15px_rgba(34,211,238,0.08)] hover:shadow-glow-cyan',
+  amber: 'shadow-[0_0_15px_rgba(245,158,11,0.08)] hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]',
+  rose: 'shadow-[0_0_15px_rgba(244,63,94,0.08)] hover:shadow-[0_0_20px_rgba(244,63,94,0.15)]',
 };
 
 export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
-  ({ children, variant = 'default', glow = 'none', hoverLift = true, noPadding = false, className = '', ...props }, ref) => {
+  ({
+    children,
+    variant = 'default',
+    glow = 'none',
+    hoverLift = true,
+    noPadding = false,
+    animateDelay,
+    className = '',
+    style,
+    ...props
+  }, ref) => {
     return (
       <motion.div
         ref={ref}
+        style={{
+          ...style,
+          ...(animateDelay !== undefined ? { animationDelay: `${animateDelay}ms` } : {}),
+        }}
         className={`
           rounded-2xl transition-all duration-300
           ${glassStyles[variant]}

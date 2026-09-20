@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
-  HelpCircle,
   ListOrdered,
   MessageSquare,
-  ShieldAlert,
-  Sparkles,
-  Target,
 } from 'lucide-react';
 import { CapabilityKey, InterviewQuestion, ProbePriority } from '../../types/cci';
+import { GlassCard } from '../ui/GlassCard';
+import { GlassButton } from '../ui/GlassButton';
+import { Tooltip } from '../ui/Tooltip';
 
 const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
   backend_engineering: 'Backend Engineering',
@@ -37,7 +37,16 @@ export const InterviewProbesPanel: React.FC<{
   onOpenScorecard?: () => void;
   onInspectEvidence?: (evidenceId: string) => void;
 }> = ({ probes, questions, onSelectCapability, selectedCapability, onOpenScorecard, onInspectEvidence }) => {
-  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(new Set());
+
+  const toggleQuestion = (id: string) => {
+    setExpandedQuestionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Group questions by capability
   const questionsByCapability: Record<CapabilityKey, InterviewQuestion[]> = {} as any;
@@ -50,9 +59,16 @@ export const InterviewProbesPanel: React.FC<{
 
   const sortedProbes = [...probes].sort((a, b) => a.rank - b.rank);
 
+  const getRankBadgeColor = (rank: number) => {
+    if (rank === 1) return 'bg-[#fbbf24] text-amber-950 shadow-md shadow-[#fbbf24]/30';
+    if (rank === 2) return 'bg-[#94a3b8] text-slate-950 shadow-md shadow-[#94a3b8]/30';
+    if (rank === 3) return 'bg-[#cd7f32] text-orange-950 shadow-md shadow-[#cd7f32]/30';
+    return 'bg-white/[0.08] text-slate-300 border border-white/[0.08]';
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <GlassCard variant="default" className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
             <ListOrdered className="w-5 h-5" />
@@ -65,18 +81,18 @@ export const InterviewProbesPanel: React.FC<{
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="hidden sm:inline-block px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 font-mono">
+          <span className="hidden sm:inline-block px-2 py-1 glass border border-white/[0.08] rounded text-xs text-slate-300 font-mono">
             {questions.length} Grounded Question(s)
           </span>
           {onOpenScorecard && (
-            <button
-              type="button"
+            <GlassButton
+              variant="primary"
+              size="sm"
               onClick={onOpenScorecard}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-colors"
             >
-              <ClipboardCheck className="w-4 h-4" />
-              <span>Record Scorecard</span>
-            </button>
+              <ClipboardCheck className="w-4 h-4 mr-1.5" />
+              Record Scorecard
+            </GlassButton>
           )}
         </div>
       </div>
@@ -90,21 +106,17 @@ export const InterviewProbesPanel: React.FC<{
           return (
             <div
               key={probe.capability_key}
-              className={`border rounded-lg p-4 transition-all ${
+              className={`border rounded-xl p-4 transition-all ${
                 isSelected
-                  ? 'bg-slate-800/80 border-indigo-500 ring-1 ring-indigo-500/30'
-                  : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                  ? 'glass-strong border-indigo-500 ring-1 ring-indigo-500/30'
+                  : 'glass hover:bg-white/[0.04] border-white/[0.08]'
               }`}
             >
               {/* Probe Priority Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <span
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black font-mono shrink-0 ${
-                      isPriorityHigh
-                        ? 'bg-indigo-500 text-white shadow-sm shadow-indigo-500/50'
-                        : 'bg-slate-800 text-slate-300 border border-slate-700'
-                    }`}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black font-mono shrink-0 ${getRankBadgeColor(probe.rank)}`}
                   >
                     #{probe.rank}
                   </span>
@@ -130,47 +142,44 @@ export const InterviewProbesPanel: React.FC<{
 
                 {/* Mathematical Decomposition Badges */}
                 <div className="flex items-center gap-2 text-[11px] font-mono">
-                  <span
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Role Weight (w_k)"
-                  >
-                    w: {(probe.role_weight * 100).toFixed(0)}%
-                  </span>
-                  <span
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Coverage Gap Term: w_k * (1 - Cov_k)"
-                  >
-                    gap: {probe.coverage_gap_term.toFixed(3)}
-                  </span>
-                  <span
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Uncertainty / Dispersion Term"
-                  >
-                    uncert: {probe.uncertainty_term.toFixed(3)}
-                  </span>
-                  <span
-                    className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-400 rounded"
-                    title="Contradiction Term"
-                  >
-                    contra: {probe.contradiction_term.toFixed(3)}
-                  </span>
+                  <Tooltip content="Role Weight">
+                    <span className="px-2 py-0.5 glass border border-white/[0.08] text-slate-400 rounded cursor-help">
+                      w: {(probe.role_weight * 100).toFixed(0)}%
+                    </span>
+                  </Tooltip>
+                  <Tooltip content="Evidence Coverage Gap">
+                    <span className="px-2 py-0.5 glass border border-white/[0.08] text-slate-400 rounded cursor-help">
+                      gap: {probe.coverage_gap_term.toFixed(3)}
+                    </span>
+                  </Tooltip>
+                  <Tooltip content="Confidence Interval Width">
+                    <span className="px-2 py-0.5 glass border border-white/[0.08] text-slate-400 rounded cursor-help">
+                      uncert: {probe.uncertainty_term.toFixed(3)}
+                    </span>
+                  </Tooltip>
+                  <Tooltip content="Contradiction Signal">
+                    <span className="px-2 py-0.5 glass border border-white/[0.08] text-slate-400 rounded cursor-help">
+                      contra: {probe.contradiction_term.toFixed(3)}
+                    </span>
+                  </Tooltip>
                 </div>
               </div>
 
               {/* Grounded Questions for this capability */}
               {capQuestions.length > 0 ? (
-                <div className="mt-3.5 space-y-2 border-t border-slate-800/80 pt-3">
+                <div className="mt-3.5 space-y-2 border-t border-white/[0.06] pt-3">
                   {capQuestions.map((q) => {
-                    const isExpanded = expandedQuestionId === q.question_id;
+                    const isExpanded = expandedQuestionIds.has(q.question_id);
 
                     return (
-                      <div
+                      <GlassCard
                         key={q.question_id}
-                        className="bg-slate-900/90 border border-slate-800 rounded-lg p-3 space-y-2"
+                        variant="subtle"
+                        className="p-3 space-y-2 border-l-2 border-l-indigo-500"
                       >
                         <div
                           className="flex items-start justify-between gap-3 cursor-pointer select-none"
-                          onClick={() => setExpandedQuestionId(isExpanded ? null : q.question_id)}
+                          onClick={() => toggleQuestion(q.question_id)}
                         >
                           <div className="flex items-start gap-2 text-xs text-slate-200">
                             <MessageSquare className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
@@ -189,58 +198,68 @@ export const InterviewProbesPanel: React.FC<{
                         </div>
 
                         {/* Rationale / Verification guidance accordion */}
-                        {isExpanded && (
-                          <div className="pt-2 border-t border-slate-800/60 text-xs space-y-2.5 text-slate-300">
-                            <div>
-                              <span className="font-semibold text-indigo-300 block mb-0.5">
-                                Grounded Rationale:
-                              </span>
-                              <p className="text-slate-400 leading-relaxed">{q.rationale}</p>
-                            </div>
-
-                            <div>
-                              <span className="font-semibold text-emerald-300 block mb-0.5">
-                                Verification Guidance for Interviewer:
-                              </span>
-                              <p className="text-slate-300 bg-slate-950 p-2.5 rounded border border-slate-800 font-sans leading-relaxed">
-                                {q.verification_guidance}
-                              </p>
-                            </div>
-
-                            {q.suggested_followups && q.suggested_followups.length > 0 && (
-                              <div>
-                                <span className="font-semibold text-slate-400 block mb-1">
-                                  Suggested Follow-up Probes:
-                                </span>
-                                <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
-                                  {q.suggested_followups.map((fu, idx) => (
-                                    <li key={idx}>{fu}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {q.grounding_evidence_ids && q.grounding_evidence_ids.length > 0 && (
-                              <div className="text-[11px] font-mono text-slate-500 pt-1 flex items-center gap-1.5">
-                                <span>Grounding Evidence IDs:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {q.grounding_evidence_ids.map((id) => (
-                                    <button
-                                      key={id}
-                                      type="button"
-                                      onClick={() => onInspectEvidence && onInspectEvidence(id)}
-                                      className="px-1.5 py-0.5 bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/50 text-indigo-400 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
-                                      title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
-                                    >
-                                      {id}
-                                    </button>
-                                  ))}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pt-2 border-t border-white/[0.06] text-xs space-y-2.5 text-slate-300 mt-2">
+                                <div>
+                                  <span className="font-semibold text-indigo-300 block mb-0.5">
+                                    Grounded Rationale:
+                                  </span>
+                                  <p className="text-slate-400 leading-relaxed">{q.rationale}</p>
                                 </div>
+
+                                <div>
+                                  <span className="font-semibold text-emerald-300 block mb-0.5">
+                                    Verification Guidance for Interviewer:
+                                  </span>
+                                  <p className="text-slate-300 glass p-2.5 rounded-lg border border-white/[0.06] font-sans leading-relaxed">
+                                    {q.verification_guidance}
+                                  </p>
+                                </div>
+
+                                {q.suggested_followups && q.suggested_followups.length > 0 && (
+                                  <div>
+                                    <span className="font-semibold text-slate-400 block mb-1">
+                                      Suggested Follow-up Probes:
+                                    </span>
+                                    <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                                      {q.suggested_followups.map((fu, idx) => (
+                                        <li key={idx}>{fu}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {q.grounding_evidence_ids && q.grounding_evidence_ids.length > 0 && (
+                                  <div className="text-[11px] font-mono text-slate-500 pt-1 flex items-center gap-1.5">
+                                    <span>Grounding Evidence IDs:</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {q.grounding_evidence_ids.map((id) => (
+                                        <button
+                                          key={id}
+                                          type="button"
+                                          onClick={() => onInspectEvidence && onInspectEvidence(id)}
+                                          className="px-2 py-0.5 glass hover:bg-white/[0.08] border border-white/[0.08] text-indigo-400 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
+                                          title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
+                                        >
+                                          {id}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </GlassCard>
                     );
                   })}
                 </div>
@@ -254,10 +273,10 @@ export const InterviewProbesPanel: React.FC<{
         })}
       </div>
 
-      <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-800/80">
+      <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-white/[0.06]">
         <span>* Questions are grounded directly in extracted repository evidence and CV declarations.</span>
         <span>Interviewers remain the ultimate evaluators of candidate technical depth.</span>
       </div>
-    </div>
+    </GlassCard>
   );
 };

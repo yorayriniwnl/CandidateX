@@ -9,12 +9,15 @@ import {
   ArrowRight,
   TrendingUp,
   MessageSquare,
+  Search,
 } from 'lucide-react';
 import { CapabilityKey, Dossier } from '../../types/cci';
-import { GlassCard } from '../ui/GlassCard';
-import { GlowBadge } from '../ui/GlowBadge';
-import { RadialGauge } from '../ui/RadialGauge';
-import { AnimatedCounter } from '../ui/AnimatedCounter';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GlowBadge } from '@/components/ui/GlowBadge';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { RadialGauge } from '@/components/ui/RadialGauge';
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 
 interface Props {
   dossier: Dossier;
@@ -84,19 +87,19 @@ export const DossierOverviewTab: React.FC<Props> = ({
     if (rci >= 88) {
       readinessTier = {
         label: 'Exceptional',
-        variant: 'success' as const,
+        variant: 'success',
         desc: 'Candidate demonstrates authoritative, complex production code across core role dimensions.',
       };
     } else if (rci >= 75) {
       readinessTier = {
         label: 'Strong',
-        variant: 'brand' as const,
+        variant: 'brand',
         desc: 'Demonstrated solid software engineering fundamentals matching senior expectations.',
       };
     } else if (rci >= 60) {
       readinessTier = {
         label: 'Developing',
-        variant: 'info' as const,
+        variant: 'info',
         desc: 'Demonstrated working knowledge with opportunities to probe architectural depth in interview.',
       };
     }
@@ -122,7 +125,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   {readinessTier.label}
                 </GlowBadge>
               </div>
-              <h2 className="text-xl font-bold text-gradient tracking-tight">
+              <h2 className="text-xl font-bold text-slate-100 tracking-tight">
                 {candidateName}
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
@@ -151,14 +154,14 @@ export const DossierOverviewTab: React.FC<Props> = ({
 
           {/* Discrepancy Alert or Clean Banner */}
           {conflictEntries.length > 0 ? (
-            <div className="mt-4 p-3.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl flex items-start justify-between gap-3 text-xs">
+            <GlassCard variant="subtle" glow="rose" className="mt-4 !p-3.5 flex items-start justify-between gap-3 text-xs">
               <div className="flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-red-300">
+                  <span className="font-bold text-rose-300">
                     Discrepancy Detected ({conflictEntries.length}):
                   </span>
-                  <p className="text-red-200/80 mt-0.5 leading-normal">
+                  <p className="text-rose-200/80 mt-0.5 leading-normal">
                     Claims vs. code conflict in{' '}
                     <span className="font-semibold text-white">
                       {conflictEntries.map(([k]) => CAPABILITY_NAMES[k as CapabilityKey] || k).join(', ')}
@@ -166,28 +169,34 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
+              <GlassButton
+                variant="danger"
+                size="sm"
                 onClick={() => onNavigateToTab('claims')}
-                className="px-3 py-1.5 glass-strong text-red-300 hover:text-white rounded-lg text-[11px] font-semibold transition-colors shrink-0 flex items-center gap-1"
+                icon={<ArrowRight className="w-3 h-3" />}
+                iconPosition="right"
+                className="shrink-0"
               >
-                Inspect <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
+                Inspect
+              </GlassButton>
+            </GlassCard>
           ) : (
-            <div className="mt-4 p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl flex items-center justify-between text-xs text-emerald-300">
+            <GlassCard variant="subtle" glow="emerald" className="mt-4 !p-3 flex items-center justify-between text-xs text-emerald-300">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span><strong>Claims Corroborated:</strong> No discrepancies between CV statements and repository ASTs.</span>
               </div>
-              <button
-                type="button"
+              <GlassButton
+                variant="ghost"
+                size="sm"
                 onClick={() => onNavigateToTab('claims')}
-                className="text-xs text-emerald-400 hover:underline flex items-center gap-1 shrink-0"
+                icon={<ArrowRight className="w-3 h-3" />}
+                iconPosition="right"
+                className="shrink-0 text-emerald-400"
               >
-                View Matrix <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
+                View Matrix
+              </GlassButton>
+            </GlassCard>
           )}
         </GlassCard>
       </motion.div>
@@ -204,13 +213,15 @@ export const DossierOverviewTab: React.FC<Props> = ({
                 </div>
                 <h3 className="font-bold text-slate-100 text-sm">Top Strengths</h3>
               </div>
-              <button
-                type="button"
+              <GlassButton
+                variant="ghost"
+                size="sm"
                 onClick={() => onNavigateToTab('capabilities')}
-                className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1 transition-colors"
+                icon={<ArrowRight className="w-3 h-3" />}
+                iconPosition="right"
               >
-                All 12 <ArrowRight className="w-3 h-3" />
-              </button>
+                All 12
+              </GlassButton>
             </div>
 
             <div className="space-y-2 mt-3">
@@ -218,7 +229,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                 topStrengths.map(([key, est]) => {
                   const capKey = key as CapabilityKey;
                   const score = est.estimate ?? 0;
-                  const barColor = score >= 80 ? 'from-emerald-500 to-emerald-400' : score >= 60 ? 'from-brand-500 to-brand-400' : 'from-amber-500 to-amber-400';
+                  const barColor = score >= 80 ? 'emerald' : score >= 60 ? 'indigo' : 'amber';
                   return (
                     <button
                       key={key}
@@ -229,22 +240,16 @@ export const DossierOverviewTab: React.FC<Props> = ({
                       }}
                       className="w-full p-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] hover:border-emerald-500/30 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-200 text-left group"
                     >
-                      <div>
+                      <div className="flex-1 pr-4">
                         <div className="font-semibold text-slate-200 text-xs group-hover:text-white transition-colors">
                           {CAPABILITY_NAMES[capKey] || key}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
+                        <div className="text-[10px] text-slate-500 mt-0.5 mb-1.5">
                           {est.effective_evidence_count.toFixed(1)} code proofs
                         </div>
-                        {/* Score bar */}
-                        <div className="w-28 h-1 bg-white/[0.06] rounded-full mt-1.5 overflow-hidden">
-                          <div
-                            className={`h-full bg-gradient-to-r ${barColor} rounded-full transition-all duration-1000`}
-                            style={{ width: `${score}%` }}
-                          />
-                        </div>
+                        <ProgressBar value={score / 100} color={barColor} size="sm" showValue={false} />
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <div className="text-sm font-bold text-emerald-400 font-[family-name:var(--font-mono)]">
                           {score.toFixed(1)}
                         </div>
@@ -254,8 +259,12 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   );
                 })
               ) : (
-                <div className="p-4 text-center text-slate-500 text-xs">
-                  No verified evidence observed yet.
+                <div className="p-6 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div className="text-sm text-slate-300 font-medium">No verified evidence observed yet</div>
+                  <div className="text-xs text-slate-500">Candidate's repositories are being analyzed.</div>
                 </div>
               )}
             </div>
@@ -272,13 +281,15 @@ export const DossierOverviewTab: React.FC<Props> = ({
                 </div>
                 <h3 className="font-bold text-slate-100 text-sm">Key Unknowns</h3>
               </div>
-              <button
-                type="button"
+              <GlassButton
+                variant="ghost"
+                size="sm"
                 onClick={() => onNavigateToTab('probes')}
-                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                icon={<ArrowRight className="w-3 h-3" />}
+                iconPosition="right"
               >
-                Interview Guide <ArrowRight className="w-3 h-3" />
-              </button>
+                Interview Guide
+              </GlassButton>
             </div>
 
             <div className="space-y-2 mt-3">
@@ -310,8 +321,12 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   );
                 })
               ) : (
-                <div className="p-4 text-center text-emerald-400/60 text-xs">
-                  All 12 capabilities have direct verified evidence.
+                <div className="p-6 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <Search className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div className="text-sm text-slate-300 font-medium">All capabilities verified</div>
+                  <div className="text-xs text-slate-500">Direct evidence found for all 12 core dimensions.</div>
                 </div>
               )}
             </div>
@@ -330,13 +345,15 @@ export const DossierOverviewTab: React.FC<Props> = ({
                 </div>
                 <h3 className="font-bold text-slate-100 text-sm">Recommended Interview Questions</h3>
               </div>
-              <button
-                type="button"
+              <GlassButton
+                variant="ghost"
+                size="sm"
                 onClick={() => onNavigateToTab('probes')}
-                className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 transition-colors"
+                icon={<ArrowRight className="w-3 h-3" />}
+                iconPosition="right"
               >
-                Full Guide <ArrowRight className="w-3 h-3" />
-              </button>
+                Full Guide
+              </GlassButton>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -353,7 +370,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   `Verify technical competence in ${CAPABILITY_NAMES[capKey] || probe.capability_key}.`;
 
                 return (
-                  <div key={idx} className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-xl space-y-2 hover:border-brand-500/20 transition-colors">
+                  <GlassCard key={idx} variant="subtle" glow="violet" className="space-y-2">
                     <div className="flex items-center justify-between">
                       <GlowBadge variant="brand" size="sm">
                         {CAPABILITY_NAMES[capKey] || probe.capability_key}
@@ -370,7 +387,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                     <div className="text-[11px] text-slate-500 pt-1.5 border-t border-white/[0.04] leading-normal">
                       <strong className="text-slate-400">Rationale:</strong> {rationaleText}
                     </div>
-                  </div>
+                  </GlassCard>
                 );
               })}
             </div>
