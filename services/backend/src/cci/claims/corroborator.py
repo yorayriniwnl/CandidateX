@@ -9,6 +9,7 @@ INVARIANTS:
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
+import re
 
 from cci.domain.contracts import EvidenceRecord
 from cci.domain.enums import CapabilityKey, ClaimStatus
@@ -53,6 +54,7 @@ class ClaimCorroborationResult:
 def corroborate_candidate_claims(
     claims: list[ExtractedClaimInput],
     evidence_records: list[EvidenceRecord],
+    strict_technology_match: bool = False,
 ) -> list[ClaimCorroborationResult]:
     """Evaluates each candidate self-claim against registered technical evidence."""
     results: list[ClaimCorroborationResult] = []
@@ -60,6 +62,8 @@ def corroborate_candidate_claims(
     # Index evidence by capability for fast lookups
     evidence_by_cap: dict[CapabilityKey, list[EvidenceRecord]] = {}
     for ev in evidence_records:
+        if ev.confidence <= 0:
+            continue
         evidence_by_cap.setdefault(ev.target_capability, []).append(ev)
 
     for claim in claims:
@@ -95,6 +99,16 @@ def corroborate_candidate_claims(
             keyword_hit = (
                 any(k in text_lower for k in keywords_lower) if keywords_lower else True
             )
+            if strict_technology_match:
+                # An unrelated observation in the same broad capability cannot verify
+                # a technology claim. Repository/account names are not technical proof.
+                text_lower = f"{raw_text} {symbol} {art_path}".lower()
+                languages = {'.py': 'python', '.ts': 'typescript', '.tsx': 'typescript',
+                             '.js': 'javascript', '.jsx': 'javascript', '.java': 'java', '.go': 'golang'}
+                for extension, language in languages.items():
+                    if str(art_path).lower().endswith(extension):
+                        text_lower += ' ' + language
+                keyword_hit = any(re.search(r'(?<![a-z0-9])' + re.escape(k) + r'(?![a-z0-9])', text_lower) for k in keywords_lower)
 
             if keyword_hit:
                 if ev.is_positive_support:
@@ -103,7 +117,7 @@ def corroborate_candidate_claims(
                     matched_neg_evidence.append(ev)
 
         # Fallback to capability-level evidence if keyword hits weren't found
-        if not matched_pos_evidence and not matched_neg_evidence:
+        if not strict_technology_match and not matched_pos_evidence and not matched_neg_evidence:
             matched_pos_evidence = [e for e in matching_ev if e.is_positive_support]
             matched_neg_evidence = [e for e in matching_ev if not e.is_positive_support]
 

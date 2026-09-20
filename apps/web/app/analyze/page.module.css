@@ -1,0 +1,7 @@
+.navLinks { display:flex; flex-wrap:wrap; align-items:center; gap:20px; }
+.upload { border:1px dashed #64749e; border-radius:10px; padding:20px 14px; background:#151e32; line-height:1.6; }
+.upload input { display:block; width:100%; margin-top:12px; font-size:12px; }
+.upload input::file-selector-button { background:#bdcaff; color:#0c1020; border:0; padding:9px; border-radius:6px; margin-right:8px; cursor:pointer; }
+.extracted { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:12px; line-height:1.7; max-height:350px; overflow:auto; margin:14px 0; color:#b9c5dd; }
+.sourceHead { display:flex; gap:12px; align-items:start; justify-content:space-between; flex-wrap:wrap; }
+.sourceUrl { overflow-wrap:anywhere; min-width:0; font-size:13px; margin:8px 0; }
