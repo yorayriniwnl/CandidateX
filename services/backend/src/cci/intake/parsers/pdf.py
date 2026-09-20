@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import fitz  # type: ignore  # PyMuPDF
 
 URL_REGEX = re.compile(
-    r"\b(?:https?://|www\.|git@)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s()<>]+)?",
+    r"\b(?:(?:https?://|www\.|git@)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s()<>]+)?|(?:github\.com|linkedin\.com)/[^\s()<>]+)",
     re.IGNORECASE,
 )
 
