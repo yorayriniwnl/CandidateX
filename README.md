@@ -6,11 +6,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
 
-> **CandidateX analyzes real resume uploads and fetches public GitHub evidence live.** It extracts PDF/DOCX text and links, lets the reviewer confirm sources and the declared GitHub identity, inspects commit-pinned repository files, and produces a role-aware evidence dossier. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
+> **CandidateX analyzes real resumes, GitHub profiles and repositories, and supplied public links live.** It extracts PDF/DOCX sections, skills, project claims, education and certificates; inspects commit-pinned source files and public page text; and produces a role-aware dossier with traceable skill matches and explicit verification gaps. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
 
 **Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
 
-Open `/analyze` (also the default `/` route). `/research-demo` is explicitly synthetic. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. LinkedIn, coding profiles, certificates, and arbitrary external websites are extracted but not automatically verified by the current live adapter.
+Open `/analyze` (also the default `/` route). `/research-demo` is explicitly synthetic. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
 
 ---
 
@@ -39,7 +39,7 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
    - **Evidence Coverage** reflects the fraction of job-critical capabilities backed by sufficient empirical evidence.
 6. **Traceable Provenance**: Demonstration observations carry content revisions, source locators, SHA-256 fingerprints, extractor versions, confidence factors, and project clusters. These are synthetic artifacts; database-wide append-only guarantees are not claimed.
 7. **Functional Rescoring**: Overrides reuse the current evidence snapshot and update scores, coverage, probes, questions, and graph together. Prior snapshots and justifications remain inspectable in the exported history.
-8. **No Live Acquisition in the Demonstration**: Synthetic source locators are never fetched. Deployment-inspection helpers require additional connection-level hardening before enabling untrusted live acquisition; DNS pinning is not established by the current helpers.
+8. **No Live Acquisition in the Demonstration**: Synthetic source locators are never fetched. The live workflow uses its separate DNS-pinned `live/public_links.py` transport for supplied public pages. Legacy deployment-inspection helpers are not used by that acquisition path and do not establish connection-level DNS pinning.
 
 ---
 

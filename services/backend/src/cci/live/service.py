@@ -3,15 +3,27 @@ from cci.graph.builder import build_dossier_graph
 from cci.live.acquisition import acquire_sources
 from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS
 from cci.pipeline.orchestrator import execute_analysis_pipeline
+from concurrent.futures import ThreadPoolExecutor
+from cci.live.public_links import acquire_public_links
+from cci.live.report import build_report
 
 
 def analyze_resume(request: LiveAnalysisRequest):
-    evidence, ownership, sources = acquire_sources(request.github_urls, request.github_identity)
     manifest = request.intake.manifest
-    for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls', 'deployment_urls', 'portfolio_urls', 'project_links'):
-        for url in getattr(manifest, key)[:20]:
-            sources.append({'url': url, 'status': 'unsupported',
-                            'detail': 'Extracted from the resume. This live adapter does not fetch or verify this source.'})
+    extracted = list(dict.fromkeys(url for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls',
+        'deployment_urls', 'portfolio_urls', 'project_links') for url in getattr(manifest, key)))
+    selected = request.external_urls if request.external_urls is not None else extracted
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        github = pool.submit(acquire_sources, request.github_urls, request.github_identity)
+        public = pool.submit(acquire_public_links, selected)
+        evidence, ownership, sources = github.result()
+        sources.extend(public.result())
+    for url in extracted:
+        if url not in selected:
+            sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted from the resume but not selected for this run.'})
+    for url in manifest.github_urls:
+        if url.lower() not in {s['url'].lower() for s in sources}:
+            sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted GitHub link not selected for this run.'})
     state = execute_analysis_pipeline(candidate_id=request.intake.candidate_id, role=request.role,
         jd_text=request.jd_text, declared_claims=manifest.claimed_skills, custom_evidence=evidence, evidence_mode='live')
     if state.dossier is None:
@@ -22,6 +34,8 @@ def analyze_resume(request: LiveAnalysisRequest):
         'Source reliability uses configured priors only; no simulated review outcomes are used.',
         'Verification/depth confidence factors are conservative prototype settings, not empirically calibrated probabilities.',
         'Recent-commit attribution is repository-level; it does not prove authorship of each inspected line.',
+        'Public page text, profile metadata and certificate mentions do not increase capability scores. Issuer authentication and employment verification are not automated.',
+        'Public links: up to 24 HTML/text/digital PDF pages, 512 KB each, 3 redirects; PDFs up to 5 pages. Login gates, image-only and script-only pages remain unresolved.',
         f'Bounded scan: {MAX_REPOSITORIES} repositories, {MAX_FILES} selected text files each, {MAX_SECONDS}s acquisition budget.',
         'The uploaded document and analysis are request-scoped. Download JSON to retain this result; refreshing clears the page.',
     ]
@@ -30,5 +44,5 @@ def analyze_resume(request: LiveAnalysisRequest):
     graph = build_dossier_graph(dossier)
     return {'intake': request.intake, 'dossier': dossier,
         'graph': graph.to_api_response(candidate_id=dossier.candidate_id, analysis_run_id=dossier.analysis_run_id),
-        'graph_snapshot': graph.to_dict(), 'sources': sources, 'scoring_config': ScoringConfig(),
+        'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': build_report(request.intake, sources), 'scoring_config': ScoringConfig(),
         'storage': 'request_only', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}

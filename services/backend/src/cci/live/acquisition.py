@@ -4,6 +4,7 @@ No search, git clone, hooks, package installation, repository execution, or arbi
 network destinations. HTTP redirects are disabled. Archive files are copied selectively.
 """
 import hashlib
+import base64
 import io
 import json
 import re
@@ -27,6 +28,7 @@ from cci.live.contracts import (MAX_REPOSITORIES, MAX_FILES, MAX_FILE_BYTES, MAX
 from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
+from cci.live.repository_review import review_repository
 
 HTTP_TRANSPORT = None  # Injectable only in tests; never configurable by request input.
 IGNORED = {'node_modules', 'vendor', 'dist', 'build', '.git', '.next', 'coverage', '__pycache__', '.venv', 'venv'}
@@ -139,10 +141,23 @@ def acquire_repository(fetcher, url, identity):
         is_fork=bool(metadata.get('fork')), model_name='DeclaredAccountRecentCommitShare',
         limitations=['Declared account association is not identity verification.',
                      'Attribution uses up to 30 recent commits; no line-level blame or full-history authorship is asserted.'])
-    archive = fetcher.get(f'/{owner}/{repo}/zip/{sha}', archive=True)
+    archive = None
+    method = 'commit_archive'
+    try:
+        archive = fetcher.get(f'/{owner}/{repo}/zip/{sha}', archive=True)
+    except AcquisitionError as exc:
+        if exc.status != 'too_large':
+            raise
+        method = 'bounded_git_blobs'
     with SafeRepositoryWorkspace(max_worktree_bytes=MAX_EXPANDED_BYTES, max_file_bytes=MAX_FILE_BYTES,
                                  timeout_seconds=MAX_SECONDS) as workspace:
-        omitted = inspect_archive(archive, workspace)
+        try:
+            omitted = inspect_archive(archive, workspace) if archive else inspect_git_blobs(fetcher, owner, repo, sha, workspace)
+        except AcquisitionError as exc:
+            if exc.status != 'too_large' or method != 'commit_archive':
+                raise
+            method = 'bounded_git_blobs'
+            omitted = inspect_git_blobs(fetcher, owner, repo, sha, workspace)
         snapshot, artifacts = index_repository_artifacts(workspace, url, sha)
         raw = run_code_intelligence(workspace.root, url, sha, artifacts)
         raw += run_db_test_infra_intelligence(workspace.root, url, sha, artifacts)
@@ -177,8 +192,58 @@ def acquire_repository(fetcher, url, identity):
         receipt = {'url': url, 'status': 'observed', 'detail': 'Fetched public commit and statically inspected selected files.',
             'commit_sha': sha, 'fetched_at': datetime.now(timezone.utc).isoformat(), 'files_inspected': len(artifacts),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,
-            'ownership_score': ownership, 'candidate_sampled_commits': authored, 'sampled_commits': len(commits)}
+            'ownership_score': ownership, 'candidate_sampled_commits': authored, 'sampled_commits': len(commits),
+            'kind': 'repository', 'acquisition_method': method,
+            'repository_review': review_repository(workspace.root, artifacts, url, sha, metadata)}
     return records, assessment, receipt
+
+
+def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
+    """For oversized archives, inspect a small selection of commit-pinned Git blobs."""
+    tree = fetcher.get(f'/repos/{owner}/{repo}/git/trees/{sha}?recursive=1')
+    if tree.get('truncated'):
+        raise AcquisitionError('too_large', 'GitHub truncated the repository tree; a reliable bounded selection could not be made.')
+    files = [item for item in tree.get('tree', []) if item.get('type') == 'blob']
+    groups = {}
+    for item in files:
+        path = PurePosixPath(item.get('path', ''))
+        if path.is_absolute() or '..' in path.parts or '\\' in str(path) or ':' in str(path):
+            raise AcquisitionError('security_blocked', 'Unsafe repository tree path rejected.')
+        category = categorize_file(str(path))
+        if (item.get('mode') not in {'100644', '100755'} or category not in CATEGORIES
+                or item.get('size', MAX_FILE_BYTES + 1) > MAX_FILE_BYTES
+                or any(part.lower() in IGNORED for part in path.parts)):
+            continue
+        groups.setdefault(category, []).append(item)
+    # Rotate file categories so manifests cannot crowd out source and test code.
+    selected = []
+    for items in groups.values():
+        items.sort(key=lambda item: item['path'])
+    while len(selected) < 12 and any(groups.values()):
+        for category in CATEGORIES:
+            if groups.get(category) and len(selected) < 12:
+                selected.append(groups[category].pop(0))
+    stored = 0
+    for item in selected:
+        reference = item.get('sha', '')
+        if not re.fullmatch('[a-fA-F0-9]{40}', reference):
+            raise AcquisitionError('parse_failed', 'Invalid Git blob reference.')
+        data = fetcher.get(f'/repos/{owner}/{repo}/git/blobs/{reference}')
+        if data.get('encoding') != 'base64':
+            continue
+        content = base64.b64decode(re.sub(r'\s', '', data.get('content', '')), validate=True)
+        if len(content) > MAX_FILE_BYTES or b'\x00' in content[:8192]:
+            continue
+        actual = hashlib.sha1(f'blob {len(content)}\0'.encode() + content).hexdigest()
+        if actual != reference.lower():
+            raise AcquisitionError('parse_failed', 'Git blob content does not match its immutable reference.')
+        destination = Path(workspace.root, item['path'])
+        if not destination.resolve().is_relative_to(Path(workspace.root).resolve()):
+            raise AcquisitionError('security_blocked', 'Repository tree containment check failed.')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+        stored += 1
+    return len(files) - stored
 
 
 def acquire_sources(urls, identity):
@@ -187,28 +252,48 @@ def acquire_sources(urls, identity):
     try:
         # Explicit repository links take priority over bounded profile expansion.
         repos = [u for u in urls if github_parts(u)[1]]
-        for url in urls:
+        profiles = [u for u in urls if not github_parts(u)[1]]
+        for url in profiles:
             owner, repo = github_parts(url)
             if repo:
                 continue
-            if len(repos) >= MAX_REPOSITORIES:
-                receipts.append({'url': url, 'status': 'not_scanned', 'detail': 'Explicit repository links filled the scan budget.'})
-                continue
             try:
-                data = fetcher.get(f'/users/{owner}/repos?sort=updated&per_page=30&type=owner')
+                profile = {}
+                profile_error = None
+                try:
+                    info = fetcher.get(f'/users/{owner}')
+                    profile = {key: info.get(key) for key in ('login', 'name', 'bio', 'company', 'blog', 'location',
+                        'public_repos', 'public_gists', 'followers', 'following', 'created_at', 'updated_at', 'type')}
+                except Exception as exc:
+                    profile_error = error_receipt(url, exc)['detail']
+                data = []
+                for page in (1, 2):
+                    items = fetcher.get(f'/users/{owner}/repos?sort=updated&per_page=100&type=owner&page={page}')
+                    data.extend(items)
+                    if len(items) < 100:
+                        break
                 expanded = []
+                inventory = []
                 for item in data:
-                    if item.get('private') or item.get('fork') or item.get('archived'):
+                    if item.get('private'):
                         continue
                     name = item.get('name', '')
                     candidate_url = f'https://github.com/{owner}/{name}'
                     github_parts(candidate_url)
-                    if candidate_url.lower() not in {r.lower() for r in repos}:
+                    inventory.append({'url': candidate_url, 'name': name, 'description': item.get('description'),
+                        'language': item.get('language'), 'stars': item.get('stargazers_count', 0),
+                        'fork': bool(item.get('fork')), 'archived': bool(item.get('archived')),
+                        'pushed_at': item.get('pushed_at'), 'size_kb': item.get('size'),
+                        'topics': item.get('topics', [])[:20]})
+                    if (len(repos) < MAX_REPOSITORIES and not item.get('fork') and not item.get('archived')
+                            and candidate_url.lower() not in {r.lower() for r in repos}):
                         repos.append(candidate_url)
                         expanded.append(candidate_url)
-                    if len(repos) >= MAX_REPOSITORIES:
-                        break
-                receipts.append({'url': url, 'status': 'observed', 'detail': 'Listed public owned repositories; newest non-fork repositories selected within the scan budget.', 'expanded_repositories': expanded})
+                receipts.append({'url': url, 'kind': 'github_profile', 'status': 'observed' if not profile_error else 'partial',
+                    'detail': 'Public profile and repository inventory retrieved; recent non-fork repositories selected within the scan budget.',
+                    'profile': profile, 'profile_error': profile_error, 'inventory': inventory,
+                    'inventory_truncated': len(data) == 200, 'fetched_at': datetime.now(timezone.utc).isoformat(),
+                    'expanded_repositories': expanded})
             except Exception as exc:
                 receipts.append(error_receipt(url, exc))
         for url in repos[MAX_REPOSITORIES:]:
@@ -223,6 +308,10 @@ def acquire_sources(urls, identity):
                 receipts.append(error_receipt(url, exc))
     finally:
         fetcher.close()
+    scanned = {r['url'].lower(): r['status'] for r in receipts if r.get('kind') != 'github_profile'}
+    for receipt in receipts:
+        for repo in receipt.get('inventory', []):
+            repo['inspection_status'] = scanned.get(repo['url'].lower(), 'inventory_only')
     return records, ownership, receipts
 
 

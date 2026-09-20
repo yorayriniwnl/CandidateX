@@ -3,6 +3,8 @@
 import io
 
 import docx
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from docx.opc.constants import RELATIONSHIP_TYPE
 
 from cci.intake.parsers.pdf import URL_REGEX, ParsedDocument
@@ -19,30 +21,39 @@ def parse_docx_document(docx_bytes: bytes) -> ParsedDocument:
     embedded_urls: list[str] = []
     visible_urls: list[str] = []
 
-    # 1. Extract embedded relationship hyperlinks from document part
-    for rel_id, rel in doc.part.rels.items():
-        if rel.reltype == HYPERLINK_REL_TYPE:
-            target = rel.target_ref
-            if target and isinstance(target, str):
-                embedded_urls.append(target.strip())
+    # Keep paragraph/table order, including nested tables and linked header parts.
+    seen_parts, seen_cells = set(), set()
 
-    # 2. Extract paragraph texts
-    for para in doc.paragraphs:
-        p_text = para.text
-        if p_text:
-            text_chunks.append(p_text)
-            for match in URL_REGEX.finditer(p_text):
-                visible_urls.append(match.group(0).strip())
+    def collect(container):
+        part = container.part
+        if id(part) not in seen_parts:
+            seen_parts.add(id(part))
+            for rel in part.rels.values():
+                if rel.reltype == HYPERLINK_REL_TYPE and isinstance(rel.target_ref, str):
+                    embedded_urls.append(rel.target_ref.strip())
+        for block in container.iter_inner_content():
+            if isinstance(block, Paragraph):
+                # w:t also retains text in hyperlinks and text boxes.
+                text = ''.join(block._p.xpath('.//w:t/text()'))
+                if text:
+                    text_chunks.append(block.text or text)
+                    visible_urls.extend(m.group(0).strip() for m in URL_REGEX.finditer(text))
+            elif isinstance(block, Table):
+                for row in block.rows:
+                    for cell in row.cells:
+                        if cell._tc not in seen_cells:
+                            seen_cells.add(cell._tc)
+                            collect(cell)
 
-    # 3. Extract table cell texts
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                c_text = cell.text
-                if c_text:
-                    text_chunks.append(c_text)
-                    for match in URL_REGEX.finditer(c_text):
-                        visible_urls.append(match.group(0).strip())
+    for section in doc.sections:
+        for header in (section.header, section.first_page_header, section.even_page_header):
+            if not header.is_linked_to_previous:
+                collect(header)
+    collect(doc)
+    for section in doc.sections:
+        for footer in (section.footer, section.first_page_footer, section.even_page_footer):
+            if not footer.is_linked_to_previous:
+                collect(footer)
 
     full_text = "\n".join(text_chunks)
     return ParsedDocument(

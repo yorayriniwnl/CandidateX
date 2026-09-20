@@ -58,13 +58,19 @@ def test_profile_expansion_uses_only_declared_account_and_bounds_repositories(mo
     visited = []
     def response(req):
         visited.append(str(req.url))
+        if req.url.path == '/users/example':
+            return httpx.Response(200, json={'login': 'example', 'public_repos': 8})
         if req.url.path == '/users/example/repos':
             return httpx.Response(200, json=[{'name': f'api{i}', 'fork': i == 0} for i in range(8)])
         return httpx.Response(404)
     monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', httpx.MockTransport(response))
     data = client.post('/api/v1/live/analyze', json={'intake': intake().json(), 'github_urls': ['https://github.com/example']}).json()
-    assert data['sources'][0]['expanded_repositories'] == [f'https://github.com/example/api{i}' for i in (1, 2, 3)]
-    assert len(visited) == 4
+    assert data['sources'][0]['expanded_repositories'] == [f'https://github.com/example/api{i}' for i in range(1, 7)]
+    assert len(data['sources'][0]['inventory']) == 8
+    assert data['sources'][0]['profile']['login'] == 'example'
+    assert data['sources'][0]['status'] == 'observed'
+    assert data['sources'][0]['inventory'][0]['inspection_status'] == 'inventory_only'
+    assert len(visited) == 8
     assert all('search' not in url for url in visited)
 
 
@@ -98,6 +104,8 @@ def test_private_repository_not_downloaded_even_with_server_token(monkeypatch):
 
 def test_archive_expansion_limit_and_no_candidate_execution(monkeypatch):
     def response(req):
+        if '/git/trees/' in req.url.path:
+            return httpx.Response(200, json={'truncated': True})
         if req.url.host == 'codeload.github.com':
             return httpx.Response(200, content=archive(content='raise RuntimeError("candidate code must not run")\n@app.get("/")\ndef endpoint():\n    return {}'))
         return transport(req)

@@ -8,8 +8,8 @@ from cci.domain.contracts import CandidateManifest
 from cci.domain.enums import CanonicalRole
 
 MAX_UPLOAD = 3 * 1024 * 1024
-MAX_REPOSITORIES = 3
-MAX_FILES = 60
+MAX_REPOSITORIES = 6
+MAX_FILES = 100
 MAX_FILE_BYTES = 128 * 1024
 MAX_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_EXPANDED_BYTES = 24 * 1024 * 1024
@@ -32,6 +32,13 @@ def github_parts(url: str) -> tuple[str, str | None]:
     return parts[0], repo
 
 
+class ResumeReview(BaseModel):
+    sections: dict[str, list[str]] = Field(default_factory=dict)
+    learning_skills: list[str] = Field(default_factory=list)
+    observations: list[str] = Field(default_factory=list)
+    extraction_method: str = 'deterministic_document_structure'
+
+
 class ResumeIntake(BaseModel):
     candidate_id: UUID = Field(default_factory=uuid4)
     manifest: CandidateManifest
@@ -40,13 +47,15 @@ class ResumeIntake(BaseModel):
     text_preview: str = Field(default='', max_length=12000)
     warnings: list[str] = Field(default_factory=list, max_length=20)
     storage: str = 'request_only'
+    resume_review: ResumeReview = Field(default_factory=ResumeReview)
 
 
 class LiveAnalysisRequest(BaseModel):
     intake: ResumeIntake
     role: CanonicalRole = CanonicalRole.BACKEND
     jd_text: str = Field(default='', max_length=20000)
-    github_urls: list[ShortText] = Field(default_factory=list, max_length=6)
+    github_urls: list[ShortText] = Field(default_factory=list, max_length=20)
+    external_urls: list[ShortText] | None = Field(default=None, max_length=100)
     github_identity: str = Field(default='', pattern=r'^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38})?$')
 
     @field_validator('github_urls')

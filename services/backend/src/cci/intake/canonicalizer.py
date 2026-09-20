@@ -22,12 +22,11 @@ PLATFORM_PATTERNS = {
     "linkedin": re.compile(
         r"^https?://([a-z]{2,3}\.)?linkedin\.com/in(/.*)?$", re.IGNORECASE
     ),
+    "credential": re.compile(
+        r"^https?://(?:www\.)?(?:credly\.com|coursera\.org/(?:verify|account/accomplishments)|udacity\.com/certificate|badges\.parchment\.com|hackerrank\.com/certificates|freecodecamp\.org/certification|linkedin\.com/learning/certificates)(?:/.*)?$", re.IGNORECASE,
+    ),
     "coding_profile": re.compile(
         r"^https?://(www\.)?(leetcode\.com|kaggle\.com|hackerrank\.com|codeforces\.com|topcoder\.com|codechef\.com)(/.*)?$",
-        re.IGNORECASE,
-    ),
-    "credential": re.compile(
-        r"^https?://(www\.)?(credly\.com|coursera\.org/verify|udacity\.com/certificate|badges\.parchment\.com)(/.*)?$",
         re.IGNORECASE,
     ),
     "deployment": re.compile(
@@ -56,6 +55,7 @@ def normalize_url(raw_url: str) -> str | None:
             cleaned.startswith("github.com")
             or cleaned.startswith("linkedin.com")
             or cleaned.startswith("www.")
+            or re.match(r'^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:com|org|net|io|dev|app|in|me|ai|edu)(?:[/?#]|$)', cleaned)
         ):
             cleaned = "https://" + cleaned
         else:
@@ -125,6 +125,8 @@ def classify_url(url: str) -> str:
     # Fallback heuristics
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
+    if re.search(r'/(?:certificates?|certifications?|credentials?|verify|badges)(?:[/. -]|$)', parsed.path, re.I):
+        return 'credential'
 
     # Portfolio / personal domain indicator
     if any(term in domain for term in ("portfolio", "blog", "me.", "dev.", "site")):
