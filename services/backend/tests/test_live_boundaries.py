@@ -107,3 +107,14 @@ def test_archive_expansion_limit_and_no_candidate_execution(monkeypatch):
     monkeypatch.setattr(acquisition, 'MAX_EXPANDED_BYTES', 10)
     data = client.post('/api/v1/live/analyze', json={'intake': intake().json(), 'github_urls': ['https://github.com/example/api']}).json()
     assert data['sources'][0]['status'] == 'too_large'
+
+
+@pytest.mark.parametrize('claim', ['Java', 'Java development'])
+def test_live_claims_do_not_treat_unrelated_backend_evidence_as_java_verification(monkeypatch, claim):
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', httpx.MockTransport(transport))
+    resume = intake().json()
+    resume['manifest']['claimed_skills'] = [claim]
+    data = client.post('/api/v1/live/analyze', json={'intake': resume,
+        'github_urls': ['https://github.com/example/api'], 'github_identity': 'example'}).json()
+    assert data['dossier']['claims_corroboration']
+    assert all(c['status'] == 'unknown' and not c['grounding_evidence_ids'] for c in data['dossier']['claims_corroboration'])

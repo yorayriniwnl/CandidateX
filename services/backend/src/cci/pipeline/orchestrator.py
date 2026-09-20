@@ -307,13 +307,15 @@ def execute_analysis_pipeline(
         # Only map claims recognized by the controlled ontology; never guess a capability.
         claim_inputs = []
         for claim in discovered_claims:
-            for requirement in extract_requirements_from_jd(claim):
+            for requirement in extract_requirements_from_jd(f"Skill: {claim}" if evidence_mode == "live" else claim):
                 if not requirement.technology_mentions:
                     continue
                 for cap in requirement.capability_mappings:
                     claim_inputs.append(ExtractedClaimInput(
-                        claim_id=uuid4(), claim_text=claim, target_capability=cap))
-        corroborated_claims = corroborate_candidate_claims(claim_inputs, raw_evidence)
+                        claim_id=uuid4(), claim_text=claim, target_capability=cap,
+                        technology_keywords=requirement.technology_mentions if evidence_mode == "live" else []))
+        corroborated_claims = corroborate_candidate_claims(
+            claim_inputs, raw_evidence, strict_technology_match=evidence_mode == "live")
         advance_stage(AnalysisStage.GENERATING_DOSSIER, "Link evidence, sources, artifacts, requirements, and interview questions")
 
         dossier = build_candidate_dossier(
