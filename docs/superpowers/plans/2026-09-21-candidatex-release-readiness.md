@@ -4,11 +4,13 @@
 
 **Goal:** Make CandidateX reproducibly runnable and verifiably shippable as a local release with a coherent public navigation flow, deliberate live-source review, reliable backend/frontend setup, and green end-to-end acceptance tests.
 
-**Architecture:** Preserve the existing Next.js app and FastAPI domain modules. Add a shared public navigation boundary, a public command-center route, project-local Python runtime discovery, and explicit setup/verification scripts. Keep Docker and CI entrypoints compatible while correcting the internal server URL used by the Next.js bridge.
+**Architecture:** Preserve the existing Next.js app and FastAPI domain modules. Use the existing `PlatformHeader` navigation boundary, a public command-center route, project-local Python runtime discovery, and explicit setup/verification scripts. Keep Docker and CI entrypoints compatible while correcting the internal server URL used by the Next.js bridge.
 
 **Tech Stack:** Next.js 16, React 19, TypeScript, Playwright, FastAPI, Python 3.12, pytest, pnpm, Docker Compose.
 
 **Spec:** `docs/superpowers/specs/2026-09-21-candidatex-release-readiness-design.md`
+
+**Execution note (2026-09-21):** The implementation was integrated as one authorized working-tree release pass. The repository already contained an in-progress `PlatformHeader`, command-center composition, deliberate source-review disclosure, and capability snapshot; those boundaries were completed and verified rather than duplicated under the plan's earlier `PublicHeader` names. The verification script also runs `next typegen` before TypeScript so a clean `.next` directory is supported. Docker was not installed on the host, so Compose was parsed and contract-checked statically while the local release gate remained independent of Docker.
 
 ## Global Constraints
 
@@ -39,7 +41,7 @@
 - Consumes: installed Python 3.12 or a compatible Python executable, `pnpm`, and the existing `services/backend/pyproject.toml` / `pnpm-lock.yaml`.
 - Produces: `services/backend/.venv\Scripts\python.exe` on Windows, installed backend/frontend dependencies, Chromium, and a single verification command that exits nonzero at the first failed gate.
 
-- [ ] **Step 1: Add the setup and verification script tests as executable acceptance checks**
+- [x] **Step 1: Add the setup and verification script tests as executable acceptance checks**
 
 Run the existing backend and frontend commands with the project virtualenv explicitly selected:
 
@@ -52,7 +54,7 @@ pnpm --filter web build
 
 Expected: backend, typecheck, and build are green; the current browser configuration is still allowed to fail before the runtime selection change.
 
-- [ ] **Step 2: Implement `scripts/setup.ps1`**
+- [x] **Step 2: Implement `scripts/setup.ps1`**
 
 The script must:
 
@@ -68,7 +70,7 @@ pnpm --filter web exec playwright install chromium
 
 Use explicit existence checks and actionable errors for missing Python or pnpm. Do not delete an existing virtualenv.
 
-- [ ] **Step 3: Implement `scripts/verify.ps1`**
+- [x] **Step 3: Implement `scripts/verify.ps1`**
 
 Select `services/backend/.venv/Scripts/python.exe` when it exists, set `CCI_PYTHON`, then run:
 
@@ -81,11 +83,11 @@ pnpm --filter web test
 
 Use `$ErrorActionPreference = 'Stop'`, print the gate name before each command, and leave Playwright artifacts in `apps/web/test-results`.
 
-- [ ] **Step 4: Make Playwright discover the same interpreter**
+- [x] **Step 4: Make Playwright discover the same interpreter**
 
 In `apps/web/playwright.config.ts`, resolve the repository root from `process.cwd()`, prefer the platform-specific project virtualenv path, then `CCI_PYTHON`, then `python`/`python3`. Prepend the selected interpreter directory to `PATH` so test fixtures using `execFileSync('python', ...)` resolve the same environment. Use the selected executable in the backend `webServer` command.
 
-- [ ] **Step 5: Run the setup/verification smoke checks**
+- [x] **Step 5: Run the setup/verification smoke checks**
 
 Run:
 
@@ -96,7 +98,7 @@ Run:
 
 Expected: setup is idempotent and the verification script reaches the browser gate with the project virtualenv, not a system Python without `uvicorn`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Integrate the task in the final local commit**
 
 ```powershell
 git add scripts/setup.ps1 scripts/verify.ps1 apps/web/playwright.config.ts .gitignore
@@ -106,9 +108,13 @@ git commit -m "chore: make local verification reproducible"
 ### Task 2: Shared public navigation and command center
 
 **Files:**
-- Create: `apps/web/components/navigation/PublicHeader.tsx`
-- Create: `apps/web/components/navigation/public-header.module.css`
+- Create/verify: `apps/web/components/navigation/PlatformHeader.tsx`
+- Create/verify: `apps/web/components/navigation/navigation.ts`
+- Create/verify: `apps/web/components/navigation/SurfaceBadge.tsx`
 - Create: `apps/web/app/page.module.css`
+- Create: `apps/web/app/home.module.css`
+- Create: `apps/web/components/home/ExperienceCard.tsx`
+- Create: `apps/web/components/home/SignalConstellation.tsx`
 - Modify: `apps/web/app/page.tsx`
 - Modify: `apps/web/app/analyze/page.tsx`
 - Test: `apps/web/tests/homepage.spec.ts`
@@ -117,9 +123,9 @@ git commit -m "chore: make local verification reproducible"
 
 **Interfaces:**
 - Consumes: Next.js `Link`, route pathname state passed by each page, and the existing page-local styles.
-- Produces: `PublicHeader({ activeRoute?: string })` with links named `Home`, `Live Evidence`, `Evaluation Workspace`, `Hiring View`, and `Research Lab`, plus a `Start an analysis` CTA pointing to `/analyze`.
+- Produces: `PlatformHeader({ surface, status })` with shared route links, active-page state, surface status badges, and a `Start an analysis` CTA pointing to `/analyze`.
 
-- [ ] **Step 1: Run the navigation tests to verify the current failure**
+- [x] **Step 1: Run the navigation tests to verify the current failure**
 
 ```powershell
 $env:CCI_PYTHON = (Resolve-Path 'services/backend/.venv/Scripts/python.exe').Path
@@ -128,19 +134,19 @@ pnpm --filter web exec playwright test tests/homepage.spec.ts tests/live-analysi
 
 Expected: current `/` redirect and missing shared navigation fail the homepage assertions.
 
-- [ ] **Step 2: Add the shared `PublicHeader`**
+- [x] **Step 2: Complete the shared `PlatformHeader`**
 
-Render a semantic `<header>` with a brand link, `<nav aria-label="Primary">`, the five named routes, `aria-current="page"` on the active route, and a CTA link with accessible text `Start an analysis`. Keep the component server-renderable and style it through the colocated CSS module.
+Render a semantic `<header>` with a brand link, `<nav aria-label="Primary navigation">`, the shared routes, `aria-current="page"` on the active route, a mobile toggle, status badges, and a CTA link with accessible text `Start an analysis`.
 
-- [ ] **Step 3: Replace the root redirect with the command center**
+- [x] **Step 3: Replace the root redirect with the command center**
 
 Render a page that stays at `/`, has an `h1` containing `Candidate intelligence`, and presents four route cards using the exact labels tested by `homepage.spec.ts`. Include `PublicHeader` and a short statement that the four surfaces have different evidence boundaries.
 
-- [ ] **Step 4: Use `PublicHeader` on `/analyze` and align legacy route tests**
+- [x] **Step 4: Use `PlatformHeader` on public surfaces and align legacy route tests**
 
-Replace the bespoke analyze-page nav with `PublicHeader activeRoute="/analyze"`. Update the older live/research tests so they navigate to `/analyze` directly where they are testing the live flow and expect the command center at `/` where they are testing the root route.
+Use `PlatformHeader surface="live" status="live"` on the live page and the corresponding labeled status on research and hiring surfaces. Update the older live/research tests so they navigate to `/analyze` directly where they are testing the live flow and expect the command center at `/` where they are testing the root route.
 
-- [ ] **Step 5: Run the navigation tests**
+- [x] **Step 5: Run the navigation tests**
 
 ```powershell
 pnpm --filter web exec playwright test tests/homepage.spec.ts tests/live-analysis.spec.ts tests/research-demo.spec.ts --project=chromium
@@ -148,7 +154,7 @@ pnpm --filter web exec playwright test tests/homepage.spec.ts tests/live-analysi
 
 Expected: all affected navigation and existing workflow assertions pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Integrate the task in the final local commit**
 
 ```powershell
 git add apps/web/app/page.tsx apps/web/app/page.module.css apps/web/app/analyze/page.tsx apps/web/components/navigation apps/web/tests
@@ -166,7 +172,7 @@ git commit -m "feat: add public command center navigation"
 - Consumes: `ResumeIntake`, `LiveResult`, `CapabilitySnapshotTable`, existing `DetailedAnalysis`, and the existing live API bridge.
 - Produces: an intake flow with a closed-by-default `Review public sources (optional)` disclosure and a result view headed `What the evidence shows` with the capability snapshot/audit details.
 
-- [ ] **Step 1: Run the focused UI tests to verify the current failure**
+- [x] **Step 1: Run the focused UI tests to verify the current failure**
 
 ```powershell
 pnpm --filter web exec playwright test tests/live-analysis-ui.spec.ts --project=chromium
@@ -174,7 +180,7 @@ pnpm --filter web exec playwright test tests/live-analysis-ui.spec.ts --project=
 
 Expected: the current initial heading, always-visible source controls, and missing capability snapshot fail.
 
-- [ ] **Step 2: Add the intentional review disclosure**
+- [x] **Step 2: Add the intentional review disclosure**
 
 Change the initial empty-state heading to `Upload a resume to begin`. When `intake` exists, render the GitHub identity, GitHub URLs, and external URL controls inside:
 
@@ -187,7 +193,7 @@ Change the initial empty-state heading to `Upload a resume to begin`. When `inta
 
 Keep the analyze button outside the disclosure so the default request remains valid with no public sources.
 
-- [ ] **Step 3: Lead results with the capability snapshot**
+- [x] **Step 3: Lead results with the capability snapshot**
 
 Immediately after the result summary, render:
 
@@ -204,11 +210,11 @@ Immediately after the result summary, render:
 
 Keep `Technical evidence dossier` as the result summary heading for existing export/live-flow assertions, and retain the detailed analysis below it.
 
-- [ ] **Step 4: Update the live workflow test to open the source review**
+- [x] **Step 4: Update the live workflow test to open the source review**
 
 In the DOCX/public-link test, click `Review public sources (optional)` before filling `Public portfolio, certificate and other links`. This asserts the new deliberate-review contract instead of bypassing it.
 
-- [ ] **Step 5: Run all live UI tests**
+- [x] **Step 5: Run all live UI tests**
 
 ```powershell
 pnpm --filter web exec playwright test tests/live-analysis-ui.spec.ts tests/live-analysis.spec.ts --project=chromium
@@ -216,7 +222,7 @@ pnpm --filter web exec playwright test tests/live-analysis-ui.spec.ts tests/live
 
 Expected: all live UI, real upload, failure-clearing, mobile, DOCX, source receipt, and export tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Integrate the task in the final local commit**
 
 ```powershell
 git add apps/web/app/analyze/page.tsx apps/web/tests/live-analysis.spec.ts
@@ -237,7 +243,7 @@ git commit -m "feat: make live source review deliberate and readable"
 - Consumes: the existing Compose service names, `CCI_API_URL` server-side bridge, `NEXT_PUBLIC_API_URL` browser-side legacy API base, and current Dockerfiles.
 - Produces: a Compose configuration where `/research-demo` and `/api/live/*` reach the backend container internally, with local setup/verification instructions matching the scripts.
 
-- [ ] **Step 1: Add a configuration regression check**
+- [x] **Step 1: Add a configuration regression check**
 
 Before changing Compose, run:
 
@@ -247,19 +253,19 @@ Select-String -Path docker-compose.yml -Pattern 'CCI_API_URL|NEXT_PUBLIC_API_URL
 
 Expected: `CCI_API_URL` is absent, documenting the current deployment mismatch.
 
-- [ ] **Step 2: Fix Compose environment contracts**
+- [x] **Step 2: Fix Compose environment contracts**
 
 Add `CCI_API_URL: http://backend:8000` to the web service, retain `NEXT_PUBLIC_API_URL: http://localhost:8000` for browser-facing legacy calls, and add a backend health dependency for web startup where Compose supports it without changing the existing public ports.
 
-- [ ] **Step 3: Add Docker ignore boundaries**
+- [x] **Step 3: Add Docker ignore boundaries**
 
 Exclude `.git`, `.venv`, `node_modules`, `.next`, test reports, research reports, local databases, and environment files from both the root web build context and backend build context. Do not exclude source, migrations, examples, or runtime configuration templates.
 
-- [ ] **Step 4: Align documentation**
+- [x] **Step 4: Align documentation**
 
 Document `/` as the command center, `/analyze` as the live route, the setup/verification scripts, the two API URL roles, and the explicit limits that still cannot be called real-world validation.
 
-- [ ] **Step 5: Run static deployment checks**
+- [x] **Step 5: Run static deployment checks**
 
 ```powershell
 Select-String -Path docker-compose.yml -Pattern 'CCI_API_URL: http://backend:8000','NEXT_PUBLIC_API_URL: http://localhost:8000'
@@ -268,7 +274,7 @@ Get-Content .dockerignore, services/backend/.dockerignore
 
 If Docker is installed, also run `docker compose config`; otherwise record Docker as environment-unverified without weakening the local release gate.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Integrate the task in the final local commit**
 
 ```powershell
 git add docker-compose.yml .dockerignore services/backend/.dockerignore README.md docs/live-resume-analysis.md docs/research-demonstration.md
@@ -285,7 +291,7 @@ git commit -m "chore: align deployment and verification boundaries"
 - Consumes: all prior task outputs.
 - Produces: a clean local release verification record and a final self-review of the complete branch.
 
-- [ ] **Step 1: Run the complete verification command**
+- [x] **Step 1: Run the complete verification command**
 
 ```powershell
 ./scripts/verify.ps1
@@ -293,7 +299,7 @@ git commit -m "chore: align deployment and verification boundaries"
 
 Expected: backend tests, frontend typecheck, production build, and all Playwright tests pass with zero failures.
 
-- [ ] **Step 2: Run the research and live smoke checks**
+- [x] **Step 2: Run the research and live smoke checks**
 
 ```powershell
 & services/backend/.venv/Scripts/python.exe research/run_paper_experiments.py --quick --output-dir reports/research-demo-verification
@@ -302,7 +308,7 @@ Expected: backend tests, frontend typecheck, production build, and all Playwrigh
 
 Expected: the quick research experiment completes; the smoke test either verifies running services or reports the exact missing service without claiming deployment success.
 
-- [ ] **Step 3: Run a final source/config review**
+- [x] **Step 3: Run a final source/config review**
 
 ```powershell
 rg -n -i 'TODO|FIXME|TBD|localhost:8000|127.0.0.1:8000|NEXT_PUBLIC_API_URL|CCI_API_URL' apps services scripts docker-compose.yml README.md docs
@@ -312,7 +318,7 @@ git status --short
 
 Resolve new actionable placeholders and whitespace errors; keep documented localhost defaults only where they are intentional development defaults.
 
-- [ ] **Step 4: Commit final verification documentation**
+- [x] **Step 4: Integrate final verification documentation in the local commit**
 
 ```powershell
 git add Makefile .github/workflows/ci.yml docs reports

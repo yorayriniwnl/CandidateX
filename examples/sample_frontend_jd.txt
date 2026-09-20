@@ -1,0 +1,27 @@
+# Senior / Staff Frontend Platform Engineer — Web Experience
+
+## Company Overview
+CandidateX is engineering next-generation collaborative browser applications and interactive analytical
+workspaces. We are searching for a Senior or Staff Frontend Platform Engineer to drive our web architecture,
+component library, accessibility standards, and web application performance.
+
+## Responsibilities
+- Architect high-performance, accessible, and maintainable web applications using React, TypeScript, and Next.js.
+- Own and evolve our shared design system, reusable component primitives, and headless design token architecture.
+- Optimize client-side rendering, bundle sizes, network loading waterfalls, and Core Web Vitals (INP, LCP, CLS).
+- Establish robust automated testing standards across unit, component, accessibility (axe), and end-to-end (Playwright) suites.
+- Collaborate closely with product designers, backend API engineers, and security teams to build resilient interfaces.
+- Lead technical design reviews, author RFCs, and mentor frontend team members across modern web standards.
+
+## Mandatory Requirements
+- 5+ years of extensive experience building production web applications in modern TypeScript and React / Next.js.
+- Deep understanding of modern browser architecture, DOM rendering lifecycles, and performance profiling.
+- Rigorous commitment to web accessibility (WCAG 2.1 AA/AAA, WAI-ARIA authoring practices).
+- Proven expertise writing automated frontend tests with Jest/Vitest, React Testing Library, and Playwright or Cypress.
+- Hands-on mastery of modern CSS architectures, Tailwind CSS, or CSS-in-JS design token pipelines.
+
+## Preferred Qualifications
+- Experience with server-side rendering (SSR), React Server Components (RSC), and streaming hydration.
+- Contributions to open-source UI libraries, headless primitives, or frontend tooling.
+- Experience with micro-frontend architectures, module federation, or monorepo tools (Turborepo, Nx).
+- Familiarity with client-side state machines, GraphQL, WebSockets, or Canvas/WebGL rendering.

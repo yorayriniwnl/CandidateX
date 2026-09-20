@@ -1,0 +1,15 @@
+.git
+.github
+.superpowers
+.next
+node_modules
+**/node_modules
+.venv
+**/.venv
+test-results
+playwright-report
+reports
+*.log
+.env
+.env.*
+!.env.example

@@ -1,0 +1,45 @@
+# Alice Chen
+Senior Backend & Distributed Systems Engineer
+Email: alice.chen@example.com | GitHub: https://github.com/alicechen-dev
+Portfolio: https://alicechen.dev | Location: San Francisco, CA
+
+## Summary
+Experienced Backend Engineer with 7+ years architecting high-throughput distributed transaction engines,
+relational database schemas, and microservices in Python, Go, and PostgreSQL. Maintainer of open-source
+event-driven payment reconciliation and database replication tools.
+
+## Technical Skills
+- Languages: Python, Go, SQL, TypeScript
+- Data Stores: PostgreSQL (indexing, partitioning, transactional replication), Redis, Kafka
+- Infrastructure: Docker, Kubernetes, Terraform, AWS (ECS, RDS, S3, IAM)
+- Architecture: Event-driven architectures, DDD, REST/gRPC APIs, ADR authoring
+- Testing: Comprehensive pytest suites, integration testing, property-based testing, CI/CD pipelines
+
+## Open Source & Key Projects
+1. Distributed Payment Reconciliation Engine
+   Repository: https://github.com/alicechen-dev/distributed-payment-engine
+   - Built an event-driven payment reconciliation service handling 10,000 tx/sec using Go and PostgreSQL.
+   - Designed dual-write transactional outbox pattern with idempotent Kafka consumers.
+   - Authored comprehensive ADRs and achieved 94% test coverage with automated integration tests.
+
+2. PostgreSQL Partitioning & Reversible Migration Tool
+   Repository: https://github.com/alicechen-dev/pg-partition-manager
+   - Created automated partition lifecycle management for high-volume time-series database tables.
+   - Enforced bidirectional zero-downtime Alembic migrations with automated rollback guarantees.
+
+3. Async Service Gateway
+   Repository: https://github.com/alicechen-dev/async-service-gateway
+   - Implemented an asynchronous gRPC-to-REST API gateway with distributed token bucket rate limiting.
+   - Integrated strict security headers, mTLS authentication, and SSRF prevention guards.
+
+## Professional Experience
+
+Staff Software Engineer | Apex Financial Technologies (2022 - Present)
+- Led backend core infrastructure team supporting critical banking APIs.
+- Designed database schema migrations handling 50M+ daily ledger entries.
+- Reduced p99 API latency from 450ms to 42ms through query optimization and Redis cache topologies.
+
+Senior Software Engineer | CloudScale Systems (2019 - 2022)
+- Built distributed streaming ingestion pipelines processing 2TB daily analytics data.
+- Enforced automated CI pipelines with Docker and Kubernetes deployment manifests.
+- Mentored 6 junior and mid-level engineers in distributed system design and testing best practices.

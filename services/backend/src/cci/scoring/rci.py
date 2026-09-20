@@ -1,0 +1,93 @@
+"""Evidence Coverage, Role Capability Index (RCI), and sufficiency evaluation."""
+
+from uuid import UUID
+
+from cci.domain.contracts import (
+    AnalysisScore,
+    CapabilityEstimate,
+    RoleProfile,
+    ScoringConfig,
+)
+from cci.domain.enums import CapabilityKey
+
+
+def compute_evidence_coverage(
+    capabilities: dict[CapabilityKey, CapabilityEstimate],
+    role_weights: dict[CapabilityKey, float],
+) -> float:
+    """Computes Evidence Coverage across all 12 capabilities:
+
+        Coverage(C, J) = sum_k w_k * Cov_k
+
+    where Cov_k = min(1.0, sum(c_e,k) / tau_k).
+    Returns Coverage in [0.0, 1.0].
+    """
+    total_coverage = 0.0
+    for cap, est in capabilities.items():
+        w_k = role_weights.get(cap, 0.0)
+        cov_k = est.coverage_k if est is not None else 0.0
+        total_coverage += w_k * cov_k
+
+    return max(0.0, min(1.0, float(total_coverage)))
+
+
+def compute_rci(
+    capabilities: dict[CapabilityKey, CapabilityEstimate],
+    role_weights: dict[CapabilityKey, float],
+) -> float | None:
+    """Computes Role Capability Index (RCI) strictly over observed capabilities:
+
+        RCI(C, J) = 100 * sum_{k in observed}(w_k * q_k) / sum_{k in observed}(w_k)
+
+    Returns:
+        float in [0.0, 100.0] if at least one capability is observed,
+        or None if no capabilities have usable empirical evidence.
+    """
+    observed_weight_sum = 0.0
+    weighted_score_sum = 0.0
+
+    for cap, est in capabilities.items():
+        if est is not None and est.is_observed and est.estimate is not None:
+            w_k = role_weights.get(cap, 0.0)
+            q_k = est.estimate
+
+            weighted_score_sum += w_k * q_k
+            observed_weight_sum += w_k
+
+    if observed_weight_sum <= 0.0:
+        return None
+
+    rci_val = weighted_score_sum / observed_weight_sum
+    return max(0.0, min(100.0, float(rci_val)))
+
+
+def evaluate_analysis_score(
+    candidate_id: UUID,
+    role_profile: RoleProfile,
+    capabilities: dict[CapabilityKey, CapabilityEstimate],
+    config: ScoringConfig | None = None,
+) -> AnalysisScore:
+    """Combines RCI and Coverage into formal AnalysisScore contract."""
+    cfg = config or ScoringConfig()
+    weights = role_profile.softmax_weights
+
+    coverage = compute_evidence_coverage(capabilities, weights)
+    rci = compute_rci(capabilities, weights)
+
+    observed_count = sum(
+        1
+        for est in capabilities.values()
+        if est is not None and est.is_observed and est.estimate is not None
+    )
+
+    is_insufficient = coverage < cfg.low_coverage_threshold
+
+    return AnalysisScore(
+        candidate_id=candidate_id,
+        role=role_profile.canonical_role,
+        rci=rci,
+        coverage=coverage,
+        is_insufficient_evidence=is_insufficient,
+        observed_capabilities_count=observed_count,
+        scoring_config_version=cfg.version,
+    )

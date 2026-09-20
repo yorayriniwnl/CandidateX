@@ -1,0 +1,45 @@
+# Samuel O'Connor
+Principal Fullstack Engineer & Technical Lead
+Email: samuel.oconnor@example.com | GitHub: https://github.com/soconnor-fullstack
+Portfolio: https://soconnor.tech | Location: Chicago, IL
+
+## Summary
+Versatile Fullstack Architect with 9+ years delivering end-to-end web products from database schemas
+and transactional APIs to responsive React/Next.js client applications. Passionate about end-to-end
+type safety (tRPC, Prisma, GraphQL), distributed caching, and zero-defect delivery pipelines.
+
+## Technical Skills
+- Frontend: React, Next.js, TypeScript, Tailwind CSS, TanStack Query, Redux Toolkit
+- Backend: Node.js, Python (FastAPI), Go, GraphQL (Apollo / Yoga), REST APIs, WebSockets
+- Databases: PostgreSQL, Redis (caching, pub/sub), MongoDB, Elasticsearch, Prisma ORM
+- Cloud & DevOps: Docker, AWS (ECS, Lambda, RDS, S3), GitHub Actions, Vercel, Terraform
+- Architecture: Domain-Driven Design (DDD), CQRS, Event Sourcing, API Gateway patterns
+- Quality: Vitest, Jest, Playwright, Supertest, Cypress, automated CI linting and security scans
+
+## Open Source & Key Projects
+1. End-to-End Type-Safe Fullstack Starter Kit
+   Repository: https://github.com/soconnor-fullstack/type-safe-stack
+   - Production-ready monorepo template with Next.js, tRPC, Fastify backend, and PostgreSQL with Prisma.
+   - Enforces end-to-end compile-time contract validation between frontend mutations and database schemas.
+   - Over 1,200 stars on GitHub and automated CI test matrices.
+
+2. Real-Time Collaborative Whiteboard
+   Repository: https://github.com/soconnor-fullstack/collab-canvas
+   - High-concurrency collaborative drawing canvas using React, WebSockets, Redis Pub/Sub, and Go backend.
+   - Implemented Conflict-free Replicated Data Types (CRDTs) to resolve concurrent cursor and shape edits.
+
+3. Distributed Cache-Aside Library for Node/TypeScript
+   Repository: https://github.com/soconnor-fullstack/cache-sentinel
+   - Multi-tier in-memory and Redis caching library preventing cache stampedes with probabilistic early expiration.
+
+## Professional Experience
+
+Principal Fullstack Engineer | OmniCommerce Digital (2021 - Present)
+- Led architecture and technical direction for high-volume B2B e-commerce platform with $120M annual GMV.
+- Replaced fragmented REST endpoints with unified GraphQL schema, cutting frontend network calls by 45%.
+- Implemented multi-tier caching with Redis and CDN edge caching, reducing backend database load by 60%.
+
+Senior Fullstack Software Engineer | BlueSky Media (2017 - 2021)
+- Built content management system and consumer-facing reader web app used by 4M monthly readers.
+- Designed PostgreSQL schema with full-text search indexing, handling 1,500 read queries/second.
+- Mentored junior fullstack engineers on clean separation of concerns between business logic and UI presentation.

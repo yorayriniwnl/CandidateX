@@ -1,0 +1,27 @@
+# Senior / Lead Fullstack Engineer — Core Product Engineering
+
+## Company Overview
+CandidateX Commerce builds modern, omni-channel commerce platforms and collaborative enterprise tools.
+We are looking for an experienced Senior or Lead Fullstack Engineer to drive core product features,
+connecting delightful web interfaces with robust distributed services.
+
+## Responsibilities
+- Architect, build, and deliver high-impact product features spanning frontend UI and backend services.
+- Design clean, resilient REST and GraphQL APIs with robust authentication, authorization, and rate limiting.
+- Own data modeling, query performance, and indexing in PostgreSQL and Redis.
+- Build responsive, accessible, and performant web user interfaces in modern React and TypeScript.
+- Champion end-to-end testing, ensuring high reliability across web clients, API gateways, and data layers.
+- Drive engineering standards, participate in system design reviews, and mentor engineers across the stack.
+
+## Mandatory Requirements
+- 5+ years of fullstack web engineering experience delivering production applications.
+- Strong proficiency in modern TypeScript, React, and server-side frameworks (Node.js, Express, Fastify, or Python).
+- Deep hands-on experience with relational databases (PostgreSQL) and caching systems (Redis).
+- Proven track record building and testing end-to-end applications (unit, integration, and E2E tests).
+- Solid understanding of web security, CSRF/XSS prevention, authentication (OAuth, JWT), and SSR/hydration.
+
+## Preferred Qualifications
+- Experience with GraphQL, tRPC, or schema-driven API generation.
+- Hands-on deployment experience with Docker, AWS (ECS, RDS, S3), or Vercel.
+- Familiarity with real-time technologies (WebSockets, Server-Sent Events, WebRTC).
+- Contributions to open-source developer tooling or fullstack starter kits.

@@ -47,7 +47,7 @@ Do not move backend domain modules or duplicate TypeScript/Python contracts mere
 
 ## UI design
 
-- A shared `PublicHeader` owns the public route links and active-page state.
+- A shared `PlatformHeader` owns the public route links, active-page state, mobile navigation, and surface status badge.
 - The command center uses plain route cards with explicit labels and a heading containing “Candidate intelligence”.
 - The live intake begins with “Upload a resume to begin”. After intake, public source fields are hidden inside a “Review public sources (optional)” disclosure so the user deliberately reviews what will be fetched.
 - Completed live results lead with “What the evidence shows” and a capability snapshot table. “Readiness” and “Next step” are visible actions; confidence intervals and observation counts remain behind “Show audit details”.

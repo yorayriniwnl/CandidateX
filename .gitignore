@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases & local runs
+*.sqlite
+*.sqlite3
+*.db
+local_test.db
+/reports/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+.vercel
+.env*
+
+# Browser verification artifacts
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/*.log
+
+# Generated audit snapshots
+deep_audit_results.txt
+
+# Agent planning scratch space
+.superpowers/

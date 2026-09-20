@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Ablation Study Results Across Canonical Engineering Roles ($N=4{,}800$).}
+\label{tab:ablation_study}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model Architecture} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\
+\midrule
+FULL\_CCI & 1.943 & 2.469 & 0.943 & 0.794 \\
+NO\_RECENCY\_DECAY & 1.975$^{***}$ & 2.505 & 0.943 & 0.794 \\
+NO\_OWNERSHIP\_DISCOUNT & 2.219$^{***}$ & 2.813 & 0.933 & 0.775 \\
+UNIFORM\_WEIGHTS & 3.172$^{***}$ & 3.761 & 0.939 & 0.785 \\
+UNCALIBRATED\_SOURCES & 1.922 & 2.446 & 0.942 & 0.792 \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}
+\end{tabular}
+\end{table}
