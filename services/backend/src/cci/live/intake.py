@@ -1,13 +1,14 @@
 import hashlib
 import io
 import zipfile
+import re
 from pathlib import PurePosixPath
 
 import pymupdf
-from cci.intake.manifest import build_candidate_manifest
+from cci.intake.manifest import build_candidate_manifest, segment_sections, extract_skills_from_section
 from cci.intake.parsers.pdf import parse_pdf_document
 from cci.intake.parsers.docx import parse_docx_document
-from cci.live.contracts import MAX_UPLOAD, MAX_EXPANDED_BYTES, ResumeIntake
+from cci.live.contracts import MAX_UPLOAD, MAX_EXPANDED_BYTES, ResumeIntake, ResumeReview
 
 
 def parse_resume(data: bytes, filename: str) -> ResumeIntake:
@@ -34,8 +35,21 @@ def parse_resume(data: bytes, filename: str) -> ResumeIntake:
     if len(document.raw_text) > 100000:
         raise ValueError('Resume contains too much text.')
     manifest = build_candidate_manifest(document)
+    sections = segment_sections(document.raw_text)
+    learning = extract_skills_from_section([line for line in sections['skills'] if re.match(
+        r'^(?:currently\s+)?(?:learning|expanding|familiarizing|exploring)\b', line, re.I)])
+    observations = []
+    if manifest.display_name == 'Unknown Candidate':
+        observations.append('A reliable name header was not found. Review the extracted text.')
+    for section in ('projects', 'experience', 'education', 'certifications'):
+        if not sections[section]:
+            observations.append(f'No distinct {section} section was detected; this does not establish absence.')
+    if sections['certifications'] and not manifest.credential_urls:
+        observations.append('Certificates are mentioned without recognized verification links. Add public credential URLs before analysis.')
+    review = ResumeReview(sections={k: [line[:1500] for line in v[:60]] for k, v in sections.items() if v},
+                          learning_skills=learning, observations=observations)
     warnings = ['Extracted identity and skills are declarations, not independently verified facts.']
     if not manifest.github_urls:
         warnings.append('No GitHub link was found. You can supply a candidate-declared profile or repository before analysis.')
     return ResumeIntake(manifest=manifest, document_sha256=hashlib.sha256(data).hexdigest(),
-                        filename=filename[:240], text_preview=document.raw_text[:12000], warnings=warnings)
+                        filename=filename[:240], text_preview=document.raw_text[:12000], warnings=warnings, resume_review=review)
