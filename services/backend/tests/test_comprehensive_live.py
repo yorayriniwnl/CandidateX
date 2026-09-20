@@ -122,5 +122,5 @@ def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):
 
 def test_bare_portfolio_urls_do_not_extract_email_domains():
     from cci.intake.parsers.pdf import URL_REGEX
-    matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | person@example.com | issuer.org/verify/abc')]
-    assert matches == ['example.dev', 'issuer.org/verify/abc']
+    matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | ayushroy.dev@gmail.com | person@sub.example.com | issuer.org/verify/abc | https://issuer.org?credential=123')]
+    assert matches == ['example.dev', 'issuer.org/verify/abc', 'https://issuer.org?credential=123']

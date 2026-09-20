@@ -55,7 +55,7 @@ def normalize_url(raw_url: str) -> str | None:
             cleaned.startswith("github.com")
             or cleaned.startswith("linkedin.com")
             or cleaned.startswith("www.")
-            or re.match(r'^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:com|org|net|io|dev|app|in|me|ai|edu)(?:/|$)', cleaned)
+            or re.match(r'^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:com|org|net|io|dev|app|in|me|ai|edu)(?:[/?#]|$)', cleaned)
         ):
             cleaned = "https://" + cleaned
         else:
