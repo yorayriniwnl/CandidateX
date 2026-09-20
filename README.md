@@ -6,11 +6,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
 
-> **CandidateX is an interactive research prototype** demonstrating role-aware evidence fusion, separate capability and coverage reporting, and evidence-linked interview preparation. Its main page runs controlled synthetic scenarios through the CCI backend. It does not assess arbitrary real candidates or reproduce the manuscript's headline benchmark.
+> **CandidateX analyzes real resume uploads and fetches public GitHub evidence live.** It extracts PDF/DOCX text and links, lets the reviewer confirm sources and the declared GitHub identity, inspects commit-pinned repository files, and produces a role-aware evidence dossier. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
 
-**Start here: [Research demonstration guide](docs/research-demonstration.md)** - local setup, presentation walkthrough, implementation conventions, experiment boundaries, and verification commands.
+**Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
 
-Open `/research-demo` (also the default `/` route). The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface.
+Open `/analyze` (also the default `/` route). `/research-demo` is explicitly synthetic. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. LinkedIn, coding profiles, certificates, and arbitrary external websites are extracted but not automatically verified by the current live adapter.
 
 ---
 

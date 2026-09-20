@@ -1,6 +1,6 @@
 # CandidateX research demonstration
 
-CandidateX demonstrates the mechanism in **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion**. The main route is `/research-demo`; `/` redirects there. `/workspace` retains the earlier prototype interface, and `/hr` retains the HR sample interface.
+CandidateX demonstrates the mechanism in **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion** at `/research-demo`. The main `/` route now opens the [real resume and live GitHub workflow](live-resume-analysis.md) at `/analyze`. `/workspace` retains the earlier prototype interface, and `/hr` retains the HR sample interface.
 
 ## What is implemented
 
