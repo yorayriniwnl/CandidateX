@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, RefreshCw, Sliders, X, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
+import { Check, RefreshCw, Sliders, AlertCircle, Sparkles, ShieldAlert } from 'lucide-react';
 import { CapabilityEstimate, CapabilityKey, CanonicalRole, Dossier, CEGGraph } from '../../types/cci';
 import { submitRecruiterOverride } from '../../lib/api';
+import { GlassModal } from '@/components/ui/GlassModal';
+import { GlassInput } from '@/components/ui/GlassInput';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { RadialGauge } from '@/components/ui/RadialGauge';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { GlowBadge } from '@/components/ui/GlowBadge';
 
 const ALL_CAPABILITIES: { key: CapabilityKey; label: string }[] = [
   { key: 'backend_engineering', label: 'Backend Engineering' },
@@ -127,13 +133,9 @@ export const ExpertWeightOverrideModal: React.FC<{
     setWeights({ ...currentWeights });
   }, [currentWeights, isOpen]);
 
-  if (!isOpen) return null;
-
   const totalSum = Object.values(weights).reduce((acc, val) => acc + val, 0);
   const isValidSum = Math.abs(totalSum - 1.0) < 0.005;
 
-  // Functional recalculation of RCI:
-  // RCI = sum_{k in O} (w_k * q_k) / sum_{k in O} w_k
   let observedWeightSum = 0;
   let weightedScoreSum = 0;
   ALL_CAPABILITIES.forEach(({ key }) => {
@@ -169,7 +171,6 @@ export const ExpertWeightOverrideModal: React.FC<{
   };
 
   const handleSave = async () => {
-    // If not strictly normalized, normalize before applying
     let finalWeights = { ...weights };
     if (!isValidSum && totalSum > 0) {
       ALL_CAPABILITIES.forEach(({ key }) => {
@@ -192,67 +193,67 @@ export const ExpertWeightOverrideModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {saveError && <p role="alert" className="p-4 text-red-200">{saveError}</p>}
-        {/* Modal Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white">Expert Role Weights Override</h2>
-              <p className="text-xs text-slate-400">
-                Adjust capability weightings w_k for role &ldquo;{currentRole}&rdquo;. Total weight must sum to 1.0.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <GlassModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Expert Role Weight Calibration"
+      subtitle={`Adjust capability weightings for role "${currentRole}"`}
+      size="lg"
+    >
+      <div className="flex flex-col h-full max-h-[85vh]">
+        {saveError && <p role="alert" className="p-4 text-rose-300 bg-rose-500/10 mb-4 rounded-lg">{saveError}</p>}
+        
         {/* Live Simulation Callout */}
-        <div className="p-4 bg-slate-950 border-b border-slate-800 grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
+        <div className="p-4 bg-slate-950/50 border-b border-slate-800 grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-4">
+            <RadialGauge
+              value={simulatedRCI !== null ? simulatedRCI / 100 : 0}
+              size={64}
+              strokeWidth={6}
+              color={simulatedRCI !== null ? '#6366f1' : '#475569'}
+              label="RCI"
+              showPercentage={false}
+              animated
+            />
             <div>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono block">
-                Simulated RCI (Functional Rescore)
+                Simulated RCI
               </span>
               <div className="text-2xl font-black text-indigo-400 font-mono">
                 {simulatedRCI !== null ? simulatedRCI.toFixed(1) : 'UNKNOWN'}
-                <span className="text-xs text-slate-500 font-normal"> / 100</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-end justify-center">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono block mb-1">
-              Total Weight Sum (Must = 1.0)
-            </span>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col justify-center space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
+                Total Weight (Must = 1.0)
+              </span>
               <span
-                className={`text-base font-bold font-mono ${
+                className={`text-sm font-bold font-mono ${
                   isValidSum ? 'text-emerald-400' : 'text-amber-400'
                 }`}
               >
                 {totalSum.toFixed(3)}
               </span>
-              {!isValidSum && (
-                <button
-                  type="button"
-                  onClick={handleNormalize}
-                  className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[11px] font-semibold flex items-center gap-1"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  Normalize
-                </button>
-              )}
             </div>
+            <ProgressBar 
+              value={totalSum > 1 ? 1 : totalSum} 
+              color={isValidSum ? 'emerald' : 'amber'} 
+              size="sm" 
+            />
+            {!isValidSum && (
+              <GlassButton
+                variant="ghost"
+                size="sm"
+                onClick={handleNormalize}
+                icon={<Sparkles className="w-3 h-3" />}
+                className="mt-2 self-end text-amber-300"
+              >
+                Normalize
+              </GlassButton>
+            )}
           </div>
         </div>
 
@@ -264,14 +265,14 @@ export const ExpertWeightOverrideModal: React.FC<{
             const isObserved = est && est.is_observed && est.estimate !== null;
 
             return (
-              <div key={key} className="space-y-1 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60">
-                <div className="flex justify-between items-center text-xs">
+              <div key={key} className="space-y-1 bg-slate-950/40 p-3 rounded-lg border border-slate-800/60">
+                <div className="flex justify-between items-center text-xs mb-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-slate-200">{label}</span>
                     {!isObserved && (
-                      <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 text-slate-400 rounded">
+                      <GlowBadge variant="neutral" size="sm">
                         Unobserved
-                      </span>
+                      </GlowBadge>
                     )}
                   </div>
                   <span className="font-mono text-indigo-400 font-semibold">
@@ -294,53 +295,47 @@ export const ExpertWeightOverrideModal: React.FC<{
 
         {/* Mandatory Audit Justification */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/90">
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
               <span>Mandatory Audit Trail Justification</span>
             </label>
             <span className="text-[10px] text-slate-500 font-mono">Immutable Logged Event</span>
           </div>
-          <input
-            type="text"
+          <GlassInput
+            variant="textarea"
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             placeholder="Explain why role capability weights were adjusted for this evaluation..."
-            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-xs text-slate-200 outline-none transition-colors"
           />
         </div>
 
         {/* Modal Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
-          <button
-            type="button"
+          <GlassButton
+            variant="ghost"
             onClick={handleReset}
-            className="px-3 py-1.5 text-xs text-slate-400 hover:text-white flex items-center gap-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+            icon={<RefreshCw className="w-3.5 h-3.5" />}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reset to Role Defaults</span>
-          </button>
+            Reset to Role Defaults
+          </GlassButton>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-            >
+            <GlassButton variant="ghost" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="button"
+            </GlassButton>
+            <GlassButton
+              variant="primary"
               onClick={handleSave}
               disabled={saving || totalSum <= 0 || !candidateId}
-              className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-md transition-colors flex items-center gap-1.5"
+              loading={saving}
+              icon={<Check className="w-3.5 h-3.5" />}
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>Apply Role Weights</span>
-            </button>
+              Apply Role Weights
+            </GlassButton>
           </div>
         </div>
       </div>
-    </div>
+    </GlassModal>
   );
 };

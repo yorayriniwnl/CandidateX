@@ -5,6 +5,9 @@ import { Layers, Eye, Calculator, ArrowRight, CheckCircle2, HelpCircle } from 'l
 import { CapabilityEstimate, CapabilityKey } from '../../types/cci';
 import { GlassCard } from '../ui/GlassCard';
 import { GlowBadge } from '../ui/GlowBadge';
+import { TabSlider } from '../ui/TabSlider';
+import { ProgressBar } from '../ui/ProgressBar';
+import { GlassButton } from '../ui/GlassButton';
 
 const ALL_CAPABILITIES: { key: CapabilityKey; label: string; description: string }[] = [
   { key: 'backend_engineering', label: 'Backend Engineering', description: 'APIs, business logic, asynchronous services' },
@@ -27,7 +30,7 @@ export const CapabilityBreakdownTable: React.FC<{
   onSelectCapability?: (key: CapabilityKey) => void;
   selectedCapability?: CapabilityKey | null;
 }> = ({ estimates, weights, onSelectCapability, selectedCapability }) => {
-  const [viewMode, setViewMode] = useState<'recruiter' | 'math'>('recruiter');
+  const [viewMode, setViewMode] = useState<string>('recruiter');
 
   return (
     <GlassCard variant="strong" glow="indigo" className="space-y-4">
@@ -48,32 +51,15 @@ export const CapabilityBreakdownTable: React.FC<{
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center glass rounded-xl p-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setViewMode('recruiter')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              viewMode === 'recruiter'
-                ? 'bg-brand-500/20 text-white shadow-glow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Recruiter View</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('math')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              viewMode === 'math'
-                ? 'bg-brand-500/20 text-white shadow-glow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Calculator className="w-3.5 h-3.5" />
-            <span>Audit / Math View</span>
-          </button>
-        </div>
+        <TabSlider
+          activeKey={viewMode}
+          onChange={setViewMode}
+          size="sm"
+          tabs={[
+            { key: 'recruiter', label: 'Recruiter View', icon: <Eye className="w-3.5 h-3.5" /> },
+            { key: 'math', label: 'Audit / Math View', icon: <Calculator className="w-3.5 h-3.5" /> }
+          ]}
+        />
       </div>
 
       {/* Recruiter View */}
@@ -96,11 +82,12 @@ export const CapabilityBreakdownTable: React.FC<{
                 const isSelected = selectedCapability === cap.key;
                 const score = est?.estimate ?? null;
                 const weightVal = weights ? weights[cap.key] : 1.0 / 12.0;
-                const barColor = score !== null && score >= 80
-                  ? 'from-emerald-500 to-emerald-400'
-                  : score !== null && score >= 65
-                  ? 'from-brand-500 to-brand-400'
-                  : 'from-amber-500 to-amber-400';
+
+                const getBarColor = (s: number) => {
+                  if (s >= 80) return 'emerald';
+                  if (s >= 65) return 'indigo';
+                  return 'amber';
+                };
 
                 return (
                   <tr
@@ -117,29 +104,22 @@ export const CapabilityBreakdownTable: React.FC<{
                       <div className="text-[11px] text-slate-500 truncate max-w-xs">{cap.description}</div>
                     </td>
 
-                    <td className="py-3.5">
+                    <td className="py-3.5 pr-4">
                       {isObserved && score !== null ? (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-xs font-mono">
                             <span className="font-bold text-white">{score.toFixed(1)}</span>
                             <span className="text-slate-500 text-[10px]">/ 100</span>
                           </div>
-                          <div className="w-full bg-white/[0.06] h-2 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-1000`}
-                              style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
-                            />
-                          </div>
+                          <ProgressBar value={score / 100} color={getBarColor(score)} size="sm" animated={true} />
                         </div>
                       ) : (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-xs font-mono text-slate-500">
-                            <span>UNKNOWN</span>
+                            <GlowBadge variant="neutral" size="sm">UNKNOWN</GlowBadge>
                             <span className="text-[10px] text-amber-400/70">No Repos</span>
                           </div>
-                          <div className="w-full bg-white/[0.04] h-2 rounded-full overflow-hidden">
-                            <div className="h-full bg-white/[0.08] w-1/4" />
-                          </div>
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #1e293b, #1e293b 4px, #0f172a 4px, #0f172a 8px)' }} />
                         </div>
                       )}
                     </td>
@@ -167,17 +147,16 @@ export const CapabilityBreakdownTable: React.FC<{
                     </td>
 
                     <td className="py-3.5 text-right pr-2">
-                      <button
-                        type="button"
+                      <GlassButton
+                        variant="ghost"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onSelectCapability) onSelectCapability(cap.key);
                         }}
-                        className="text-xs text-brand-400 hover:text-brand-300 inline-flex items-center gap-1 font-medium transition-colors"
                       >
-                        <span>Inspect</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
+                        Inspect <ArrowRight className="w-3 h-3 ml-1" />
+                      </GlassButton>
                     </td>
                   </tr>
                 );

@@ -12,8 +12,9 @@ import { CanonicalRole, CandidateManifest, NormalizedRequirement } from '../type
 import { JobIntakeForm } from './JobIntakeForm';
 import { CandidateIntakeForm } from './CandidateIntakeForm';
 import { PipelineTracker } from './PipelineTracker';
-import { GlassCard } from './ui/GlassCard';
-import { GlowBadge } from './ui/GlowBadge';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GlowBadge } from '@/components/ui/GlowBadge';
+import { GlassButton } from '@/components/ui/GlassButton';
 
 interface QuickDemoProfile {
   id: string;
@@ -112,151 +113,178 @@ export const EvaluationWizard: React.FC<{
   onViewDossier,
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(isPipelineRunning ? 3 : 1);
+  const [maxStepAllowed, setMaxStepAllowed] = useState<1 | 2 | 3>(isPipelineRunning ? 3 : 1);
 
   React.useEffect(() => {
     if (isPipelineRunning) {
       setStep(3);
+      setMaxStepAllowed(3);
     }
   }, [isPipelineRunning]);
 
   const handleQuickDemoClick = (profile: QuickDemoProfile) => {
     onJobComplete(profile.role, '', []);
     onCandidateSubmit(profile.manifest);
+    setMaxStepAllowed(3);
     setStep(3);
   };
 
   const handleJobFormComplete = (role: CanonicalRole, jdText: string, reqs: NormalizedRequirement[]) => {
     onJobComplete(role, jdText, reqs);
+    setMaxStepAllowed(Math.max(maxStepAllowed, 2) as 2 | 3);
     setStep(2);
   };
 
   const handleCandidateFormSubmit = (manifest: CandidateManifest) => {
     onCandidateSubmit(manifest);
+    setMaxStepAllowed(3);
     setStep(3);
   };
 
+  const handleStepClick = (targetStep: 1 | 2 | 3) => {
+    if (targetStep <= maxStepAllowed) {
+      setStep(targetStep);
+    }
+  };
+
+  // Calculate line widths based on current step
+  const getLineWidth = () => {
+    if (step === 3) return '100%';
+    if (step === 2) return '50%';
+    return '0%';
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* 1-Click Quick Demo Presets */}
-      <GlassCard variant="strong" glow="indigo" className="p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
+      <GlassCard variant="subtle" glow="indigo" className="p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(99,102,241,0.3)]">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white">1-Click Demonstration Presets</span>
-              <span className="text-[11px] text-slate-400 ml-2 hidden md:inline">
-                Evaluate pre-configured candidate profiles instantly:
-              </span>
+              <div className="text-sm font-semibold text-slate-100">1-Click Demonstration Presets</div>
+              <div className="text-xs text-slate-400">
+                Evaluate pre-configured candidate profiles instantly
+              </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {QUICK_DEMO_PROFILES.map((profile) => (
-              <button
+              <GlassButton
                 key={profile.id}
-                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => handleQuickDemoClick(profile)}
-                className="px-3 py-1.5 glass hover:bg-white/[0.08] rounded-xl text-xs font-medium text-slate-200 transition-all flex items-center gap-2 group"
+                icon={<Play className="w-3 h-3 group-hover:scale-110 transition-transform" />}
+                className="group !py-1.5"
               >
-                <Play className="w-3 h-3 text-brand-400 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold">{profile.name}</span>
-                <GlowBadge variant={profile.variant} size="sm">
+                <span className="font-semibold text-slate-200">{profile.name}</span>
+                <GlowBadge variant={profile.variant} size="sm" className="ml-2">
                   {profile.badge}
                 </GlowBadge>
-              </button>
+              </GlassButton>
             ))}
           </div>
         </div>
       </GlassCard>
 
       {/* Visual Stepper */}
-      <GlassCard variant="subtle" className="p-3">
-        <div className="grid grid-cols-3 gap-2 text-xs">
+      <div className="relative z-10 px-2">
+        {/* Connecting Line Background */}
+        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-slate-800 rounded-full z-[-1]" />
+        
+        {/* Connecting Line Foreground */}
+        <div 
+          className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-indigo-500 rounded-full z-[-1] transition-all duration-500 ease-in-out"
+          style={{ width: getLineWidth(), maxWidth: 'calc(100% - 3rem)' }}
+        />
+
+        <div className="grid grid-cols-3 gap-2">
           {/* Step 1 */}
           <button
             type="button"
-            onClick={() => setStep(1)}
-            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
-              step === 1
-                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
-                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+            onClick={() => handleStepClick(1)}
+            disabled={1 > maxStepAllowed}
+            className={`group p-3 rounded-xl transition-all flex flex-col items-center text-center gap-2 ${
+              step === 1 ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+            } ${1 > maxStepAllowed ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-              step > 1 ? 'bg-emerald-500/20 text-emerald-400' : step === 1 ? 'bg-brand-500 text-white shadow-glow-sm' : 'bg-white/[0.04] text-slate-500'
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all ${
+              step > 1 ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 
+              step === 1 ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 
+              'bg-slate-800 text-slate-400'
             }`}>
-              {step > 1 ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+              {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
             </div>
             <div className="min-w-0">
-              <div className={`font-semibold truncate ${step === 1 ? 'text-white' : 'text-slate-400'}`}>
-                Role &amp; Job Spec
+              <div className={`text-sm font-semibold truncate ${step === 1 ? 'text-white' : 'text-slate-400'}`}>
+                Role & Job Spec
               </div>
-              <div className="text-[10px] text-slate-500 truncate">Define target capabilities</div>
             </div>
           </button>
 
           {/* Step 2 */}
           <button
             type="button"
-            onClick={() => setStep(2)}
-            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
-              step === 2
-                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
-                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+            onClick={() => handleStepClick(2)}
+            disabled={2 > maxStepAllowed}
+            className={`group p-3 rounded-xl transition-all flex flex-col items-center text-center gap-2 ${
+              step === 2 ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+            } ${2 > maxStepAllowed ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-              step > 2 ? 'bg-emerald-500/20 text-emerald-400' : step === 2 ? 'bg-brand-500 text-white shadow-glow-sm' : 'bg-white/[0.04] text-slate-500'
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all ${
+              step > 2 ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 
+              step === 2 ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 
+              'bg-slate-800 text-slate-400'
             }`}>
-              {step > 2 ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+              {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : '2'}
             </div>
             <div className="min-w-0">
-              <div className={`font-semibold truncate ${step === 2 ? 'text-white' : 'text-slate-400'}`}>
+              <div className={`text-sm font-semibold truncate ${step === 2 ? 'text-white' : 'text-slate-400'}`}>
                 Candidate Artifacts
               </div>
-              <div className="text-[10px] text-slate-500 truncate">GitHub &amp; resume links</div>
             </div>
           </button>
 
           {/* Step 3 */}
           <button
             type="button"
-            onClick={() => setStep(3)}
-            className={`p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
-              step === 3
-                ? 'glass-strong border-brand-500/50 shadow-glow-sm'
-                : 'glass-subtle border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+            onClick={() => handleStepClick(3)}
+            disabled={3 > maxStepAllowed}
+            className={`group p-3 rounded-xl transition-all flex flex-col items-center text-center gap-2 ${
+              step === 3 ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+            } ${3 > maxStepAllowed ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all ${
               isPipelineComplete && step === 3
-                ? 'bg-emerald-500/20 text-emerald-400'
+                ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]'
                 : step === 3
-                ? 'bg-brand-500 text-white shadow-glow-sm'
-                : 'bg-white/[0.04] text-slate-500'
+                ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]'
+                : 'bg-slate-800 text-slate-400'
             }`}>
-              {isPipelineComplete && step === 3 ? <CheckCircle2 className="w-4 h-4" /> : '3'}
+              {isPipelineComplete && step === 3 ? <CheckCircle2 className="w-5 h-5" /> : '3'}
             </div>
             <div className="min-w-0">
-              <div className={`font-semibold truncate ${step === 3 ? 'text-white' : 'text-slate-400'}`}>
+              <div className={`text-sm font-semibold truncate ${step === 3 ? 'text-white' : 'text-slate-400'}`}>
                 Intelligence Engine
               </div>
-              <div className="text-[10px] text-slate-500 truncate">10-stage AST &amp; math</div>
             </div>
           </button>
         </div>
-      </GlassCard>
+      </div>
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={step}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+          className="bg-slate-900/30 rounded-2xl p-4 border border-slate-800/50"
         >
           {step === 1 && (
             <div className="space-y-4">
@@ -267,14 +295,14 @@ export const EvaluationWizard: React.FC<{
           {step === 2 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                <GlassButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleStepClick(1)}
+                  icon={<ArrowLeft className="w-4 h-4" />}
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Step 1: Role &amp; Job Spec</span>
-                </button>
+                  Back to Role & Job Spec
+                </GlassButton>
               </div>
               <CandidateIntakeForm onSubmit={handleCandidateFormSubmit} />
             </div>
@@ -283,14 +311,14 @@ export const EvaluationWizard: React.FC<{
           {step === 3 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                <GlassButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleStepClick(2)}
+                  icon={<ArrowLeft className="w-4 h-4" />}
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Step 2: Candidate Materials</span>
-                </button>
+                  Back to Candidate Materials
+                </GlassButton>
               </div>
               <PipelineTracker
                 currentStageIndex={pipelineStageIndex}

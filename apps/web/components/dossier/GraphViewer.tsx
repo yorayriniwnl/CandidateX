@@ -17,6 +17,11 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { CEGGraph, CEGNode, CEGEdge, CapabilityKey } from '../../types/cci';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { GlassInput } from '@/components/ui/GlassInput';
+import { GlassSelect } from '@/components/ui/GlassSelect';
+import { GlowBadge } from '@/components/ui/GlowBadge';
 
 const NODE_TYPE_CONFIG: Record<
   string,
@@ -67,14 +72,12 @@ export const GraphViewer: React.FC<{
 }> = ({ graph, selectedCapability, onSelectCapability, onInspectEvidence }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Partition nodes into layered columns
-  // Column 0: Sources & Claims
-  // Column 1: Artifacts
-  // Column 2: Evidence
-  // Column 3: Capabilities
   const { nodePositions, visibleNodes, visibleEdges } = useMemo(() => {
     const nodes = graph.nodes.filter((n) => {
       if (typeFilter !== 'all' && n.type !== typeFilter) return false;
@@ -105,7 +108,6 @@ export const GraphViewer: React.FC<{
       }
     });
 
-    // Compute coordinate positions in SVG
     const colX: Record<string, number> = {
       source: 80,
       claim: 80,
@@ -138,7 +140,6 @@ export const GraphViewer: React.FC<{
     return graph.nodes.find((n) => n.id === selectedNodeId) || null;
   }, [graph, selectedNodeId]);
 
-  // Backward provenance trace for selected node
   const activeAncestors = useMemo(() => {
     if (!selectedNodeId) return new Set<string>();
     const ancestors = new Set<string>([selectedNodeId]);
@@ -146,7 +147,6 @@ export const GraphViewer: React.FC<{
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      // Find all edges where target === current (backward trace)
       graph.edges.forEach((e) => {
         if (e.target === current && !ancestors.has(e.source)) {
           ancestors.add(e.source);
@@ -157,9 +157,33 @@ export const GraphViewer: React.FC<{
     return ancestors;
   }, [graph, selectedNodeId]);
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (isDragging) {
+      setPan((p) => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+    }
+  };
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+    <GlassCard variant="strong" className="space-y-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes dash-anim {
+          to { stroke-dashoffset: -20; }
+        }
+        .animated-dash {
+          stroke-dasharray: 4,4;
+          animation: dash-anim 1s linear infinite;
+          filter: drop-shadow(0 0 2px #6366f1);
+        }
+      `}} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.06] pb-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
             <Network className="w-5 h-5" />
@@ -172,70 +196,73 @@ export const GraphViewer: React.FC<{
           </div>
         </div>
 
-        {/* Graph Controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-48">
+            <GlassInput
+              variant="search"
               placeholder="Search graph..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
+            />
+          </div>
+          <div className="w-40">
+            <GlassSelect
+              options={[
+                { value: 'all', label: 'All Node Types' },
+                { value: 'source', label: 'Sources' },
+                { value: 'claim', label: 'Self-Claims' },
+                { value: 'artifact', label: 'Artifacts' },
+                { value: 'evidence', label: 'Evidence' },
+                { value: 'capability', label: 'Capabilities' },
+              ]}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
             />
           </div>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="all">All Node Types</option>
-            <option value="source">Sources</option>
-            <option value="claim">Self-Claims</option>
-            <option value="artifact">Artifacts</option>
-            <option value="evidence">Evidence</option>
-            <option value="capability">Capabilities</option>
-          </select>
-
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
-            <button
+          <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.06] rounded-lg p-0.5">
+            <GlassButton
+              variant="ghost"
+              size="sm"
               onClick={() => setZoom((z) => Math.min(1.8, z + 0.15))}
-              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+              icon={<ZoomIn className="w-3.5 h-3.5" />}
               title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
+            />
+            <GlassButton
+              variant="ghost"
+              size="sm"
               onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))}
-              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+              icon={<ZoomOut className="w-3.5 h-3.5" />}
               title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <button
+            />
+            <GlassButton
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setZoom(1);
+                setPan({ x: 0, y: 0 });
                 setSelectedNodeId(null);
               }}
-              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+              icon={<RotateCcw className="w-3.5 h-3.5" />}
               title="Reset View"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
+            />
           </div>
         </div>
       </div>
 
-      {/* Main Graph Canvas & Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* SVG Diagram Canvas */}
-        <div className="lg:col-span-3 bg-slate-950 border border-slate-800 rounded-xl overflow-auto h-[480px] relative">
+        <div 
+          className="lg:col-span-3 bg-[#050a15] border border-white/[0.06] rounded-xl overflow-hidden relative h-[480px] cursor-grab active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           <div
-            className="min-w-[960px] min-h-[460px] p-4 transition-transform duration-150 origin-top-left"
-            style={{ transform: `scale(${zoom})` }}
+            className="min-w-[960px] min-h-[460px] p-4 origin-top-left transition-transform duration-75"
+            style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` }}
           >
-            <svg width="960" height="460" className="select-none">
+            <svg width="1200" height="800" className="select-none overflow-visible">
               <defs>
                 <marker
                   id="arrow"
@@ -261,7 +288,6 @@ export const GraphViewer: React.FC<{
                 </marker>
               </defs>
 
-              {/* Column Guides */}
               <g opacity="0.3" className="text-[10px] font-mono fill-slate-500">
                 <text x="80" y="24" textAnchor="middle">SOURCES &amp; CLAIMS</text>
                 <text x="320" y="24" textAnchor="middle">PARSED ARTIFACTS</text>
@@ -269,7 +295,6 @@ export const GraphViewer: React.FC<{
                 <text x="840" y="24" textAnchor="middle">CAPABILITIES</text>
               </g>
 
-              {/* Edges */}
               {visibleEdges.map((edge) => {
                 const src = nodePositions[edge.source];
                 const dst = nodePositions[edge.target];
@@ -291,12 +316,11 @@ export const GraphViewer: React.FC<{
                     strokeWidth={isEdgeActive ? 2.5 : 1.2}
                     strokeDasharray={isEdgeActive ? undefined : '3,3'}
                     markerEnd={isEdgeActive ? 'url(#arrow-active)' : 'url(#arrow)'}
-                    className="transition-colors duration-200"
+                    className={`transition-colors duration-200 ${isEdgeActive ? 'animated-dash' : ''}`}
                   />
                 );
               })}
 
-              {/* Nodes */}
               {visibleNodes.map((node) => {
                 const pos = nodePositions[node.id];
                 if (!pos) return null;
@@ -309,7 +333,8 @@ export const GraphViewer: React.FC<{
                   <g
                     key={node.id}
                     transform={`translate(${pos.x}, ${pos.y})`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedNodeId(node.id);
                       if (node.properties?.capability && onSelectCapability) {
                         onSelectCapability(node.properties.capability);
@@ -346,10 +371,9 @@ export const GraphViewer: React.FC<{
           </div>
         </div>
 
-        {/* Node Details Inspection Panel */}
-        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+        <GlassCard variant="strong" glow="indigo" className="flex flex-col justify-between h-[480px]">
           <div>
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5 mb-3">
+            <div className="flex items-center gap-2 border-b border-white/[0.06] pb-2.5 mb-3">
               <Info className="w-4 h-4 text-indigo-400" />
               <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
                 Provenance Inspector
@@ -363,9 +387,9 @@ export const GraphViewer: React.FC<{
                     Type / Node ID
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-indigo-300 rounded font-mono text-[11px]">
+                    <GlowBadge variant="brand" size="sm" className="font-mono text-[11px]">
                       {selectedNode.type}
-                    </span>
+                    </GlowBadge>
                     <span className="text-slate-400 font-mono text-[11px] truncate">
                       {selectedNode.id}
                     </span>
@@ -384,7 +408,7 @@ export const GraphViewer: React.FC<{
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono mb-1">
                       Properties &amp; Calibration
                     </span>
-                    <div className="bg-slate-900 border border-slate-800 rounded p-2 max-h-48 overflow-y-auto space-y-1 font-mono text-[11px]">
+                    <div className="bg-white/[0.02] border border-white/[0.06] rounded p-2 max-h-48 overflow-y-auto space-y-1 font-mono text-[11px]">
                       {Object.entries(selectedNode.properties).map(([k, v]) => (
                         <div key={k} className="flex justify-between gap-2">
                           <span className="text-slate-400 truncate">{k}:</span>
@@ -398,14 +422,17 @@ export const GraphViewer: React.FC<{
                 )}
 
                 {onInspectEvidence && (
-                  <button
-                    type="button"
-                    onClick={() => onInspectEvidence(selectedNode.id)}
-                    className="w-full mt-3 py-2 px-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Inspect 6-Factor Provenance</span>
-                  </button>
+                  <div className="pt-2">
+                    <GlassButton
+                      variant="primary"
+                      size="sm"
+                      fullWidth
+                      onClick={() => onInspectEvidence(selectedNode.id)}
+                      icon={<Shield className="w-3.5 h-3.5" />}
+                    >
+                      Inspect 6-Factor Provenance
+                    </GlassButton>
+                  </div>
                 )}
               </div>
             ) : (
@@ -415,11 +442,11 @@ export const GraphViewer: React.FC<{
             )}
           </div>
 
-          <div className="pt-3 border-t border-slate-800/80 text-[10px] text-slate-500">
+          <div className="pt-3 border-t border-white/[0.06] text-[10px] text-slate-500">
             CEG provides formal auditability from top-level RCI to concrete file lines.
           </div>
-        </div>
+        </GlassCard>
       </div>
-    </div>
+    </GlassCard>
   );
 };

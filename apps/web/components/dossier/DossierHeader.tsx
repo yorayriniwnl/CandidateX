@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   AlertCircle,
@@ -14,7 +14,6 @@ import {
   FileText,
   ChevronDown,
   Users,
-  Sparkles,
 } from 'lucide-react';
 import { Dossier } from '../../types/cci';
 import { downloadDossier } from '../../lib/api';
@@ -22,6 +21,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { GlowBadge } from '../ui/GlowBadge';
 import { RadialGauge } from '../ui/RadialGauge';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
+import { GlassButton } from '../ui/GlassButton';
 
 const CANONICAL_CANDIDATE_LIST = [
   { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'Backend (Senior)' },
@@ -43,6 +43,22 @@ export const DossierHeader: React.FC<{
   const [isExporting, setIsExporting] = useState(false);
   const coveragePercent = Math.round(dossier.coverage * 100);
   const isLowCoverage = dossier.coverage < 0.30 || dossier.is_insufficient_evidence;
+
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const candidateMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+      if (candidateMenuRef.current && !candidateMenuRef.current.contains(event.target as Node)) {
+        setIsCandidateMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleDownload = async (format: 'html' | 'markdown' | 'json') => {
     try {
@@ -74,6 +90,14 @@ export const DossierHeader: React.FC<{
     }
   }
 
+  const getRciGlow = (value: number | null): 'emerald' | 'indigo' | 'amber' | 'rose' | 'none' => {
+    if (value === null) return 'none';
+    if (value >= 75) return 'emerald';
+    if (value >= 50) return 'indigo';
+    if (value >= 30) return 'amber';
+    return 'rose';
+  };
+
   return (
     <GlassCard variant="strong" glow="indigo" className="space-y-4">
       {/* Low Coverage Warning Banner */}
@@ -98,7 +122,7 @@ export const DossierHeader: React.FC<{
           />
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <h1 className="text-2xl font-black text-white tracking-tight text-gradient">
+              <h1 className="text-2xl font-black tracking-tight text-gradient bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
                 {candidateName}
               </h1>
 
@@ -112,16 +136,17 @@ export const DossierHeader: React.FC<{
 
               {/* Quick Candidate Switcher Dropdown */}
               {onSelectCandidate && (
-                <div className="relative inline-block ml-1">
-                  <button
-                    type="button"
+                <div className="relative inline-block ml-1" ref={candidateMenuRef}>
+                  <GlassButton
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsCandidateMenuOpen(!isCandidateMenuOpen)}
-                    className="px-2.5 py-1 glass hover:bg-white/[0.08] text-slate-300 border border-white/[0.08] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                    icon={<ChevronDown className="w-3 h-3 opacity-60" />}
+                    iconPosition="right"
                   >
-                    <Users className="w-3 h-3 text-brand-400" />
-                    <span>Switch</span>
-                    <ChevronDown className="w-3 h-3 opacity-60" />
-                  </button>
+                    <Users className="w-3 h-3 text-brand-400 mr-1.5" />
+                    Switch
+                  </GlassButton>
 
                   {isCandidateMenuOpen && (
                     <div className="absolute left-0 mt-2 w-64 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs backdrop-blur-2xl">
@@ -163,17 +188,18 @@ export const DossierHeader: React.FC<{
 
         <div className="flex items-center gap-2.5 relative self-end md:self-center">
           {/* Export Brief Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
+          <div className="relative" ref={exportMenuRef}>
+            <GlassButton
+              variant="primary"
+              size="sm"
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              disabled={isExporting}
-              className="px-3.5 py-2 bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-500 hover:to-violet-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-2 shadow-lg shadow-brand-500/20"
+              loading={isExporting}
+              icon={<ChevronDown className="w-3 h-3 opacity-80" />}
+              iconPosition="right"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isExporting ? 'Exporting...' : 'Export Brief'}</span>
-              <ChevronDown className="w-3 h-3 opacity-80" />
-            </button>
+              <Download className="w-3.5 h-3.5 mr-2" />
+              {isExporting ? 'Exporting...' : 'Export Brief'}
+            </GlassButton>
 
             {isExportMenuOpen && (
               <div className="absolute right-0 mt-2 w-52 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200 backdrop-blur-2xl">
@@ -208,21 +234,21 @@ export const DossierHeader: React.FC<{
             )}
           </div>
 
-          <button
-            type="button"
+          <GlassButton
+            variant="secondary"
+            size="sm"
             onClick={onOpenWeightsModal}
-            className="px-3.5 py-2 glass hover:bg-white/[0.08] text-slate-200 rounded-xl text-xs font-medium transition-all flex items-center gap-2 border border-white/[0.08]"
           >
-            <Sliders className="w-3.5 h-3.5 text-brand-400" />
-            <span>Role Weights</span>
-          </button>
+            <Sliders className="w-3.5 h-3.5 text-brand-400 mr-2" />
+            Role Weights
+          </GlassButton>
         </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
         {/* RCI Score Card */}
-        <GlassCard variant="subtle" glow="indigo" className="flex items-center justify-between p-4">
+        <GlassCard variant="subtle" glow={getRciGlow(dossier.rci)} className="flex items-center justify-between p-4">
           <div>
             <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
               Technical Readiness (RCI)
@@ -245,7 +271,7 @@ export const DossierHeader: React.FC<{
         </GlassCard>
 
         {/* Evidence Coverage Card */}
-        <GlassCard variant="subtle" glow="emerald" className="flex items-center justify-between p-4">
+        <GlassCard variant="subtle" glow={isLowCoverage ? 'amber' : 'emerald'} className="flex items-center justify-between p-4">
           <div>
             <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
               Verified Code Coverage
