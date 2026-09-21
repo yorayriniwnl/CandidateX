@@ -31,6 +31,7 @@ def test_docx_and_bare_visible_links_are_parsed():
 def test_live_backend_exposes_no_candidate_directory_or_lookup():
     assert client.get('/api/v1/candidates').status_code == 404
     assert client.get('/api/v1/dossier/77777777-7777-7777-7777-777777777777').status_code == 404
+    assert client.get('/api/v1/research-demo/run').status_code == 404
 
 
 @pytest.mark.parametrize('identity', ['', 'unrelated'])

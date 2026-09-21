@@ -53,6 +53,18 @@ async function mockLiveApi(page: Page) {
   }));
 }
 
+test('first-run view makes the next action obvious without extra interpretation', async ({ page }) => {
+  await page.setViewportSize({ width: 880, height: 900 });
+  await page.goto('/analyze');
+  await expect(page.getByRole('heading', { name: 'Upload a resume to begin' })).toBeVisible();
+  await expect(page.getByText('Drop your resume here', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your review, in three moves', { exact: true })).toBeVisible();
+  await expect(page.getByText('PDF or DOCX · up to 3 MB', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const uploadZone = await page.locator('label[for="resume-upload"]').boundingBox();
+  expect((uploadZone?.y ?? Number.POSITIVE_INFINITY) + (uploadZone?.height ?? 0)).toBeLessThan(900);
+});
+
 test('keeps advanced source settings behind an intentional review step', async ({ page }) => {
   await mockLiveApi(page);
   await page.goto('/analyze');

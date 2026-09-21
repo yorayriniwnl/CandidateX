@@ -1,6 +1,6 @@
 # Live resume analysis
 
-The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, review the extracted links and declared GitHub identity, fetch public repositories live, and inspect/export an evidence-backed dossier. `/research-demo` remains an explicitly synthetic teaching tool.
+The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, review the extracted links and declared GitHub identity, fetch public repositories live, and inspect/export an evidence-backed dossier. The deployed frontend exposes this live workflow only; research simulations remain internal engineering artifacts and are not candidate-facing product pages.
 
 ## Data flow and implementation
 

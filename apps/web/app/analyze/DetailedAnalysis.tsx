@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { publicUrl, type ComprehensiveAnalysis, type SourceReceipt, type ResumeIntake } from '../../lib/live-analysis';
 import type { RoleFitSummary } from '../../types/cci';
-import { label } from '../../lib/research-demo';
+import { label } from '../../lib/evidence';
 import styles from './shared.module.css';
 import live from './page.module.css';
 

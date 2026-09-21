@@ -1,6 +1,6 @@
-# CandidateX research demonstration
+# CandidateX research demonstration (internal archive)
 
-CandidateX demonstrates the mechanism in **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion** at `/research-demo`. The main `/` route now opens the [real resume and live GitHub workflow](live-resume-analysis.md) at `/analyze`. `/workspace` retains the earlier prototype interface, and `/hr` retains the HR sample interface.
+This document records the internal research implementation of **Role-Aware Candidate Capability Intelligence for Pre-Interview Technical Assessment Using Multi-Source Evidence Fusion**. It is not a public CandidateX product page. The deployed product starts at `/` and exposes the real resume and live GitHub workflow at `/analyze`; synthetic scenarios remain available only to backend researchers and automated tests.
 
 ## What is implemented
 
@@ -47,7 +47,7 @@ In a second terminal:
 pnpm --filter web dev
 ```
 
-Open `http://localhost:3000/research-demo`. The page uses a same-origin Next.js route to call the backend. `CCI_API_URL` is a **server-side runtime setting** (default `http://127.0.0.1:8000`). Set it in the frontend process if using another backend port. This avoids exposing a build-time localhost API URL to the demo browser.
+The archived browser demonstration has been removed from the deployed frontend. Backend researchers can run the API and experiment scripts directly; the frontend `CCI_API_URL` bridge is no longer part of the product.
 
 The demonstration needs no database, Redis, external API credentials, candidate uploads, or network acquisition. Its run registry is process-local: use one backend worker and export JSON to retain a snapshot across restarts. Refreshing the page clears its current view; it never silently restores an unrelated dossier.
 

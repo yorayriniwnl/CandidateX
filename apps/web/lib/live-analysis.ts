@@ -1,5 +1,5 @@
 import type { CEGGraph, Dossier, RoleFitSummary } from '../types/cci';
-import type { Evidence } from './research-demo';
+import type { Evidence } from './evidence';
 
 export interface ResumeIntake {
   candidate_id: string;

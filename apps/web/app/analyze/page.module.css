@@ -1,10 +1,15 @@
 .navLinks { display:flex; flex-wrap:wrap; align-items:center; gap:20px; }
-.upload { display:grid; gap:4px; border:1px dashed #64749e; border-radius:11px; padding:15px 14px; margin-top:24px; background:#151e32; line-height:1.5; }
-.upload span { color:#f1f4ff; font-size:13px; font-weight:650; }
-.upload strong { color:#aebcff; font:600 10px var(--font-mono),monospace; letter-spacing:.08em; text-transform:uppercase; }
-.upload small { color:#8996af; font-size:11px; }
-.upload input { display:block; width:100%; margin-top:10px; font-size:12px; }
-.upload input::file-selector-button { background:#bdcaff; color:#0c1020; border:0; padding:8px 10px; border-radius:6px; margin-right:8px; cursor:pointer; font-weight:650; }
+.upload { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; border:1px solid #53648e; border-radius:14px; padding:15px; margin-top:20px; background:linear-gradient(135deg,rgba(50,67,111,.62),rgba(17,24,43,.92)); line-height:1.5; overflow:hidden; transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease; }
+.upload::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 12% 50%,rgba(178,190,255,.2),transparent 34%),linear-gradient(90deg,rgba(255,255,255,.035),transparent 70%); pointer-events:none; }
+.upload:hover { border-color:#aebcff; transform:translateY(-1px); box-shadow:0 12px 30px rgba(44,58,112,.25); }
+.upload:focus-within { outline:2px solid #cfdaff; outline-offset:4px; }
+.upload > * { position:relative; z-index:1; }
+.uploadMark { display:grid; place-items:center; width:38px; height:38px; border:1px solid rgba(207,218,255,.32); border-radius:11px; color:#dce3ff; background:rgba(180,194,255,.15); }
+.uploadCopy { display:grid; gap:3px; min-width:0; }
+.uploadCopy strong { color:#f1f4ff; font-size:13px; font-weight:650; }
+.uploadCopy small { color:#aab6d3; font-size:11px; }
+.uploadAction { display:inline-flex; align-items:center; gap:5px; color:#d4dcff; font-size:11px; font-weight:700; white-space:nowrap; }
+.upload input { position:absolute; inset:0; display:block; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
 .extracted { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:12px; line-height:1.7; max-height:350px; overflow:auto; margin:14px 0; color:#b9c5dd; }
 .sourceHead { display:flex; gap:12px; align-items:start; justify-content:space-between; flex-wrap:wrap; }
 .sourceUrl { overflow-wrap:anywhere; min-width:0; font-size:13px; margin:8px 0; }

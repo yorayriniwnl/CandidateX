@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowUpRight, Menu, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NAVIGATION_ITEMS, SURFACE_COPY, type Surface, type SurfaceStatus } from './navigation';
 import { SurfaceBadge } from './SurfaceBadge';
 
@@ -16,6 +16,10 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const copy = SURFACE_COPY[surface];
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   return (
     <header className="platform-header">

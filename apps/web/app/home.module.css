@@ -189,13 +189,8 @@
 
 .experienceGrid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
-  grid-template-rows: auto auto;
+  grid-template-columns: minmax(0, 720px);
   gap: 14px;
-}
-
-.experienceGrid > :first-child {
-  grid-row: span 2;
 }
 
 .loopSection {
@@ -315,8 +310,9 @@
   }
 
   .hero {
-    grid-template-columns: 1fr;
-    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 0.82fr);
+    gap: 22px;
+    min-height: 560px;
     padding-top: 34px;
   }
 
@@ -324,13 +320,24 @@
     min-height: 440px;
   }
 
-  .experienceGrid {
-    grid-template-columns: 1fr 1fr;
+  .hero h1 {
+    font-size: clamp(3rem, 6vw, 5.8rem);
   }
 
-  .experienceGrid > :first-child {
-    grid-column: span 2;
-    grid-row: auto;
+}
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .heroCopy {
+    max-width: 720px;
+  }
+
+  .heroVisual {
+    min-height: 420px;
   }
 }
 
@@ -367,10 +374,6 @@
   .trustStrip,
   .loopGrid {
     grid-template-columns: 1fr;
-  }
-
-  .experienceGrid > :first-child {
-    grid-column: auto;
   }
 
   .loopItem {

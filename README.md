@@ -8,9 +8,9 @@
 
 > **CandidateX analyzes real resumes, GitHub profiles and repositories, and supplied public links live.** It extracts PDF/DOCX sections, skills, project claims, education and certificates; inspects commit-pinned source files and public page text; and produces a role-aware dossier with traceable skill matches and explicit verification gaps. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
 
-**Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
+**Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. Internal research notes remain in `docs/research-demonstration.md` and are not exposed as product pages.
 
-Open `/` for the command center. `/analyze` is the live resume and public-source workflow; `/research-demo` is explicitly synthetic; `/workspace` is the earlier evaluation prototype; and `/hr` is a separate sample hiring view. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
+Open `/` for the command center. `/analyze` is the live resume and public-source workflow; prototype, sample, and synthetic pages have been removed from the product surface. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
 
 ---
 
@@ -49,8 +49,8 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 CandidateX/
 ├── apps/
 │   └── web/                         # Next.js 16 App Router Frontend (React 19, Tailwind CSS)
-│       ├── app/                     # Unified workspace: Directory, Intake, Pipeline, Dossier
-│       ├── components/              # CandidateDirectory, JobIntake, CandidateIntake, DossierViewer, CEGViewer
+│       ├── app/                     # Command center and live evidence workflow
+│       ├── components/              # Live analysis, evidence visualization, and navigation
 │       ├── lib/                     # API client layer (jobs, candidates, pipeline, dossier)
 │       └── Dockerfile               # Multi-stage non-root container build
 ├── examples/                        # Canonical role evaluation fixtures (CVs and JDs)
@@ -176,7 +176,7 @@ powershell -ExecutionPolicy Bypass -File scripts/verify.ps1
 The verification script runs the complete backend suite, Next.js route type generation, TypeScript checks, production build, and browser acceptance suite. Use `-SkipBrowser` during setup only when Chromium is already installed.
 
 ### 1. Database Seeding CLI
-The earlier workspace has an optional database seeder. It is not needed by the research demonstration. CV/JD declarations alone now yield unknown capability unless observations are supplied:
+The backend retains an optional database seeder for local regression fixtures. It is not part of the deployed live workflow. CV/JD declarations alone now yield unknown capability unless observations are supplied:
 ```powershell
 # Seed default SQLite database (local_dev.db) with 7 canonical candidates
 & services/backend/.venv/Scripts/python.exe scripts/seed_db.py --samples 7
@@ -186,7 +186,7 @@ The earlier workspace has an optional database seeder. It is not needed by the r
 ```
 
 ### 2. Turnkey Candidate Analysis CLI
-The CLI parses supplied declarations and produces a dossier. Automated source acquisition is not wired into this path; without registered observations, technical capability remains unknown. For scored examples use the explicit research demonstration:
+The CLI parses supplied declarations and produces a dossier. Automated source acquisition is not wired into this path; without registered observations, technical capability remains unknown. For scored examples, use the internal research scripts and backend tests:
 ```powershell
 # Run 10-stage pipeline on sample CV and JD fixtures (automatically infers candidate name)
 & services/backend/.venv/Scripts/python.exe scripts/analyze_candidate.py --cv examples/sample_backend_cv.txt --jd examples/sample_backend_jd.txt --role backend
@@ -214,13 +214,7 @@ The repository includes 5 sample CV and JD pairs for reproducible evaluation:
 ```powershell
 pnpm --filter web dev
 ```
-Open `http://localhost:3000/` for the command center, then choose the live workflow or a clearly labeled synthetic/prototype surface. The earlier `/workspace` interface contains:
-- **Candidate Directory**: Real-time search, role filtering, evidence status badges (`Robust`, `Sparse`, `Conflict Flagged`), and 1-click dossier navigation.
-- **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
-- **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
-- **Dossier & CEG Viewer**: Comprehensive capability breakdown, confidence factors, claims matrix, interview probes, and interactive graph viewer.
-- **Export & Print**: 1-click "Export Brief" generating standalone printable HTML documents (optimized `@media print`), downloadable Markdown, or raw JSON snapshots.
-- **Multi-Candidate Comparison**: Side-by-side comparative capability matrix comparing up to 3 candidates simultaneously across RCI, Coverage, 12 Core Capabilities, and contradiction alerts.
+Open `http://localhost:3000/` for the command center, then choose Live Evidence. The product has one clear candidate-facing workflow: upload a resume, review supplied sources, inspect evidence-backed capability signals, and prepare focused interview questions.
 
 ---
 
@@ -261,8 +255,8 @@ docker compose up --build -d
 
 ## Verification & Test Matrix
 
-Use `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` for the self-contained local release gate, or the more detailed commands in the [demonstration guide](docs/research-demonstration.md#verification). Backend tests use a disposable database and explicit test fixtures. Browser tests exercise the production frontend against a real backend.
+Use `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` for the self-contained local release gate, or the detailed commands in the [live workflow guide](docs/live-resume-analysis.md#verification). Backend tests use a disposable database and explicit test fixtures. Browser tests exercise the production frontend against a real backend.
 
 - [Demonstration acceptance tests](services/backend/tests/test_research_demonstration.py): evidence integrity, deterministic scenarios, role/JD conditioning, missingness, provenance, consistent rescoring, validation and artifact alignment.
-- [Browser workflow tests](apps/web/tests/research-demo.spec.ts): controls through API responses, exports, failure states and mobile layout.
+- [Browser workflow tests](apps/web/tests/live-analysis.spec.ts): live intake, evidence review, exports, failure states and mobile layout.
 - Existing suites cover mathematical properties, source parsers, database operations, and the separate simulation. Passing these tests does not independently validate real-world hiring accuracy or every production security property.

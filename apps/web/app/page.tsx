@@ -1,4 +1,4 @@
-import { ArrowRight, BrainCircuit, FlaskConical, SearchCheck, UsersRound } from 'lucide-react';
+import { ArrowRight, SearchCheck } from 'lucide-react';
 import Link from 'next/link';
 import { ExperienceCard } from '../components/home/ExperienceCard';
 import { SignalConstellation } from '../components/home/SignalConstellation';
@@ -15,33 +15,6 @@ const EXPERIENCES = [
     accent: 'violet' as const,
     tag: 'Primary workflow',
     featured: true,
-  },
-  {
-    title: 'Evaluation Workspace',
-    eyebrow: 'For deep review',
-    description: 'Browse candidate cohorts, run evaluations, inspect dossiers, compare profiles, and explore the methodology.',
-    href: '/workspace',
-    icon: BrainCircuit,
-    accent: 'cyan' as const,
-    tag: 'Operations',
-  },
-  {
-    title: 'Hiring View',
-    eyebrow: 'For fast triage',
-    description: 'A lighter review surface for hiring teams to scan candidate status, interviews, and evidence alerts.',
-    href: '/hr',
-    icon: UsersRound,
-    accent: 'lime' as const,
-    tag: 'Sample surface',
-  },
-  {
-    title: 'Research Lab',
-    eyebrow: 'For understanding the math',
-    description: 'Change synthetic evidence conditions and see how capability, coverage, contradictions, and probes move together.',
-    href: '/research-demo',
-    icon: FlaskConical,
-    accent: 'amber' as const,
-    tag: 'Synthetic only',
   },
 ];
 
@@ -64,8 +37,8 @@ export default function HomePage() {
               <Link href="/analyze" className={styles.primaryAction}>
                 Start with live evidence <ArrowRight size={17} aria-hidden="true" />
               </Link>
-              <Link href="/research-demo" className={styles.secondaryAction}>
-                Explore the method <ArrowUpRightIcon />
+              <Link href="#loop-title" className={styles.secondaryAction}>
+                See the evidence loop <ArrowUpRightIcon />
               </Link>
             </div>
             <div className={styles.heroMeta} aria-label="Product principles">
@@ -83,10 +56,10 @@ export default function HomePage() {
         <section className={styles.modesSection} aria-labelledby="modes-title">
           <div className={styles.sectionHeading}>
             <div>
-              <p className={styles.sectionEyebrow}>Choose your surface</p>
-              <h2 id="modes-title">Four ways in.</h2>
+              <p className={styles.sectionEyebrow}>One product surface</p>
+              <h2 id="modes-title">One clear workflow.</h2>
             </div>
-            <p>Same signal system. Different depth, audience, and evidence boundary.</p>
+            <p>Start with the candidate evidence, then carry the same trace into a sharper human interview.</p>
           </div>
           <div className={styles.experienceGrid} aria-label="CandidateX product surfaces">
             {EXPERIENCES.map((experience) => <ExperienceCard key={experience.href} {...experience} />)}
@@ -116,8 +89,6 @@ export default function HomePage() {
           <span>CandidateX · Research-informed technical interview preparation.</span>
           <nav className={styles.footerNav} aria-label="Footer navigation">
             <Link href="/analyze">Live Evidence</Link>
-            <Link href="/workspace">Workspace</Link>
-            <Link href="/research-demo">Research Lab</Link>
           </nav>
         </footer>
       </main>

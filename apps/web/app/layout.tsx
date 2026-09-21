@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CandidateX — Capability Intelligence",
-  description: "CandidateX traces technical candidate claims through evidence, capability signals, and focused interview questions.",
+  title: "CandidateX — Evidence-first hiring intelligence",
+  description: "CandidateX brings live evidence review into a human-led technical interview workflow.",
   other: {
     "darkreader-lock": "true",
     "color-scheme": "dark"
