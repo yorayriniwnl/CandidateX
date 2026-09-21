@@ -297,7 +297,7 @@ export const CandidateComparison: React.FC<{
         </GlassCard>
       ) : (
         <AnimatePresence>
-          <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <motion.div key="comparison-subjects" variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {subjects.map((sub) => {
               const coveragePct = Math.round(sub.dossier.coverage * 100);
               const isLowCov = sub.dossier.coverage < 0.30 || sub.dossier.is_insufficient_evidence;
@@ -402,7 +402,7 @@ export const CandidateComparison: React.FC<{
             })}
           </motion.div>
 
-          <GlassCard noPadding className="overflow-hidden mt-6">
+          <GlassCard key="comparison-capabilities" noPadding className="overflow-hidden mt-6">
             <div className="p-4 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-white text-base">
@@ -491,7 +491,7 @@ export const CandidateComparison: React.FC<{
             </div>
           </GlassCard>
 
-          <GlassCard className="p-5 space-y-4 mt-6">
+          <GlassCard key="comparison-conflicts" className="p-5 space-y-4 mt-6">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">
                 Contradiction Diagnostics Comparison (\(D_k \in [-1, 1]\))
@@ -546,7 +546,7 @@ export const CandidateComparison: React.FC<{
             </div>
           </GlassCard>
 
-          <GlassCard className="p-5 space-y-4 mt-6">
+          <GlassCard key="comparison-interview-questions" className="p-5 space-y-4 mt-6">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">
                 Tailored Technical Interview Questions

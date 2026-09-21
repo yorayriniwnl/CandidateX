@@ -61,3 +61,17 @@ test('workspace keeps its dense tools but provides a shared escape route on mobi
   await expect(page.getByText(/Evaluation Workspace/i).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('comparison view does not emit duplicate React keys', async ({ page }) => {
+  const duplicateKeyErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /same key/i.test(message.text())) {
+      duplicateKeyErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Compare', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Candidate Comparative Capability Matrix' })).toBeVisible();
+  expect(duplicateKeyErrors).toEqual([]);
+});
