@@ -4,9 +4,9 @@ Evaluation of Full CCI model accuracy across all six canonical engineering profi
 
 | Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\rho$ ↑ |
 |:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|
-| **Backend** | 800 | 1.935 | 2.444 | 0.940 |
-| **Frontend** | 800 | 1.900 | 2.381 | 0.936 |
-| **Fullstack** | 800 | 1.894 | 2.389 | 0.940 |
-| **Ml Engineer** | 800 | 1.986 | 2.506 | 0.934 |
-| **Devops Cloud** | 800 | 1.957 | 2.574 | 0.935 |
-| **Data Engineer** | 800 | 1.982 | 2.512 | 0.945 |
+| **Backend** | 800 | 1.438 | 1.879 | 0.957 |
+| **Frontend** | 800 | 1.500 | 1.933 | 0.954 |
+| **Fullstack** | 800 | 1.402 | 1.790 | 0.959 |
+| **Ml Engineer** | 800 | 1.430 | 1.851 | 0.956 |
+| **Devops Cloud** | 800 | 1.457 | 1.950 | 0.956 |
+| **Data Engineer** | 800 | 1.381 | 1.831 | 0.963 |

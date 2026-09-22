@@ -129,9 +129,9 @@ export const HowItWorksModal: React.FC<{
                         2
                       </div>
                       <div>
-                        <h4 className="font-semibold text-slate-100">Safe AST Analysis & 6-Factor Confidence Calibration</h4>
+                        <h4 className="font-semibold text-slate-100">Safe AST Analysis & Attribution-Gated Evidence Weights</h4>
                         <p className="text-slate-400 text-sm mt-1 leading-relaxed">
-                          Static parsers extract structural code metrics (cyclomatic complexity, test coverage, migration patterns) and calibrate evidence confidence across 6 objective factors: Authority, Ownership (discounting forks), Recency, Verifiability, Complexity, and Source Reliability.
+                          Static parsers extract code metrics. A path-specific account contribution ratio gates the geometric mean of artifact integrity, recency, verification, technical depth, and source reliability. This weight does not verify human identity or line-level authorship.
                         </p>
                       </div>
                     </GlassCard>

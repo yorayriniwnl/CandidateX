@@ -1,7 +1,7 @@
-"""Candidate ownership attribution estimation and 6-factor confidence composition.
+"""Candidate contribution estimation and attribution-gated evidence weighting.
 
 FORMAL PAPER MODEL:
-c_e,k = (a_e * o_e * t_e,k * v_e * x_e * r_s(e))^(1/6)
+c_e,k = o_e * (a_e * t_e,k * v_e * x_e * r_s(e))^(1/5)
 
 INVARIANTS:
 1. Candidate ownership attribution is explicitly estimated and capped for forks and vendor code.

@@ -1,4 +1,4 @@
-"""Six-factor multiplicative evidence confidence calculation."""
+"""Attribution-gated evidence weight calculation."""
 
 from cci.domain.contracts import EvidenceConfidenceFactors
 
@@ -11,12 +11,14 @@ def compute_evidence_confidence(
     depth_specificity: float,
     source_reliability: float,
 ) -> float:
-    """Computes the 6-factor multiplicative confidence:
+    """Computes an attribution-gated evidence weight:
 
-        c_{e,k} = (a_e * o_e * t_{e,k} * v_e * x_e * r_s(e))^(1/6)
+        q_{e,k} = (a_e * t_{e,k} * v_e * x_e * r_s(e))^(1/5)
+        c_{e,k} = o_e * q_{e,k}
 
-    Each factor must be in the range [0.0, 1.0].
-    Returns confidence c_{e,k} in [0.0, 1.0].
+    Attribution is a direct gate; the five evidence-quality factors cannot
+    compensate for weak attribution. The result is a relative evidence weight,
+    not a calibrated probability. Each factor is clamped to [0.0, 1.0].
     """
     factors = [
         artifact_integrity,
@@ -30,14 +32,17 @@ def compute_evidence_confidence(
     # Range validation & clamping
     clamped = [max(0.0, min(1.0, float(f))) for f in factors]
 
-    if any(f == 0.0 for f in clamped):
+    attribution_gate = clamped[1]
+    quality_factors = clamped[:1] + clamped[2:]
+    if attribution_gate == 0.0 or any(f == 0.0 for f in quality_factors):
         return 0.0
 
     product = 1.0
-    for f in clamped:
+    for f in quality_factors:
         product *= f
 
-    return float(product ** (1.0 / 6.0))
+    evidence_quality = product ** (1.0 / 5.0)
+    return float(attribution_gate * evidence_quality)
 
 
 def compute_confidence_from_factors(factors: EvidenceConfidenceFactors) -> float:

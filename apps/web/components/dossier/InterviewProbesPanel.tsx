@@ -247,7 +247,7 @@ export const InterviewProbesPanel: React.FC<{
                                           type="button"
                                           onClick={() => onInspectEvidence && onInspectEvidence(id)}
                                           className="px-2 py-0.5 glass hover:bg-white/[0.08] border border-white/[0.08] text-indigo-400 hover:text-indigo-300 rounded text-[10px] transition-colors cursor-pointer font-mono"
-                                          title={`Inspect 6-Factor Confidence Decomposition for ${id}`}
+                                          title={`Inspect attribution-gated confidence for ${id}`}
                                         >
                                           {id}
                                         </button>

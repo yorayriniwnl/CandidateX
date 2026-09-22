@@ -18,6 +18,7 @@ from cci.domain.contracts import (
     EvidenceRecord,
     NormalizedRequirement,
     RoleProfile,
+    ScoringConfig,
 )
 from cci.domain.enums import CanonicalRole
 
@@ -235,7 +236,7 @@ def save_analysis_run(
         else str(target_role),
         status=status,
         error_message=error_message,
-        config_version="1.0.0",
+        config_version=ScoringConfig().version,
         started_at=now,
         completed_at=now,
     )
@@ -345,7 +346,7 @@ def save_dossier(
         coverage=dossier.coverage,
         is_insufficient_evidence=dossier.is_insufficient_evidence,
         observed_capabilities_count=observed_count,
-        scoring_config_version=dossier.versions.get("scoring_config_version", "1.0.0"),
+        scoring_config_version=dossier.versions.get("scoring_config_version", ScoringConfig().version),
     )
     session.add(score_entity)
 

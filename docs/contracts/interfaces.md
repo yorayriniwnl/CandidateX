@@ -59,15 +59,13 @@ Given elapsed time $\Delta t_e$ (in years) since observation:
 $$t_{e,k} = \exp(-\lambda_k \cdot \Delta t_e)$$
 where $\lambda_k$ is the decay rate specific to capability $k$.
 
-### 3.3. Six-Factor Multiplicative Evidence Confidence
-Each evidence record $e$ supporting capability $k$ is evaluated across six factors:
-$$c_{e,k} = \left( a_e \cdot o_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/6}$$
-- $a_e \in (0, 1]$: Artifact validity / parser integrity
-- $o_e \in (0, 1]$: Authorship / ownership attribution
-- $t_{e,k} \in (0, 1]$: Temporal recency decay
-- $v_e \in (0, 1]$: Direct operational verification level
-- $x_e \in (0, 1]$: Technical depth and specificity
-- $r_s(e) \in (0, 1]$: Source family posterior reliability
+### 3.3. Attribution-Gated Evidence Weight
+Each evidence record $e$ supporting capability $k$ combines five evidence-quality factors and a direct candidate-attribution gate:
+$$q_{e,k} = \left( a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/5}, \qquad c_{e,k} = o_e \cdot q_{e,k}$$
+- $a_e, t_{e,k}, v_e, x_e, r_s(e) \in [0, 1]$: Artifact integrity, recency, verification, technical specificity, and source reliability
+- $o_e \in [0, 1]$: Path-specific account contribution ratio used as a direct gate; it is not a calibrated probability
+
+The result is bounded by attribution ($c_{e,k} \le o_e$). With five quality factors at $0.75$ and attribution at $0.03$, the old sixth-root formula gives $0.4386$, while the gated rule gives $0.0225$. No hard cutoff is applied because an empirically validated threshold is unavailable.
 
 ### 3.4. Capability Estimate & Effective Evidence Count
 $$q_k = \frac{\sum_{e} c_{e,k} \cdot z_{e,k}}{\sum_{e} c_{e,k}}$$

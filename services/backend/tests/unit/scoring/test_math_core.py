@@ -68,18 +68,43 @@ def test_recency_monotonicity():
 
 
 # ---------------------------------------------------------------------------
-# Equation 2: Six-Factor Confidence c = (a * o * t * v * x * r)^(1/6)
+# Equation 2: Attribution-gated confidence c = o * (a * t * v * x * r)^(1/5)
 # ---------------------------------------------------------------------------
 
 def test_confidence_exact_exponent():
-    """Verify exact 1/6 root calculation."""
-    # When factors are [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], result is 0.5
+    """Verify evidence quality uses a fifth root and attribution remains a direct gate."""
+    # With all six inputs at 0.5, quality is 0.5 and attribution halves its weight.
     conf = compute_evidence_confidence(0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
-    assert pytest.approx(conf, rel=1e-6) == 0.5
+    assert pytest.approx(conf, rel=1e-6) == 0.25
 
-    # Multiplicative product: (1.0 * 0.5 * 1.0 * 1.0 * 1.0 * 1.0)^(1/6) = 0.5^(1/6)
+    # At full evidence quality, confidence weight equals the attribution gate.
     conf_one_half = compute_evidence_confidence(1.0, 0.5, 1.0, 1.0, 1.0, 1.0)
-    assert pytest.approx(conf_one_half, rel=1e-6) == (0.5 ** (1.0 / 6.0))
+    assert pytest.approx(conf_one_half, rel=1e-6) == 0.5
+
+
+@pytest.mark.parametrize('attribution', [0.0, 0.01, 0.03, 0.10, 0.25, 0.50, 0.80, 1.0])
+def test_attribution_is_a_direct_gate_on_evidence_quality(attribution):
+    quality = 0.75
+    actual = compute_evidence_confidence(
+        artifact_integrity=quality,
+        ownership_score=attribution,
+        recency_factor=quality,
+        verification_level=quality,
+        depth_specificity=quality,
+        source_reliability=quality,
+    )
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=quality,
+        ownership_score=attribution,
+        recency_factor=quality,
+        verification_level=quality,
+        depth_specificity=quality,
+        source_reliability=quality,
+    )
+
+    assert pytest.approx(actual, rel=1e-9) == attribution * quality
+    assert pytest.approx(factors.composite_confidence, rel=1e-9) == attribution * quality
+    assert actual <= attribution
 
 
 def test_confidence_factor_monotonicity():

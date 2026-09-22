@@ -23,9 +23,10 @@ def test_get_all_theorems():
     assert "lambda" in t1["latex_formula"] or r"\lambda" in t1["latex_formula"]
     assert "Recency Decay" in t1["name"]
 
-    # Verify Theorem 2 has 6-factor formulation
+    # Verify Theorem 2 keeps attribution outside the five-factor quality mean.
     t2 = next(t for t in data if t["id"] == 2)
-    assert "1/6" in t2["latex_formula"]
+    assert "1/5" in t2["latex_formula"]
+    assert "o_e" in t2["latex_formula"]
     assert len(t2["key_properties"]) >= 3
 
     # Verify Theorem 10 has security invariants
@@ -52,8 +53,10 @@ def test_get_ablation_study():
     assert "UNCALIBRATED_SOURCES" in models
 
     assert models["FULL_CCI"]["is_baseline"] is True
-    assert models["FULL_CCI"]["mae"] == 1.943
-    assert models["FULL_CCI"]["spearman_rho"] == 0.943
+    assert models["FULL_CCI"]["mae"] == 1.435
+    assert models["FULL_CCI"]["spearman_rho"] == 0.961
+    assert "Scoring config 2.0.0" in data["notes"]
+    assert "o * (a * t * v * x * r)^(1/5)" in data["notes"]
 
     # Verify LaTeX and Markdown tables
     assert r"\begin{table}" in data["latex_table"]
@@ -81,8 +84,8 @@ def test_calculate_theorem_1_recency_decay():
     assert res["bounds_satisfied"] is True
 
 
-def test_calculate_theorem_2_six_factor_decomposition():
-    """Verifies live calculation and zero-factor collapse for Theorem 2."""
+def test_calculate_theorem_2_attribution_gate():
+    """Verifies the direct attribution gate and zero-factor collapse for Theorem 2."""
     # All factors positive
     payload_normal = {
         "theorem_id": 2,
@@ -98,9 +101,27 @@ def test_calculate_theorem_2_six_factor_decomposition():
     resp = client.post("/api/v1/research/calculate", json=payload_normal)
     assert resp.status_code == 200
     res = resp.json()
-    assert res["result"] == 0.9000
+    assert res["result"] == 0.8100
     assert res["bounds_satisfied"] is True
     assert res["intermediate_steps"]["zero_collapsed"] is False
+    assert res["intermediate_steps"]["attribution_gate"] == 0.9
+    assert res["intermediate_steps"]["evidence_quality"] == pytest.approx(0.9)
+    assert res["result"] <= res["intermediate_steps"]["attribution_gate"]
+
+    weak_payload = {
+        "theorem_id": 2,
+        "parameters": {
+            "authority": 0.75,
+            "ownership": 0.03,
+            "recency": 0.75,
+            "verifiability": 0.75,
+            "complexity": 0.75,
+            "reliability": 0.75,
+        },
+    }
+    weak_result = client.post("/api/v1/research/calculate", json=weak_payload).json()
+    assert weak_result["result"] == 0.0225
+    assert weak_result["result"] <= 0.03
 
     # Zero factor collapse
     payload_zero = {

@@ -108,8 +108,8 @@ def test_source_families_exact_seven():
     assert len(SourceFamily) == 7
 
 
-def test_confidence_factors_geometric_mean_formula():
-    """Verify c_e,k = (a * o * t * v * x * r)^(1/6)."""
+def test_confidence_factors_attribution_gate_formula():
+    """Verify c_e,k = o * (a * t * v * x * r)^(1/5)."""
     # When all factors are 1.0, confidence is 1.0
     factors_all_one = EvidenceConfidenceFactors(
         artifact_integrity=1.0,
@@ -121,7 +121,7 @@ def test_confidence_factors_geometric_mean_formula():
     )
     assert pytest.approx(factors_all_one.composite_confidence, rel=1e-5) == 1.0
 
-    # Test with arbitrary valid values: 0.64^(1/6)
+    # The five quality factors combine separately; attribution gates their mean.
     factors = EvidenceConfidenceFactors(
         artifact_integrity=0.8,
         ownership_score=0.9,
@@ -130,9 +130,10 @@ def test_confidence_factors_geometric_mean_formula():
         depth_specificity=0.5,
         source_reliability=0.85,
     )
-    product = 0.8 * 0.9 * 0.7 * 0.6 * 0.5 * 0.85
-    expected = product ** (1.0 / 6.0)
+    quality_product = 0.8 * 0.7 * 0.6 * 0.5 * 0.85
+    expected = 0.9 * quality_product ** (1.0 / 5.0)
     assert pytest.approx(factors.composite_confidence, rel=1e-5) == expected
+    assert pytest.approx(factors.evidence_quality, rel=1e-5) == quality_product ** (1.0 / 5.0)
 
     # Confidence must fall to 0 if any single factor is 0
     factors_zero = EvidenceConfidenceFactors(
@@ -223,7 +224,7 @@ def test_capability_estimate_observed_vs_missing():
 def test_scoring_config_defaults():
     """Validate versioned scoring configuration parameters."""
     config = ScoringConfig()
-    assert config.version == "1.0.0"
+    assert config.version == "2.0.0"
     assert config.temperature == 1.0
     assert config.low_coverage_threshold == 0.35
     assert config.probe_alpha + config.probe_beta + config.probe_gamma == 1.0

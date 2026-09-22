@@ -1,7 +1,7 @@
 """Formal paper ablation study engine.
 
 ABLATION CONFIGURATIONS:
-1. FULL_CCI: Full 6-factor confidence, recency decay, ownership discounting, calibrated reliability, softmax weights.
+1. FULL_CCI: Attribution-gated five-factor evidence quality, recency decay, calibrated reliability, and softmax weights.
 2. NO_RECENCY_DECAY: lambda_k = 0 -> t_e,k = 1.0 (ignores staleness of 5-year-old code).
 3. NO_OWNERSHIP_DISCOUNT: o_e = 1.0 (ignores forks and multi-contributor sharing).
 4. UNIFORM_WEIGHTS: w_k = 1/12 (ignores role-specific technical requirements).
@@ -17,6 +17,7 @@ from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.research.simulation import SimulatedCandidate, SimulatedObservation
 from cci.scoring.recency import compute_recency_factor
 from cci.scoring.reliability import DEFAULT_PRIORS, calculate_beta_mean
+from cci.scoring.confidence import compute_evidence_confidence
 from cci.scoring.weights import compute_softmax_weights
 
 
@@ -61,8 +62,7 @@ def _compute_ablation_confidence(
         alpha, beta = DEFAULT_PRIORS.get(obs.source_family, (5.0, 5.0))
         r = calculate_beta_mean(0, 0, alpha, beta)
 
-    product = a * o * t * v * x * r
-    return float(product ** (1.0 / 6.0))
+    return compute_evidence_confidence(a, o, t, v, x, r)
 
 
 def evaluate_candidate_ablation(

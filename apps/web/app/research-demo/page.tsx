@@ -382,7 +382,7 @@ export default function ResearchDemonstration() {
                                     </span>
                                   ))}
                                 </div>
-                                <p className="text-slate-500 text-xs">Composite confidence = geometric mean of these six factors. Verification status: {evidence.provenance.verification_status}.</p>
+                                <p className="text-slate-500 text-xs">Confidence weight = attribution gate × geometric mean of the five evidence-quality factors; it cannot exceed attribution. Verification status: {evidence.provenance.verification_status}.</p>
                               </div>
                             </div>
                           </details>
@@ -480,7 +480,7 @@ export default function ResearchDemonstration() {
               <p className="text-slate-400 text-sm leading-relaxed mb-6">Source reliability uses a Beta posterior. Confidence combines artifact integrity, ownership, recency, verification, extraction specificity, and reliability. Capability is their weighted evidence mean.</p>
               <div className="bg-[#050810] border border-white/[0.05] p-4 rounded-lg font-mono text-xs text-slate-300 leading-loose">
                 r = (TP + α) / (TP + FP + α + β)<br />
-                c = (a · o · t · v · x · r)^(1/6)<br />
+                c = o · (a · t · v · x · r)^(1/5)<br />
                 q = Σ(c · z) / Σc &nbsp; · &nbsp; n_eff = (Σc)² / Σ(c²)
               </div>
             </GlassCard>

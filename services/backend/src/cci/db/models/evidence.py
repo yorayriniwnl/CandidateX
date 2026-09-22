@@ -53,7 +53,7 @@ class Evidence(Base, UUIDPrimaryKeyMixin, ImmutableModelMixin, TimestampMixin):
         Boolean, default=True, nullable=False
     )
 
-    # Six-factor confidence decomposition: c_e,k = (a * o * t * v * x * r)^(1/6)
+    # Attribution-gated evidence weight: c_e,k = o * (a * t * v * x * r)^(1/5)
     factor_artifact_integrity: Mapped[float] = mapped_column(
         Float, nullable=False
     )  # a_e

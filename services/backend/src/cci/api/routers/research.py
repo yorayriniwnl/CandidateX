@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
+from cci.scoring.confidence import compute_evidence_confidence
 
 router = APIRouter(prefix="/api/v1/research", tags=["Research & Formal Theorems"])
 
@@ -104,16 +105,17 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
     ),
     TheoremMetadata(
         id=2,
-        name="6-Factor Confidence Decomposition Boundedness",
+        name="Attribution-Gated Evidence Weight Boundedness",
         category="Scoring & Calibration",
-        latex_formula=r"c_{e,k} = (a \cdot o \cdot t \cdot v \cdot x \cdot r)^{1/6}",
-        description="Geometric mean composition across Authority, Ownership, Recency, Verifiability, Complexity, and Bayesian Source Reliability.",
-        bound_statement=r"c_{e,k} \in [0, 1], \quad \exists f_i = 0 \implies c_{e,k} = 0",
-        physical_intuition="A single compromised or absent factor (e.g. 0% ownership on a forked repository) zeroes out composite confidence.",
+        latex_formula=r"c_{e,k} = o_e \cdot (a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e))^{1/5}",
+        description="A direct candidate-attribution gate multiplied by the geometric mean of five evidence-quality factors.",
+        bound_statement=r"c_{e,k} \in [0, 1], \quad c_{e,k} \le o_e, \quad o_e=0 \implies c_{e,k}=0",
+        physical_intuition="Weak attribution cannot be softened by taking a root: confidence weight is capped at the share of path commits linked to the declared account.",
         key_properties=[
-            "Multiplicative coupling prevents compensating zero ownership with high stars",
-            "Monotonically increasing in every individual factor",
-            "Equal factor weighting guarantees symmetry under factor permutation",
+            "Direct gate: zero attribution forces zero confidence weight",
+            "The confidence weight never exceeds the attribution factor",
+            "Monotonically increasing in attribution and every evidence-quality factor",
+            "Only the five evidence-quality factors are symmetric under permutation",
         ],
     ),
     TheoremMetadata(
@@ -272,10 +274,15 @@ def get_ablation_study() -> AblationStudyResponse:
     role_breakdown = [RoleBreakdownRow(role=role, display_name=role.replace("_", " ").title(),
                       full_cci_mae=values["rci_mae"])
                       for role, values in artifact["per_role_summary"].items()]
+    method_version = artifact["metadata"].get("scoring_config_version", "unknown")
+    confidence_formula = artifact["metadata"].get("confidence_formula", "not recorded")
     return AblationStudyResponse(total_candidates=artifact["metadata"]["total_candidates"],
         total_seeds=len(artifact["metadata"]["seeds"]), roles_count=len(artifact["metadata"]["roles"]),
         models=models, role_breakdown=role_breakdown, latex_table=latex, markdown_table=markdown,
-        notes="Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. Source reliability uses configured priors. These synthetic results do not establish real-world hiring accuracy.")
+        notes=(f"Scoring config {method_version}; confidence formula {confidence_formula}. "
+               "Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. "
+               "Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. "
+               "Source reliability uses configured priors. These synthetic results do not establish real-world hiring accuracy."))
 
 
 @router.post(
@@ -308,7 +315,7 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
         )
 
     elif request.theorem_id == 2:
-        # Theorem 2: Multiplicative 6-Factor Confidence
+        # Theorem 2: Direct attribution gate over five-factor evidence quality.
         a = float(p.get("authority", 1.0))
         o = float(p.get("ownership", 1.0))
         t = float(p.get("recency", 1.0))
@@ -324,21 +331,25 @@ def calculate_theorem_math(request: CalculationRequest) -> CalculationResponse:
                     detail=f"All factors must be in [0.0, 1.0], got {f}",
                 )
 
-        product = a * o * t * v * x * r
-        composite = math.pow(product, 1.0 / 6.0) if product > 0 else 0.0
+        quality_product = a * t * v * x * r
+        evidence_quality = math.pow(quality_product, 1.0 / 5.0) if quality_product > 0 else 0.0
+        composite = compute_evidence_confidence(a, o, t, v, x, r)
 
         return CalculationResponse(
             theorem_id=2,
-            theorem_name="6-Factor Confidence Decomposition",
-            formula="(a * o * t * v * x * r)^(1/6)",
+            theorem_name="Attribution-Gated Evidence Weight",
+            formula="o * (a * t * v * x * r)^(1/5)",
             result=round(composite, 4),
             intermediate_steps={
                 "factors": {"a": a, "o": o, "t": t, "v": v, "x": x, "r": r},
-                "product": product,
+                "attribution_gate": o,
+                "quality_product": quality_product,
+                "evidence_quality": evidence_quality,
                 "zero_collapsed": any(f == 0.0 for f in factors),
             },
             bounds_satisfied=0.0 <= composite <= 1.0,
-            explanation=f"Composite confidence is {composite:.4f}. {'Zero-factor collapse triggered: composite confidence is strictly zero.' if any(f == 0.0 for f in factors) else 'All factors positive, geometric mean preserved.'}",
+            explanation=(f"Confidence weight is {composite:.4f} from attribution gate {o:.4f} and evidence quality {evidence_quality:.4f}. "
+                         f"The weight cannot exceed attribution. {'Zero-factor collapse triggered.' if any(f == 0.0 for f in factors) else 'No zero factor was present.'}"),
         )
 
     elif request.theorem_id == 4:

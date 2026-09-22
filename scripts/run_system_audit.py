@@ -73,7 +73,7 @@ def audit_pillar_1_theorems(python_bin: str) -> AuditResult:
     checks = []
     theorems = [
         ("Theorem 1: Recency Decay Monotonicity & Asymptotics", "test_theorem_1_recency_decay"),
-        ("Theorem 2: 6-Factor Confidence Composition & Monotonicity", "test_theorem_2_confidence_composition"),
+        ("Theorem 2: Attribution-Gated Confidence & Monotonicity", "test_theorem_2_confidence_composition"),
         ("Theorem 3: Capability Point Estimate q_k Convexity", "test_theorem_3_point_estimate_convexity"),
         ("Theorem 4: Effective Sample Size n_eff <= N (Kish)", "test_theorem_4_effective_sample_size"),
         ("Theorem 5: Role Weight Softmax Normalization & Shift Invariance", "test_theorem_5_softmax_role_weights"),

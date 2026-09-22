@@ -15,7 +15,7 @@ class AnalysisTriggerRequest(BaseModel):
     candidate_id: UUID
     job_description_id: UUID | None = None
     target_role: CanonicalRole
-    scoring_config_version: str | None = "1.0.0"
+    scoring_config_version: str | None = "2.0.0"
 
 
 class StageProgressResponse(BaseModel):

@@ -83,8 +83,8 @@ def test_collaborative_multi_contributor_ownership():
     assert assessment.feature_vector["line_ratio"] == 0.40
 
 
-def test_six_factor_confidence_composition():
-    """Verify formal paper formula: c_e,k = (a * o * t * v * x * r)^(1/6)."""
+def test_attribution_gated_confidence_composition():
+    """Verify c_e,k = o * (a * t * v * x * r)^(1/5)."""
     factors = assemble_confidence_factors(
         artifact_integrity=1.0,     # a = 1.0
         ownership_score=0.90,       # o = 0.9
@@ -94,8 +94,8 @@ def test_six_factor_confidence_composition():
         source_reliability=0.833,   # r = 0.833
     )
 
-    expected_product = 1.0 * 0.90 * 0.80 * 1.0 * 0.85 * 0.833
-    expected_c = expected_product ** (1.0 / 6.0)
+    expected_quality_product = 1.0 * 0.80 * 1.0 * 0.85 * 0.833
+    expected_c = 0.90 * expected_quality_product ** (1.0 / 5.0)
 
     assert abs(factors.composite_confidence - expected_c) < 1e-4
     assert 0.0 <= factors.composite_confidence <= 1.0

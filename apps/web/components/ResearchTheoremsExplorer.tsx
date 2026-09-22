@@ -46,16 +46,16 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
   },
   {
     id: 2,
-    name: '6-Factor Confidence Decomposition Boundedness',
+    name: 'Attribution-Gated Evidence Weight Boundedness',
     category: 'Scoring & Calibration',
-    latex_formula: 'c_{e,k} = (a \\cdot o \\cdot t \\cdot v \\cdot x \\cdot r)^{1/6}',
-    description: 'Geometric mean across Authority, Ownership, Recency, Verifiability, Complexity, and Bayesian Source Reliability.',
-    bound_statement: 'c_{e,k} \\in [0, 1], \\quad \\exists f_i = 0 \\implies c_{e,k} = 0',
-    physical_intuition: 'A single zero factor (e.g. 0% ownership on a forked repository) zeroes out composite confidence.',
+    latex_formula: 'c_{e,k} = o \\cdot (a \\cdot t \\cdot v \\cdot x \\cdot r)^{1/5}',
+    description: 'Direct account-attribution gate multiplied by the geometric mean of five evidence-quality factors.',
+    bound_statement: 'c_{e,k} \\in [0, o], \\quad o = 0 \\implies c_{e,k} = 0',
+    physical_intuition: 'Weak path attribution remains weak: evidence quality cannot raise its weight above the attribution ratio.',
     key_properties: [
-      'Multiplicative coupling prevents compensating zero ownership with high stars',
-      'Monotonically increasing in every individual factor',
-      'Equal factor weighting guarantees symmetry under factor permutation',
+      'Zero attribution forces zero evidence weight',
+      'Increasing any attribution or evidence-quality factor increases the weight',
+      'The geometric mean treats the five quality factors symmetrically; attribution is the direct gate',
     ],
   },
   {
@@ -239,7 +239,7 @@ export const ResearchTheoremsExplorer: React.FC<{
   const t1Lambda = t1Domain === 'fast' ? 0.05 : t1Domain === 'mid' ? 0.03 : 0.01;
   const t1DecayFactor = Math.exp(-t1Lambda * t1DeltaT);
 
-  // Live Theorem 2 (6-Factor Decomposition) Simulator State
+  // Live Theorem 2 (Attribution-Gated Confidence) Simulator State
   const [t2Authority, setT2Authority] = useState<number>(0.92);
   const [t2Ownership, setT2Ownership] = useState<number>(0.88);
   const [t2Recency, setT2Recency] = useState<number>(0.85);
@@ -247,9 +247,10 @@ export const ResearchTheoremsExplorer: React.FC<{
   const [t2Complexity, setT2Complexity] = useState<number>(0.82);
   const [t2Reliability, setT2Reliability] = useState<number>(0.94);
 
-  const t2Product = t2Authority * t2Ownership * t2Recency * t2Verifiability * t2Complexity * t2Reliability;
-  const t2Composite = t2Product > 0 ? Math.pow(t2Product, 1 / 6) : 0;
-  const t2ZeroCollapsed = t2Product === 0;
+  const t2QualityProduct = t2Authority * t2Recency * t2Verifiability * t2Complexity * t2Reliability;
+  const t2EvidenceQuality = t2QualityProduct > 0 ? Math.pow(t2QualityProduct, 1 / 5) : 0;
+  const t2Composite = t2Ownership * t2EvidenceQuality;
+  const t2ZeroCollapsed = t2Composite === 0;
 
   // Live Theorem 7 (Contradiction D_k) Simulator State
   const [t7Positive, setT7Positive] = useState<number>(3.5);
@@ -425,15 +426,15 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Simulator 1: Theorem 2 - 6-Factor Geometric Mean Confidence */}
+              {/* Simulator 1: Theorem 2 - Attribution-Gated Confidence */}
               <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <Shield className="w-4 h-4 text-emerald-400" />
-                    Theorem 2: 6-Factor Confidence Decomposition
+                    Theorem 2: Attribution-Gated Confidence
                   </span>
                   <span className="font-mono text-xs text-slate-400">
-                    c_e,k = (a·o·t·v·x·r)^(1/6)
+                    c_e,k = o·(a·t·v·x·r)^(1/5)
                   </span>
                 </div>
 

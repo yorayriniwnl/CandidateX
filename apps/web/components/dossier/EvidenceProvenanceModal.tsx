@@ -184,8 +184,11 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
 
   const compositeConfidence = useMemo(() => {
     if (factors.length === 0) return 0;
-    const prod = factors.reduce((acc, f) => acc * f.value, 1.0);
-    return Math.pow(prod, 1.0 / 6.0);
+    const attribution = factors.find(f => f.symbol === 'o')?.value;
+    const qualityFactors = factors.filter(f => f.symbol !== 'o');
+    if (typeof attribution !== 'number' || qualityFactors.length !== 5) return 0;
+    const qualityProduct = qualityFactors.reduce((acc, f) => acc * f.value, 1.0);
+    return attribution * Math.pow(qualityProduct, 1.0 / 5.0);
   }, [factors]);
 
   if (!isOpen) return null;
@@ -204,7 +207,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
   const rawScore = typeof node.properties?.score === 'number' ? node.properties.score : 85;
 
   const tabs = [
-    { key: 'decomposition', label: '6-Factor Confidence Decomposition', icon: <Sparkles className="w-4 h-4" /> },
+    { key: 'decomposition', label: 'Attribution-Gated Confidence', icon: <Sparkles className="w-4 h-4" /> },
     { key: 'lineage', label: 'CEG Backward Lineage Path', icon: <Network className="w-4 h-4" /> },
     { key: 'claims_probes', label: `Corroborated Claims & Inquiries (${associatedClaims.length + associatedQuestions.length})`, icon: <MessageSquare className="w-4 h-4" /> },
     { key: 'ast', label: 'Static AST Inspector', icon: <FileCode className="w-4 h-4" /> },
@@ -279,13 +282,13 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
               <div className="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-1">
                 <div className="flex items-center gap-2 text-indigo-300 font-bold">
                   <Info className="w-4 h-4" />
-                  <span>Theorem 2 (6-Factor Multiplicative Confidence Composition)</span>
+                  <span>Theorem 2 (Attribution-Gated Evidence Weight)</span>
                 </div>
                 <p className="text-slate-300 font-mono text-[11px] leading-relaxed">
-                  c_(e,k) = (a &bull; o &bull; t &bull; v &bull; x &bull; r)^(1/6) &isin; [0, 1]
+                  c_(e,k) = o &bull; (a &bull; t &bull; v &bull; x &bull; r)^(1/5) &isin; [0, o]
                 </p>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Strictly monotonic with respect to each component factor. If any factor is zero, the entire composite confidence collapses to 0.0, guarding against false attribution.
+                  The five evidence-quality factors cannot offset weak attribution: the confidence weight never exceeds the path contribution ratio. A zero attribution or zero quality factor yields zero weight. This is not a calibrated probability.
                 </p>
               </div>
 

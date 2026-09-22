@@ -7,8 +7,8 @@ across 16 deterministic pseudo-random seeds x 300 candidates across the 6 canoni
 engineering roles (N = 4,800 total candidates).
 
 EVALUATION MODES:
-1. FULL_CCI: Full 6-factor confidence c_{e,k} = (a * o * t * v * x * r)^{1/6},
-   recency decay exp(-lambda_k * delta_t), ownership discounting o_e,
+1. FULL_CCI: Attribution-gated confidence c_{e,k} = o * (a * t * v * x * r)^{1/5},
+   recency decay exp(-lambda_k * delta_t), path contribution gate o_e,
    calibrated Beta-Binomial source reliability r_s, and softmax role weights w_k.
 2. NO_RECENCY_DECAY: lambda_k = 0 -> t_{e,k} = 1.0 (ignores staleness & skill progression).
 3. NO_OWNERSHIP_DISCOUNT: o_e = 1.0 (ignores forks and multi-author team code).
@@ -38,6 +38,7 @@ BACKEND_SRC = REPO_ROOT / "services" / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
+from cci.domain.contracts import ScoringConfig
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.research.ablation import (
     AblationMode,
@@ -192,6 +193,8 @@ def run_full_simulation_study(
     return {
         "metadata": {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+            "scoring_config_version": ScoringConfig().version,
+            "confidence_formula": "o * (a * t * v * x * r)^(1/5)",
             "total_candidates": len(full_errors),
             "seeds": seeds,
             "roles": [r.value for r in roles],

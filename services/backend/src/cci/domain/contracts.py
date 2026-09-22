@@ -29,7 +29,7 @@ class ScoringConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(
-        default="1.0.0", description="Semver identifier for scoring parameter set"
+        default="2.0.0", description="Semver identifier for scoring parameter set"
     )
     temperature: float = Field(
         default=1.0, gt=0.0, description="Softmax temperature T for role weights"
@@ -169,7 +169,10 @@ class NormalizedRequirement(BaseModel):
 
 
 class EvidenceConfidenceFactors(BaseModel):
-    """The 6 multiplicative confidence factors for c_e,k = (a * o * t * v * x * r)^(1/6)."""
+    """Five-factor evidence quality, gated by candidate attribution.
+
+    c_e,k = o_e * (a_e * t_e,k * v_e * x_e * r_s(e))^(1/5)
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -177,7 +180,8 @@ class EvidenceConfidenceFactors(BaseModel):
         ..., ge=0.0, le=1.0, description="a_e: artifact validity / parser confidence"
     )
     ownership_score: float = Field(
-        ..., ge=0.0, le=1.0, description="o_e: candidate ownership attribution"
+        ..., ge=0.0, le=1.0,
+        description="o_e: direct attribution gate; caps confidence weight at the path contribution ratio",
     )
     recency_factor: float = Field(
         ...,
@@ -196,17 +200,21 @@ class EvidenceConfidenceFactors(BaseModel):
     )
 
     @property
-    def composite_confidence(self) -> float:
-        """Calculates c_e,k = (a * o * t * v * x * r)^(1/6)."""
+    def evidence_quality(self) -> float:
+        """Five-factor geometric mean excluding attribution, in [0, 1]."""
         product = (
             self.artifact_integrity
-            * self.ownership_score
             * self.recency_factor
             * self.verification_level
             * self.depth_specificity
             * self.source_reliability
         )
-        return float(product ** (1.0 / 6.0))
+        return float(product ** (1.0 / 5.0))
+
+    @property
+    def composite_confidence(self) -> float:
+        """Attribution-gated evidence weight: o_e * evidence_quality, not a probability."""
+        return float(self.ownership_score * self.evidence_quality)
 
 
 class EvidenceInput(BaseModel):
@@ -575,7 +583,7 @@ class Dossier(BaseModel):
     versions: dict[str, str] = Field(
         default_factory=lambda: {
             "platform_version": "0.1.0",
-            "scoring_config_version": "1.0.0",
+            "scoring_config_version": "2.0.0",
             "ontology_version": "1.0.0",
         }
     )

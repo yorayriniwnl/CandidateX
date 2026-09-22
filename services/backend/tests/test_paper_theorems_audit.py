@@ -2,7 +2,7 @@
 
 Verifies all 10 Conference Paper Theorems and Core Axiomatic Invariants:
 Theorem 1: Recency Decay Monotonicity and Asymptotics.
-Theorem 2: 6-Factor Confidence Composition Boundedness & Strict Monotonicity.
+Theorem 2: Attribution-Gated Confidence Boundedness & Strict Monotonicity.
 Theorem 3: Capability Point Estimate q_k Convexity and Range Preservation.
 Theorem 4: Effective Sample Size n_eff,k <= N_k (Kish Design Effect).
 Theorem 5: Role Weight Softmax Normalization, Positivity, and Shift Invariance.
@@ -83,10 +83,10 @@ def test_theorem_1_recency_decay():
 
 
 # ------------------------------------------------------------------------------
-# Theorem 2: 6-Factor Confidence Composition Boundedness & Strict Monotonicity
+# Theorem 2: Attribution-Gated Confidence Boundedness & Strict Monotonicity
 # ------------------------------------------------------------------------------
 def test_theorem_2_confidence_composition():
-    """Theorem 2: c_e,k = (a * o * t * v * x * r)^(1/6) is in [0, 1] and strictly monotonic."""
+    """Theorem 2: c_e,k = o * (a * t * v * x * r)^(1/5) is bounded and monotonic."""
     base_factors = {
         "artifact_integrity": 0.8,
         "ownership_score": 0.8,
@@ -96,7 +96,7 @@ def test_theorem_2_confidence_composition():
         "source_reliability": 0.8,
     }
     c_base = compute_evidence_confidence(**base_factors)
-    assert c_base == pytest.approx(0.8, abs=1e-6)
+    assert c_base == pytest.approx(0.64, abs=1e-6)
 
     # Strict monotonicity in every single factor
     for factor_name in base_factors:

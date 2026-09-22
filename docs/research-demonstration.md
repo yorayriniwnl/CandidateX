@@ -9,7 +9,7 @@ The demonstration runs through the backend's actual confidence, capability, cove
 | Paper concept | Executable demonstration |
 | --- | --- |
 | Source reliability, Eq. 1 | Beta priors with eight explicitly simulated true positives per source; adjustable simulated false positives |
-| Confidence, Eq. 2 | Six-factor geometric mean, with inspectable factors and adjustable ownership |
+| Confidence, Eq. 2 | Five-factor evidence-quality geometric mean multiplied by a direct path-attribution gate; inspectable, with no arbitrary attribution threshold |
 | Capability, Eq. 3 | Confidence-weighted observations; no positive-confidence evidence produces unknown |
 | Effective count and conflict, Eq. 4 | Kish effective count and positive/negative support diagnostic |
 | Role conditioning, Eq. 5 | Six canonical role priors plus parsed JD requirements; softmax normalization |

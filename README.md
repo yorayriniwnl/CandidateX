@@ -101,15 +101,17 @@ $$r_s = \frac{TP_s + \alpha_s}{TP_s + FP_s + \alpha_s + \beta_s}, \quad \operato
 $$t_{e,k} = \exp(-\lambda_k \cdot \Delta t_e)$$
 where $\lambda_k$ is the capability-specific half-life decay rate and $\Delta t_e$ is the elapsed time in years.
 
-### 3. Six-Factor Multiplicative Confidence
-Each atomic evidence record $e$ supporting capability $k$ receives a confidence weight:
-$$c_{e,k} = \left( a_e \cdot o_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/6}$$
+### 3. Attribution-Gated Evidence Weight
+Each atomic evidence record $e$ supporting capability $k$ combines five evidence-quality factors and a direct attribution gate:
+$$q_{e,k} = \left( a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/5}, \qquad c_{e,k} = o_e \cdot q_{e,k}$$
 - $a_e$: Artifact validity and static parser integrity
-- $o_e$: Authorship attribution (penalizing forks $\le 0.18$, rewarding solo code $\ge 0.95$)
+- $o_e$: Path-specific account contribution ratio used as a direct gate, not a calibrated probability
 - $t_{e,k}$: Temporal recency decay
 - $v_e$: Direct verification level (e.g. verified commit vs unverified resume)
 - $x_e$: Technical specificity and architectural depth
 - $r_s(e)$: Bayesian posterior source reliability
+
+Because $q_{e,k} \in [0, 1]$, the weight satisfies $c_{e,k} \le o_e$. With five quality factors at $0.75$ and attribution at $0.03$, the former sixth-root formula yields $0.4386$, while the gated rule yields $0.0225$. No hard cutoff is used because no empirically validated threshold exists.
 
 ### 4. Capability Estimation & Kish Effective Sample Size
 $$q_k = \frac{\sum_{e} c_{e,k} \cdot z_{e,k}}{\sum_{e} c_{e,k}}, \quad n_{\text{eff},k} = \frac{\left(\sum_e c_{e,k}\right)^2}{\sum_e c_{e,k}^2}$$
