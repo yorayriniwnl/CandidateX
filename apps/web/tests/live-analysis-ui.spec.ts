@@ -40,7 +40,58 @@ const mockedAnalyze = {
   },
 };
 
-async function mockLiveApi(page: Page) {
+const mockedLimitedAnalyze = {
+  ...mockedAnalyze,
+  sources: [{ url: 'https://github.com/example/api', status: 'observed', detail: 'Observed test receipt.' }],
+  dossier: {
+    ...mockedAnalyze.dossier,
+    rci: 92,
+    coverage: 0.2,
+    capability_estimates: {
+      ...mockedAnalyze.dossier.capability_estimates,
+      backend_engineering: {
+        ...mockedAnalyze.dossier.capability_estimates.backend_engineering,
+        estimate: 92,
+        is_observed: true,
+        effective_evidence_count: 1,
+        raw_evidence_count: 1,
+        cluster_count: 1,
+        ci_lower: null,
+        ci_upper: null,
+        coverage_k: 0.2,
+      },
+    },
+    analysis_confidence: {
+      evidence_strength: 'limited',
+      explanation: 'Evidence strength is limited; one independent cluster and no interval are available.',
+      uncertainty_flags: ['low_role_coverage', 'single_cluster', 'interval_unavailable'],
+      role_coverage: 0.2,
+      observed_capabilities: 1,
+      independent_clusters: 1,
+      capabilities_with_intervals: 0,
+      interval_coverage: 0,
+      maximum_interval_width: null,
+      meaningful_conflicts: 0,
+      mandatory_unknown: 0,
+      mandatory_unresolved: 0,
+      source_failures: 0,
+      source_unscanned: 0,
+      unusable_evidence_records: 0,
+    },
+  },
+  source_health: {
+    supplied_sources: 1,
+    observed_sources: 1,
+    failed_sources: 0,
+    not_selected_sources: 0,
+    not_scanned_sources: 0,
+    blocked_sources: 0,
+    is_partial: false,
+    flags: [],
+  },
+};
+
+async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
   await page.route('**/api/live/intake', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -49,7 +100,7 @@ async function mockLiveApi(page: Page) {
   await page.route('**/api/live/analyze', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify(mockedAnalyze),
+    body: JSON.stringify(analyzeBody),
   }));
 }
 
@@ -85,9 +136,11 @@ test('leads with readable capability actions and keeps audit fields expandable',
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
   await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
 
+  await expect(page.getByRole('heading', { name: 'Evidence strength' })).toBeVisible();
+  await expect(page.getByText(/not a probability or hiring recommendation/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What the evidence shows' })).toBeVisible();
   const table = page.getByRole('table', { name: 'Capability snapshot' });
-  await expect(table.getByRole('columnheader', { name: 'Readiness' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Observed score' })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: 'Next step' })).toBeVisible();
   await expect(page.getByText('Show audit details')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What the job description is supported by' })).toBeVisible();
@@ -95,4 +148,15 @@ test('leads with readable capability actions and keeps audit fields expandable',
 
   await page.getByText('Show audit details').click();
   await expect(page.getByRole('columnheader', { name: '95% interval' })).toBeVisible();
+});
+
+test('labels high observed scores conservatively when support is thin', async ({ page }) => {
+  await mockLiveApi(page, mockedLimitedAnalyze);
+  await page.goto('/analyze');
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
+
+  await expect(page.getByText('Limited support')).toBeVisible();
+  await expect(page.getByText('Limited signal')).toBeVisible();
+  await expect(page.getByText(/not a probability or hiring recommendation/i)).toBeVisible();
 });

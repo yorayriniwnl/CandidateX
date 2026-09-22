@@ -9,6 +9,7 @@ import { PlatformHeader } from '../../components/navigation/PlatformHeader';
 import styles from './shared.module.css';
 import live from './page.module.css';
 import { DetailedAnalysis, ResumeSections, SourceDetails } from './DetailedAnalysis';
+import { EvidenceStrengthPanel } from './ConfidencePanel';
 
 const ROLES: CanonicalRole[] = ['backend', 'frontend', 'fullstack', 'ml_engineer', 'devops_cloud', 'data_engineer'];
 
@@ -36,7 +37,7 @@ function CapabilitySnapshotTable({
         <thead>
           <tr>
             <th scope="col">Capability</th>
-            <th scope="col">Readiness</th>
+            <th scope="col">Observed score</th>
             <th scope="col">Status</th>
             <th scope="col">Coverage</th>
             <th scope="col">Next step</th>
@@ -45,6 +46,8 @@ function CapabilitySnapshotTable({
         <tbody>
           {capabilities.map(cap => {
             const isObserved = cap.is_observed && cap.estimate !== null;
+            const hasInterval = cap.ci_lower !== null && cap.ci_upper !== null;
+            const isConservative = isObserved && (cap.coverage_k < 0.35 || !hasInterval);
             const score = cap.estimate ?? 0;
             const coverage = Math.round(cap.coverage_k * 100);
             return <tr key={cap.capability_key} className={selectedCapability === cap.capability_key ? styles.selectedRow : undefined}>
@@ -65,9 +68,9 @@ function CapabilitySnapshotTable({
                   <div className={styles.readinessBar} aria-hidden="true"><span style={{ width: `${isObserved ? Math.min(100, score) : 0}%` }} /></div>
                 </div>
               </td>
-              <td data-label="Status"><span className={`${styles.statusPill} ${isObserved ? styles.statusGood : styles.statusNeedsReview}`}>{isObserved ? 'Evidence found' : 'Needs verification'}</span></td>
+              <td data-label="Status"><span className={`${styles.statusPill} ${isObserved && !isConservative ? styles.statusGood : styles.statusNeedsReview}`}>{isConservative ? 'Limited signal' : isObserved ? 'Observed signal' : 'Unknown'}</span></td>
               <td data-label="Coverage"><div className={styles.coverageCell}><strong>{coverage}%</strong><span>role signal</span></div></td>
-              <td data-label="Next step"><button type="button" className={styles.rowAction} onClick={() => onSelectCapability(cap.capability_key)}>{isObserved ? 'View evidence' : 'Prepare question'} <span aria-hidden="true">→</span></button></td>
+              <td data-label="Next step"><button type="button" className={styles.rowAction} onClick={() => onSelectCapability(cap.capability_key)}>{isObserved ? 'Inspect evidence' : 'Prepare question'} <span aria-hidden="true">→</span></button></td>
             </tr>;
           })}
         </tbody>
@@ -244,11 +247,12 @@ export default function LiveAnalysisPage() {
         {result && <>
           <section id="review-summary" className={styles.panel} aria-label="Live assessment result">
             <div className={styles.resultHead}><div><div className={styles.eyebrow}>03 / Live assessment · {result.dossier.role}</div><div className={styles.resultTitle}><h2>Technical evidence dossier</h2><span className={`${styles.statusPill} ${result.status === 'partial' ? styles.statusNeedsReview : styles.statusGood}`}>{result.status === 'partial' ? 'Partial review' : 'Review complete'}</span></div><p className={styles.muted}>{result.status === 'partial' ? 'Some sources need attention below.' : 'Live acquisition completed.'} No synthetic observations.</p></div><button className={styles.button} onClick={exportResult}>Export dossier JSON</button></div>
-            <div className={styles.metrics}><div className={styles.metric}><span>Role Capability Index</span><strong>{result.dossier.rci?.toFixed(1) ?? 'Unknown'}</strong><span>Observed capability / 100</span></div><div className={styles.metric}><span>Evidence coverage</span><strong>{(result.dossier.coverage * 100).toFixed(1)}%</strong><span>Separate from capability</span></div><div className={styles.metric}><span>Static observations</span><strong>{result.dossier.evidence_records.length}</strong><span>From retrieved artifacts</span></div></div>
+            <div className={styles.metrics}><div className={styles.metric}><span>Observed capability index</span><strong>{result.dossier.rci?.toFixed(1) ?? 'Unknown'}</strong><span>Point estimate / 100, not a probability</span></div><div className={styles.metric}><span>Evidence coverage</span><strong>{(result.dossier.coverage * 100).toFixed(1)}%</strong><span>Separate from capability</span></div><div className={styles.metric}><span>Static observations</span><strong>{result.dossier.evidence_records.length}</strong><span>From retrieved artifacts</span></div></div>
             {result.dossier.is_insufficient_evidence && <p className={styles.warning}>Insufficient evidence for a broad assessment. Unknown capabilities are not zero. Use the interview probes to resolve gaps.</p>}
             {!identity.trim() && <p className={styles.warning}>No GitHub username was declared. Repository observations are retained, but ownership confidence is zero and they do not establish this candidate’s capability.</p>}
             <p className={styles.muted}>This supports a technical interview; it does not make hiring decisions or establish job-performance accuracy.</p>
           </section>
+          <EvidenceStrengthPanel result={result} />
           {result.analysis && <DetailedAnalysis analysis={result.analysis} />}
           <nav className={styles.resultNav} aria-label="Review sections"><span>Jump to</span><a href="#acquisition-receipts">Receipts</a><a href="#capability-snapshot">Capabilities</a><a href="#evidence-inspector">Evidence</a><a href="#interview-questions">Interview</a></nav>
           <section id="acquisition-receipts" className={styles.panel}><div className={styles.eyebrow}>04 / Acquisition receipts</div><h2>What was fetched</h2>{result.sources.length === 0 && <p className={styles.warning}>No public sources were selected. Resume declarations alone are not scored.</p>}{result.sources.map((s, i) => <article className={styles.evidence} key={`${i}-${s.url}`}><div className={live.sourceHead}><a className={live.sourceUrl} href={publicUrl(s.url)} target="_blank" rel="noreferrer">{s.url}</a><span className={styles.tag}>{label(s.status)}</span></div><p className={styles.muted}>{s.detail}</p>{s.commit_sha && <><p className={styles.hash}>Commit {s.commit_sha}</p><p className={styles.muted}>{s.files_inspected} files inspected · {s.files_omitted} omitted · {s.evidence_count} observations · fetched {s.fetched_at}</p></>}<SourceDetails source={s} /></article>)}</section>

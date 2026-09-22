@@ -1,4 +1,4 @@
-import type { CEGGraph, Dossier, RoleFitSummary } from '../types/cci';
+import type { AnalysisConfidenceSummary, CEGGraph, Dossier, RoleFitSummary } from '../types/cci';
 import type { Evidence } from './evidence';
 
 export interface ResumeIntake {
@@ -32,6 +32,16 @@ export interface SourceReceipt {
   content_sha256?: string; verification?: string;
   acquisition_method?: string;
 }
+export interface SourceHealth {
+  supplied_sources: number;
+  observed_sources: number;
+  failed_sources: number;
+  not_selected_sources: number;
+  not_scanned_sources: number;
+  blocked_sources: number;
+  is_partial: boolean;
+  flags: string[];
+}
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
@@ -48,8 +58,64 @@ export interface LiveResult {
   intake: ResumeIntake; dossier: Dossier & { evidence_records: (Evidence & { provenance: Evidence['provenance'] & {
     artifact_sha256?: string; artifact_url?: string; symbol_or_line?: string;
   } })[] };
-  sources: SourceReceipt[]; graph: CEGGraph; graph_snapshot: unknown; status: string;
+  sources: SourceReceipt[]; source_health?: SourceHealth; graph: CEGGraph; graph_snapshot: unknown; status: string;
   analysis: ComprehensiveAnalysis;
+}
+
+export const FALLBACK_ANALYSIS_CONFIDENCE: AnalysisConfidenceSummary = {
+  evidence_strength: 'insufficient',
+  explanation: 'The evidence-strength summary was not supplied; treat this analysis as insufficient until it is verified.',
+  uncertainty_flags: ['confidence_summary_unavailable'],
+  role_coverage: 0,
+  observed_capabilities: 0,
+  independent_clusters: 0,
+  capabilities_with_intervals: 0,
+  interval_coverage: 0,
+  maximum_interval_width: null,
+  meaningful_conflicts: 0,
+  mandatory_unknown: 0,
+  mandatory_unresolved: 0,
+  source_failures: 0,
+  source_unscanned: 0,
+  unusable_evidence_records: 0,
+};
+
+const EVIDENCE_STRENGTHS = new Set<AnalysisConfidenceSummary['evidence_strength']>([
+  'insufficient', 'limited', 'moderate', 'well_supported',
+]);
+
+export function getAnalysisConfidence(dossier: Dossier): AnalysisConfidenceSummary {
+  const confidence = dossier.analysis_confidence;
+  if (!confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)) {
+    return FALLBACK_ANALYSIS_CONFIDENCE;
+  }
+  return confidence;
+}
+
+export function getSourceHealth(result: Pick<LiveResult, 'sources' | 'source_health'>): SourceHealth {
+  if (result.source_health) return result.source_health;
+  const statuses = result.sources.map(source => source.status);
+  const observed = statuses.filter(status => status === 'observed').length;
+  const notSelected = statuses.filter(status => status === 'not_selected').length;
+  const notScanned = statuses.filter(status => status === 'not_scanned').length;
+  const blocked = statuses.filter(status => status === 'security_blocked').length;
+  const failed = statuses.filter(status => !['observed', 'not_selected', 'not_scanned'].includes(status)).length;
+  const flags = [
+    ...(failed ? ['source_failures'] : []),
+    ...(notSelected || notScanned ? ['source_unscanned'] : []),
+    ...(blocked ? ['security_blocked'] : []),
+    ...(statuses.length === 0 ? ['no_sources_supplied'] : []),
+  ];
+  return {
+    supplied_sources: statuses.length,
+    observed_sources: observed,
+    failed_sources: failed,
+    not_selected_sources: notSelected,
+    not_scanned_sources: notScanned,
+    blocked_sources: blocked,
+    is_partial: Boolean(failed || notSelected || notScanned || !observed),
+    flags,
+  };
 }
 export async function liveRequest<T>(operation: string, body: BodyInit, filename?: string): Promise<T> {
   const response = await fetch(`/api/live/${operation}`, { method: 'POST', body,
