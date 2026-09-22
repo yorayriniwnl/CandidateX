@@ -3,9 +3,42 @@ from cci.graph.builder import build_dossier_graph
 from cci.live.acquisition import acquire_sources
 from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS
 from cci.pipeline.orchestrator import execute_analysis_pipeline
+from cci.uncertainty.summary import build_analysis_confidence
 from concurrent.futures import ThreadPoolExecutor
 from cci.live.public_links import acquire_public_links
 from cci.live.report import build_report
+
+
+def build_source_health(sources: list[dict]) -> dict:
+    """Summarize source receipt outcomes without treating partial scans as success."""
+    statuses = [str(source.get('status', 'unknown')) for source in sources]
+    observed = sum(status == 'observed' for status in statuses)
+    not_selected = sum(status == 'not_selected' for status in statuses)
+    not_scanned = sum(status == 'not_scanned' for status in statuses)
+    blocked = sum(status == 'security_blocked' for status in statuses)
+    failed = sum(
+        status not in {'observed', 'not_selected', 'not_scanned'}
+        for status in statuses
+    )
+    flags = []
+    if failed:
+        flags.append('source_failures')
+    if not_selected or not_scanned:
+        flags.append('source_unscanned')
+    if blocked:
+        flags.append('security_blocked')
+    if not statuses:
+        flags.append('no_sources_supplied')
+    return {
+        'supplied_sources': len(statuses),
+        'observed_sources': observed,
+        'failed_sources': failed,
+        'not_selected_sources': not_selected,
+        'not_scanned_sources': not_scanned,
+        'blocked_sources': blocked,
+        'is_partial': bool(failed or not_selected or not_scanned or not observed),
+        'flags': flags,
+    }
 
 
 def analyze_resume(request: LiveAnalysisRequest):
@@ -41,6 +74,18 @@ def analyze_resume(request: LiveAnalysisRequest):
     ]
     dossier = state.dossier.model_copy(update={'ownership_assessments': ownership,
         'system_limitations': [*state.dossier.system_limitations, *limitations]})
+    source_health = build_source_health(sources)
+    analysis_confidence = build_analysis_confidence(
+        capabilities=dossier.capability_estimates,
+        evidence_records=dossier.evidence_records,
+        role_weights=dossier.role_weights,
+        conflicts=dossier.capability_conflicts,
+        role_fit=dossier.role_fit,
+        source_failures=source_health['failed_sources'],
+        source_unscanned=(source_health['not_selected_sources']
+                          + source_health['not_scanned_sources']),
+    )
+    dossier = dossier.model_copy(update={'analysis_confidence': analysis_confidence})
     graph = build_dossier_graph(dossier)
     analysis = build_report(request.intake, sources)
     analysis['role_fit'] = dossier.role_fit.model_dump(mode='json')
@@ -52,4 +97,5 @@ def analyze_resume(request: LiveAnalysisRequest):
     return {'intake': request.intake, 'dossier': dossier,
         'graph': graph.to_api_response(candidate_id=dossier.candidate_id, analysis_run_id=dossier.analysis_run_id),
         'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': analysis, 'scoring_config': ScoringConfig(),
-        'storage': 'request_only', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}
+        'source_health': source_health, 'storage': 'request_only',
+        'status': 'partial' if source_health['is_partial'] or not evidence else 'completed'}

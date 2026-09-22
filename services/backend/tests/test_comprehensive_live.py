@@ -121,6 +121,50 @@ def test_full_service_exposes_requirement_fit_and_critical_gaps(monkeypatch):
     assert result['analysis']['role_fit']['mandatory_unknown'] == 2
 
 
+def test_full_service_exposes_source_health_and_confidence_overlay(monkeypatch):
+    from cci.live.contracts import LiveAnalysisRequest
+    from cci.live import service
+
+    document = docx.Document()
+    document.add_paragraph('Example Candidate')
+    data = io.BytesIO()
+    document.save(data)
+    intake = parse_resume(data.getvalue(), 'resume.docx')
+    monkeypatch.setattr(service, 'acquire_sources', lambda urls, identity: (
+        [],
+        [],
+        [
+            {'url': 'https://github.com/example/observed', 'status': 'observed'},
+            {'url': 'https://github.com/example/rate-limited', 'status': 'rate_limited'},
+            {'url': 'https://github.com/example/blocked', 'status': 'security_blocked'},
+        ],
+    ))
+    monkeypatch.setattr(service, 'acquire_public_links', lambda urls: [
+        {'url': urls[0], 'status': 'not_scanned'},
+    ])
+
+    result = service.analyze_resume(LiveAnalysisRequest(
+        intake=intake,
+        external_urls=['https://example.com/portfolio'],
+    ))
+
+    assert result['source_health'] == {
+        'supplied_sources': 4,
+        'observed_sources': 1,
+        'failed_sources': 2,
+        'not_selected_sources': 0,
+        'not_scanned_sources': 1,
+        'blocked_sources': 1,
+        'is_partial': True,
+        'flags': ['source_failures', 'source_unscanned', 'security_blocked'],
+    }
+    confidence = result['dossier'].analysis_confidence
+    assert confidence.source_failures == 2
+    assert confidence.source_unscanned == 1
+    assert 'source_failures' in confidence.uncertainty_flags
+    assert 'source_unscanned' in confidence.uncertainty_flags
+
+
 def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):
     import base64
     import hashlib
