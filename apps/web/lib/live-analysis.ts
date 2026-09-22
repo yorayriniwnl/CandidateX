@@ -31,10 +31,18 @@ export interface SourceReceipt {
   title?: string; description?: string; excerpt?: string; final_url?: string; http_status?: number;
   content_sha256?: string; verification?: string;
   acquisition_method?: string;
+  discovered_links?: { url: string; kind: string; discovery_reason: string }[];
 }
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
+  source_coverage?: { by_status: Record<string, number>; by_kind: Record<string, number>; discovered_links: number };
+  discovered_links?: { url: string; kind: string; discovery_reason: string }[];
+  claims?: { claim_id: string; category: string; claim: string; source: string; section: string;
+    status: string; is_quantified: boolean; normalized_subject?: string; project_title?: string }[];
+  academic_records?: { record_id: string; raw_claim: string; status: string; degree_text: string | null;
+    years: string[]; claimed_cgpa: { value: number; scale: number | null } | null;
+    claimed_percentage: number | null; evidence_sources: string[]; limitations: string[] }[];
   skills: { skill: string; learning: boolean; status: string; evidence: TechnologyEvidence[];
     evidence_count: number; public_mentions: string[]; explanation: string }[];
   credentials: { claim: string; status: string; explanation: string; matching_pages: {
