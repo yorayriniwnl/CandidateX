@@ -417,6 +417,34 @@ class RoleFitSummary(BaseModel):
     critical_gaps: list[str] = Field(default_factory=list)
 
 
+class AnalysisConfidenceSummary(BaseModel):
+    """Deterministic evidence-strength summary, not a capability probability."""
+
+    model_config = ConfigDict(frozen=True)
+
+    evidence_strength: Literal[
+        "insufficient", "limited", "moderate", "well_supported"
+    ] = "insufficient"
+    explanation: str = "No empirical evidence was observed."
+    uncertainty_flags: list[str] = Field(
+        default_factory=lambda: ["no_empirical_evidence"]
+    )
+    role_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    observed_capabilities: int = Field(default=0, ge=0)
+    independent_clusters: int = Field(default=0, ge=0)
+    capabilities_with_intervals: int = Field(default=0, ge=0)
+    interval_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    maximum_interval_width: float | None = Field(
+        default=None, ge=0.0, le=100.0
+    )
+    meaningful_conflicts: int = Field(default=0, ge=0)
+    mandatory_unknown: int = Field(default=0, ge=0)
+    mandatory_unresolved: int = Field(default=0, ge=0)
+    source_failures: int = Field(default=0, ge=0)
+    source_unscanned: int = Field(default=0, ge=0)
+    unusable_evidence_records: int = Field(default=0, ge=0)
+
+
 # ---------------------------------------------------------------------------
 # Role Profile & Overall Analysis Scores
 # ---------------------------------------------------------------------------
@@ -538,6 +566,9 @@ class Dossier(BaseModel):
     capability_conflicts: dict[CapabilityKey, CapabilityConflict]
     role_requirements: list[NormalizedRequirement]
     role_fit: RoleFitSummary = Field(default_factory=RoleFitSummary)
+    analysis_confidence: AnalysisConfidenceSummary = Field(
+        default_factory=AnalysisConfidenceSummary
+    )
     ownership_assessments: list[OwnershipAssessment]
     claims_corroboration: list[dict[str, Any]]
     interview_probes: list[ProbePriority]
