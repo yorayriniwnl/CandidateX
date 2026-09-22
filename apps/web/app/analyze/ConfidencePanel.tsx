@@ -36,7 +36,7 @@ function flagLabel(flag: string) {
 }
 
 export function EvidenceStrengthPanel({ result }: { result: LiveResult }) {
-  const confidence = getAnalysisConfidence(result.dossier);
+  const confidence = getAnalysisConfidence(result.dossier, result.analysis);
   const sourceHealth = getSourceHealth(result);
   const flags = [...new Set([...confidence.uncertainty_flags, ...sourceHealth.flags])];
 

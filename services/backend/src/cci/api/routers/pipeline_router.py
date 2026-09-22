@@ -63,7 +63,7 @@ class PipelineRescoreRequest(BaseModel):
 
 def _public_pipeline_error(state) -> str | None:
     if state.status == PipelineStatus.FAILED:
-        return 'The analysis failed. No result was published.'
+        return 'The analysis pipeline failed before producing a dossier.'
     return None
 
 

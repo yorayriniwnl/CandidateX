@@ -240,7 +240,7 @@ def test_pipeline_api_sanitizes_failure_tracebacks_and_returns_request_id(monkey
 
     assert response.status_code == 200
     assert response.headers['X-Request-ID'] == 'pipeline-error-test'
-    assert response.json()['error'] == 'The analysis failed. No result was published.'
+    assert response.json()['error'] == 'The analysis pipeline failed before producing a dossier.'
     assert 'secret internal path' not in response.text
 
 

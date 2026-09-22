@@ -157,6 +157,6 @@ test('labels high observed scores conservatively when support is thin', async ({
   await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
 
   await expect(page.getByText('Limited support')).toBeVisible();
-  await expect(page.getByText('Limited signal')).toBeVisible();
+  await expect(page.getByText('Limited evidence')).toBeVisible();
   await expect(page.getByText(/not a probability or hiring recommendation/i)).toBeVisible();
 });

@@ -84,8 +84,11 @@ const EVIDENCE_STRENGTHS = new Set<AnalysisConfidenceSummary['evidence_strength'
   'insufficient', 'limited', 'moderate', 'well_supported',
 ]);
 
-export function getAnalysisConfidence(dossier: Dossier): AnalysisConfidenceSummary {
-  const confidence = dossier.analysis_confidence;
+export function getAnalysisConfidence(
+  dossier: Dossier,
+  analysis?: Pick<ComprehensiveAnalysis, 'analysis_confidence'>,
+): AnalysisConfidenceSummary {
+  const confidence = dossier.analysis_confidence ?? analysis?.analysis_confidence;
   if (!confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)) {
     return FALLBACK_ANALYSIS_CONFIDENCE;
   }

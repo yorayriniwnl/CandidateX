@@ -68,9 +68,9 @@ function CapabilitySnapshotTable({
                   <div className={styles.readinessBar} aria-hidden="true"><span style={{ width: `${isObserved ? Math.min(100, score) : 0}%` }} /></div>
                 </div>
               </td>
-              <td data-label="Status"><span className={`${styles.statusPill} ${isObserved && !isConservative ? styles.statusGood : styles.statusNeedsReview}`}>{isConservative ? 'Limited signal' : isObserved ? 'Observed signal' : 'Unknown'}</span></td>
+              <td data-label="Status"><span className={`${styles.statusPill} ${isObserved && !isConservative ? styles.statusGood : styles.statusNeedsReview}`}>{isConservative ? 'Limited evidence' : isObserved ? 'Evidence found' : 'Needs verification'}</span></td>
               <td data-label="Coverage"><div className={styles.coverageCell}><strong>{coverage}%</strong><span>role signal</span></div></td>
-              <td data-label="Next step"><button type="button" className={styles.rowAction} onClick={() => onSelectCapability(cap.capability_key)}>{isObserved ? 'Inspect evidence' : 'Prepare question'} <span aria-hidden="true">→</span></button></td>
+              <td data-label="Next step"><button type="button" className={styles.rowAction} onClick={() => onSelectCapability(cap.capability_key)}>{isConservative ? 'Prepare verification' : isObserved ? 'View evidence' : 'Prepare question'} <span aria-hidden="true">→</span></button></td>
             </tr>;
           })}
         </tbody>
