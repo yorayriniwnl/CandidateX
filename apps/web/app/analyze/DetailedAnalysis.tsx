@@ -48,6 +48,10 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
     {source.title && <h3>{source.title}</h3>}
     {source.description && <p>{source.description}</p>}
     {source.final_url && source.final_url !== source.url && <p className={live.sourceUrl}>Final destination: <a href={publicUrl(source.final_url)} target="_blank" rel="noreferrer">{source.final_url}</a></p>}
+    {source.discovered_links && source.discovered_links.length > 0 && <details className={styles.evidence}><summary>Links discovered on this page · {source.discovered_links.length}</summary>
+      {source.discovered_links.map(link => <p className={live.sourceUrl} key={link.url}><a href={publicUrl(link.url)} target="_blank" rel="noreferrer">{link.url}</a> · {label(link.kind)}</p>)}
+      <p className={styles.muted}>Discovery does not imply that a linked page was fetched or verified in this run.</p>
+    </details>}
     {source.excerpt && <details className={styles.evidence}><summary>Inspect retrieved page text · {label(source.verification || 'not_verified')}</summary>
       <pre className={live.extracted}>{source.excerpt}</pre><p className={styles.hash}>Content SHA-256: {source.content_sha256}</p>
       <p className={styles.muted}>Fetched {source.fetched_at} · HTTP {source.http_status}. This text is evidence of what the page states.</p>
@@ -59,7 +63,25 @@ export function DetailedAnalysis({ analysis }: { analysis: ComprehensiveAnalysis
   const [query, setQuery] = useState('');
   const [gapsOnly, setGapsOnly] = useState(false);
   const skills = analysis.skills.filter(skill => skill.skill.toLowerCase().includes(query.toLowerCase()) && (!gapsOnly || !skill.evidence.length));
+  const claims = analysis.claims ?? [];
+  const academicRecords = analysis.academic_records ?? [];
   return <>
+    {claims.length > 0 && <section className={styles.panel} aria-label="Claim ledger"><div className={styles.eyebrow}>Claim ledger</div><h2>What the resume actually claims</h2>
+      <p className={styles.muted}>Every declaration keeps a stable claim ID and remains self-reported until separate evidence supports it. Quantified claims are highlighted for follow-up.</p>
+      <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Claim</th><th>Category</th><th>Source</th><th>Status</th></tr></thead><tbody>{claims.map(claim => <tr key={claim.claim_id}>
+        <td><strong>{claim.claim}</strong>{claim.is_quantified && <><br /><span className={styles.tag}>Quantified · verify</span></>}</td><td>{label(claim.category)}</td><td>{label(claim.section)}</td><td>{label(claim.status)}</td>
+      </tr>)}</tbody></table></div>
+    </section>}
+    {academicRecords.length > 0 && <section className={styles.panel} aria-label="Academic record"><div className={styles.eyebrow}>Academic record</div><h2>Education claims, separated from verification</h2>
+      <p className={styles.muted}>Structured fields below are parsed from the resume. They are not institution or transcript verification.</p>
+      {academicRecords.map(record => <article className={styles.evidence} key={record.record_id}><div className={live.sourceHead}><h3>{record.degree_text || 'Education record'}</h3><span className={styles.tag}>{label(record.status)}</span></div>
+        <p className={live.claim}>{record.raw_claim}</p>
+        <dl className={live.metadata}>{record.years.length > 0 && <div><dt>Years found</dt><dd>{record.years.join(' · ')}</dd></div>}
+          {record.claimed_cgpa && <div><dt>Claimed CGPA/GPA</dt><dd>{record.claimed_cgpa.value}{record.claimed_cgpa.scale ? ` / ${record.claimed_cgpa.scale}` : ''}</dd></div>}
+          {record.claimed_percentage != null && <div><dt>Claimed percentage</dt><dd>{record.claimed_percentage}%</dd></div>}</dl>
+        {record.limitations.map(item => <p className={styles.muted} key={item}>{item}</p>)}
+      </article>)}
+    </section>}
     <section className={styles.panel} aria-label="Detailed resume analysis"><div className={styles.eyebrow}>The full picture</div><h2>Skills and supporting evidence</h2>
       <p>{analysis.coverage.skills_with_repository_matches} of {analysis.coverage.skills_declared} declared skills have matching repository artifacts. Matches may be source files, dependencies, or configuration; they do not establish mastery.</p>
       <div className={live.filters}><label>Find a skill<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Python, React, Docker…" /></label>
