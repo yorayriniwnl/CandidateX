@@ -67,7 +67,7 @@ test('DOCX sections, public-link failures, skill filters and detailed export', a
   await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
   await expect(page.getByRole('heading', { name: 'What the resume actually claims' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Education claims, separated from verification' })).toBeVisible();
-  await expect(page.getByText('B.Tech Computer Science', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Academic record' }).getByText('B.Tech Computer Science', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Skills and supporting evidence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Certificates and credentials' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Python Programming Certificate' })).toBeVisible();
