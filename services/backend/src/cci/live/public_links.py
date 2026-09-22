@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 import pymupdf
 
-from cci.intake.canonicalizer import classify_url
+from cci.intake.canonicalizer import classify_url, normalize_url
 from cci.security.ssrf import resolve_and_validate_hostname, SSRFSecurityError
 
 MAX_LINKS = 24
@@ -52,7 +52,7 @@ class PageText(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.hidden = 0
         self.in_title = False
-        self.title, self.description, self.text = [], '', []
+        self.title, self.description, self.text, self.hrefs = [], '', [], []
 
     def handle_starttag(self, tag, attrs):
         if tag in {'script', 'style', 'noscript', 'template', 'svg'}:
@@ -60,6 +60,8 @@ class PageText(HTMLParser):
         if tag == 'title':
             self.in_title = True
         values = dict(attrs)
+        if tag == 'a' and values.get('href') and len(self.hrefs) < 300:
+            self.hrefs.append(values['href'])
         if tag == 'meta' and values.get('name', '').lower() == 'description':
             self.description = values.get('content', '')[:1000]
 
@@ -130,9 +132,26 @@ def inspect_link(url, deadline, transport=None):
                     else:
                         parser.feed(text)
                         title, description, visible = ' '.join(parser.title), parser.description, ' '.join(parser.text)
+                    discovered_links = []
+                    if 'text/html' in content_type or 'application/xhtml+xml' in content_type:
+                        current_normalized = normalize_url(current)
+                        seen_links = set()
+                        for href in parser.hrefs:
+                            candidate = normalize_url(urljoin(current, href))
+                            if not candidate or candidate == current_normalized or candidate in seen_links:
+                                continue
+                            seen_links.add(candidate)
+                            discovered_links.append({
+                                'url': candidate,
+                                'kind': classify_url(candidate),
+                                'discovery_reason': 'public_page_link',
+                            })
+                            if len(discovered_links) >= 100:
+                                break
                     excerpt = re.sub(r'\s+', ' ', visible).strip()[:12000]
                     gate = re.search(r'(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies)', f'{title} {excerpt[:1200]}', re.I)
                     receipt.update(title=title[:300], description=description, excerpt=excerpt,
+                                   discovered_links=discovered_links,
                                    content_sha256=hashlib.sha256(content).hexdigest())
                     if gate:
                         return {**receipt, 'status': 'access_restricted', 'detail': 'The public response is a login or anti-bot gate; its content is not verification evidence.'}
