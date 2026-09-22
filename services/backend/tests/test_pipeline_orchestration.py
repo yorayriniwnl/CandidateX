@@ -16,6 +16,7 @@ from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.main import app
 from cci.pipeline.orchestrator import (
     AnalysisStage,
+    PipelineExecutionState,
     PipelineStatus,
     execute_analysis_pipeline,
     rescore_dossier,
@@ -215,6 +216,32 @@ def test_pipeline_api_lifecycle():
     assert rescore_resp.status_code == 200
     rescored_data = rescore_resp.json()
     assert rescored_data["rci"] is None
+
+
+def test_pipeline_api_sanitizes_failure_tracebacks_and_returns_request_id(monkeypatch):
+    failed_state = PipelineExecutionState(
+        analysis_run_id=uuid4(),
+        candidate_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        status=PipelineStatus.FAILED,
+        error='Traceback with secret internal path',
+    )
+    monkeypatch.setattr(
+        pipeline_service,
+        'start_pipeline',
+        lambda **kwargs: failed_state,
+    )
+
+    response = client.post(
+        '/api/v1/pipeline/run',
+        json={'candidate_id': str(failed_state.candidate_id)},
+        headers={'X-Request-ID': 'pipeline-error-test'},
+    )
+
+    assert response.status_code == 200
+    assert response.headers['X-Request-ID'] == 'pipeline-error-test'
+    assert response.json()['error'] == 'The analysis failed. No result was published.'
+    assert 'secret internal path' not in response.text
 
 
 def test_pipeline_api_404_not_found():

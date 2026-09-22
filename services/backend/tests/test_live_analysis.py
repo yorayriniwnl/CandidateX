@@ -1,9 +1,12 @@
 """Live path contracts: real document parsing and static acquisition, mocked only at HTTP."""
+import asyncio
 import io
 import zipfile
 
 import httpx
 import pymupdf
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from cci.main import app
@@ -58,6 +61,53 @@ def test_invalid_and_oversized_documents_are_rejected():
     assert client.post('/api/v1/live/intake', content=b'bad', headers={'X-Filename': 'bad.pdf'}).status_code == 422
     assert client.post('/api/v1/live/intake', content=b'x' * (3 * 1024 * 1024 + 1), headers={'X-Filename': 'big.pdf'}).status_code == 413
     assert client.post('/api/v1/live/intake', content=b'hello', headers={'X-Filename': 'run.exe'}).status_code == 415
+
+
+def test_analyze_body_limit_is_early_and_request_is_correlated():
+    from cci.live.contracts import MAX_ANALYZE_BODY
+
+    response = client.post(
+        '/api/v1/live/analyze',
+        content=b'x' * (MAX_ANALYZE_BODY + 1),
+        headers={'X-Request-ID': 'live-limit-test'},
+    )
+
+    assert response.status_code == 413
+    assert response.headers['X-Request-ID'] == 'live-limit-test'
+
+
+def test_analyze_body_limit_also_cuts_off_chunked_requests():
+    from cci.api.routers.live import limited_body
+
+    class ChunkedRequest:
+        headers = {}
+
+        async def stream(self):
+            yield b'0123456789'
+
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(limited_body(ChunkedRequest(), 5))
+
+    assert raised.value.status_code == 413
+
+
+def test_analyze_internal_error_is_safe_and_correlated(monkeypatch):
+    from cci.api.routers import live as live_router
+
+    def explode(_payload):
+        raise ValueError('secret traceback detail')
+
+    monkeypatch.setattr(live_router, 'analyze_resume', explode)
+    response = client.post(
+        '/api/v1/live/analyze',
+        json={'intake': intake().json()},
+        headers={'X-Request-ID': 'live-error-test'},
+    )
+
+    assert response.status_code == 500
+    assert response.headers['X-Request-ID'] == 'live-error-test'
+    assert response.json()['detail'] == 'The analysis failed. No sample result was substituted.'
+    assert 'secret traceback detail' not in response.text
 
 
 def test_resume_claims_alone_do_not_invent_capability():

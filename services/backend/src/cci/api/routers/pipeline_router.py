@@ -4,10 +4,12 @@ from typing import Any
 
 from uuid import UUID
 
+from cci.api.request import set_request_id
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.pipeline.orchestrator import PipelineStatus
 from cci.pipeline.service import pipeline_service
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 import math
 
@@ -59,14 +61,21 @@ class PipelineRescoreRequest(BaseModel):
         return weights
 
 
+def _public_pipeline_error(state) -> str | None:
+    if state.status == PipelineStatus.FAILED:
+        return 'The analysis failed. No result was published.'
+    return None
+
+
 @router.post(
     "/run",
     response_model=PipelineStatusResponse,
     status_code=status.HTTP_200_OK,
     summary="Trigger end-to-end Candidate Capability Intelligence pipeline",
 )
-def run_pipeline(request: PipelineRunRequest) -> Any:
+def run_pipeline(request: PipelineRunRequest, http_request: Request, response: Response) -> Any:
     """Executes the full 10-stage analysis pipeline and returns execution state."""
+    set_request_id(http_request, response)
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id,
         role=request.role,
@@ -99,7 +108,7 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
         dossier_id=state.dossier.dossier_id if state.dossier else None,
         rci=state.dossier.rci if state.dossier else None,
         coverage=state.dossier.coverage if state.dossier else None,
-        error=state.error,
+        error=_public_pipeline_error(state),
     )
 
 
@@ -108,8 +117,9 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
     response_model=PipelineStatusResponse,
     summary="Get pipeline execution progress and result summary",
 )
-def get_pipeline_status(run_id: UUID) -> Any:
+def get_pipeline_status(run_id: UUID, http_request: Request, response: Response) -> Any:
     """Retrieves current stage and progress for an active or completed analysis run."""
+    set_request_id(http_request, response)
     state = pipeline_service.get_pipeline_state(run_id)
     if not state:
         raise HTTPException(
@@ -139,7 +149,7 @@ def get_pipeline_status(run_id: UUID) -> Any:
         dossier_id=state.dossier.dossier_id if state.dossier else None,
         rci=state.dossier.rci if state.dossier else None,
         coverage=state.dossier.coverage if state.dossier else None,
-        error=state.error,
+        error=_public_pipeline_error(state),
     )
 
 
@@ -148,8 +158,9 @@ def get_pipeline_status(run_id: UUID) -> Any:
     response_model=Dossier,
     summary="Pure functional rescore of candidate dossier with expert weights",
 )
-def rescore_pipeline(request: PipelineRescoreRequest) -> Any:
+def rescore_pipeline(request: PipelineRescoreRequest, http_request: Request, response: Response) -> Any:
     """Pure functional recalculation of RCI without re-running analyzers or re-crawling."""
+    set_request_id(http_request, response)
     rescored = pipeline_service.rescore_run(
         run_id=request.run_id,
         new_weights=request.weights,

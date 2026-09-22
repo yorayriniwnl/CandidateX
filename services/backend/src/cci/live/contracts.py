@@ -8,6 +8,7 @@ from cci.domain.contracts import CandidateManifest
 from cci.domain.enums import CanonicalRole
 
 MAX_UPLOAD = 3 * 1024 * 1024
+MAX_ANALYZE_BODY = 512 * 1024
 MAX_REPOSITORIES = 6
 MAX_FILES = 100
 MAX_FILE_BYTES = 128 * 1024

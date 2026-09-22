@@ -8,6 +8,7 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from cci import __version__
+from cci.api.request import set_request_id
 from cci.api.routers import (
     candidates_router,
     dossier_router,
@@ -46,6 +47,13 @@ app.include_router(overrides_router)
 app.include_router(research_router)
 app.include_router(research_demo_router)
 app.include_router(live_router)
+
+
+@app.middleware("http")
+async def request_id_middleware(request, call_next):
+    response = await call_next(request)
+    set_request_id(request, response)
+    return response
 
 
 @app.get(
