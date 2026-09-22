@@ -1,0 +1,99 @@
+{
+  "report_type": "candidatex-hardening-baseline",
+  "audited_on": "2026-09-23",
+  "repository": "yorayriniwnl/CandidateX",
+  "scope": "Backend-first baseline with cross-cutting release checks",
+  "source": {
+    "pull_request": "https://github.com/yorayriniwnl/CandidateX/pull/20",
+    "branch": "codex/deep-evidence-foundation",
+    "head_commit": "57e9797dcfb7ad223aeec2de7226be0b9a3e684f",
+    "base_commit": "baa559f130fcb1bc5706ce55765bd7cb6cffa0ba",
+    "working_branch": "codex/backend-hardening"
+  },
+  "runtime": {
+    "python": "3.12.10",
+    "available_python_versions": ["3.12.10"],
+    "node": "v24.19.0",
+    "pnpm": "11.19.0",
+    "ci_python_3_11_matrix_reproduced_locally": false,
+    "ci_node_22_reproduced_locally": false
+  },
+  "inventory": {
+    "backend_tests_collected": 209,
+    "browser_tests_collected": 8,
+    "browser_test_files": 2
+  },
+  "checks": {
+    "backend_suite": {
+      "command": "python -m pytest tests -q",
+      "status": "passed",
+      "passed": 209,
+      "failed": 0,
+      "warnings": [
+        "Starlette TestClient deprecation warning for httpx integration",
+        "AnyIO BlockingPortal alias deprecation warning"
+      ]
+    },
+    "browser_suite": {
+      "command": "pnpm --filter web test",
+      "status": "passed",
+      "passed": 8,
+      "failed": 0
+    },
+    "frontend_type_generation": {
+      "command": "pnpm --filter web exec next typegen",
+      "status": "passed"
+    },
+    "frontend_typecheck": {
+      "command": "pnpm --filter web lint",
+      "status": "passed"
+    },
+    "frontend_production_build": {
+      "command": "pnpm --filter web build",
+      "status": "passed"
+    },
+    "ssrf_and_repository_workspace_security": {
+      "command": "python -m pytest tests/security/test_ssrf.py tests/security/repositories/test_safe_workspace.py -q",
+      "status": "passed",
+      "passed": 10,
+      "failed": 0
+    },
+    "scoring_and_paper_theorem_audit": {
+      "command": "python -m pytest tests/unit/scoring/ tests/test_paper_theorems_audit.py -q",
+      "status": "passed",
+      "failed": 0
+    },
+    "research_quick_simulation": {
+      "command": "python research/run_paper_experiments.py --quick --output-dir <temporary-directory>",
+      "status": "passed",
+      "simulated_candidates_per_mode": 120
+    },
+    "database_seeding_smoke": {
+      "command": "python ../../scripts/seed_db.py --db-url <temporary-sqlite-database> --reset --samples 2",
+      "status": "passed",
+      "seeded_candidates": 2
+    },
+    "untrusted_code_execution_static_checks": {
+      "status": "passed",
+      "checks": [
+        "No exec()/eval() calls in backend analyzers",
+        "No candidate-sourced subprocess.run pattern in backend source"
+      ]
+    }
+  },
+  "deployment_status": {
+    "production_url": "https://candidatex-smoky.vercel.app",
+    "production_observation": "The app resolved to /analyze and its live analysis page was reachable during the audit.",
+    "preview_status": "active; GitHub reports the latest preview deployment as Ready",
+    "preview_commit": "57e9797dcfb7ad223aeec2de7226be0b9a3e684f",
+    "preview_url": "https://candidatex-eekvulvlt-yorayriniwnl-1218s-projects.vercel.app",
+    "preview_event_time": "2026-09-22T19:25:00Z",
+    "github_actions_status": "The PR checks page reported checks re-running; no settled overall result was visible during the audit."
+  },
+  "baseline_observations": [
+    "The PR description documents a synchronous analysis flow with approximately 55-second frontend proxy and 60-second backend deployment ceilings, plus bounded public-page and GitHub acquisition budgets.",
+    "The database seeding smoke test uses personal-looking sample names and non-test email domains; this is tracked for the supplied synthetic-data cleanup fix.",
+    "The backend test suite passed with deprecation warnings noted above."
+  ],
+  "scoring_behavior_changed": false
+}
