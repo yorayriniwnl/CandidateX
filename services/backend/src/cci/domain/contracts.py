@@ -29,7 +29,7 @@ class ScoringConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(
-        default="2.0.0", description="Semver identifier for scoring parameter set"
+        default="3.0.0", description="Semver identifier for scoring parameter set"
     )
     temperature: float = Field(
         default=1.0, gt=0.0, description="Softmax temperature T for role weights"
@@ -43,7 +43,7 @@ class ScoringConfig(BaseModel):
         default=0.35,
         ge=0.0,
         le=1.0,
-        description="Threshold below which coverage warns 'insufficient evidence'",
+        description="Minimum coverage to emit candidate estimates; lower coverage also marks the analysis insufficient",
     )
 
     # Probe priority weights: I_k = w_k * [alpha*(1-Cov_k) + beta*CIwidth_k + gamma*Conf_k]
@@ -378,16 +378,19 @@ class OwnershipAssessment(BaseModel):
 
 
 class CapabilityEstimate(BaseModel):
-    """Formal capability score estimate q_k and effective evidence count."""
+    """Candidate capability score, emitted only after sufficient attributed evidence."""
 
     model_config = ConfigDict(frozen=True)
 
     capability_key: CapabilityKey
     estimate: float | None = Field(
-        None, ge=0.0, le=100.0, description="q_k in [0, 100], or None if UNKNOWN"
+        None,
+        ge=0.0,
+        le=100.0,
+        description="Candidate q_k in [0, 100], or None if attribution-gated evidence is insufficient (UNKNOWN)",
     )
     is_observed: bool = Field(
-        ..., description="True if evidence exists, False if UNKNOWN/missing"
+        ..., description="True if attribution-gated coverage meets the configured minimum for a candidate estimate"
     )
     effective_evidence_count: float = Field(
         ..., ge=0.0, description="n_eff,k = (sum c)^2 / sum(c^2)"
@@ -409,7 +412,8 @@ class CapabilityEstimate(BaseModel):
         None, ge=0.0, le=100.0, description="Bootstrap 95% CI upper bound"
     )
     coverage_k: float = Field(
-        ..., ge=0.0, le=1.0, description="Capability coverage min(1, sum(c)/tau_k)"
+        ..., ge=0.0, le=1.0,
+        description="Attribution-gated capability coverage min(1, sum(c)/tau_k)",
     )
 
 
@@ -583,7 +587,7 @@ class Dossier(BaseModel):
     versions: dict[str, str] = Field(
         default_factory=lambda: {
             "platform_version": "0.1.0",
-            "scoring_config_version": "2.0.0",
+            "scoring_config_version": "3.0.0",
             "ontology_version": "1.0.0",
         }
     )

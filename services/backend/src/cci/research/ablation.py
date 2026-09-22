@@ -1,7 +1,7 @@
 """Formal paper ablation study engine.
 
 ABLATION CONFIGURATIONS:
-1. FULL_CCI: Attribution-gated five-factor evidence quality, recency decay, calibrated reliability, and softmax weights.
+1. FULL_CCI: Attribution-gated evidence quality; scores require configured minimum coverage.
 2. NO_RECENCY_DECAY: lambda_k = 0 -> t_e,k = 1.0 (ignores staleness of 5-year-old code).
 3. NO_OWNERSHIP_DISCOUNT: o_e = 1.0 (ignores forks and multi-contributor sharing).
 4. UNIFORM_WEIGHTS: w_k = 1/12 (ignores role-specific technical requirements).
@@ -13,8 +13,10 @@ from enum import Enum
 import numpy as np
 from scipy import stats
 
+from cci.domain.contracts import ScoringConfig
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.research.simulation import SimulatedCandidate, SimulatedObservation
+from cci.scoring.capability import has_sufficient_candidate_evidence
 from cci.scoring.recency import compute_recency_factor
 from cci.scoring.reliability import DEFAULT_PRIORS, calculate_beta_mean
 from cci.scoring.confidence import compute_evidence_confidence
@@ -70,8 +72,10 @@ def evaluate_candidate_ablation(
     mode: AblationMode,
     role_weights: dict[CapabilityKey, float],
     true_weights: dict[CapabilityKey, float] | None = None,
+    config: ScoringConfig | None = None,
 ) -> tuple[float | None, float, dict[CapabilityKey, float]]:
     """Evaluates a simulated candidate's capability scores and RCI under ablation."""
+    cfg = config or ScoringConfig()
     # Group observations by capability
     obs_by_cap: dict[CapabilityKey, list[SimulatedObservation]] = {}
     for obs in candidate.observations:
@@ -88,7 +92,9 @@ def evaluate_candidate_ablation(
         c_factors = [_compute_ablation_confidence(o, mode) for o in cap_obs]
 
         sum_c = sum(c_factors)
-        if sum_c > 0.0:
+        tau_k = cfg.tau_saturation.get(cap_key, 5.0)
+        coverage_k = min(1.0, max(0.0, sum_c / tau_k)) if tau_k > 0 else 0.0
+        if sum_c > 0.0 and has_sufficient_candidate_evidence(coverage_k, cfg):
             q_hat = sum(c * z for c, z in zip(c_factors, z_scores)) / sum_c
             estimated_q[cap_key] = float(np.clip(q_hat, 0.0, 100.0))
 
@@ -120,8 +126,10 @@ def run_ablation_evaluation(
     cohort: list[SimulatedCandidate],
     mode: AblationMode,
     role: CanonicalRole,
+    config: ScoringConfig | None = None,
 ) -> dict[str, float]:
     """Runs ablation evaluation across a candidate cohort and computes paper metrics."""
+    cfg = config or ScoringConfig()
     # Default role importance
     raw_importances = {k: 1.0 for k in CapabilityKey}
     from cci.research.simulation import ROLE_CAPABILITY_PROFILES
@@ -143,7 +151,7 @@ def run_ablation_evaluation(
 
     for cand in cohort:
         rci_est, rci_true, q_hats = evaluate_candidate_ablation(
-            cand, mode, eval_weights, true_weights=true_role_weights
+            cand, mode, eval_weights, true_weights=true_role_weights, config=cfg
         )
         if rci_est is not None:
             est_rcis.append(rci_est)

@@ -371,7 +371,7 @@ def rescore_dossier(
     CRITICAL INVARIANTS:
     - Avoids re-crawling or re-running static analyzers.
     - Operates strictly over already-observed capability point estimates q_k.
-    - Missing evidence remains UNKNOWN and does not penalize observed capabilities.
+    - Missing or insufficiently attributed evidence remains UNKNOWN.
     """
     profile = build_role_profile(dossier.role_requirements, dossier.role)
     if dossier.role_weights:
@@ -383,7 +383,7 @@ def rescore_dossier(
     )
     role_weights = overridden_profile.softmax_weights
 
-    # Recompute RCI over observed capabilities
+    # Recompute RCI over capabilities with sufficient attributed coverage.
     new_rci = compute_rci(
         capabilities=dossier.capability_estimates,
         role_weights=role_weights,

@@ -64,7 +64,7 @@ def create_evidence_record(
     raw_support: str = "Verified static observation in codebase",
     artifact_path: str = "src/main.py",
 ) -> EvidenceRecord:
-    """Helper to construct calibrated EvidenceRecord with 6-factor confidence."""
+    """Helper to construct EvidenceRecord with five-factor quality and an attribution gate."""
     cf = EvidenceConfidenceFactors(
         artifact_integrity=artifact_integrity,
         ownership_score=ownership_score,

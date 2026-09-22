@@ -146,7 +146,9 @@ def test_theorem_3_point_estimate_convexity():
         for i, (s, c) in enumerate(zip(scores, confs))
     ]
 
-    estimate = compute_capability_score(records, cap)
+    estimate = compute_capability_score(
+        records, cap, config=ScoringConfig(low_coverage_threshold=0.0)
+    )
     assert estimate.estimate is not None
     assert min(scores) <= estimate.estimate <= max(scores)
     assert 0.0 <= estimate.estimate <= 100.0
@@ -168,7 +170,9 @@ def test_theorem_3_point_estimate_convexity():
         )
         for i, c in enumerate([0.2, 0.5, 0.8])
     ]
-    est_uni = compute_capability_score(uniform_records, cap)
+    est_uni = compute_capability_score(
+        uniform_records, cap, config=ScoringConfig(low_coverage_threshold=0.0)
+    )
     assert est_uni.estimate == pytest.approx(88.5, abs=1e-5)
 
 

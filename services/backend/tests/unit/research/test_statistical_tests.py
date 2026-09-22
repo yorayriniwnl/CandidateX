@@ -51,9 +51,19 @@ def test_paper_table_formatting():
     assert "| Evaluation Model |" in md_table
     assert "**FULL_CCI**" in md_table
     assert "Yes (***)" in md_table
+    assert "Scoring config 3.0.0" in md_table
+    assert "coverage >= 0.35" in md_table
 
     latex_table = format_latex_ablation_table(sample_results, sample_stats)
     assert r"\begin{table}" in latex_table
     assert r"\caption" in latex_table
     assert r"\end{table}" in latex_table
     assert "FULL\\_CCI" in latex_table
+    assert "Scoring config 3.0.0" in latex_table
+    assert r"\mathrm{Cov}_k \ge 0.35" in latex_table
+    latex_lines = latex_table.splitlines()
+    footnote_line = next(
+        line for line in latex_lines if "Wilcoxon signed-rank test)." in line
+    )
+    assert footnote_line.endswith(r"\\")
+    assert latex_lines.index(footnote_line) < latex_lines.index(r"\bottomrule")

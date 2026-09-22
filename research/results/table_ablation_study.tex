@@ -7,12 +7,13 @@
 \toprule
 \textbf{Model Architecture} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\
 \midrule
-FULL\_CCI & 1.435 & 1.873 & 0.961 & 0.832 \\
-NO\_RECENCY\_DECAY & 1.442$^{***}$ & 1.881 & 0.961 & 0.831 \\
-NO\_OWNERSHIP\_DISCOUNT & 2.227$^{***}$ & 2.822 & 0.933 & 0.776 \\
-UNIFORM\_WEIGHTS & 2.346$^{***}$ & 2.872 & 0.953 & 0.815 \\
-UNCALIBRATED\_SOURCES & 1.466$^{***}$ & 1.907 & 0.960 & 0.830 \\
+FULL\_CCI & 1.210 & 1.543 & 0.978 & 0.875 \\
+NO\_RECENCY\_DECAY & 1.219$^{***}$ & 1.550 & 0.978 & 0.872 \\
+NO\_OWNERSHIP\_DISCOUNT & 2.319$^{***}$ & 2.949 & 0.940 & 0.790 \\
+UNIFORM\_WEIGHTS & 1.967$^{***}$ & 2.491 & 0.963 & 0.837 \\
+UNCALIBRATED\_SOURCES & 1.282$^{***}$ & 1.635 & 0.977 & 0.870 \\
+\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}\\
+\multicolumn{5}{l}{\footnotesize Scoring config 3.0.0; candidate estimates require $\mathrm{Cov}_k \ge 0.35$; lower coverage is UNKNOWN.}
 \bottomrule
-\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}
 \end{tabular}
 \end{table}

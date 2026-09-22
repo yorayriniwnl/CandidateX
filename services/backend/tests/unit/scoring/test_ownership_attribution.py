@@ -1,4 +1,4 @@
-"""Tests for candidate ownership attribution and 6-factor confidence composition."""
+"""Tests for candidate attribution and gated evidence-quality confidence."""
 
 import pytest
 from cci.domain.contracts import EvidenceConfidenceFactors, OwnershipAssessment

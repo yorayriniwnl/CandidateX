@@ -21,6 +21,8 @@ def test_quick_simulation_study(tmp_path: Path):
 
     assert "metadata" in results
     assert results["metadata"]["total_candidates"] == 2 * 2 * 5  # 20 candidates
+    assert results["metadata"]["scoring_config_version"] == "3.0.0"
+    assert results["metadata"]["minimum_capability_coverage"] == 0.35
     assert "ablation_summary" in results
     assert "statistical_tests" in results
     assert "per_role_summary" in results
@@ -45,6 +47,10 @@ def test_quick_simulation_study(tmp_path: Path):
     assert tex_file.exists()
     assert role_file.exists()
     assert json_file.exists()
+    assert "Scoring config 3.0.0" in md_file.read_text(encoding="utf-8")
+    assert "coverage >= 0.35" in md_file.read_text(encoding="utf-8")
+    assert "UNKNOWN" in tex_file.read_text(encoding="utf-8")
+    assert "Scoring config 3.0.0" in role_file.read_text(encoding="utf-8")
 
     # Verify JSON content
     with open(json_file, "r", encoding="utf-8") as f:

@@ -33,9 +33,9 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 1. **Employer Decision Support Only**: CCI assists human interviewers and hiring managers with structured evidence, diagnostics, and probe questions; it **never** makes autonomous hire/reject decisions.
 2. **Closed-World CV Candidate Manifest**: Analysis is strictly constrained to resources explicitly supplied by the candidate (e.g. CV, linked GitHub, portfolio links). No unconstrained scraping or unsupplied identity discovery.
 3. **Candidate Code is NEVER Executed**: Untrusted candidate repositories are analyzed purely via a Python AST parser and text-pattern analyzers for TypeScript/JavaScript, Go, Java, and C++, dependency manifests, and infrastructure definitions. No test runners, containers, sub-processes, or headless JS browsers are ever launched against candidate code.
-4. **Missing Evidence is `UNKNOWN`**: A lack of evidence on a skill drops **Evidence Coverage**, but never assigns an arbitrary zero capability score.
+4. **Missing or weakly attributed evidence is `UNKNOWN`**: A lack of sufficient candidate attribution drops **Evidence Coverage** and withholds the estimate; it never assigns an arbitrary zero capability score.
 5. **Separation of RCI and Coverage**:
-   - **Role Capability Index (RCI)** reflects estimated capability strictly across *observed* technical dimensions.
+   - **Role Capability Index (RCI)** reflects estimates only for technical dimensions that meet the configured attribution-gated evidence threshold.
    - **Evidence Coverage** reflects the fraction of job-critical capabilities backed by sufficient empirical evidence.
 6. **Traceable Provenance**: Demonstration observations carry content revisions, source locators, SHA-256 fingerprints, extractor versions, confidence factors, and project clusters. These are synthetic artifacts; database-wide append-only guarantees are not claimed.
 7. **Functional Rescoring**: Overrides reuse the current evidence snapshot and update scores, coverage, probes, questions, and graph together. Prior snapshots and justifications remain inspectable in the exported history.
@@ -133,7 +133,7 @@ $$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{obse
 
 ## Paper Reproducibility & Ablation Studies
 
-The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho approximately 0.943 is not a reproduction of that result.
+The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. Capability estimates require attribution-gated coverage of at least 0.35. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho approximately 0.978 is not a reproduction of that result.
 
 ```powershell
 python research/run_paper_experiments.py --output-dir reports/research-demo-verification
@@ -145,11 +145,11 @@ Use `--quick` for a smaller smoke experiment. Neither experiment establishes rea
 
 | Evaluation Model | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
 |:-----------------|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
-| **FULL_CCI** | **1.943** | **2.469** | **0.943** | **0.794** | Baseline |
-| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes ($^{***}$, $p = 2.0 \times 10^{-72}$) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes ($^{***}$, $p = 0.0$) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | **0.939** | 0.785 | Yes ($^{***}$, $p = 0.0$) |
-| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | Two-sided $p = 4.1 \times 10^{-29}$ |
+| **FULL_CCI** | **1.210** | **1.543** | **0.978** | **0.875** | Baseline |
+| **NO_RECENCY_DECAY** | 1.219 | 1.550 | 0.978 | 0.872 | Yes ($^{***}$) |
+| **NO_OWNERSHIP_DISCOUNT** | 2.319 | 2.949 | 0.940 | 0.790 | Yes ($^{***}$) |
+| **UNIFORM_WEIGHTS** | 1.967 | 2.491 | 0.963 | 0.837 | Yes ($^{***}$) |
+| **UNCALIBRATED_SOURCES** | 1.282 | 1.635 | 0.977 | 0.870 | Yes ($^{***}$) |
 
 The committed prototype artifacts are:
 - [`research/results/table_ablation_study.md`](research/results/table_ablation_study.md)

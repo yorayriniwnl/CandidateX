@@ -34,7 +34,7 @@ def test_pipeline_10_stages_execution():
         jd_text="Looking for Backend Engineer with Python, FastAPI, and Postgres experience.",
         cv_text="Alice Developer\nImplemented distributed key-value cache handling 10k RPS.\nBuilt database migrations.",
         repo_urls=["https://github.com/candidate/distributed-cache"],
-        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="sparse"))[0],
+        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="consistent"))[0],
         evidence_mode="synthetic",
     )
 
@@ -67,11 +67,9 @@ def test_pipeline_10_stages_execution():
     assert estimates[CapabilityKey.BACKEND_ENGINEERING].is_observed is True
     assert estimates[CapabilityKey.BACKEND_ENGINEERING].estimate is not None
 
-    # Unobserved capability must be UNKNOWN
-    unobserved = estimates[CapabilityKey.MACHINE_LEARNING]
-    assert unobserved.is_observed is False
-    assert unobserved.estimate is None
-    assert unobserved.coverage_k == 0.0
+    # The consistent scenario has enough attribution-gated evidence for each capability.
+    assert all(estimate.is_observed for estimate in estimates.values())
+    assert all(estimate.estimate is not None for estimate in estimates.values())
 
     # Interview probes must be ranked 1..12
     assert len(dossier.interview_probes) == 12
@@ -83,13 +81,33 @@ def test_pipeline_10_stages_execution():
     assert len(state.ceg_graph.nodes) > 0
 
 
+def test_sparse_evidence_keeps_candidate_capabilities_unknown():
+    cand_id = uuid4()
+    state = execute_analysis_pipeline(
+        candidate_id=cand_id,
+        role=CanonicalRole.BACKEND,
+        custom_evidence=make_scenario(
+            DemoRequest(candidate_id=cand_id, scenario="sparse")
+        )[0],
+        evidence_mode="synthetic",
+    )
+
+    assert state.dossier is not None
+    assert state.dossier.rci is None
+    backend = state.dossier.capability_estimates[CapabilityKey.BACKEND_ENGINEERING]
+    assert backend.raw_evidence_count > 0
+    assert backend.coverage_k > 0.0
+    assert backend.estimate is None
+    assert backend.is_observed is False
+
+
 def test_functional_rescore_without_recrawling():
     """Verify purely functional rescore without re-crawling or mutating original dossier."""
     cand_id = uuid4()
     state = execute_analysis_pipeline(
         candidate_id=cand_id,
         role=CanonicalRole.BACKEND,
-        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="sparse"))[0],
+        custom_evidence=make_scenario(DemoRequest(candidate_id=cand_id, scenario="consistent"))[0],
         evidence_mode="synthetic",
     )
     assert state.dossier is not None
@@ -109,9 +127,9 @@ def test_functional_rescore_without_recrawling():
     assert rescored.candidate_id == state.dossier.candidate_id
     assert rescored.rci is not None
 
-    # Unobserved capabilities remain strictly UNKNOWN
-    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].estimate is None
-    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is False
+    # Rescoring changes role weights without stripping sufficiently supported evidence.
+    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].estimate is not None
+    assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is True
 
 
 def test_pipeline_api_lifecycle():

@@ -9,6 +9,7 @@ from cci.domain.contracts import (
     ScoringConfig,
 )
 from cci.domain.enums import CapabilityKey
+from cci.scoring.capability import has_sufficient_candidate_evidence
 
 
 def compute_evidence_coverage(
@@ -34,20 +35,27 @@ def compute_evidence_coverage(
 def compute_rci(
     capabilities: dict[CapabilityKey, CapabilityEstimate],
     role_weights: dict[CapabilityKey, float],
+    config: ScoringConfig | None = None,
 ) -> float | None:
-    """Computes Role Capability Index (RCI) strictly over observed capabilities:
+    """Computes RCI only over capabilities with sufficient attributed coverage:
 
         RCI(C, J) = 100 * sum_{k in observed}(w_k * q_k) / sum_{k in observed}(w_k)
 
     Returns:
-        float in [0.0, 100.0] if at least one capability is observed,
-        or None if no capabilities have usable empirical evidence.
+        float in [0.0, 100.0] if at least one capability meets the configured
+        evidence threshold, or None otherwise.
     """
+    cfg = config or ScoringConfig()
     observed_weight_sum = 0.0
     weighted_score_sum = 0.0
 
     for cap, est in capabilities.items():
-        if est is not None and est.is_observed and est.estimate is not None:
+        if (
+            est is not None
+            and est.is_observed
+            and est.estimate is not None
+            and has_sufficient_candidate_evidence(est.coverage_k, cfg)
+        ):
             w_k = role_weights.get(cap, 0.0)
             q_k = est.estimate
 
@@ -72,7 +80,7 @@ def evaluate_analysis_score(
     weights = role_profile.softmax_weights
 
     coverage = compute_evidence_coverage(capabilities, weights)
-    rci = compute_rci(capabilities, weights)
+    rci = compute_rci(capabilities, weights, config=cfg)
 
     observed_count = sum(
         1

@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from cci.domain.contracts import ScoringConfig
 from cci.research.ablation import AblationMode
 
 
@@ -75,6 +76,7 @@ def format_markdown_ablation_table(
     statistical_tests: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Generates a formatted Markdown table suitable for documentation and reports."""
+    config = ScoringConfig()
     lines = [
         "| Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |",
         "|:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|",
@@ -99,6 +101,13 @@ def format_markdown_ablation_table(
             f"| **{mode_name}** | {mae_str} | {rmse_str} | {rho_str} | {tau_str} | {sig_str} |"
         )
 
+    lines.extend(
+        [
+            "",
+            f"*Scoring config {config.version}; candidate estimates require coverage >= "
+            f"{config.low_coverage_threshold:.2f}; lower coverage is UNKNOWN.*",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -107,6 +116,7 @@ def format_latex_ablation_table(
     statistical_tests: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Generates a publication-quality LaTeX table for conference paper submission."""
+    config = ScoringConfig()
     lines = [
         r"\begin{table}[t]",
         r"\centering",
@@ -137,8 +147,9 @@ def format_latex_ablation_table(
 
     lines.extend(
         [
+            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}" + r"\\",
+            rf"\multicolumn{{5}}{{l}}{{\footnotesize Scoring config {config.version}; candidate estimates require $\mathrm{{Cov}}_k \ge {config.low_coverage_threshold:.2f}$; lower coverage is UNKNOWN.}}",
             r"\bottomrule",
-            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}",
             r"\end{tabular}",
             r"\end{table}",
         ]

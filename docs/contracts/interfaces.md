@@ -11,9 +11,9 @@ Candidate Capability Intelligence (CCI) provides employer/interviewer-side techn
 3. **Deep vs. Light Scanning**:
    - Explicit CV-listed repositories receive **DEEP** analysis (bounded AST, dependency graph, testing, and infra extraction).
    - Remaining repositories on the explicitly provided GitHub profile receive **LIGHT** analysis (commit counts, languages, recency, high-level metadata).
-4. **Missing Evidence is UNKNOWN**: Lack of evidence reduces **Evidence Coverage**, but never assigns zero capability by default.
+4. **Missing or insufficiently attributed evidence is UNKNOWN**: It reduces **Evidence Coverage** and withholds the candidate estimate, but never assigns zero capability by default.
 5. **Separation of RCI and Coverage**:
-   - **RCI** reflects estimated technical proficiency on observed capabilities.
+   - **RCI** reflects estimated technical proficiency only on capabilities meeting the configured attribution-gated coverage threshold.
    - **Evidence Coverage** measures the proportion of role-critical capabilities supported by empirical evidence.
 6. **No Code Execution**: Candidate code is never executed, built, or run in test runners. All extraction is deterministic static and operational inspection.
 7. **Absolute Provenance & Immutability**: Every derived observation retains its cryptographic fingerprint, file/symbol locator, and analyzer version. Evidence rows are immutable in persistence.
@@ -102,7 +102,9 @@ $$\text{Cov}_k = \min\left(1, \frac{\sum_e c_{e,k}}{\tau_k}\right)$$
 Overall Evidence Coverage across role:
 $$\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \text{Cov}_k$$
 
-Role Capability Index (RCI) computed strictly over observed capabilities:
+A candidate capability estimate is emitted only when attribution-gated coverage meets `ScoringConfig.low_coverage_threshold` (0.35 by default). Below that threshold, the estimate is `UNKNOWN` (`None`); its technical observations and nonzero coverage remain available, and no zero capability is inferred.
+
+Role Capability Index (RCI) computed strictly over capabilities whose attribution-gated coverage meets the configured threshold:
 $$\text{RCI}(C, J) = 100 \cdot \frac{\sum_{k \in \text{observed}} w_k \cdot q_k}{\sum_{k \in \text{observed}} w_k}$$
 
 ### 3.8. Probe Priority Index
@@ -119,7 +121,7 @@ All models are defined with Pydantic V2 and `model_config = ConfigDict(frozen=Tr
 ### Summary of Contracts
 - `CandidateManifest`: Digital profile and claims extracted from CV.
 - `NormalizedRequirement`: Standardized requirement from JD.
-- `EvidenceConfidenceFactors`: The 6 confidence components.
+- `EvidenceConfidenceFactors`: Five evidence-quality factors plus the separate attribution gate.
 - `EvidenceInput`: Analyzer observation before registration.
 - `EvidenceRecord`: Immutable registered evidence with SHA-256 fingerprint.
 - `SourceReliabilitySnapshot`: Beta prior/posterior state.

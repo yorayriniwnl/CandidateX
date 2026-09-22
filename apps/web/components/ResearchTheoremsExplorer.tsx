@@ -63,13 +63,13 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
     name: 'Point Estimate Convexity & Range Preservation',
     category: 'Scoring & Calibration',
     latex_formula: 'q_k = \\frac{\\sum_{e} c_{e,k} z_{e,k}}{\\sum_{e} c_{e,k}}',
-    description: 'Capability point estimation formulated as a normalized confidence-weighted convex combination.',
+    description: 'The candidate estimate is a confidence-weighted convex combination after attribution-gated coverage meets the configured minimum (0.35 by default); otherwise it remains UNKNOWN.',
     bound_statement: 'q_k \\in [\\min z_e, \\max z_e] \\subseteq [0, 100]',
     physical_intuition: 'Point estimate is strictly bounded within the support of concrete empirical evidence scores.',
     key_properties: [
       'Convex combination ensures stability against extreme outlier amplification',
       'Constant inputs z_e = z_0 produce q_k = z_0',
-      'Missing evidence produces UNKNOWN / unobserved, never 0.0',
+      'Missing or insufficiently attributed evidence produces UNKNOWN, never 0.0',
     ],
   },
   {
@@ -105,11 +105,11 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
     name: 'Role Capability Index (RCI) Boundedness',
     category: 'Scoring & Aggregation',
     latex_formula: '\\text{RCI} = 100 \\cdot \\frac{\\sum_{k \\in \\mathcal{O}} w_k q_k}{\\sum_{k \\in \\mathcal{O}} w_k}',
-    description: 'Composite score aggregating observed capabilities renormalized over the observed role weight mass.',
+    description: 'Composite score aggregating capabilities that meet the configured minimum attribution-gated coverage.',
     bound_statement: '\\text{RCI} \\in [0, 100], \\quad \\forall k \\in \\mathcal{O}: q_k = q_0 \\implies \\text{RCI} = q_0',
     physical_intuition: 'Provides a comparable scalar indicator while explicitly separating capability depth from evidence coverage.',
     key_properties: [
-      'Coverage-normalized: unobserved capabilities never penalize observed score',
+      'Only sufficiently supported candidate estimates enter the observed role weight mass',
       'Preserves convex bounds of underlying point estimates',
       'Pure functional rescoring operates without re-crawling repositories',
     ],
@@ -177,48 +177,48 @@ const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   {
     model_name: 'FULL_CCI',
     display_name: 'Full CCI (Proposed Architecture)',
-    mae: 1.943,
-    rmse: 2.469,
-    spearman_rho: 0.943,
-    kendall_tau: 0.794,
+    mae: 1.210,
+    rmse: 1.543,
+    spearman_rho: 0.978,
+    kendall_tau: 0.875,
     statistical_significance: 'Baseline',
     is_baseline: true,
   },
   {
     model_name: 'NO_RECENCY_DECAY',
     display_name: 'Ablation A: Without Recency Decay',
-    mae: 1.975,
-    rmse: 2.505,
-    spearman_rho: 0.943,
-    kendall_tau: 0.794,
+    mae: 1.219,
+    rmse: 1.550,
+    spearman_rho: 0.978,
+    kendall_tau: 0.872,
     statistical_significance: 'p < 0.001 (***)',
   },
   {
     model_name: 'NO_OWNERSHIP_DISCOUNT',
     display_name: 'Ablation B: Without Ownership Discount',
-    mae: 2.219,
-    rmse: 2.813,
-    spearman_rho: 0.933,
-    kendall_tau: 0.775,
+    mae: 2.319,
+    rmse: 2.949,
+    spearman_rho: 0.940,
+    kendall_tau: 0.790,
     statistical_significance: 'p < 0.001 (***)',
   },
   {
     model_name: 'UNIFORM_WEIGHTS',
     display_name: 'Ablation C: Uniform Role Weights (1/12)',
-    mae: 3.172,
-    rmse: 3.761,
-    spearman_rho: 0.939,
-    kendall_tau: 0.785,
+    mae: 1.967,
+    rmse: 2.491,
+    spearman_rho: 0.963,
+    kendall_tau: 0.837,
     statistical_significance: 'p < 0.001 (***)',
   },
   {
     model_name: 'UNCALIBRATED_SOURCES',
     display_name: 'Ablation D: Uncalibrated Sources',
-    mae: 1.922,
-    rmse: 2.446,
-    spearman_rho: 0.942,
-    kendall_tau: 0.792,
-    statistical_significance: 'p = 1.000',
+    mae: 1.282,
+    rmse: 1.635,
+    spearman_rho: 0.977,
+    kendall_tau: 0.870,
+    statistical_significance: 'p < 0.001 (***)',
   },
 ];
 
@@ -292,13 +292,14 @@ export const ResearchTheoremsExplorer: React.FC<{
 \\toprule
 \\textbf{Evaluation Model} & \\textbf{MAE} $\\downarrow$ & \\textbf{RMSE} $\\downarrow$ & \\textbf{Spearman $\\rho$} $\\uparrow$ & \\textbf{Kendall $\\tau$} $\\uparrow$ \\\\
 \\midrule
-Full CCI (Proposed) & \\textbf{1.943} & \\textbf{2.469} & \\textbf{0.943} & \\textbf{0.794} \\\\
-w/o Recency Decay & 1.975$^{\\ast\\ast\\ast}$ & 2.505 & 0.943 & 0.794 \\\\
-w/o Ownership Discount & 2.219$^{\\ast\\ast\\ast}$ & 2.813 & 0.933 & 0.775 \\\\
-Uniform Role Weights (1/12) & 3.172$^{\\ast\\ast\\ast}$ & 3.761 & 0.939 & 0.785 \\\\
-Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\\\
+Full CCI (Proposed) & \\textbf{1.210} & \\textbf{1.543} & \\textbf{0.978} & \\textbf{0.875} \\\\
+w/o Recency Decay & 1.219$^{\\ast\\ast\\ast}$ & 1.550 & 0.978 & 0.872 \\\\
+w/o Ownership Discount & 2.319$^{\\ast\\ast\\ast}$ & 2.949 & 0.940 & 0.790 \\\\
+Uniform Role Weights (1/12) & 1.967$^{\\ast\\ast\\ast}$ & 2.491 & 0.963 & 0.837 \\\\
+Uncalibrated Sources & 1.282$^{\\ast\\ast\\ast}$ & 1.635 & 0.977 & 0.870 \\\\
+\\multicolumn{5}{l}{\\footnotesize $^{\\ast\\ast\\ast}p < 0.001$ via paired Wilcoxon signed-rank test against Full CCI.}\\\\
+\\multicolumn{5}{l}{\\footnotesize Scoring config 3.0.0; candidate estimates require $\\mathrm{Cov}_k \\ge 0.35$; lower coverage is UNKNOWN.}
 \\bottomrule
-\\multicolumn{5}{l}{\\footnotesize $^{\\ast\\ast\\ast}p < 0.001$ via paired Wilcoxon signed-rank test against Full CCI.}
 \\end{tabular}
 \\end{table}`;
 
@@ -321,13 +322,13 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
 
 | Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |
 |:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|
-| **FULL_CCI** | 1.943 | 2.469 | 0.943 | 0.794 | Baseline |
-| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes (***) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes (***) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | 0.939 | 0.785 | Yes (***) |
-| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | p=1.000e+00 |
+| **FULL_CCI** | 1.210 | 1.543 | 0.978 | 0.875 | Baseline |
+| **NO_RECENCY_DECAY** | 1.219 | 1.550 | 0.978 | 0.872 | Yes (***) |
+| **NO_OWNERSHIP_DISCOUNT** | 2.319 | 2.949 | 0.940 | 0.790 | Yes (***) |
+| **UNIFORM_WEIGHTS** | 1.967 | 2.491 | 0.963 | 0.837 | Yes (***) |
+| **UNCALIBRATED_SOURCES** | 1.282 | 1.635 | 0.977 | 0.870 | Yes (***) |
 
-*Note: Statistical significance tests ($p < 0.001$, marked ***) conducted via paired Wilcoxon signed-rank test against the Full CCI baseline.*
+*Note: Scoring config 3.0.0; candidate estimates require coverage >= 0.35, otherwise they are UNKNOWN. Statistical significance tests ($p < 0.001$, marked ***) use paired Wilcoxon signed-rank tests against the Full CCI baseline.*
 `;
 
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });

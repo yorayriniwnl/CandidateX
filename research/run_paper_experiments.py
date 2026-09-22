@@ -195,6 +195,7 @@ def run_full_simulation_study(
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             "scoring_config_version": ScoringConfig().version,
             "confidence_formula": "o * (a * t * v * x * r)^(1/5)",
+            "minimum_capability_coverage": ScoringConfig().low_coverage_threshold,
             "total_candidates": len(full_errors),
             "seeds": seeds,
             "roles": [r.value for r in roles],
@@ -213,6 +214,8 @@ def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]
         "# Canonical Engineering Role Breakdown (Full CCI)",
         "",
         "Evaluation of Full CCI model accuracy across all six canonical engineering profiles.",
+        f"Scoring config {ScoringConfig().version}; candidate estimates require attribution-gated coverage >= "
+        f"{ScoringConfig().low_coverage_threshold:.2f}; lower coverage is UNKNOWN.",
         "",
         "| Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ |",
         "|:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|",

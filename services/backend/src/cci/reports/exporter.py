@@ -31,7 +31,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         "> [!IMPORTANT]",
         "> **Core Platform Invariant: Employer Decision Support Only.**",
         "> This dossier assists human hiring teams and technical interviewers with empirically grounded evidence.",
-        "> It never makes automated hiring or rejection determinations. Unobserved capabilities evaluate strictly to `UNKNOWN`.",
+        "> It never makes automated hiring or rejection determinations. Missing or insufficiently attributed capabilities evaluate strictly to `UNKNOWN`.",
         "",
         "---",
         "",
@@ -725,7 +725,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         <!-- Decision Support Invariant Note -->
         <div class="decision-support-note">
             <strong>Platform Invariant: Human Hiring Decision Support.</strong>
-            This dossier provides mathematically validated, provenance-grounded capability signals to assist human interview panels. Unobserved capabilities evaluate to <code>UNKNOWN</code>.
+            This dossier provides provenance-grounded technical evidence for human interview panels. Missing or insufficiently attributed capabilities evaluate to <code>UNKNOWN</code>.
         </div>
 
         <!-- Low Coverage Alert -->

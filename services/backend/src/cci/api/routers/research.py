@@ -165,11 +165,11 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         name="Role Capability Index (RCI) Boundedness",
         category="Scoring & Aggregation",
         latex_formula=r"\text{RCI} = 100 \cdot \frac{\sum_{k \in \mathcal{O}} w_k q_k}{\sum_{k \in \mathcal{O}} w_k}",
-        description="Composite score aggregating observed capabilities renormalized over the observed role weight mass.",
+        description="Composite score aggregating capabilities whose attribution-gated coverage meets the configured minimum.",
         bound_statement=r"\text{RCI} \in [0, 100], \quad \forall k \in \mathcal{O}: q_k = q_0 \implies \text{RCI} = q_0",
         physical_intuition="Provides a comparable scalar indicator while explicitly separating capability depth from evidence coverage.",
         key_properties=[
-            "Coverage-normalized: unobserved capabilities never penalize observed score",
+            "Only sufficiently supported candidate estimates enter the observed role weight mass",
             "Preserves convex bounds of underlying point estimates",
             "Pure functional rescoring operates without re-crawling repositories",
         ],
@@ -276,10 +276,12 @@ def get_ablation_study() -> AblationStudyResponse:
                       for role, values in artifact["per_role_summary"].items()]
     method_version = artifact["metadata"].get("scoring_config_version", "unknown")
     confidence_formula = artifact["metadata"].get("confidence_formula", "not recorded")
+    minimum_coverage = artifact["metadata"].get("minimum_capability_coverage", "not recorded")
     return AblationStudyResponse(total_candidates=artifact["metadata"]["total_candidates"],
         total_seeds=len(artifact["metadata"]["seeds"]), roles_count=len(artifact["metadata"]["roles"]),
         models=models, role_breakdown=role_breakdown, latex_table=latex, markdown_table=markdown,
-        notes=(f"Scoring config {method_version}; confidence formula {confidence_formula}. "
+        notes=(f"Scoring config {method_version}; confidence formula {confidence_formula}; "
+               f"Minimum capability coverage {minimum_coverage}. "
                "Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. "
                "Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. "
                "Source reliability uses configured priors. These synthetic results do not establish real-world hiring accuracy."))

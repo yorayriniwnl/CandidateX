@@ -6,6 +6,15 @@ from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConf
 from cci.domain.enums import CapabilityKey
 
 
+def has_sufficient_candidate_evidence(
+    coverage_k: float,
+    config: ScoringConfig | None = None,
+) -> bool:
+    """Whether attribution-gated evidence is sufficient to emit a candidate score."""
+    cfg = config or ScoringConfig()
+    return coverage_k >= cfg.low_coverage_threshold
+
+
 def compute_effective_evidence_count(confidences: list[float]) -> float:
     """Computes effective evidence count:
 
@@ -35,11 +44,11 @@ def compute_capability_score(
 ) -> CapabilityEstimate:
     """Computes capability estimate q_k, effective count, standard error, and coverage.
 
-    If no positive confidence evidence exists:
+    If no positive confidence evidence exists, or attribution-gated coverage is
+    below the configured minimum:
         q_k = None (UNKNOWN)
         is_observed = False
-        n_eff,k = 0.0
-        coverage_k = 0.0
+        The evidence count and coverage remain visible when evidence exists.
     """
     cfg = config or ScoringConfig()
     tau_k = cfg.tau_saturation.get(capability, 5.0)
@@ -106,6 +115,7 @@ def compute_capability_score(
 
     # Capability Coverage: Cov_k = min(1.0, sum(c) / tau_k)
     coverage_k = min(1.0, max(0.0, sum_c / tau_k))
+    has_sufficient_evidence = has_sufficient_candidate_evidence(coverage_k, cfg)
 
     # Distinct clusters
     clusters = {e.cluster_id or e.source_locator for e in relevant}
@@ -118,14 +128,14 @@ def compute_capability_score(
 
     return CapabilityEstimate(
         capability_key=capability,
-        estimate=q_k,
-        is_observed=True,
+        estimate=q_k if has_sufficient_evidence else None,
+        is_observed=has_sufficient_evidence,
         effective_evidence_count=n_eff,
         raw_evidence_count=len(relevant),
         cluster_count=cluster_count,
         standard_error=standard_error,
         dispersion=dispersion,
-        ci_lower=ci_lower,
-        ci_upper=ci_upper,
+        ci_lower=ci_lower if has_sufficient_evidence else None,
+        ci_upper=ci_upper if has_sufficient_evidence else None,
         coverage_k=coverage_k,
     )

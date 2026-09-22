@@ -112,7 +112,7 @@ def test_resume_claims_alone_do_not_invent_capability():
     assert data['dossier']['evidence_records'] == []
 
 
-def test_live_fetch_scores_artifacts_and_keeps_commit_and_content_provenance(monkeypatch):
+def test_live_fetch_keeps_provenance_and_withholds_undercovered_candidate_score(monkeypatch):
     from cci.live import acquisition
     monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', httpx.MockTransport(transport))
     response = client.post('/api/v1/live/analyze', json={'intake': intake().json(), 'role': 'backend', 'github_urls': ['https://github.com/example/api'], 'github_identity': 'example'})
@@ -120,7 +120,13 @@ def test_live_fetch_scores_artifacts_and_keeps_commit_and_content_provenance(mon
     data = response.json()
     assert data['sources'][0]['status'] == 'observed'
     assert data['sources'][0]['commit_sha'] == SHA
-    assert data['dossier']['rci'] is not None
+    assert data['dossier']['rci'] is None
+    assert data['dossier']['is_insufficient_evidence'] is True
+    assert data['dossier']['coverage'] > 0.0
+    backend_estimate = data['dossier']['capability_estimates']['backend_engineering']
+    assert backend_estimate['estimate'] is None
+    assert backend_estimate['is_observed'] is False
+    assert backend_estimate['raw_evidence_count'] > 0
     assert data['dossier']['ownership_assessments'][0]['feature_vector']['sampled_commits'] == 1
     for record in data['dossier']['evidence_records']:
         assert record['immutable_revision'] == SHA

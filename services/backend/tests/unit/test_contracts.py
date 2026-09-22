@@ -224,7 +224,7 @@ def test_capability_estimate_observed_vs_missing():
 def test_scoring_config_defaults():
     """Validate versioned scoring configuration parameters."""
     config = ScoringConfig()
-    assert config.version == "2.0.0"
+    assert config.version == "3.0.0"
     assert config.temperature == 1.0
     assert config.low_coverage_threshold == 0.35
     assert config.probe_alpha + config.probe_beta + config.probe_gamma == 1.0

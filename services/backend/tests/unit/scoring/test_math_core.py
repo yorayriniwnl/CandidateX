@@ -123,14 +123,21 @@ def test_confidence_factor_monotonicity():
 # Equation 3 & 4: Capability Estimate q_k and Effective Count n_eff
 # ---------------------------------------------------------------------------
 
-def _make_dummy_evidence(cap: CapabilityKey, score: float, conf: float, cluster: str = "cluster-1", is_pos: bool = True) -> EvidenceRecord:
+def _make_dummy_evidence(
+    cap: CapabilityKey,
+    score: float,
+    conf: float,
+    cluster: str = "cluster-1",
+    is_pos: bool = True,
+    ownership: float = 1.0,
+) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=conf,
-        ownership_score=1.0,
-        recency_factor=1.0,
-        verification_level=1.0,
-        depth_specificity=1.0,
-        source_reliability=1.0,
+        ownership_score=ownership,
+        recency_factor=conf,
+        verification_level=conf,
+        depth_specificity=conf,
+        source_reliability=conf,
     )
     return EvidenceRecord(
         fingerprint=str(uuid4()),
@@ -141,7 +148,7 @@ def _make_dummy_evidence(cap: CapabilityKey, score: float, conf: float, cluster:
         support_score=score,
         is_positive_support=is_pos,
         confidence_factors=factors,
-        confidence=conf,
+        confidence=conf * ownership,
         cluster_id=cluster,
         analyzer_version="1.0.0",
     )
@@ -173,6 +180,53 @@ def test_missing_capability_is_unknown_not_zero():
     assert frontend_est.coverage_k == 0.0
 
 
+def test_weak_attribution_does_not_emit_candidate_capability_estimate():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    strongly_attributed = [
+        _make_dummy_evidence(capability, 90.0, 1.0, cluster=f"project-{i}")
+        for i in range(2)
+    ]
+    weakly_attributed = [
+        _make_dummy_evidence(
+            capability, 90.0, 1.0, cluster=f"project-{i}", ownership=0.03
+        )
+        for i in range(2)
+    ]
+
+    strong_estimate = compute_capability_score(
+        strongly_attributed, capability
+    )
+    weak_estimate = compute_capability_score(weakly_attributed, capability)
+
+    assert strong_estimate.is_observed
+    assert strong_estimate.estimate == 90.0
+    assert weak_estimate.estimate is None
+    assert not weak_estimate.is_observed
+    assert weak_estimate.raw_evidence_count == 2
+    assert 0.0 < weak_estimate.coverage_k < strong_estimate.coverage_k
+
+
+@pytest.mark.parametrize(
+    ("ownership", "expected_observed"), [(0.8749, False), (0.875, True)]
+)
+def test_capability_estimate_uses_configured_coverage_boundary(
+    ownership: float, expected_observed: bool
+):
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    records = [
+        _make_dummy_evidence(
+            capability, 80.0, 1.0, cluster=f"project-{i}", ownership=ownership
+        )
+        for i in range(2)
+    ]
+
+    estimate = compute_capability_score(records, capability)
+
+    assert estimate.coverage_k == pytest.approx(2.0 * ownership / 5.0)
+    assert estimate.is_observed is expected_observed
+    assert estimate.estimate == (80.0 if expected_observed else None)
+
+
 def test_capability_estimate_weighted_average():
     """Verify exact weighted average q_k = sum(c * z) / sum(c)."""
     # Item 1: score=80, conf=0.4 (weight=0.4)
@@ -182,7 +236,12 @@ def test_capability_estimate_weighted_average():
         _make_dummy_evidence(CapabilityKey.DATABASE_ENGINEERING, 80.0, 0.4),
         _make_dummy_evidence(CapabilityKey.DATABASE_ENGINEERING, 90.0, 0.8),
     ]
-    est = compute_capability_score(records, CapabilityKey.DATABASE_ENGINEERING)
+    config = ScoringConfig(
+        tau_saturation={CapabilityKey.DATABASE_ENGINEERING: 1.0}
+    )
+    est = compute_capability_score(
+        records, CapabilityKey.DATABASE_ENGINEERING, config=config
+    )
     assert est.is_observed
     assert pytest.approx(est.estimate, rel=1e-4) == (104.0 / 1.2)
 
@@ -298,6 +357,20 @@ def test_rci_excludes_unobserved_from_denominator():
     # Evidence Coverage is penalized by missing capabilities: 0.6 * (1/12) = 0.05
     coverage = compute_evidence_coverage(cap_estimates, weights)
     assert pytest.approx(coverage, rel=1e-4) == (0.6 / 12.0)
+
+
+def test_rci_excludes_estimates_below_attributed_coverage_threshold():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    estimate = CapabilityEstimate(
+        capability_key=capability,
+        estimate=90.0,
+        is_observed=True,
+        effective_evidence_count=2.0,
+        raw_evidence_count=2,
+        coverage_k=0.012,
+    )
+
+    assert compute_rci({capability: estimate}, {capability: 1.0}) is None
 
 
 # ---------------------------------------------------------------------------

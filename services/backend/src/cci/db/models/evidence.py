@@ -18,7 +18,7 @@ from cci.db.base import (
 
 
 class Evidence(Base, UUIDPrimaryKeyMixin, ImmutableModelMixin, TimestampMixin):
-    """Immutable evidence row with 6-factor confidence parameters and provenance.
+    """Immutable evidence row with five quality factors, an attribution gate, and provenance.
 
     Protected against SQL-level updates via ImmutableModelMixin.
     """
