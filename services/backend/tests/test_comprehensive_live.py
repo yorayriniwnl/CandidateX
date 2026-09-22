@@ -58,6 +58,12 @@ def test_skill_matching_is_exact_and_preserves_attribution_and_learning():
     assert skills['Docker']['learning']
     assert not skills['Scikit-Learn']['learning']
     sources[0]['ownership_score'] = .5
+    assert build_report(intake, sources)['skills'][1]['status'] == 'repository_only'
+    sources[0]['artifact_attributions'] = [{
+        'artifact_path': 'app.js',
+        'state': 'PARTIAL_ATTRIBUTION',
+        'ownership_score': .5,
+    }]
     assert build_report(intake, sources)['skills'][1]['status'] == 'repository_support'
 
 

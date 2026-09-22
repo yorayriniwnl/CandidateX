@@ -2,6 +2,7 @@
 
 from cci.domain.contracts import (
     AnalysisScore,
+    ArtifactAttribution,
     CandidateManifest,
     CapabilityConflict,
     CapabilityEstimate,
@@ -14,6 +15,8 @@ from cci.domain.contracts import (
     NormalizedRequirement,
     OwnershipAssessment,
     ProbePriority,
+    RepositoryAssociation,
+    RepositoryContribution,
     RoleProfile,
     ScoringConfig,
     SourceReliabilitySnapshot,
@@ -21,6 +24,7 @@ from cci.domain.contracts import (
 from cci.domain.enums import (
     AnalysisStage,
     AnalysisStatus,
+    ArtifactAttributionState,
     CanonicalRole,
     CapabilityKey,
     ClaimStatus,
@@ -38,6 +42,7 @@ __all__ = [
     # Enums
     "AnalysisStage",
     "AnalysisStatus",
+    "ArtifactAttributionState",
     "CanonicalRole",
     "CapabilityKey",
     "ClaimStatus",
@@ -51,6 +56,7 @@ __all__ = [
     "SourceState",
     # Contracts
     "AnalysisScore",
+    "ArtifactAttribution",
     "CandidateManifest",
     "CapabilityConflict",
     "CapabilityEstimate",
@@ -63,6 +69,8 @@ __all__ = [
     "NormalizedRequirement",
     "OwnershipAssessment",
     "ProbePriority",
+    "RepositoryAssociation",
+    "RepositoryContribution",
     "RoleProfile",
     "ScoringConfig",
     "SourceReliabilitySnapshot",

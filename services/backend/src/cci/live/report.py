@@ -7,6 +7,7 @@ from cci.live.claims import build_academic_records, build_claim_ledger
 
 SKILL_ALIASES = {'nextjs': 'nextjs', 'reactjs': 'react', 'html5': 'html', 'css3': 'css',
     'tailwindcss': 'tailwindcss', 'golang': 'go', 'scikitlearn': 'scikitlearn', 'cicd': 'cicd'}
+ATTRIBUTED_STATES = {'WEAK_ATTRIBUTION', 'PARTIAL_ATTRIBUTION', 'STRONG_ATTRIBUTION'}
 
 
 def normalize_skill(skill):
@@ -24,17 +25,28 @@ def build_report(intake, sources):
     for skill in intake.manifest.claimed_skills:
         matches, mentions = [], []
         for source in sources:
+            path_attributions = {
+                item.get('artifact_path'): item
+                for item in source.get('artifact_attributions', [])
+                if item.get('artifact_path')
+            }
             for technology in source.get('repository_review', {}).get('technologies', []):
                 if normalize_skill(technology['name']) == normalize_skill(skill):
+                    attribution = path_attributions.get(technology.get('path'), {})
+                    attribution_observed = (
+                        attribution.get('state') in ATTRIBUTED_STATES
+                        and attribution.get('ownership_score', 0) > 0
+                    )
                     matches.append({**technology, 'repository_url': source['url'],
-                                    'attribution_observed': source.get('ownership_score', 0) > 0})
+                                    'attribution_observed': attribution_observed,
+                                    'attribution_state': attribution.get('state', 'UNKNOWN')})
             if source.get('status') == 'observed' and text_mentions(source.get('excerpt', ''), skill):
                 mentions.append(source['url'])
         attributed = any(m['attribution_observed'] for m in matches)
         skills.append({'skill': skill, 'learning': normalize_skill(skill) in learning,
             'status': 'repository_support' if attributed else 'repository_only' if matches else 'public_mention_only' if mentions else 'not_observed',
             'evidence': matches[:12], 'evidence_count': len(matches), 'public_mentions': mentions,
-            'explanation': ('Matching source files or dependency/configuration declarations were inspected. This supports a technical follow-up, not mastery.' if attributed else
+            'explanation': ('GitHub path history links the inspected artifact to the declared account. Human identity and mastery remain unverified.' if attributed else
                             'Technology appears in a repository, but candidate attribution was not established.' if matches else
                             'Public page text mentions this skill; self-published mentions do not establish capability.' if mentions else
                             'No matching technology was observed in the bounded scan. This is not a claim that the candidate lacks the skill.')})
@@ -67,8 +79,9 @@ def build_report(intake, sources):
     sections = intake.resume_review.sections
     numeric_claims = [line for lines in sections.values() for line in lines if re.search(r'\d+(?:\.\d+)?\s*%|\b\d+[+-]?\s+(?:users|tests|projects|applications|points)\b', line, re.I)]
     actions = []
-    if not any(s.get('ownership_score', 0) > 0 for s in sources):
-        actions.append('Confirm the candidate-declared GitHub account and review contribution attribution.')
+    if not any(any(attribution.get('state') in ATTRIBUTED_STATES and attribution.get('ownership_score', 0) > 0
+                   for attribution in source.get('artifact_attributions', [])) for source in sources):
+        actions.append('Confirm the candidate-declared GitHub account and review path-specific contribution history.')
     if any(s['status'] != 'observed' for s in sources):
         actions.append('Review unavailable or unscanned sources; run again with a smaller selected set where needed.')
     if credentials:

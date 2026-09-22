@@ -1,4 +1,4 @@
-from cci.domain.contracts import ScoringConfig
+from cci.domain.contracts import RepositoryAssociation, RepositoryContribution, ScoringConfig
 from cci.graph.builder import build_dossier_graph
 from cci.live.acquisition import acquire_sources
 from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS
@@ -33,13 +33,19 @@ def analyze_resume(request: LiveAnalysisRequest):
         'Public GitHub evidence is fetched live. Static heuristic observations are not proof of mastery or job performance.',
         'Source reliability uses configured priors only; no simulated review outcomes are used.',
         'Verification/depth confidence factors are conservative prototype settings, not empirically calibrated probabilities.',
-        'Recent-commit attribution is repository-level; it does not prove authorship of each inspected line.',
+        'Repository association and repository-level contribution are separate from path-specific artifact contribution.',
+        'Artifact attribution uses bounded recent path history; failed, deferred, or ambiguous history remains unknown. A matching GitHub account does not verify human identity or line-level authorship.',
         'Public page text, profile metadata and certificate mentions do not increase capability scores. Issuer authentication and employment verification are not automated.',
         'Public links: up to 24 HTML/text/digital PDF pages, 512 KB each, 3 redirects; PDFs up to 5 pages. Login gates, image-only and script-only pages remain unresolved.',
         f'Bounded scan: {MAX_REPOSITORIES} repositories, {MAX_FILES} selected text files each, {MAX_SECONDS}s acquisition budget.',
         'The uploaded document and analysis are request-scoped. Download JSON to retain this result; refreshing clears the page.',
     ]
+    associations = [RepositoryAssociation.model_validate(source['repository_association'])
+                    for source in sources if source.get('repository_association')]
+    contributions = [RepositoryContribution.model_validate(source['repository_contribution'])
+                     for source in sources if source.get('repository_contribution')]
     dossier = state.dossier.model_copy(update={'ownership_assessments': ownership,
+        'repository_associations': associations, 'repository_contributions': contributions,
         'system_limitations': [*state.dossier.system_limitations, *limitations]})
     graph = build_dossier_graph(dossier)
     return {'intake': request.intake, 'dossier': dossier,

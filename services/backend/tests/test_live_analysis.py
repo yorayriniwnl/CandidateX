@@ -43,6 +43,48 @@ def transport(request):
     raise AssertionError(f'Unexpected outbound request: {request.url}')
 
 
+def readme_only_repository_transport(path_history_status=200, backend_file_count=1, requested_paths=None,
+                                    duplicate_repository_commit=False):
+    def commit(number, login):
+        return {
+            'sha': f'{number:040x}',
+            'author': {'login': login},
+            'commit': {'committer': {'date': '2026-09-01T00:00:00Z'}},
+        }
+
+    repository_commits = [commit(1, 'example')] + [commit(i, 'maintainer') for i in range(2, 31)]
+    if duplicate_repository_commit:
+        duplicate = repository_commits[0].copy()
+        duplicate['sha'] = duplicate['sha'].upper()
+        repository_commits.insert(1, duplicate)
+    backend_paths = ['app.py'] + [f'app_{i}.py' for i in range(1, backend_file_count)]
+    path_commits = {'README.md': [commit(1, 'example')]}
+    path_commits.update({path: [commit(10, 'maintainer'), commit(11, 'maintainer')]
+                         for path in backend_paths})
+    archive_data = io.BytesIO()
+    with zipfile.ZipFile(archive_data, 'w') as z:
+        z.writestr('api-main/README.md', '# Candidate notes\n')
+        for path in backend_paths:
+            z.writestr(f'api-main/{path}', '@app.get("/items")\nasync def items():\n    return []\n')
+
+    def handler(request):
+        if request.url.path == '/repos/example/api':
+            return httpx.Response(200, json={'private': False, 'fork': False, 'owner': {'login': 'example'}})
+        if request.url.path == '/repos/example/api/commits':
+            requested_path = request.url.params.get('path')
+            if requested_path is not None and requested_paths is not None:
+                requested_paths.append(requested_path)
+            if requested_path is not None and path_history_status != 200:
+                return httpx.Response(path_history_status, json={'message': 'temporarily unavailable'})
+            commits = repository_commits if requested_path is None else path_commits.get(requested_path, [])
+            return httpx.Response(200, json=commits)
+        if request.url.host == 'codeload.github.com':
+            return httpx.Response(200, content=archive_data.getvalue())
+        raise AssertionError(f'Unexpected outbound request: {request.url}')
+
+    return httpx.MockTransport(handler)
+
+
 def test_upload_extracts_pdf_text_and_embedded_links_without_retaining_file():
     response = intake()
     assert response.status_code == 200
@@ -86,6 +128,207 @@ def test_live_fetch_scores_artifacts_and_keeps_commit_and_content_provenance(mon
         assert record['provenance']['verification_status'] == 'live_static_inspection'
         assert record['provenance']['artifact_sha256']
     assert data['graph']['candidate_id'] == data['dossier']['candidate_id']
+
+
+def test_readme_only_repository_contribution_does_not_attribute_backend_artifacts(monkeypatch):
+    from cci.live import acquisition
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport())
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    backend_records = [
+        record for record in data['dossier']['evidence_records']
+        if record['provenance'].get('artifact_path') == 'app.py'
+    ]
+    assert backend_records
+    assert all(record['confidence_factors']['ownership_score'] == 0 for record in backend_records)
+    assert all(record['confidence'] == 0 for record in backend_records)
+    assert all(record['artifact_attribution']['state'] == 'UNATTRIBUTED' for record in backend_records)
+    assert data['dossier']['capability_estimates']['backend_engineering']['estimate'] is None
+
+    association = data['dossier']['repository_associations'][0]
+    contribution = data['dossier']['repository_contributions'][0]
+    assert association['identity_verified'] is False
+    assert contribution['candidate_commit_count'] == 1
+    assert contribution['sampled_commit_count'] == 30
+    assert contribution['candidate_commit_ratio'] == 1 / 30
+
+    app_artifacts = {
+        node['id'] for node in data['graph']['nodes']
+        if node['type'] == 'Artifact' and node['label'] == 'app.py'
+    }
+    assert app_artifacts
+    assert not any(
+        edge['type'] == 'AUTHORED_BY' and edge['source'] in app_artifacts
+        for edge in data['graph']['edges']
+    )
+    repository_sources = {
+        node['id'] for node in data['graph']['nodes']
+        if node['type'] == 'Source' and node['properties'].get('locator') == 'https://github.com/example/api'
+    }
+    candidate_id = data['dossier']['candidate_id']
+    assert repository_sources
+    source_nodes = {node['id']: node for node in data['graph']['nodes']}
+    assert all(source_nodes[source]['properties'].get('source_kind') == 'repository'
+               for source in repository_sources)
+    assert any(
+        edge['source'] == candidate_id and edge['target'] in repository_sources and edge['type'] == 'ASSOCIATED_WITH'
+        for edge in data['graph']['edges']
+    )
+    assert any(
+        edge['source'] == candidate_id and edge['target'] in repository_sources and edge['type'] == 'CONTRIBUTES_TO'
+        for edge in data['graph']['edges']
+    )
+
+    python_skill = next(skill for skill in data['analysis']['skills'] if skill['skill'] == 'Python')
+    assert python_skill['status'] == 'repository_only'
+
+
+def test_path_history_failure_does_not_fall_back_to_repository_commit_share(monkeypatch):
+    from cci.live import acquisition
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(path_history_status=403))
+
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    backend_records = [
+        record for record in data['dossier']['evidence_records']
+        if record['provenance'].get('artifact_path') == 'app.py'
+    ]
+    assert backend_records
+    assert all(record['confidence_factors']['ownership_score'] == 0 for record in backend_records)
+    assert all(record['artifact_attribution']['state'] == 'UNKNOWN' for record in backend_records)
+    assert data['sources'][0]['status'] == 'observed'
+
+
+def test_large_repository_attribution_budget_leaves_unqueried_paths_unknown(monkeypatch):
+    from cci.live import acquisition
+    requested_paths = []
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(
+        backend_file_count=30, requested_paths=requested_paths,
+    ))
+
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    receipt = data['sources'][0]
+    assert receipt['attribution_paths_considered'] == 30
+    assert receipt['attribution_paths_requested'] == 24
+    assert receipt['attribution_paths_deferred'] == 6
+    assert len(requested_paths) == 24
+    assert all('confidence_factors' in record and record['confidence_factors']['ownership_score'] == 0
+               for record in data['dossier']['evidence_records'])
+    deferred = [item for item in receipt['artifact_attributions'] if item['artifact_path'] not in requested_paths]
+    assert len(deferred) == 6
+    assert all(item['state'] == 'UNKNOWN' and item['ownership_score'] == 0 for item in deferred)
+
+
+def test_missing_github_identity_skips_path_history_requests(monkeypatch):
+    from cci.live import acquisition
+    requested_paths = []
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(
+        requested_paths=requested_paths,
+    ))
+
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': '',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert requested_paths == []
+    assert data['sources'][0]['attribution_paths_requested'] == 0
+    assert all(item['state'] == 'UNKNOWN' and item['ownership_score'] == 0
+               for item in data['sources'][0]['artifact_attributions'])
+    backend_records = [
+        record for record in data['dossier']['evidence_records']
+        if record['provenance'].get('artifact_path') == 'app.py'
+    ]
+    assert backend_records
+    assert all(record['artifact_attribution']['state'] == 'UNKNOWN' for record in backend_records)
+
+
+def test_malformed_path_history_stays_unknown_without_repository_fallback():
+    from cci.live.acquisition import get_artifact_attribution
+
+    class MalformedFetcher:
+        def get(self, endpoint):
+            assert 'path=app.py' in endpoint
+            assert f'sha={SHA}' in endpoint
+            return [{'sha': 'not-an-immutable-sha', 'author': {'login': 'example'}}]
+
+    attribution, stop_requests = get_artifact_attribution(
+        MalformedFetcher(), 'example', 'api', SHA, 'app.py', 'example',
+    )
+
+    assert stop_requests is False
+    assert attribution.state == 'UNKNOWN'
+    assert attribution.ownership_score == 0
+    assert attribution.attribution_confidence == 0
+    assert attribution.candidate_commit_count == 0
+
+
+def test_duplicate_path_commit_rows_do_not_inflate_attribution():
+    from cci.live.acquisition import get_artifact_attribution
+
+    candidate_commit = {'sha': 'b' * 40, 'author': {'login': 'example'}}
+    duplicate_candidate_commit = {**candidate_commit, 'sha': 'B' * 40}
+    maintainer_commit = {'sha': 'c' * 40, 'author': {'login': 'maintainer'}}
+
+    class DuplicateFetcher:
+        def get(self, endpoint):
+            return [candidate_commit, duplicate_candidate_commit, maintainer_commit]
+
+    attribution, stop_requests = get_artifact_attribution(
+        DuplicateFetcher(), 'example', 'api', SHA, 'app.py', 'example',
+    )
+
+    assert stop_requests is False
+    assert attribution.candidate_commit_count == 1
+    assert attribution.sampled_path_commit_count == 2
+    assert attribution.ownership_score == 0.5
+    assert attribution.candidate_commit_shas == ['b' * 40]
+
+
+def test_duplicate_repository_commit_rows_do_not_inflate_repository_contribution(monkeypatch):
+    from cci.live import acquisition
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(
+        duplicate_repository_commit=True,
+    ))
+
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+
+    assert response.status_code == 200, response.text
+    contribution = response.json()['dossier']['repository_contributions'][0]
+    assert contribution['sampled_commit_count'] == 29
+    assert contribution['candidate_commit_count'] == 1
+    assert contribution['candidate_commit_ratio'] == 1 / 29
 
 
 def test_source_failure_is_explicit_and_no_sample_is_substituted(monkeypatch):

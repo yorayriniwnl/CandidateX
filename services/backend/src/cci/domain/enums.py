@@ -49,6 +49,18 @@ class RequirementStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ArtifactAttributionState(str, Enum):
+    """How repository history links a declared GitHub account to one artifact path."""
+
+    VERIFIED_SELF_OWNED = "VERIFIED_SELF_OWNED"
+    STRONG_ATTRIBUTION = "STRONG_ATTRIBUTION"
+    PARTIAL_ATTRIBUTION = "PARTIAL_ATTRIBUTION"
+    WEAK_ATTRIBUTION = "WEAK_ATTRIBUTION"
+    REPOSITORY_ASSOCIATION_ONLY = "REPOSITORY_ASSOCIATION_ONLY"
+    UNATTRIBUTED = "UNATTRIBUTED"
+    UNKNOWN = "UNKNOWN"
+
+
 class AnalysisStatus(str, Enum):
     """Lifecycle status of an end-to-end or stage analysis."""
 
@@ -140,8 +152,9 @@ class GraphNodeType(str, Enum):
 class GraphEdgeType(str, Enum):
     """Edge types in Candidate Evidence Graph (CEG)."""
 
-    AUTHORED_BY = "AUTHORED_BY"
-    CONTRIBUTES_TO = "CONTRIBUTES_TO"
+    AUTHORED_BY = "AUTHORED_BY"  # Requires artifact-specific authorship evidence.
+    ASSOCIATED_WITH = "ASSOCIATED_WITH"  # Repository link does not imply contribution.
+    CONTRIBUTES_TO = "CONTRIBUTES_TO"  # Contribution may be repository- or artifact-scoped.
     DERIVED_FROM = "DERIVED_FROM"
     SUPPORTS_CAPABILITY = "SUPPORTS_CAPABILITY"
     CONTRADICTS = "CONTRADICTS"

@@ -22,9 +22,11 @@ from cci.analyzers.code.engine import run_code_intelligence
 from cci.analyzers.db_test_infra_engine import run_db_test_infra_intelligence
 from cci.analyzers.repository.indexer import categorize_file, index_repository_artifacts
 from cci.config import settings
-from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord, OwnershipAssessment
+from cci.domain.contracts import (ArtifactAttribution, EvidenceConfidenceFactors, EvidenceRecord,
+    OwnershipAssessment, RepositoryAssociation, RepositoryContribution)
+from cci.domain.enums import ArtifactAttributionState
 from cci.live.contracts import (MAX_REPOSITORIES, MAX_FILES, MAX_FILE_BYTES, MAX_ARCHIVE_BYTES,
-    MAX_EXPANDED_BYTES, MAX_SECONDS, github_parts)
+    MAX_EXPANDED_BYTES, MAX_SECONDS, MAX_RECENT_COMMITS, MAX_ARTIFACT_ATTRIBUTION_PATHS, github_parts)
 from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
@@ -118,26 +120,187 @@ def inspect_archive(data, workspace):
         return omitted
 
 
-def acquire_repository(fetcher, url, identity):
+def unknown_artifact_attribution(revision_sha, artifact_path, reason):
+    return ArtifactAttribution(
+        artifact_path=artifact_path,
+        revision_sha=revision_sha,
+        state=ArtifactAttributionState.UNKNOWN,
+        ownership_score=0.0,
+        attribution_confidence=0.0,
+        candidate_commit_count=0,
+        sampled_path_commit_count=0,
+        limitations=[reason, 'GitHub account association does not verify the human behind the account.'],
+    )
+
+
+def commit_matches_account(commit, identity):
+    author = commit.get('author') if isinstance(commit, dict) else None
+    login = author.get('login') if isinstance(author, dict) else None
+    return bool(identity and isinstance(login, str) and login.lower() == identity.lower())
+
+
+def get_artifact_attribution(fetcher, owner, repo, revision_sha, artifact_path, identity):
+    """Reads bounded history for one path; repository-wide contribution is never a fallback."""
+    if not identity:
+        return unknown_artifact_attribution(
+            revision_sha, artifact_path, 'No candidate-declared GitHub account was supplied.'
+        ), False
+
+    endpoint = (f'/repos/{owner}/{repo}/commits?path={quote(artifact_path, safe="/")}'
+                f'&sha={revision_sha}&per_page={MAX_RECENT_COMMITS}')
+    try:
+        path_commits = fetcher.get(endpoint)
+    except AcquisitionError as exc:
+        return unknown_artifact_attribution(
+            revision_sha, artifact_path,
+            f'Path history was unavailable ({exc.status}); artifact attribution remains unknown.',
+        ), exc.status in {'rate_limited', 'timeout', 'unavailable'}
+    except (httpx.RequestError, ValueError, TypeError):
+        return unknown_artifact_attribution(
+            revision_sha, artifact_path, 'Path history could not be safely parsed; artifact attribution remains unknown.'
+        ), True
+
+    if not isinstance(path_commits, list) or not path_commits:
+        return unknown_artifact_attribution(
+            revision_sha, artifact_path, 'Path history was empty or malformed; artifact attribution remains unknown.'
+        ), False
+    unique_path_commits = {}
+    author_missing = False
+    for commit in path_commits[:MAX_RECENT_COMMITS]:
+        if not isinstance(commit, dict):
+            return unknown_artifact_attribution(
+                revision_sha, artifact_path, 'Path history contained malformed commit metadata.'
+            ), False
+        commit_sha = commit.get('sha')
+        if not isinstance(commit_sha, str) or not re.fullmatch('[a-fA-F0-9]{40}', commit_sha):
+            return unknown_artifact_attribution(
+                revision_sha, artifact_path, 'Path history contained a commit without a valid immutable SHA.'
+            ), False
+        author = commit.get('author')
+        login = author.get('login') if isinstance(author, dict) else None
+        commit_key = commit_sha.lower()
+        if commit_key in unique_path_commits:
+            if unique_path_commits[commit_key] != login:
+                return unknown_artifact_attribution(
+                    revision_sha, artifact_path, 'Duplicate commit metadata conflicted on its GitHub account.'
+                ), False
+            continue
+        unique_path_commits[commit_key] = login
+        if not isinstance(login, str) or not login:
+            author_missing = True
+    candidate_shas = [
+        commit_sha for commit_sha, login in unique_path_commits.items()
+        if isinstance(login, str) and login.lower() == identity.lower()
+    ]
+
+    path_count = len(unique_path_commits)
+    if candidate_shas:
+        score = len(candidate_shas) / path_count
+        state = (ArtifactAttributionState.WEAK_ATTRIBUTION if score < 0.10 else
+                 ArtifactAttributionState.PARTIAL_ATTRIBUTION if score < 0.80 else
+                 ArtifactAttributionState.STRONG_ATTRIBUTION)
+        limitations = [
+            f'Attribution covers at most the latest {MAX_RECENT_COMMITS} commits touching this path; no line-level blame is asserted.',
+            'A matching GitHub author account is not independent verification of the candidate identity.',
+        ]
+        if author_missing:
+            limitations.append('Some path history entries could not be linked to an immutable GitHub account and commit SHA.')
+        return ArtifactAttribution(
+            artifact_path=artifact_path,
+            revision_sha=revision_sha,
+            state=state,
+            ownership_score=score,
+            attribution_confidence=0.5,
+            candidate_commit_count=len(candidate_shas),
+            sampled_path_commit_count=path_count,
+            candidate_commit_shas=candidate_shas,
+            limitations=limitations,
+        ), False
+
+    if author_missing:
+        state = ArtifactAttributionState.UNKNOWN
+        reason = 'Path history had entries that could not be linked to a GitHub account and immutable commit SHA.'
+    elif path_count < MAX_RECENT_COMMITS:
+        state = ArtifactAttributionState.UNATTRIBUTED
+        reason = 'Complete available path history contains no commit linked to the declared GitHub account.'
+    else:
+        state = ArtifactAttributionState.REPOSITORY_ASSOCIATION_ONLY
+        reason = f'No matching account appears in the latest {MAX_RECENT_COMMITS} path commits; older path history was not checked.'
+
+    return ArtifactAttribution(
+        artifact_path=artifact_path,
+        revision_sha=revision_sha,
+        state=state,
+        ownership_score=0.0,
+        attribution_confidence=0.0,
+        candidate_commit_count=0,
+        sampled_path_commit_count=path_count,
+        limitations=[reason, 'Repository association and repository-wide contribution do not establish artifact authorship.'],
+    ), False
+
+
+def acquire_repository(fetcher, url, identity, association_basis, attribution_path_budget):
     owner, repo = github_parts(url)
     metadata = fetcher.get(f'/repos/{owner}/{repo}')
+    if not isinstance(metadata, dict):
+        raise AcquisitionError('parse_failed', 'GitHub returned malformed repository metadata.')
     if metadata.get('private'):
         raise AcquisitionError('unavailable', 'Only public repositories are analyzed.')
-    commits = fetcher.get(f'/repos/{owner}/{repo}/commits?per_page=30')
+    commits = fetcher.get(f'/repos/{owner}/{repo}/commits?per_page={MAX_RECENT_COMMITS}')
     if not isinstance(commits, list) or not commits:
         raise AcquisitionError('unavailable', 'No commit snapshot is available.')
-    sha = commits[0].get('sha', '')
+    unique_commits = {}
+    for commit in commits[:MAX_RECENT_COMMITS]:
+        if not isinstance(commit, dict):
+            raise AcquisitionError('parse_failed', 'GitHub returned malformed commit metadata.')
+        commit_sha = commit.get('sha')
+        if not isinstance(commit_sha, str) or not re.fullmatch('[a-fA-F0-9]{40}', commit_sha):
+            raise AcquisitionError('parse_failed', 'GitHub returned an invalid commit reference.')
+        unique_commits.setdefault(commit_sha.lower(), commit)
+    commits = list(unique_commits.values())
+    if not commits:
+        raise AcquisitionError('unavailable', 'No unique commit snapshot is available.')
+    sha = commits[0]['sha']
     if not re.fullmatch('[a-fA-F0-9]{40}', sha):
         raise AcquisitionError('parse_failed', 'GitHub returned an invalid commit reference.')
-    authored = sum(1 for c in commits if identity and (c.get('author') or {}).get('login', '').lower() == identity.lower())
+    candidate_commit_shas = [
+        c.get('sha').lower() for c in commits
+        if commit_matches_account(c, identity)
+        and isinstance(c.get('sha'), str) and re.fullmatch('[a-fA-F0-9]{40}', c.get('sha', ''))
+    ]
+    authored = len(candidate_commit_shas)
     # A link is not identity verification. Never use repo owner as an implicit author.
     ownership = min(.9, authored / len(commits)) if identity else 0.0
     if metadata.get('fork'):
         ownership = min(.5, ownership)
-    observed_date = datetime.fromisoformat(commits[0]['commit']['committer']['date'].replace('Z', '+00:00'))
+    try:
+        commit_date = commits[0]['commit']['committer']['date']
+        if not isinstance(commit_date, str):
+            raise TypeError('Commit date is missing or malformed.')
+        observed_date = datetime.fromisoformat(commit_date.replace('Z', '+00:00'))
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise AcquisitionError('parse_failed', 'GitHub returned malformed commit date metadata.') from exc
+    association = RepositoryAssociation(
+        repository_url=url,
+        candidate_identifier=identity or None,
+        basis=association_basis,
+        identity_verified=False,
+        limitations=['A supplied repository URL or profile inventory link establishes association only.'],
+    )
+    contribution = RepositoryContribution(
+        repository_url=url,
+        candidate_identifier=identity or None,
+        sampled_commit_count=len(commits),
+        candidate_commit_count=authored,
+        candidate_commit_ratio=authored / len(commits),
+        candidate_commit_shas=candidate_commit_shas,
+        is_fork=bool(metadata.get('fork')),
+        limitations=['Recent repository commits are a contribution summary, not artifact authorship or human identity verification.'],
+    )
     assessment = OwnershipAssessment(repository_url=url, candidate_identifier=identity or 'undeclared',
         ownership_score=ownership, attribution_confidence=.5 if identity else 0,
-        feature_vector={'sampled_commits': len(commits), 'candidate_sampled_commits': authored},
+        feature_vector={'sampled_commits': len(commits), 'candidate_sampled_commits': authored,
+                        'repository_commit_ratio': authored / len(commits)},
         is_fork=bool(metadata.get('fork')), model_name='DeclaredAccountRecentCommitShare',
         limitations=['Declared account association is not identity verification.',
                      'Attribution uses up to 30 recent commits; no line-level blame or full-history authorship is asserted.'])
@@ -162,6 +325,32 @@ def acquire_repository(fetcher, url, identity):
         raw = run_code_intelligence(workspace.root, url, sha, artifacts)
         raw += run_db_test_infra_intelligence(workspace.root, url, sha, artifacts)
         by_path = {a.relative_path: a for a in artifacts}
+        path_scores = {}
+        for observation in raw:
+            if observation.artifact_path in by_path:
+                path_scores[observation.artifact_path] = max(
+                    path_scores.get(observation.artifact_path, 0.0), observation.observed_score
+                )
+        ordered_paths = sorted(path_scores, key=lambda path: (-path_scores[path], path))
+        selected_paths = ordered_paths[:max(0, attribution_path_budget)]
+        path_attributions, requested_paths = {}, []
+        stop_path_requests = False
+        for path in selected_paths:
+            if stop_path_requests:
+                path_attributions[path] = unknown_artifact_attribution(
+                    sha, path, 'Path history requests stopped after a source or time-budget failure; repository contribution is not used as fallback.'
+                )
+                continue
+            if identity:
+                requested_paths.append(path)
+            path_attribution, stop_path_requests = get_artifact_attribution(
+                fetcher, owner, repo, sha, path, identity
+            )
+            path_attributions[path] = path_attribution
+        for path in ordered_paths[len(selected_paths):]:
+            path_attributions[path] = unknown_artifact_attribution(
+                sha, path, 'Path history was outside the bounded request budget; repository contribution is not used as fallback.'
+            )
         records, seen, per_group = [], set(), Counter()
         for observation in raw:
             artifact = by_path.get(observation.artifact_path)
@@ -174,7 +363,13 @@ def acquire_repository(fetcher, url, identity):
                 continue
             seen.add(fingerprint)
             per_group[group] += 1
-            factors = EvidenceConfidenceFactors(artifact_integrity=1.0, ownership_score=ownership,
+            artifact_attribution = path_attributions.get(observation.artifact_path)
+            if artifact_attribution is None:
+                artifact_attribution = unknown_artifact_attribution(
+                    sha, observation.artifact_path,
+                    'No path-specific commit history was available for this observation; repository contribution is not used as fallback.',
+                )
+            factors = EvidenceConfidenceFactors(artifact_integrity=1.0, ownership_score=artifact_attribution.ownership_score,
                 recency_factor=compute_recency_factor(calculate_elapsed_years(observed_date), observation.target_capability),
                 verification_level=.55, depth_specificity=.5,
                 source_reliability=compute_source_reliability(observation.source_family).posterior_mean)
@@ -182,17 +377,26 @@ def acquire_repository(fetcher, url, identity):
                 source_family=observation.source_family, source_locator=url, immutable_revision=sha,
                 artifact_id=artifact.artifact_id if artifact else None, target_capability=observation.target_capability,
                 support_score=observation.observed_score, is_positive_support=observation.is_positive_support,
-                confidence_factors=factors, confidence=factors.composite_confidence, cluster_id=url,
+                confidence_factors=factors, confidence=factors.composite_confidence,
+                artifact_attribution=artifact_attribution, cluster_id=url,
                 provenance={'artifact_path': observation.artifact_path, 'artifact_sha256': content_hash,
                     'symbol_or_line': observation.symbol_or_line, 'raw_support_text': observation.raw_support_text[:2000],
                     'extractor_version': observation.extractor_version, 'verification_status': 'live_static_inspection',
                     'observed_at': datetime.now(timezone.utc).isoformat(), 'commit_date': observed_date.isoformat(),
                     'artifact_url': f'{url}/blob/{sha}/{quote(observation.artifact_path, safe="/")}' if artifact else url,
-                    'ownership_basis': assessment.model_dump(mode='json')}))
+                    'repository_association': association.model_dump(mode='json'),
+                    'repository_contribution': contribution.model_dump(mode='json'),
+                    'artifact_attribution': artifact_attribution.model_dump(mode='json')}))
         receipt = {'url': url, 'status': 'observed', 'detail': 'Fetched public commit and statically inspected selected files.',
             'commit_sha': sha, 'fetched_at': datetime.now(timezone.utc).isoformat(), 'files_inspected': len(artifacts),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,
             'ownership_score': ownership, 'candidate_sampled_commits': authored, 'sampled_commits': len(commits),
+            'repository_association': association.model_dump(mode='json'),
+            'repository_contribution': contribution.model_dump(mode='json'),
+            'artifact_attributions': [path_attributions[path].model_dump(mode='json') for path in ordered_paths],
+            'attribution_paths_considered': len(ordered_paths),
+            'attribution_paths_requested': len(requested_paths),
+            'attribution_paths_deferred': max(0, len(ordered_paths) - len(selected_paths)),
             'kind': 'repository', 'acquisition_method': method,
             'repository_review': review_repository(workspace.root, artifacts, url, sha, metadata)}
     return records, assessment, receipt
@@ -248,10 +452,12 @@ def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
 
 def acquire_sources(urls, identity):
     records, ownership, receipts, repos = [], [], [], []
+    association_basis = {}
     fetcher = Fetcher()
     try:
         # Explicit repository links take priority over bounded profile expansion.
         repos = [u for u in urls if github_parts(u)[1]]
+        association_basis.update({u.lower(): 'supplied_repository_url' for u in repos})
         profiles = [u for u in urls if not github_parts(u)[1]]
         for url in profiles:
             owner, repo = github_parts(url)
@@ -288,6 +494,7 @@ def acquire_sources(urls, identity):
                     if (len(repos) < MAX_REPOSITORIES and not item.get('fork') and not item.get('archived')
                             and candidate_url.lower() not in {r.lower() for r in repos}):
                         repos.append(candidate_url)
+                        association_basis[candidate_url.lower()] = 'public_profile_inventory'
                         expanded.append(candidate_url)
                 receipts.append({'url': url, 'kind': 'github_profile', 'status': 'observed' if not profile_error else 'partial',
                     'detail': 'Public profile and repository inventory retrieved; recent non-fork repositories selected within the scan budget.',
@@ -298,9 +505,18 @@ def acquire_sources(urls, identity):
                 receipts.append(error_receipt(url, exc))
         for url in repos[MAX_REPOSITORIES:]:
             receipts.append({'url': url, 'status': 'not_scanned', 'detail': f'Limit of {MAX_REPOSITORIES} repositories per analysis.'})
-        for url in repos[:MAX_REPOSITORIES]:
+        selected_repos = repos[:MAX_REPOSITORIES]
+        base_path_budget, extra_path_budget = divmod(
+            MAX_ARTIFACT_ATTRIBUTION_PATHS, max(1, len(selected_repos))
+        )
+        for index, url in enumerate(selected_repos):
             try:
-                evidence, assessment, receipt = acquire_repository(fetcher, url, identity)
+                path_budget = base_path_budget + (1 if index < extra_path_budget else 0)
+                evidence, assessment, receipt = acquire_repository(
+                    fetcher, url, identity,
+                    association_basis=association_basis.get(url.lower(), 'selected_repository_url'),
+                    attribution_path_budget=path_budget,
+                )
                 records.extend(evidence)
                 ownership.append(assessment)
                 receipts.append(receipt)

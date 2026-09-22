@@ -1,3 +1,11 @@
 # Candidate Capability Intelligence (CCI) Backend
 
 FastAPI & SQLAlchemy 2.0 implementation of the paper-aligned CCI decision support system.
+
+## GitHub attribution boundaries
+
+A supplied GitHub URL records a repository association. Account matches in the recent repository commit sample are recorded separately as repository contribution and do not establish authorship of every inspected file.
+
+Live evidence receives an artifact attribution only from commit history for that exact path at the pinned repository revision. The scan requests path history for at most 24 high-signal evidence paths per analysis and reads at most the latest 30 path commits. Paths outside that budget, unavailable history, and ambiguous author metadata remain `UNKNOWN` with zero candidate attribution; repository contribution is never used as a fallback. When available, path commit ratios describe contributions linked to the declared GitHub account, not verified human identity or line-level authorship.
+
+The evidence graph represents repository association and repository contribution separately. It emits candidate-to-artifact contribution edges only when path-specific commit history supports them. Aggregate repository activity does not create an artifact `AUTHORED_BY` edge.

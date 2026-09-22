@@ -145,11 +145,11 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
         tooltipText: 'Parser and artifact integrity score',
       },
       {
-        name: 'Ownership Attribution',
+        name: 'Attribution Factor',
         symbol: 'o',
         value: o,
-        description: 'Git author attribution, commit line share, and solo author weighting.',
-        tooltipText: 'Authorship attribution confidence',
+        description: 'For live GitHub evidence, the share of sampled commits to this exact path linked to the declared account. It does not verify human identity or line-level authorship.',
+        tooltipText: 'Attribution weighting; path-specific for live repositories',
       },
       {
         name: 'Recency Decay Factor',

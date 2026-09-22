@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from cci.domain.enums import (
+    ArtifactAttributionState,
     CanonicalRole,
     CapabilityKey,
     ReliabilityState,
@@ -239,6 +240,54 @@ class EvidenceInput(BaseModel):
     observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class RepositoryAssociation(BaseModel):
+    """A declared link between a candidate profile and a repository, not authorship."""
+
+    model_config = ConfigDict(frozen=True)
+
+    repository_url: str
+    candidate_identifier: str | None = None
+    basis: str = Field(description="How the repository entered the selected source set")
+    identity_verified: bool = Field(default=False, description="Whether the GitHub account is human-verified")
+    limitations: list[str] = Field(default_factory=list)
+
+
+class RepositoryContribution(BaseModel):
+    """Account-matched commits in a bounded repository-wide sample."""
+
+    model_config = ConfigDict(frozen=True)
+
+    repository_url: str
+    candidate_identifier: str | None = None
+    sampled_commit_count: int = Field(..., ge=0)
+    candidate_commit_count: int = Field(..., ge=0)
+    candidate_commit_ratio: float = Field(..., ge=0.0, le=1.0)
+    candidate_commit_shas: list[str] = Field(default_factory=list)
+    is_fork: bool = False
+    method: str = "recent_repository_commit_author_login"
+    limitations: list[str] = Field(default_factory=list)
+
+
+class ArtifactAttribution(BaseModel):
+    """Path-specific Git history; does not verify the human behind a GitHub account."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artifact_path: str | None = None
+    revision_sha: str = Field(..., pattern=r"^[a-fA-F0-9]{40}$")
+    state: ArtifactAttributionState
+    ownership_score: float = Field(
+        ..., ge=0.0, le=1.0,
+        description="Share of sampled commits for this path authored by the declared GitHub account",
+    )
+    attribution_confidence: float = Field(..., ge=0.0, le=1.0)
+    candidate_commit_count: int = Field(..., ge=0)
+    sampled_path_commit_count: int = Field(..., ge=0)
+    candidate_commit_shas: list[str] = Field(default_factory=list)
+    basis: str = "github_path_commit_history"
+    limitations: list[str] = Field(default_factory=list)
+
+
 class EvidenceRecord(BaseModel):
     """Immutable registered evidence row with cryptographic fingerprint and confidence factors."""
 
@@ -258,6 +307,7 @@ class EvidenceRecord(BaseModel):
     is_positive_support: bool = True
     confidence_factors: EvidenceConfidenceFactors
     confidence: float = Field(..., ge=0.0, le=1.0, description="Computed c_e,k")
+    artifact_attribution: ArtifactAttribution | None = None
     cluster_id: str | None = Field(
         None, description="Cluster grouping for effective count / bootstrap"
     )
@@ -291,7 +341,7 @@ class SourceReliabilitySnapshot(BaseModel):
 
 
 class OwnershipAssessment(BaseModel):
-    """Provenance and feature vector assessing candidate authorship."""
+    """Legacy aggregate repository-contribution snapshot; never establishes artifact authorship."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -299,7 +349,8 @@ class OwnershipAssessment(BaseModel):
     repository_url: str
     candidate_identifier: str
     ownership_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Estimated o_e in [0, 1]"
+        ..., ge=0.0, le=1.0,
+        description="Legacy aggregate repository-contribution score; not artifact authorship",
     )
     feature_vector: dict[str, float] = Field(
         default_factory=dict,
@@ -503,6 +554,8 @@ class Dossier(BaseModel):
     capability_conflicts: dict[CapabilityKey, CapabilityConflict]
     role_requirements: list[NormalizedRequirement]
     ownership_assessments: list[OwnershipAssessment]
+    repository_associations: list[RepositoryAssociation] = Field(default_factory=list)
+    repository_contributions: list[RepositoryContribution] = Field(default_factory=list)
     claims_corroboration: list[dict[str, Any]]
     interview_probes: list[ProbePriority]
     interview_questions: list[InterviewQuestion]

@@ -2,7 +2,9 @@
 
 INVARIANTS:
 1. Multi-layered heterogeneous graph preserving exact immutable provenance from
-   Candidate -> Identity -> Source -> Artifact -> Evidence -> Capability -> Requirement.
+   candidate/repository association and contribution through artifact, evidence,
+   capability, and requirement. Repository-level contribution never implies
+   artifact authorship.
 2. Provenance backward tracing allows inspection of exact raw lines and commit SHAs
    for any capability score.
 """
