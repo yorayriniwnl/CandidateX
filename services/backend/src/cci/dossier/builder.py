@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from cci.claims.corroborator import ClaimCorroborationResult
 from cci.domain.contracts import (
+    AnalysisConfidenceSummary,
     CapabilityConflict,
     CapabilityEstimate,
     Dossier,
@@ -133,6 +134,7 @@ def build_candidate_dossier(
     claims_corroboration: list[ClaimCorroborationResult],
     interview_probes: list[ProbePriority],
     role_fit: RoleFitSummary | None = None,
+    analysis_confidence: AnalysisConfidenceSummary | None = None,
     interview_questions: list[InterviewQuestion] | None = None,
     evidence_records: list[EvidenceRecord] | None = None,
     rci: float | None = None,
@@ -164,6 +166,7 @@ def build_candidate_dossier(
         capability_conflicts=capability_conflicts,
         role_requirements=role_requirements,
         role_fit=role_fit or RoleFitSummary(),
+        analysis_confidence=analysis_confidence or AnalysisConfidenceSummary(),
         ownership_assessments=ownership_assessments,
         claims_corroboration=claims_dicts,
         interview_probes=interview_probes,

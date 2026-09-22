@@ -1,6 +1,7 @@
 """Domain contracts and canonical enums for Candidate Capability Intelligence (CCI)."""
 
 from cci.domain.contracts import (
+    AnalysisConfidenceSummary,
     AnalysisScore,
     CandidateManifest,
     CapabilityConflict,
@@ -50,6 +51,7 @@ __all__ = [
     "SourceFamily",
     "SourceState",
     # Contracts
+    "AnalysisConfidenceSummary",
     "AnalysisScore",
     "CandidateManifest",
     "CapabilityConflict",

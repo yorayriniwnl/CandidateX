@@ -11,7 +11,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord
+from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.main import app
 from cci.pipeline.orchestrator import (
     AnalysisStage,
@@ -23,6 +24,43 @@ from cci.pipeline.service import pipeline_service
 from cci.research.scenarios import DemoRequest, make_scenario
 
 client = TestClient(app)
+
+
+def _high_fit_thin_evidence() -> list[EvidenceRecord]:
+    """Saturate two role capabilities from one cluster without estimable CIs."""
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    records: list[EvidenceRecord] = []
+    for capability in (
+        CapabilityKey.BACKEND_ENGINEERING,
+        CapabilityKey.DATABASE_ENGINEERING,
+    ):
+        for index in range(5):
+            records.append(
+                EvidenceRecord(
+                    evidence_id=uuid4(),
+                    fingerprint=f"{capability.value}-{index}",
+                    source_family=SourceFamily.GITHUB,
+                    source_locator="https://github.com/candidate/one",
+                    immutable_revision="one-revision",
+                    target_capability=capability,
+                    support_score=96.0,
+                    confidence_factors=factors,
+                    confidence=1.0,
+                    cluster_id="project-one",
+                    provenance={
+                        "artifact_path": "src/service.py",
+                        "raw_support_text": "Python and PostgreSQL implementation",
+                    },
+                )
+            )
+    return records
 
 
 def test_pipeline_10_stages_execution():
@@ -108,10 +146,31 @@ def test_functional_rescore_without_recrawling():
     assert rescored.dossier_id != state.dossier.dossier_id
     assert rescored.candidate_id == state.dossier.candidate_id
     assert rescored.rci is not None
+    assert (
+        rescored.analysis_confidence.role_coverage
+        != state.dossier.analysis_confidence.role_coverage
+    )
 
     # Unobserved capabilities remain strictly UNKNOWN
     assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].estimate is None
     assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is False
+
+
+def test_pipeline_exposes_limited_confidence_for_thin_evidence():
+    """A high RCI must not imply broad confidence from one evidence cluster."""
+    state = execute_analysis_pipeline(
+        candidate_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        custom_evidence=_high_fit_thin_evidence(),
+        evidence_mode="synthetic",
+    )
+
+    assert state.status == PipelineStatus.COMPLETED
+    assert state.dossier is not None
+    assert state.dossier.rci is not None and state.dossier.rci > 90.0
+    assert state.dossier.analysis_confidence.evidence_strength == "limited"
+    assert "single_cluster" in state.dossier.analysis_confidence.uncertainty_flags
+    assert "interval_unavailable" in state.dossier.analysis_confidence.uncertainty_flags
 
 
 def test_pipeline_api_lifecycle():

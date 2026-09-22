@@ -65,6 +65,7 @@ from cci.scoring.weights import (
 )
 from cci.uncertainty.bootstrap import cluster_bootstrap_ci
 from cci.uncertainty.diagnostics import compute_uncertainty_diagnostics
+from cci.uncertainty.summary import build_analysis_confidence
 
 
 class PipelineStatus(str, Enum):
@@ -305,6 +306,13 @@ def execute_analysis_pipeline(
             conflicts=capability_conflicts,
         )
         role_fit = build_role_fit(norm_reqs, raw_evidence)
+        analysis_confidence = build_analysis_confidence(
+            capabilities=capability_estimates,
+            evidence_records=raw_evidence,
+            role_weights=role_weights,
+            conflicts=capability_conflicts,
+            role_fit=role_fit,
+        )
 
         # Only map claims recognized by the controlled ontology; never guess a capability.
         claim_inputs = []
@@ -328,6 +336,7 @@ def execute_analysis_pipeline(
             capability_conflicts=capability_conflicts,
             role_requirements=norm_reqs,
             role_fit=role_fit,
+            analysis_confidence=analysis_confidence,
             ownership_assessments=ownership_assessments,
             claims_corroboration=corroborated_claims,
             interview_probes=probe_priorities,
@@ -409,6 +418,14 @@ def rescore_dossier(
         conflicts=dossier.capability_conflicts,
     )
 
+    analysis_confidence = build_analysis_confidence(
+        capabilities=dossier.capability_estimates,
+        evidence_records=dossier.evidence_records,
+        role_weights=role_weights,
+        conflicts=dossier.capability_conflicts,
+        role_fit=dossier.role_fit,
+    )
+
     # Re-generate interview questions with updated rankings
     new_questions = generate_interview_questions(
         probes=new_probes,
@@ -420,6 +437,7 @@ def rescore_dossier(
     return dossier.model_copy(update={
         "dossier_id": uuid4(), "generated_at": datetime.now(timezone.utc),
         "rci": new_rci, "coverage": new_cov,
+        "analysis_confidence": analysis_confidence,
         "is_insufficient_evidence": new_cov < ScoringConfig().low_coverage_threshold,
         "role_weights": role_weights, "interview_probes": new_probes,
         "interview_questions": new_questions,
