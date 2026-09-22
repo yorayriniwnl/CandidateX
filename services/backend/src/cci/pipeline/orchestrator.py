@@ -424,6 +424,8 @@ def rescore_dossier(
         role_weights=role_weights,
         conflicts=dossier.capability_conflicts,
         role_fit=dossier.role_fit,
+        source_failures=dossier.analysis_confidence.source_failures,
+        source_unscanned=dossier.analysis_confidence.source_unscanned,
     )
 
     # Re-generate interview questions with updated rankings

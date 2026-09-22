@@ -223,6 +223,7 @@ test('treats omitted legacy intervals as unavailable', async ({ page }) => {
   delete legacy.dossier.capability_estimates.backend_engineering.ci_upper;
   legacy.source_health = {
     ...legacy.source_health,
+    supplied_sources: 1,
     observed_sources: 1,
     failed_sources: 0,
     is_partial: false,
@@ -235,7 +236,7 @@ test('treats omitted legacy intervals as unavailable', async ({ page }) => {
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
   await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
 
-  await expect(page.getByText('Well supported within supplied evidence')).toBeVisible();
+  await expect(page.getByText('Limited support')).toBeVisible();
   await expect(page.getByText('Limited evidence')).toBeVisible();
   await expect(page.getByText('Prepare verification')).toBeVisible();
 });

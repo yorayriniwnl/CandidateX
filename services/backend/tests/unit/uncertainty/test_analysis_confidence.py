@@ -222,6 +222,36 @@ def test_limited_band_always_explains_the_limitation():
     assert "limiting factors: ." not in result.explanation
 
 
+def test_zero_weight_clusters_cannot_satisfy_role_support_gate():
+    capabilities = _empty_capabilities()
+    capabilities[CapabilityKey.BACKEND_ENGINEERING] = _observed_capability(
+        clusters=3, ci=(92.0, 98.0)
+    )
+    unrelated = [
+        _evidence("database-a").model_copy(update={
+            "target_capability": CapabilityKey.DATABASE_ENGINEERING,
+        }),
+        _evidence("database-b").model_copy(update={
+            "target_capability": CapabilityKey.DATABASE_ENGINEERING,
+        }),
+        _evidence("database-c").model_copy(update={
+            "target_capability": CapabilityKey.DATABASE_ENGINEERING,
+        }),
+    ]
+
+    result = build_analysis_confidence(
+        capabilities=capabilities,
+        evidence_records=[_evidence("backend-a"), *unrelated],
+        role_weights=_weights(),
+        conflicts=_conflicts(),
+        role_fit=RoleFitSummary(),
+    )
+
+    assert result.evidence_strength == "limited"
+    assert result.independent_clusters == 1
+    assert "single_cluster" in result.uncertainty_flags
+
+
 def test_conflict_and_mandatory_gap_keep_summary_below_well_supported():
     capabilities = _empty_capabilities()
     capabilities[CapabilityKey.BACKEND_ENGINEERING] = _observed_capability(

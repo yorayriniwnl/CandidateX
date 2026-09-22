@@ -93,7 +93,30 @@ export function getAnalysisConfidence(
   const summary = !confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)
     ? FALLBACK_ANALYSIS_CONFIDENCE
     : confidence;
+  const observedEstimates = Object.values(dossier.capability_estimates ?? {}).filter(
+    estimate => estimate.is_observed && estimate.estimate != null,
+  );
+  const missingObservedIntervals = observedEstimates.some(
+    estimate => estimate.ci_lower == null || estimate.ci_upper == null,
+  );
   if (!sourceHealth) {
+    if (summary.evidence_strength === 'insufficient') return summary;
+    if (observedEstimates.length === 0) {
+      return {
+        ...summary,
+        evidence_strength: 'insufficient',
+        explanation: 'Evidence strength is insufficient because no observed capability estimate is available to verify the summary.',
+        uncertainty_flags: [...new Set([...summary.uncertainty_flags, 'no_empirical_evidence'])],
+      };
+    }
+    if (missingObservedIntervals) {
+      return {
+        ...summary,
+        evidence_strength: 'limited',
+        explanation: 'Evidence strength is limited because one or more observed capability intervals are unavailable.',
+        uncertainty_flags: [...new Set([...summary.uncertainty_flags, 'interval_unavailable'])],
+      };
+    }
     return summary;
   }
 
@@ -120,6 +143,14 @@ export function getAnalysisConfidence(
   if (noObservedSource) {
     evidenceStrength = 'insufficient';
     explanation = 'Evidence strength is insufficient because no supplied source was observed; verify the source set before interpreting scores.';
+  } else if (observedEstimates.length === 0 && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'insufficient';
+    flags.add('no_empirical_evidence');
+    explanation = 'Evidence strength is insufficient because no observed capability estimate is available to verify the summary.';
+  } else if (missingObservedIntervals && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'limited';
+    flags.add('interval_unavailable');
+    explanation = 'Evidence strength is limited because one or more observed capability intervals are unavailable.';
   } else if (partialSourceHealth && evidenceStrength !== 'insufficient') {
     evidenceStrength = 'limited';
     explanation = `Evidence strength is limited because source coverage is partial (${sourceFailures} failed, ${sourceUnscanned} not scanned or selected).`;

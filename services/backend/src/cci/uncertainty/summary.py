@@ -104,8 +104,15 @@ def build_analysis_confidence(
     maximum_interval_width = max(interval_widths) if interval_widths else None
 
     usable_records = [record for record in evidence_records if record.confidence > 0.0]
+    relevant_usable_records = [
+        record for record in usable_records
+        if role_weights.get(record.target_capability, 0.0) > 0.0
+    ]
     independent_clusters = len(
-        {record.cluster_id or record.source_locator for record in usable_records}
+        {
+            record.cluster_id or record.source_locator
+            for record in relevant_usable_records
+        }
     )
     unusable_records = [
         record for record in evidence_records if record.confidence <= 0.0

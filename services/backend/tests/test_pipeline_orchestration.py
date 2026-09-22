@@ -156,6 +156,20 @@ def test_functional_rescore_without_recrawling():
     assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].estimate is None
     assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is False
 
+    partial_dossier = state.dossier.model_copy(update={
+        "analysis_confidence": state.dossier.analysis_confidence.model_copy(update={
+            "evidence_strength": "limited",
+            "source_failures": 1,
+            "source_unscanned": 2,
+            "uncertainty_flags": ["source_failures", "source_unscanned"],
+        }),
+    })
+    rescored_partial = rescore_dossier(partial_dossier, custom_weights)
+    assert rescored_partial.analysis_confidence.source_failures == 1
+    assert rescored_partial.analysis_confidence.source_unscanned == 2
+    assert "source_failures" in rescored_partial.analysis_confidence.uncertainty_flags
+    assert "source_unscanned" in rescored_partial.analysis_confidence.uncertainty_flags
+
 
 def test_pipeline_exposes_limited_confidence_for_thin_evidence():
     """A high RCI must not imply broad confidence from one evidence cluster."""
