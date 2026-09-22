@@ -87,12 +87,52 @@ const EVIDENCE_STRENGTHS = new Set<AnalysisConfidenceSummary['evidence_strength'
 export function getAnalysisConfidence(
   dossier: Dossier,
   analysis?: Pick<ComprehensiveAnalysis, 'analysis_confidence'>,
+  sourceHealth?: SourceHealth,
 ): AnalysisConfidenceSummary {
   const confidence = dossier.analysis_confidence ?? analysis?.analysis_confidence;
-  if (!confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)) {
-    return FALLBACK_ANALYSIS_CONFIDENCE;
+  const summary = !confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)
+    ? FALLBACK_ANALYSIS_CONFIDENCE
+    : confidence;
+  if (!sourceHealth) {
+    return summary;
   }
-  return confidence;
+
+  const sourceFailures = Math.max(summary.source_failures, sourceHealth.failed_sources);
+  const sourceUnscanned = Math.max(
+    summary.source_unscanned,
+    sourceHealth.not_scanned_sources + sourceHealth.not_selected_sources,
+  );
+  const flags = new Set([
+    ...summary.uncertainty_flags,
+    ...sourceHealth.flags,
+    ...(sourceFailures > 0 ? ['source_failures'] : []),
+    ...(sourceUnscanned > 0 ? ['source_unscanned'] : []),
+  ]);
+  const noObservedSource = sourceHealth.supplied_sources === 0
+    || (sourceHealth.supplied_sources > 0 && sourceHealth.observed_sources === 0);
+  const partialSourceHealth = sourceHealth.is_partial
+    || sourceFailures > 0
+    || sourceUnscanned > 0
+    || sourceHealth.flags.includes('security_blocked');
+
+  let evidenceStrength = summary.evidence_strength;
+  let explanation = summary.explanation;
+  if (noObservedSource) {
+    evidenceStrength = 'insufficient';
+    explanation = 'Evidence strength is insufficient because no supplied source was observed; verify the source set before interpreting scores.';
+  } else if (partialSourceHealth && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'limited';
+    explanation = `Evidence strength is limited because source coverage is partial (${sourceFailures} failed, ${sourceUnscanned} not scanned or selected).`;
+  }
+
+  return {
+    ...summary,
+    evidence_strength: evidenceStrength,
+    explanation,
+    uncertainty_flags: [...flags],
+    source_failures: sourceFailures,
+    source_unscanned: sourceUnscanned,
+  };
 }
 
 export function getSourceHealth(result: Pick<LiveResult, 'sources' | 'source_health' | 'analysis'>): SourceHealth {

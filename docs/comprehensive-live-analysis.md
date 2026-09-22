@@ -42,7 +42,7 @@ The band gates are deliberately conservative: `insufficient` means no positive-c
 
 The `source_health` receipt summary retains partial-scan uncertainty with counts for supplied, observed, failed, not selected, not scanned, and security-blocked sources. Any status other than `observed`, `not_selected`, or `not_scanned` is failed; a `security_blocked` receipt is also counted as blocked. The summary is available at the response top level and under `analysis`, and its failure/unscanned counts are reflected in the dossier flags.
 
-The UI keeps the numeric observed score visible for auditability but labels a capability `Limited evidence` when coverage is below `0.35` or its interval is unavailable. If an older response lacks the additive fields, the client falls back to `Insufficient evidence` rather than inventing a stronger band.
+The UI keeps the numeric observed score visible for auditability but labels a capability `Limited evidence` when coverage is below `0.35`, its interval is unavailable, or the global evidence/source-health summary is not well supported. If an older response lacks the additive fields, the client falls back to `Insufficient evidence` rather than inventing a stronger band.
 
 Validation covers DOCX reading order/header links, section/name extraction, exact technology
 matching, public-only DNS pinning and redirects, response caps, provider failures, full link

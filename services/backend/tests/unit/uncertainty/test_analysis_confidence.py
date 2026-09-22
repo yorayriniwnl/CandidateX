@@ -154,6 +154,74 @@ def test_independent_interval_backed_clusters_can_be_well_supported():
     assert result.maximum_interval_width == 6.0
 
 
+def test_incomplete_role_weighted_intervals_never_look_well_supported():
+    capabilities = _empty_capabilities()
+    capabilities[CapabilityKey.BACKEND_ENGINEERING] = _observed_capability(
+        clusters=3, ci=(92.0, 98.0)
+    )
+    capabilities[CapabilityKey.DATABASE_ENGINEERING] = CapabilityEstimate(
+        capability_key=CapabilityKey.DATABASE_ENGINEERING,
+        estimate=88.0,
+        is_observed=True,
+        effective_evidence_count=1.0,
+        raw_evidence_count=1,
+        cluster_count=1,
+        standard_error=1.0,
+        dispersion=1.0,
+        coverage_k=0.9,
+    )
+    weights = {
+        capability: 0.8 if capability == CapabilityKey.BACKEND_ENGINEERING
+        else 0.2 if capability == CapabilityKey.DATABASE_ENGINEERING else 0.0
+        for capability in CapabilityKey
+    }
+
+    result = build_analysis_confidence(
+        capabilities=capabilities,
+        evidence_records=[
+            _evidence("repo-a"), _evidence("repo-b"), _evidence("repo-c"),
+            EvidenceRecord(
+                evidence_id=uuid4(),
+                fingerprint="fingerprint-database",
+                source_family=SourceFamily.GITHUB,
+                source_locator="https://github.com/example/database",
+                immutable_revision="b" * 40,
+                target_capability=CapabilityKey.DATABASE_ENGINEERING,
+                support_score=88.0,
+                is_positive_support=True,
+                confidence_factors=_factors(),
+                confidence=1.0,
+                cluster_id="database",
+            ),
+        ],
+        role_weights=weights,
+        conflicts=_conflicts(),
+        role_fit=RoleFitSummary(),
+    )
+
+    assert result.evidence_strength == "limited"
+    assert "interval_unavailable" in result.uncertainty_flags
+
+
+def test_limited_band_always_explains_the_limitation():
+    capabilities = _empty_capabilities()
+    capabilities[CapabilityKey.BACKEND_ENGINEERING] = _observed_capability(
+        coverage=0.5, clusters=3, ci=(92.0, 98.0)
+    )
+
+    result = build_analysis_confidence(
+        capabilities=capabilities,
+        evidence_records=[_evidence("repo-a"), _evidence("repo-b"), _evidence("repo-c")],
+        role_weights=_weights(),
+        conflicts=_conflicts(),
+        role_fit=RoleFitSummary(),
+    )
+
+    assert result.evidence_strength == "limited"
+    assert "limiting factors:" in result.explanation
+    assert "limiting factors: ." not in result.explanation
+
+
 def test_conflict_and_mandatory_gap_keep_summary_below_well_supported():
     capabilities = _empty_capabilities()
     capabilities[CapabilityKey.BACKEND_ENGINEERING] = _observed_capability(

@@ -34,7 +34,7 @@ async def limited_body(request, limit):
 
 @router.post('/intake')
 async def intake(request: Request, response: Response):
-    set_request_id(request, response)
+    request_id = set_request_id(request, response)
     response.headers['Cache-Control'] = 'no-store'
     filename = unquote(request.headers.get('X-Filename', 'resume.pdf'))
     if not filename.lower().endswith(('.pdf', '.docx')):
@@ -43,8 +43,10 @@ async def intake(request: Request, response: Response):
     try:
         return await run_in_threadpool(parse_resume, body, filename)
     except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        logger.warning('Resume intake rejected request_id=%s', request_id)
+        raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF or DOCX.') from exc
     except Exception as exc:
+        logger.exception('Resume intake failed request_id=%s', request_id)
         raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF or DOCX.') from exc
 
 

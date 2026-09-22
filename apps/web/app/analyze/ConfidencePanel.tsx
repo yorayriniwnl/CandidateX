@@ -36,8 +36,8 @@ function flagLabel(flag: string) {
 }
 
 export function EvidenceStrengthPanel({ result }: { result: LiveResult }) {
-  const confidence = getAnalysisConfidence(result.dossier, result.analysis);
   const sourceHealth = getSourceHealth(result);
+  const confidence = getAnalysisConfidence(result.dossier, result.analysis, sourceHealth);
   const flags = [...new Set([...confidence.uncertainty_flags, ...sourceHealth.flags])];
 
   return <section className={`${styles.panel} ${styles.confidencePanel}`} aria-label="Evidence strength">

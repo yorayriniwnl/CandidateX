@@ -91,6 +91,51 @@ const mockedLimitedAnalyze = {
   },
 };
 
+const mockedStaleConfidenceAnalyze = {
+  ...mockedLimitedAnalyze,
+  sources: [
+    { url: 'https://github.com/example/api', status: 'observed', detail: 'Observed test receipt.' },
+    { url: 'https://example.invalid', status: 'timeout', detail: 'The source timed out.' },
+  ],
+  dossier: {
+    ...mockedLimitedAnalyze.dossier,
+    coverage: 0.9,
+    capability_estimates: {
+      ...mockedLimitedAnalyze.dossier.capability_estimates,
+      backend_engineering: {
+        ...mockedLimitedAnalyze.dossier.capability_estimates.backend_engineering,
+        effective_evidence_count: 3,
+        raw_evidence_count: 3,
+        cluster_count: 3,
+        ci_lower: 90,
+        ci_upper: 94,
+        coverage_k: 0.9,
+      },
+    },
+    analysis_confidence: {
+      ...mockedLimitedAnalyze.dossier.analysis_confidence,
+      evidence_strength: 'well_supported',
+      explanation: 'Evidence appears well supported.',
+      uncertainty_flags: [],
+      role_coverage: 0.9,
+      independent_clusters: 3,
+      capabilities_with_intervals: 1,
+      interval_coverage: 1,
+      maximum_interval_width: 4,
+    },
+  },
+  source_health: {
+    supplied_sources: 2,
+    observed_sources: 1,
+    failed_sources: 1,
+    not_selected_sources: 0,
+    not_scanned_sources: 0,
+    blocked_sources: 0,
+    is_partial: true,
+    flags: ['source_failures'],
+  },
+};
+
 async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
   await page.route('**/api/live/intake', route => route.fulfill({
     status: 200,
@@ -159,4 +204,38 @@ test('labels high observed scores conservatively when support is thin', async ({
   await expect(page.getByText('Limited support')).toBeVisible();
   await expect(page.getByText('Limited evidence')).toBeVisible();
   await expect(page.getByText(/not a probability or hiring recommendation/i)).toBeVisible();
+});
+
+test('caps stale strong confidence when source health is partial', async ({ page }) => {
+  await mockLiveApi(page, mockedStaleConfidenceAnalyze);
+  await page.goto('/analyze');
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
+
+  await expect(page.getByText('Limited support')).toBeVisible();
+  await expect(page.getByText('Source acquisition failures')).toBeVisible();
+  await expect(page.getByText('Limited evidence')).toBeVisible();
+});
+
+test('treats omitted legacy intervals as unavailable', async ({ page }) => {
+  const legacy = JSON.parse(JSON.stringify(mockedStaleConfidenceAnalyze)) as any;
+  delete legacy.dossier.capability_estimates.backend_engineering.ci_lower;
+  delete legacy.dossier.capability_estimates.backend_engineering.ci_upper;
+  legacy.source_health = {
+    ...legacy.source_health,
+    observed_sources: 1,
+    failed_sources: 0,
+    is_partial: false,
+    flags: [],
+  };
+  legacy.sources = [legacy.sources[0]];
+
+  await mockLiveApi(page, legacy);
+  await page.goto('/analyze');
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
+
+  await expect(page.getByText('Well supported within supplied evidence')).toBeVisible();
+  await expect(page.getByText('Limited evidence')).toBeVisible();
+  await expect(page.getByText('Prepare verification')).toBeVisible();
 });

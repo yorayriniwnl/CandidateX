@@ -41,6 +41,7 @@ The summary also reports observed capabilities, independent clusters, interval a
 `source_health` counts every retained receipt: `observed_sources`, `failed_sources`, `not_selected_sources`, `not_scanned_sources`, and `blocked_sources`. A receipt is failed unless its status is `observed`, `not_selected`, or `not_scanned`; `security_blocked` is both failed and blocked. `is_partial` is true whenever the run has failures, unscanned sources, or no observed source. These counts are copied into `analysis.analysis_confidence` so a successful repository cannot hide a failed or omitted source.
 
 Older responses without the summary are rendered conservatively by the web client as insufficient evidence with an explicit “summary unavailable” flag. Observed capability rows are labeled as limited when coverage is below `0.35` or an interval is unavailable.
+The client also caps a stale strong summary to limited (or insufficient when no supplied source was observed) whenever source-health receipts show failed, blocked, or unscanned acquisition, and applies that uncertainty to capability-row actions.
 
 ## Run locally
 

@@ -63,6 +63,25 @@ def test_invalid_and_oversized_documents_are_rejected():
     assert client.post('/api/v1/live/intake', content=b'hello', headers={'X-Filename': 'run.exe'}).status_code == 415
 
 
+def test_intake_errors_are_safe_and_correlated(monkeypatch):
+    from cci.api.routers import live as live_router
+
+    def explode(*_args):
+        raise ValueError('secret parser path')
+
+    monkeypatch.setattr(live_router, 'parse_resume', explode)
+    response = client.post(
+        '/api/v1/live/intake',
+        content=b'valid-looking-input',
+        headers={'X-Filename': 'resume.pdf', 'X-Request-ID': 'intake-error-test'},
+    )
+
+    assert response.status_code == 422
+    assert response.headers['X-Request-ID'] == 'intake-error-test'
+    assert response.json()['detail'] == 'The document could not be read. Upload a valid, unlocked PDF or DOCX.'
+    assert 'secret parser path' not in response.text
+
+
 def test_analyze_body_limit_is_early_and_request_is_correlated():
     from cci.live.contracts import MAX_ANALYZE_BODY
 

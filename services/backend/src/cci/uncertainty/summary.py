@@ -46,6 +46,10 @@ def _flag_explanation(flags: list[str], band: str, clusters: int) -> str:
         "unusable_evidence": "some retained evidence has zero usable confidence",
     }
     reasons = [labels.get(flag, flag.replace("_", " ")) for flag in flags]
+    if not reasons:
+        reasons = [
+            "the selected coverage and support gates are not all met"
+        ]
     return f"Evidence strength is {band}; limiting factors: " + "; ".join(reasons) + "."
 
 

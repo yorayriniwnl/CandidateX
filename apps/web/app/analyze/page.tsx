@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { ArrowUpRight, FileText, ShieldCheck, Sparkles } from 'lucide-react';
-import type { CanonicalRole, CapabilityKey } from '../../types/cci';
-import { liveRequest, publicUrl, type LiveResult, type ResumeIntake } from '../../lib/live-analysis';
+import type { AnalysisConfidenceSummary, CanonicalRole, CapabilityKey } from '../../types/cci';
+import { getAnalysisConfidence, getSourceHealth, liveRequest, publicUrl, type LiveResult, type ResumeIntake, type SourceHealth } from '../../lib/live-analysis';
 import { label } from '../../lib/evidence';
 import { PlatformHeader } from '../../components/navigation/PlatformHeader';
 import styles from './shared.module.css';
@@ -15,10 +15,14 @@ const ROLES: CanonicalRole[] = ['backend', 'frontend', 'fullstack', 'ml_engineer
 
 function CapabilitySnapshotTable({
   estimates,
+  confidence,
+  sourceHealth,
   selectedCapability,
   onSelectCapability,
 }: {
   estimates: LiveResult['dossier']['capability_estimates'];
+  confidence: AnalysisConfidenceSummary;
+  sourceHealth: SourceHealth;
   selectedCapability: CapabilityKey;
   onSelectCapability: (key: CapabilityKey) => void;
 }) {
@@ -46,8 +50,12 @@ function CapabilitySnapshotTable({
         <tbody>
           {capabilities.map(cap => {
             const isObserved = cap.is_observed && cap.estimate !== null;
-            const hasInterval = cap.ci_lower !== null && cap.ci_upper !== null;
-            const isConservative = isObserved && (cap.coverage_k < 0.35 || !hasInterval);
+            const hasInterval = cap.ci_lower != null && cap.ci_upper != null;
+            const globalUncertainty = confidence.evidence_strength !== 'well_supported'
+              || sourceHealth.failed_sources > 0
+              || sourceHealth.not_selected_sources > 0
+              || sourceHealth.not_scanned_sources > 0;
+            const isConservative = isObserved && (globalUncertainty || cap.coverage_k < 0.35 || !hasInterval);
             const score = cap.estimate ?? 0;
             const coverage = Math.round(cap.coverage_k * 100);
             return <tr key={cap.capability_key} className={selectedCapability === cap.capability_key ? styles.selectedRow : undefined}>
@@ -62,7 +70,7 @@ function CapabilitySnapshotTable({
                   <span className={styles.capabilitySubtext}>{isObserved ? `${cap.raw_evidence_count} observed ${cap.raw_evidence_count === 1 ? 'signal' : 'signals'}` : 'No independent evidence yet'}</span>
                 </button>
               </td>
-              <td data-label="Readiness">
+              <td data-label="Observed score">
                 <div className={styles.readinessCell}>
                   <div className={styles.readinessValue}>{isObserved ? `${cap.estimate?.toFixed(1)} / 100` : 'Unknown'}</div>
                   <div className={styles.readinessBar} aria-hidden="true"><span style={{ width: `${isObserved ? Math.min(100, score) : 0}%` }} /></div>
@@ -256,7 +264,7 @@ export default function LiveAnalysisPage() {
           {result.analysis && <DetailedAnalysis analysis={result.analysis} />}
           <nav className={styles.resultNav} aria-label="Review sections"><span>Jump to</span><a href="#acquisition-receipts">Receipts</a><a href="#capability-snapshot">Capabilities</a><a href="#evidence-inspector">Evidence</a><a href="#interview-questions">Interview</a></nav>
           <section id="acquisition-receipts" className={styles.panel}><div className={styles.eyebrow}>04 / Acquisition receipts</div><h2>What was fetched</h2>{result.sources.length === 0 && <p className={styles.warning}>No public sources were selected. Resume declarations alone are not scored.</p>}{result.sources.map((s, i) => <article className={styles.evidence} key={`${i}-${s.url}`}><div className={live.sourceHead}><a className={live.sourceUrl} href={publicUrl(s.url)} target="_blank" rel="noreferrer">{s.url}</a><span className={styles.tag}>{label(s.status)}</span></div><p className={styles.muted}>{s.detail}</p>{s.commit_sha && <><p className={styles.hash}>Commit {s.commit_sha}</p><p className={styles.muted}>{s.files_inspected} files inspected · {s.files_omitted} omitted · {s.evidence_count} observations · fetched {s.fetched_at}</p></>}<SourceDetails source={s} /></article>)}</section>
-          <section id="capability-snapshot" className={`${styles.panel} ${styles.capabilityPanel}`}><div className={styles.eyebrow}>05 / Capability snapshot</div><h2>What the evidence shows</h2><p className={styles.muted}>Use the next step in each row to move from a score to a useful interview conversation.</p><CapabilitySnapshotTable estimates={result.dossier.capability_estimates} selectedCapability={capability} onSelectCapability={setCapability} /></section>
+          <section id="capability-snapshot" className={`${styles.panel} ${styles.capabilityPanel}`}><div className={styles.eyebrow}>05 / Capability snapshot</div><h2>What the evidence shows</h2><p className={styles.muted}>Use the next step in each row to move from a score to a useful interview conversation.</p><CapabilitySnapshotTable estimates={result.dossier.capability_estimates} confidence={getAnalysisConfidence(result.dossier, result.analysis, getSourceHealth(result))} sourceHealth={getSourceHealth(result)} selectedCapability={capability} onSelectCapability={setCapability} /></section>
           <section id="evidence-inspector" className={styles.panel}><div className={styles.eyebrow}>06 / Inspect the source</div><h2>{label(capability)}</h2><p className={styles.muted}>Select a capability above to inspect its observations. GitHub links open the exact fetched commit.</p>{evidence.length === 0 && <p className={styles.warning}>No observations for this capability.</p>}{evidence.map(e => <details className={styles.evidence} key={e.evidence_id}><summary>{e.provenance.artifact_path || 'Repository structure'} · support {e.support_score.toFixed(0)} · confidence {(e.confidence * 100).toFixed(1)}%</summary><dl><dt>Artifact</dt><dd><a href={publicUrl(e.provenance.artifact_url)} target="_blank" rel="noreferrer">{e.provenance.artifact_path || e.source_locator}</a></dd><dt>Commit</dt><dd>{e.immutable_revision}</dd><dt>Location</dt><dd>{e.provenance.symbol_or_line || 'File-level inspection'}</dd><dt>Fingerprint</dt><dd>{e.fingerprint}</dd><dt>Artifact SHA-256</dt><dd>{e.provenance.artifact_sha256}</dd><dt>Observation</dt><dd><pre className={live.extracted}>{e.provenance.raw_support_text}</pre></dd></dl><div className={styles.factors}>{Object.entries(e.confidence_factors).map(([key, value]) => <span key={key}>{label(key)}: {value.toFixed(3)}</span>)}</div></details>)}</section>
           <section id="interview-questions" className={styles.panel}><div className={styles.eyebrow}>07 / Prepare the interview</div><h2>Questions grounded in evidence and gaps</h2>{result.dossier.interview_questions.map(q => <article className={styles.question} key={q.question_id}><h3>{label(q.target_capability)}</h3><p>{q.question_text}</p><p className={styles.muted}>{q.rationale}</p><p className={styles.muted}>{q.verification_guidance}</p><button className={styles.button} onClick={() => setCapability(q.target_capability)}>Inspect related evidence</button></article>)}</section>
           <section className={styles.panel}><h2>Assessment limits</h2>{result.dossier.system_limitations.map((text, i) => <p className={styles.muted} key={i}>{text}</p>)}</section>
