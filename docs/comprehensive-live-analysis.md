@@ -34,6 +34,16 @@ capability evidence without an exact technology match, `unknown` when no support
 was observed, or `unresolved` when the controlled ontology cannot map it. Mandatory gaps are
 shown as interview priorities, not as an autonomous hiring recommendation.
 
+## Evidence strength is explicit uncertainty
+
+Every completed live dossier now carries an `analysis_confidence` summary. It is a deterministic evidence-quality band, not a probability or hiring recommendation. It does not establish identity, authorship, mastery, employment, credential authenticity, or job-performance accuracy, and it never changes the underlying RCI or six-factor evidence calculation.
+
+The band gates are deliberately conservative: `insufficient` means no positive-confidence empirical evidence or role coverage below `0.35`; `limited` applies below `0.60` coverage or when a single cluster, missing interval, mandatory gap, source failure/unscanned source, or material unusable evidence limits the read; `moderate` applies below `0.80` coverage, below `3` independent clusters, below `0.80` interval coverage, an interval wider than `25`, or a meaningful conflict; `well_supported` requires all of the corresponding thresholds (`0.80` coverage, `3` clusters, `0.80` interval coverage, and maximum interval width `25`). These are presentation gates, not real-world validation or calibrated probabilities.
+
+The `source_health` receipt summary retains partial-scan uncertainty with counts for supplied, observed, failed, not selected, not scanned, and security-blocked sources. Any status other than `observed`, `not_selected`, or `not_scanned` is failed; a `security_blocked` receipt is also counted as blocked. The summary is available at the response top level and under `analysis`, and its failure/unscanned counts are reflected in the dossier flags.
+
+The UI keeps the numeric observed score visible for auditability but labels a capability `Limited evidence` when coverage is below `0.35` or its interval is unavailable. If an older response lacks the additive fields, the client falls back to `Insufficient evidence` rather than inventing a stronger band.
+
 Validation covers DOCX reading order/header links, section/name extraction, exact technology
 matching, public-only DNS pinning and redirects, response caps, provider failures, full link
 accounting, report rendering/export, and real public production upload/acquisition.

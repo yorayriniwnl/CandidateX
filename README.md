@@ -40,6 +40,7 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 6. **Traceable Provenance**: Demonstration observations carry content revisions, source locators, SHA-256 fingerprints, extractor versions, confidence factors, and project clusters. These are synthetic artifacts; database-wide append-only guarantees are not claimed.
 7. **Functional Rescoring**: Overrides reuse the current evidence snapshot and update scores, coverage, probes, questions, and graph together. Prior snapshots and justifications remain inspectable in the exported history.
 8. **No Live Acquisition in the Demonstration**: Synthetic source locators are never fetched. The live workflow uses its separate DNS-pinned `live/public_links.py` transport for supplied public pages. Legacy deployment-inspection helpers are not used by that acquisition path and do not establish connection-level DNS pinning.
+9. **Evidence Strength is Not Probability**: Every live dossier reports deterministic evidence-strength gates, source-health counts, and uncertainty flags. A high RCI cannot override missing clusters, unavailable intervals, mandatory gaps, failed sources, or unscanned sources; the band is not a hiring recommendation or validated probability.
 
 ---
 
@@ -256,6 +257,8 @@ docker compose up --build -d
 ## Verification & Test Matrix
 
 Use `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1` for the self-contained local release gate, or the detailed commands in the [live workflow guide](docs/live-resume-analysis.md#verification). Backend tests use a disposable database and explicit test fixtures. Browser tests exercise the production frontend against a real backend.
+
+The verification gate also checks that thin evidence remains explicitly limited, source failures and unscanned receipts flow into the uncertainty summary, request failures return safe correlated errors, and older UI responses default to insufficient evidence rather than fabricating confidence.
 
 - [Demonstration acceptance tests](services/backend/tests/test_research_demonstration.py): evidence integrity, deterministic scenarios, role/JD conditioning, missingness, provenance, consistent rescoring, validation and artifact alignment.
 - [Browser workflow tests](apps/web/tests/live-analysis.spec.ts): live intake, evidence review, exports, failure states and mobile layout.

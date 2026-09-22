@@ -25,6 +25,23 @@ The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, re
 - LinkedIn, coding profiles, credentials, portfolios and deployed websites expose public text only when accessible. Login gates and script-only pages can remain unresolved. Credential topic/name matches are review leads, not issuer authentication, proof of completion or skill mastery. No login bypass or broad identity search occurs.
 - The document and result are request-scoped, with no server-side retention or account history. Refresh clears the browser view. Exports contain personal information; the user controls where to save them.
 
+## Evidence strength and source health
+
+The dossier includes a deterministic `analysis_confidence` summary alongside the RCI and Evidence Coverage. It describes the support available in the supplied scan; it is not a probability, hiring recommendation, proof of identity, proof of authorship, or measure of job-performance accuracy. The existing RCI and six-factor evidence weights are unchanged, and a high RCI cannot raise the evidence-strength band by itself.
+
+The bands use presentation gates, not calibrated probabilities:
+
+- `insufficient`: no positive-confidence empirical evidence is observed, or role coverage is below `0.35`.
+- `limited`: role coverage is below `0.60`, or a limiting condition remains, such as a single independent cluster, an unavailable interval, a mandatory unknown/unresolved requirement, source failure, source unscanned, or material unusable evidence.
+- `moderate`: coverage is below `0.80`, fewer than `3` independent clusters are available, interval coverage is below `0.80`, an available interval exceeds width `25`, or meaningful evidence conflicts remain.
+- `well_supported`: all of the preceding gates are met: at least `0.80` role coverage, `3` independent clusters, at least `0.80` interval coverage, and no interval wider than `25`. This still means well supported within the bounded supplied evidence only.
+
+The summary also reports observed capabilities, independent clusters, interval availability, mandatory gaps, meaningful conflicts, unusable records, and stable uncertainty flags such as `no_empirical_evidence`, `low_role_coverage`, `single_cluster`, `interval_unavailable`, `wide_intervals`, `mandatory_unknown`, `mandatory_unresolved`, `source_failures`, `source_unscanned`, `meaningful_conflict`, and `unusable_evidence`. Confidence intervals remain unavailable when fewer than two independent clusters exist.
+
+`source_health` counts every retained receipt: `observed_sources`, `failed_sources`, `not_selected_sources`, `not_scanned_sources`, and `blocked_sources`. A receipt is failed unless its status is `observed`, `not_selected`, or `not_scanned`; `security_blocked` is both failed and blocked. `is_partial` is true whenever the run has failures, unscanned sources, or no observed source. These counts are copied into `analysis.analysis_confidence` so a successful repository cannot hide a failed or omitted source.
+
+Older responses without the summary are rendered conservatively by the web client as insufficient evidence with an explicit “summary unavailable” flag. Observed capability rows are labeled as limited when coverage is below `0.35` or an interval is unavailable.
+
 ## Run locally
 
 ```powershell
