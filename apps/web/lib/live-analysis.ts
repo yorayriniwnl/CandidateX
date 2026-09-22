@@ -45,7 +45,7 @@ export interface SourceHealth {
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
-  role_fit?: RoleFitSummary;
+  role_fit?: RoleFitSummary; analysis_confidence?: AnalysisConfidenceSummary; source_health?: SourceHealth;
   skills: { skill: string; learning: boolean; status: string; evidence: TechnologyEvidence[];
     evidence_count: number; public_mentions: string[]; explanation: string }[];
   credentials: { claim: string; status: string; explanation: string; matching_pages: {
@@ -92,8 +92,9 @@ export function getAnalysisConfidence(dossier: Dossier): AnalysisConfidenceSumma
   return confidence;
 }
 
-export function getSourceHealth(result: Pick<LiveResult, 'sources' | 'source_health'>): SourceHealth {
+export function getSourceHealth(result: Pick<LiveResult, 'sources' | 'source_health' | 'analysis'>): SourceHealth {
   if (result.source_health) return result.source_health;
+  if (result.analysis.source_health) return result.analysis.source_health;
   const statuses = result.sources.map(source => source.status);
   const observed = statuses.filter(status => status === 'observed').length;
   const notSelected = statuses.filter(status => status === 'not_selected').length;

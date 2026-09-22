@@ -6,39 +6,7 @@ from cci.pipeline.orchestrator import execute_analysis_pipeline
 from cci.uncertainty.summary import build_analysis_confidence
 from concurrent.futures import ThreadPoolExecutor
 from cci.live.public_links import acquire_public_links
-from cci.live.report import build_report
-
-
-def build_source_health(sources: list[dict]) -> dict:
-    """Summarize source receipt outcomes without treating partial scans as success."""
-    statuses = [str(source.get('status', 'unknown')) for source in sources]
-    observed = sum(status == 'observed' for status in statuses)
-    not_selected = sum(status == 'not_selected' for status in statuses)
-    not_scanned = sum(status == 'not_scanned' for status in statuses)
-    blocked = sum(status == 'security_blocked' for status in statuses)
-    failed = sum(
-        status not in {'observed', 'not_selected', 'not_scanned'}
-        for status in statuses
-    )
-    flags = []
-    if failed:
-        flags.append('source_failures')
-    if not_selected or not_scanned:
-        flags.append('source_unscanned')
-    if blocked:
-        flags.append('security_blocked')
-    if not statuses:
-        flags.append('no_sources_supplied')
-    return {
-        'supplied_sources': len(statuses),
-        'observed_sources': observed,
-        'failed_sources': failed,
-        'not_selected_sources': not_selected,
-        'not_scanned_sources': not_scanned,
-        'blocked_sources': blocked,
-        'is_partial': bool(failed or not_selected or not_scanned or not observed),
-        'flags': flags,
-    }
+from cci.live.report import build_report, build_source_health
 
 
 def analyze_resume(request: LiveAnalysisRequest):
@@ -87,7 +55,8 @@ def analyze_resume(request: LiveAnalysisRequest):
     )
     dossier = dossier.model_copy(update={'analysis_confidence': analysis_confidence})
     graph = build_dossier_graph(dossier)
-    analysis = build_report(request.intake, sources)
+    analysis = build_report(request.intake, sources, source_health=source_health)
+    analysis['analysis_confidence'] = analysis_confidence.model_dump(mode='json')
     analysis['role_fit'] = dossier.role_fit.model_dump(mode='json')
     if dossier.role_fit.critical_gaps:
         analysis['next_steps'] = list(dict.fromkeys([

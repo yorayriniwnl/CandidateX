@@ -148,7 +148,7 @@ def test_full_service_exposes_source_health_and_confidence_overlay(monkeypatch):
         external_urls=['https://example.com/portfolio'],
     ))
 
-    assert result['source_health'] == {
+    expected_source_health = {
         'supplied_sources': 4,
         'observed_sources': 1,
         'failed_sources': 2,
@@ -158,11 +158,14 @@ def test_full_service_exposes_source_health_and_confidence_overlay(monkeypatch):
         'is_partial': True,
         'flags': ['source_failures', 'source_unscanned', 'security_blocked'],
     }
+    assert result['source_health'] == expected_source_health
+    assert result['analysis']['source_health'] == expected_source_health
     confidence = result['dossier'].analysis_confidence
     assert confidence.source_failures == 2
     assert confidence.source_unscanned == 1
     assert 'source_failures' in confidence.uncertainty_flags
     assert 'source_unscanned' in confidence.uncertainty_flags
+    assert result['analysis']['analysis_confidence']['source_failures'] == 2
 
 
 def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):

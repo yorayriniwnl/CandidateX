@@ -14,7 +14,40 @@ def text_mentions(text, value):
     return bool(value and re.search(r'(?<![\w])' + re.escape(value) + r'(?![\w])', text, re.I))
 
 
-def build_report(intake, sources):
+def build_source_health(sources):
+    """Summarize source receipt outcomes without treating partial scans as success."""
+    statuses = [str(source.get('status', 'unknown')) for source in sources]
+    observed = sum(status == 'observed' for status in statuses)
+    not_selected = sum(status == 'not_selected' for status in statuses)
+    not_scanned = sum(status == 'not_scanned' for status in statuses)
+    blocked = sum(status == 'security_blocked' for status in statuses)
+    failed = sum(
+        status not in {'observed', 'not_selected', 'not_scanned'}
+        for status in statuses
+    )
+    flags = []
+    if failed:
+        flags.append('source_failures')
+    if not_selected or not_scanned:
+        flags.append('source_unscanned')
+    if blocked:
+        flags.append('security_blocked')
+    if not statuses:
+        flags.append('no_sources_supplied')
+    return {
+        'supplied_sources': len(statuses),
+        'observed_sources': observed,
+        'failed_sources': failed,
+        'not_selected_sources': not_selected,
+        'not_scanned_sources': not_scanned,
+        'blocked_sources': blocked,
+        'is_partial': bool(failed or not_selected or not_scanned or not observed),
+        'flags': flags,
+    }
+
+
+def build_report(intake, sources, source_health=None):
+    source_health = source_health or build_source_health(sources)
     learning = {normalize_skill(s) for s in intake.resume_review.learning_skills}
     skills = []
     for skill in intake.manifest.claimed_skills:
@@ -78,4 +111,5 @@ def build_report(intake, sources):
         'coverage': {'supplied_sources': len(sources), 'observed_sources': sum(s['status'] == 'observed' for s in sources),
                      'skills_declared': len(skills), 'skills_with_repository_matches': sum(bool(s['evidence']) for s in skills),
                      'credential_claims': len(credentials)},
+        'source_health': source_health,
         'method': 'Deterministic document extraction, bounded public acquisition, and exact technology matching. No generated biography or inferred employment verification.'}
