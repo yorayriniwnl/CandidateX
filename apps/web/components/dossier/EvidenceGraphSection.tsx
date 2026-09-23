@@ -37,6 +37,7 @@ export function EvidenceGraphSection({ graph, onSelectCapability, onSelectEviden
   const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
+  const [selectedTextNode, setSelectedTextNode] = useState<CEGNode | null>(null);
   const nodeById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
   const filteredNodes = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -77,16 +78,27 @@ export function EvidenceGraphSection({ graph, onSelectCapability, onSelectEviden
       ) : (
         <>
           <div className={styles.graphIntro}>
-            <div className={styles.legend} aria-label="Graph node types">
-              <span><i className={styles.legendSource} />Source</span>
-              <span><i className={styles.legendEvidence} />Supporting evidence</span>
-              <span><i className={styles.legendUnknown} />Unknown</span>
-              <span><i className={styles.legendConflict} />Contradicting evidence</span>
+            <div className={styles.legendStack}>
+              <div className={styles.legend} role="group" aria-label="Graph node semantics">
+                <span><i className={styles.legendCandidate} />Candidate</span>
+                <span><i className={styles.legendSource} />Source</span>
+                <span><i className={styles.legendEvidence} />Supporting evidence</span>
+                <span><i className={styles.legendConflict} />Conflicting evidence</span>
+                <span><i className={styles.legendUnknown} />Unknown capability</span>
+                <span><i className={styles.legendRole} />Role requirement</span>
+                <span><i className={styles.legendNeutral} />Other graph node</span>
+              </div>
+              <div className={styles.legend} role="group" aria-label="Graph relationship semantics">
+                <span><i className={`${styles.legendLine} ${styles.legendLineSupport}`} />Support</span>
+                <span><i className={`${styles.legendLine} ${styles.legendLineConflict}`} />Contradiction</span>
+                <span><i className={`${styles.legendLine} ${styles.legendLineQuestion}`} />Interview question</span>
+                <span><i className={`${styles.legendLine} ${styles.legendLineOther}`} />Other relationship</span>
+              </div>
             </div>
             {!loaded && <button type="button" className={styles.loadButton} onClick={() => setLoaded(true)}>
               <span aria-hidden="true">↗</span> Load 3D evidence graph
             </button>}
-            {loaded && <p className={styles.controlsHint}>Drag to rotate · scroll to move through depth · select a node to inspect</p>}
+            {loaded && <p className={styles.controlsHint}>Drag to rotate · scroll to zoom · hover or select a node to reveal its label and returned details.</p>}
           </div>
 
           {loaded && <LazyEvidenceGraph3D graph={graph} onSelectNode={selectNode} />}
@@ -100,14 +112,14 @@ export function EvidenceGraphSection({ graph, onSelectCapability, onSelectEviden
               type="search"
               value={query}
               placeholder="Search labels, IDs, source, or path…"
-              onChange={event => { setQuery(event.currentTarget.value); setVisibleLimit(PAGE_SIZE); }}
+              onChange={event => { setQuery(event.currentTarget.value); setVisibleLimit(PAGE_SIZE); setSelectedTextNode(null); }}
             />
             <div className={styles.alternativeColumns}>
               <div>
                 <h3>Nodes · {filteredNodes.length} returned</h3>
                 <ul className={styles.nodeList}>
                   {visibleNodes.map(node => <li key={node.id}>
-                    <button type="button" aria-label={`Inspect ${nodeSummary(node)}`} onClick={() => selectNode(node)}>
+                    <button type="button" aria-label={`Inspect ${nodeSummary(node)}`} onClick={() => { setSelectedTextNode(node); selectNode(node); }}>
                       <span>{readableType(node.type)}</span><strong>{node.label}</strong><code>{node.id}</code>
                     </button>
                   </li>)}
@@ -129,6 +141,18 @@ export function EvidenceGraphSection({ graph, onSelectCapability, onSelectEviden
                 {visibleEdges.length > PAGE_SIZE && <p className={styles.note}>Narrow the node search to inspect more relationships in this text view.</p>}
               </div>
             </div>
+            {selectedTextNode && <aside className={styles.nodeInspector} aria-label="Selected text graph node details">
+              <div className={styles.nodeInspectorHeading}>
+                <span>{readableType(selectedTextNode.type)}</span>
+                <h3>{selectedTextNode.label}</h3>
+                <code>{selectedTextNode.id}</code>
+              </div>
+              {Object.keys(selectedTextNode.properties).length > 0 ? <dl>
+                {Object.entries(selectedTextNode.properties).slice(0, 8).map(([key, value]) => <div key={key}>
+                  <dt>{readableType(key)}</dt><dd>{safeValue(value)}</dd>
+                </div>)}
+              </dl> : <p className={styles.note}>No properties were returned for this node.</p>}
+            </aside>}
           </details>
         </>
       )}

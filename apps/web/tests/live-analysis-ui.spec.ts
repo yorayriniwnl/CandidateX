@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import type { CEGNode } from '../types/cci';
 
 const mockedIntake = {
   candidate_id: 'candidate-ui-test',
@@ -386,9 +387,18 @@ test('loads the returned 3D evidence graph on demand and opens its matching evid
 
   const graph = page.getByRole('region', { name: 'Candidate evidence graph' });
   await expect(graph.getByText('8 nodes · 9 relationships')).toBeVisible();
+  const nodeLegend = graph.getByRole('group', { name: 'Graph node semantics' });
+  for (const label of ['Candidate', 'Source', 'Supporting evidence', 'Conflicting evidence', 'Unknown capability', 'Role requirement', 'Other graph node']) {
+    await expect(nodeLegend.getByText(label, { exact: true })).toBeVisible();
+  }
+  const relationshipLegend = graph.getByRole('group', { name: 'Graph relationship semantics' });
+  for (const label of ['Support', 'Contradiction', 'Interview question', 'Other relationship']) {
+    await expect(relationshipLegend.getByText(label, { exact: true })).toBeVisible();
+  }
   await expect(graph.locator('canvas')).toHaveCount(0);
   await graph.getByRole('button', { name: 'Load 3D evidence graph' }).click();
   await expect(graph.getByRole('img', { name: '3D evidence graph with 8 nodes and 9 relationships' })).toBeVisible();
+  await expect(graph.getByText('Hover or select a node to reveal its label and returned details.')).toBeVisible();
   await graph.screenshot({ path: 'test-results/evidence-os-graph.png' });
 
   await graph.getByText('Text equivalent · nodes and relationships').click();
@@ -396,6 +406,83 @@ test('loads the returned 3D evidence graph on demand and opens its matching evid
   const provenance = page.getByRole('complementary', { name: 'Selected evidence provenance' });
   await expect(provenance).toBeVisible();
   await expect(provenance).toContainText('FastAPI route implementation observed.');
+});
+
+test('unknown CEG node types remain visible in 3D and in the searchable text equivalent', async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeGetContext = HTMLCanvasElement.prototype.getContext as unknown as (
+      this: HTMLCanvasElement,
+      type: string,
+      options?: Record<string, unknown>,
+    ) => RenderingContext | null;
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      configurable: true,
+      value: function (this: HTMLCanvasElement, type: string, options?: Record<string, unknown>) {
+        const attributes = type.startsWith('webgl') ? { ...options, preserveDrawingBuffer: true } : options;
+        return nativeGetContext.call(this, type, attributes);
+      },
+    });
+  });
+  const analyzeWithUnknownNode = structuredClone(mockedGraphAnalyze);
+  (analyzeWithUnknownNode.graph.nodes as CEGNode[]).push({
+    id: 'signal_unclassified', type: 'ExternalSignal', label: 'Unclassified external signal',
+    properties: { source_locator: 'https://example.test/signal', detail: 'Returned by a future CEG producer.' },
+  });
+  analyzeWithUnknownNode.graph.edges.push({
+    id: 'signal_candidate', source: 'signal_unclassified', target: 'candidate-ui-test',
+    type: 'REFERENCES', weight: 1, properties: {},
+  });
+  await mockLiveApi(page, analyzeWithUnknownNode);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+
+  const graph = page.getByRole('region', { name: 'Candidate evidence graph' });
+  await graph.getByRole('button', { name: 'Load 3D evidence graph' }).click();
+  const canvas = graph.getByRole('img', { name: '3D evidence graph with 9 nodes and 10 relationships' });
+  await expect(canvas).toBeVisible();
+  const litPixels = await canvas.evaluate(element => {
+    const canvasElement = element as HTMLCanvasElement;
+    const gl = canvasElement.getContext('webgl2') ?? canvasElement.getContext('webgl');
+    if (!gl) return 0;
+    gl.finish();
+    const pixels = new Uint8Array(canvasElement.width * canvasElement.height * 4);
+    gl.readPixels(0, 0, canvasElement.width, canvasElement.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    let lit = 0;
+    for (let index = 0; index < pixels.length; index += 16) {
+      if (pixels[index] + pixels[index + 1] + pixels[index + 2] > 48) lit += 1;
+    }
+    return lit;
+  });
+  expect(litPixels).toBeGreaterThan(10);
+  await graph.screenshot({ path: 'test-results/evidence-graph-unknown-types.png' });
+
+  await graph.getByText('Text equivalent · nodes and relationships').click();
+  const unknownNode = graph.getByRole('button', { name: /Inspect external signal node Unclassified external signal/ });
+  await expect(unknownNode).toBeVisible();
+  await unknownNode.click();
+  await expect(graph.getByRole('complementary', { name: 'Selected text graph node details' }))
+    .toContainText('Returned by a future CEG producer.');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await graph.scrollIntoViewIfNeeded();
+  await canvas.screenshot({ path: 'test-results/evidence-graph-mobile.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('shows the searchable text equivalent when a WebGL context is lost', async ({ page }) => {
+  await mockLiveApi(page, mockedGraphAnalyze);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+
+  const graph = page.getByRole('region', { name: 'Candidate evidence graph' });
+  await graph.getByRole('button', { name: 'Load 3D evidence graph' }).click();
+  const canvas = graph.getByRole('img', { name: '3D evidence graph with 8 nodes and 9 relationships' });
+  await expect(canvas).toBeVisible();
+  await canvas.evaluate(element => element.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
+  await expect(graph.getByRole('status')).toContainText('3D rendering is unavailable in this browser.');
+  await expect(graph.getByRole('button', { name: 'Reset view' })).toBeDisabled();
+  await graph.getByText('Text equivalent · nodes and relationships').click();
+  await expect(graph.getByLabel('Find a node')).toBeVisible();
+  await expect(graph.getByRole('button', { name: /Inspect evidence node github: backend_engineering/ })).toBeVisible();
 });
 
 test('opens a traceable dossier rail across capabilities, claims, sources, gaps, interview, graph, and audit', async ({ page }) => {
@@ -420,6 +507,11 @@ test('opens a traceable dossier rail across capabilities, claims, sources, gaps,
   await page.locator('#interview').screenshot({ path: 'test-results/evidence-os-interview.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(dossier.getByText('Swipe or scroll to see all dossier sections')).toBeVisible();
+  await expect(navigation).toHaveAttribute('aria-describedby', 'dossier-section-nav-description');
+  await navigation.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+  expect(await navigation.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+  await expect(navigation.locator('a[href="#audit"]')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/evidence-os-mobile.png' });
 });
