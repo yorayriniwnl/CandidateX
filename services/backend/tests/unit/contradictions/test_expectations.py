@@ -124,6 +124,9 @@ def test_performance_grammar_normalizes_context_and_capability():
     assert parse_observable_claim("latency 50 ms technology=fastapi", repository_scope="acme/api") == []
     assert parse_observable_claim("Claimed latency < 50 ms technology=fastapi", repository_scope="acme/api") == []
     assert parse_observable_claim("latency < 50 ms technology=fastapi extra", repository_scope="acme/api") == []
+    context_no = parse_observable_claim("latency < 50 ms technology=fastapi environment=no", repository_scope="acme/api")
+    assert len(context_no) == 1
+    assert context_no[0].environment == "no"
 
 
 def test_repository_scope_must_be_unique_and_in_same_project_claim():
@@ -172,6 +175,8 @@ def test_generic_slash_phrase_cannot_supply_repository_scope():
 
 @pytest.mark.parametrize("claim", [
     "We did not use FastAPI",
+    "We haven't used FastAPI",
+    "We aren't using FastAPI",
     "Never used FastAPI",
     "Not at least 95% coverage",
 ])

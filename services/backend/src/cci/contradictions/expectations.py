@@ -31,7 +31,7 @@ _LABELED_REPOSITORY_PATTERN = re.compile(
 )
 _URL_PATTERN = re.compile(r"https://[^\s<>]+", re.I)
 _NEGATION_PATTERN = re.compile(
-    r"\b(?:not|never|without|cannot|can't|didn't|don't|doesn't|wasn't|weren't)\b|"
+    r"\b(?:not|never|without|cannot|[a-z]+n['’]t)\b|"
     r"\bno\b(?!\s+(?:less|more)\s+than)", re.I,
 )
 _COVERAGE_PATTERN = re.compile(
@@ -125,7 +125,8 @@ def parse_observable_claim(
 ) -> list[ObservableClaimExpectation]:
     """Parse exactly one supported assertion; ambiguity remains unparsed."""
     normalized = _normalize(text)
-    if not normalized or _NEGATION_PATTERN.search(normalized):
+    performance = _PERFORMANCE_PATTERN.fullmatch(normalized)
+    if not normalized or (not performance and _NEGATION_PATTERN.search(normalized)):
         return []
     try:
         scope = normalize_repository_scope(repository_scope) if repository_scope else None
@@ -142,7 +143,6 @@ def parse_observable_claim(
                                     metric_id=metric, comparator=_COMPARATORS[match.group("comparator")],
                                     threshold=float(match.group("number")), unit="%"))
 
-    performance = _PERFORMANCE_PATTERN.fullmatch(normalized)
     if scope and performance:
         match = performance
         technology = match.group("technology")
