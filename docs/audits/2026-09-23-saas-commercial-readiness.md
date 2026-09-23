@@ -1,8 +1,8 @@
 # CandidateX SaaS commercial readiness audit
 
-**Review date:** 2026-09-23  
+**Review date:** 2026-09-24
 **Reviewed branch:** codex/candidatex-saas-readiness  
-**Reviewed commit:** ab4230a, based on origin/main baa559f  
+**Reviewed commit:** 932082bcb9b6e2c0914c7372a8e739ab6df7e2cc, based on origin/main baa559f
 **Verdict:** Not ready for a commercial multi-tenant launch or customer applicant data.
 
 ## Scope
@@ -11,17 +11,18 @@ This review covered the merged backend-hardening and Evidence OS branches, backe
 
 ## Branch currency
 
-The pushed Evidence OS tip `a456eb8ff24f5d762fc6be22bb53b254ccce0794` is included in the reviewed merge. The pushed backend-hardening tip `4c012cf9f884b21cd930f5f4ce8ca721a10fbd87` adds only `docs/superpowers/specs/2026-09-23-negative-evidence-design.md` on top of backend code commit `b3b1ead1a8c5c80be9543266d831b91f52c923b4`, which is already included in the reviewed merge. It does not change the audited backend implementation. Any unpublished backend-task changes are outside this review and need a follow-up audit if pushed.
+The pushed Evidence OS tip `d19d20dda69eceec54ff78e98c35fa60e262a3d6` and backend-hardening tip `21ac4ed13358b8aa42ed4187da3cb5b0a9c50186` are included in reviewed merge `932082bcb9b6e2c0914c7372a8e739ab6df7e2cc`. The frontend update adds motion and reduced-motion handling. The backend adds typed negative-evidence fields, rule-catalog checks, and a deterministic expectation parser. The parser is not called by the live analysis path, and the production contradiction evaluator described by the backend design is not present; its catalog test remains skipped.
 
 The shared checkout is on a separate `main` line at `aebee8e3b39ff4dab10663a7f3f3c98f474623b9` and has modified and untracked files. It contains a local demo-fixture privacy commit and additional frontend, Compose, and settings changes, but neither that commit nor those working-tree changes are included in this pushed integration branch. This report's verdict applies to `codex/candidatex-saas-readiness`; reconcile and verify the separate checkout before treating it as the release candidate.
 
 ## Verification completed
 
-- Backend test suite: full suite passed.
+- Backend suite on the latest reviewed tip: 460 passed, 1 skipped. The skipped test requires `cci/contradictions/candidates.py`, which is absent. The new expectation parser has unit coverage but no live-service call site.
 - Web TypeScript check through the lint script: passed.
 - Next.js production build: passed.
-- Playwright browser suite: 23 of 23 passed.
+- Playwright browser suite: 23 of 23 passed on the final full run. An earlier run timed out while taking the interview-section screenshot; the isolated test and subsequent full run passed.
 - Production JavaScript dependency audit: no known vulnerabilities reported.
+- Python `pip check`: no broken requirements found. This does not replace a vulnerability audit or dependency lock.
 - The branch contains the backend-hardening commits and the merged Evidence OS work. The combined candidate branch was pushed to origin.
 
 Node commands printed a warning that the configured Kaspersky root certificate file could not be loaded. The Python suite also printed upstream deprecation warnings for the HTTP test client and Alembic path configuration.
@@ -65,6 +66,14 @@ The European Commission lists AI used for employment and recruitment, including 
 The live request path intentionally avoids server-side retention, which is useful for a demo. The separate full backend persists candidate and dossier records, but the reviewed API has no candidate deletion flow or retention/purge job. I found no customer-facing access, correction, export, retention, or deletion policy for a shared company workspace.
 
 **Impact:** before storing real applicant data, define the controller/processor roles, purpose and legal basis, retention periods, deletion propagation to evidence and exports, access/correction handling, data location, subprocessors, and incident notification process. Implement and verify those controls.
+
+### High: negative-evidence qualification is not enforced end to end
+
+The latest backend branch adds `NegativeEvidenceDetails`, four contradiction rule IDs, and a deterministic expectation parser. The parser is only defined and imported by `cci.live.claims`; `git grep` shows no live-service call site connecting it to acquisition or claim corroboration. The `cci/contradictions/candidates.py` evaluator referenced by the catalog is absent, so its catalog test explicitly skips. `EvidenceRecord` labels any negative record with details as `qualified` without enforcing `observed_scan_completeness >= required_scan_completeness` or recomputing the claim reference from the claim and scope. The scan-scope model is frozen but contains a mutable `artifact_paths` list.
+
+The existing consumers continue to branch only on `is_positive_support`: evidence-family scoring, contradiction diagnostics, claim corroboration, graph construction, and uncertainty calculations do not exclude `legacy_unqualified` negative records. The database `Evidence` row stores polarity and generic provenance, and the current repository mapping does not persist the new typed detail field. The new contract therefore does not yet deliver the design's required behavior for incomplete scans, legacy records, or database round-trips.
+
+**Impact:** contradiction and negative-support outputs are not ready to influence company hiring decisions. Implement claim-scoped candidate generation, enforce completeness and immutable scope, persist and return qualification details, and make every scoring, graph, and claim consumer ignore unqualified legacy negatives. Add end-to-end tests for incomplete, missing, malformed, and cross-claim evidence before relying on these results.
 
 ### High: demo fixtures contain plausible personal identities and live service URLs
 
