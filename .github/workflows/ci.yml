@@ -41,6 +41,26 @@ jobs:
           cd services/backend
           pytest -v --durations=10
 
+  python-dependency-audit:
+    name: Python Dependency Advisory Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Audit backend production dependencies
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266
+        with:
+          inputs: services/backend
+
   frontend-check:
     name: Frontend Build & Typecheck (Node 22)
     runs-on: ubuntu-latest
