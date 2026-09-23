@@ -173,6 +173,102 @@ void run() {
     assert any(e.target_capability == CapabilityKey.ALGORITHMS_PROBLEM_SOLVING for e in cpp_evidence)
 
 
+@pytest.mark.parametrize(
+    ("analyzer", "source", "file_path", "expected"),
+    [
+        (
+            analyze_python_source,
+            "import fastapi\n"
+            "class User(BaseModel):\n    pass\n"
+            "class Model(Module):\n    pass\n"
+            "class UserService:\n    pass\n"
+            "@app.get('/users')\n"
+            "async def get_users(user=Depends(get_current_user)):\n"
+            "    try:\n        return user\n    except Exception:\n        raise\n",
+            "src/app.py",
+            {
+                "candidatex.code.python.dependency_import": (55.0, "dependency:python_import"),
+                "candidatex.code.python.async_function": (75.0, "legacy_unknown"),
+                "candidatex.code.python.api_route": (80.0, "route:python_decorator"),
+                "candidatex.code.python.dependency_injection": (82.0, "legacy_unknown"),
+                "candidatex.code.python.auth_guard": (85.0, "legacy_unknown"),
+                "candidatex.code.python.pydantic_schema": (78.0, "legacy_unknown"),
+                "candidatex.code.python.ml_class": (85.0, "legacy_unknown"),
+                "candidatex.code.python.architecture_class": (80.0, "legacy_unknown"),
+                "candidatex.code.python.try_except": (72.0, "legacy_unknown"),
+            },
+        ),
+        (
+            analyze_typescript_javascript,
+            "const schema = z.object({});\n"
+            "app.get('/users', async (req, res) => {\n"
+            "try { res.json({}); } catch (e) {}\n",
+            "server.ts",
+            {
+                "candidatex.code.typescript.api_route": (78.0, "route:typescript_registration"),
+                "candidatex.code.typescript.async_handler": (74.0, "legacy_unknown"),
+                "candidatex.code.typescript.zod_schema": (80.0, "legacy_unknown"),
+                "candidatex.code.typescript.try_catch": (70.0, "legacy_unknown"),
+            },
+        ),
+        (
+            analyze_go_source,
+            'http.HandleFunc("/users", handler)\n'
+            "go func() {}()\n"
+            "if err != nil { return err }\n",
+            "main.go",
+            {
+                "candidatex.code.go.http_route": (82.0, "legacy_unknown"),
+                "candidatex.code.go.goroutine_channel": (85.0, "legacy_unknown"),
+                "candidatex.code.go.error_guard": (72.0, "legacy_unknown"),
+            },
+        ),
+        (
+            analyze_java_source,
+            '@GetMapping("/users")\n@Service\n',
+            "Controller.java",
+            {
+                "candidatex.code.java.spring_endpoint": (80.0, "legacy_unknown"),
+                "candidatex.code.java.spring_component": (80.0, "legacy_unknown"),
+            },
+        ),
+        (
+            analyze_c_cpp_source,
+            "auto p = std::make_unique<int>(5);\nstd::vector<int> values;\n",
+            "main.cpp",
+            {
+                "candidatex.code.cpp.concurrency_construct": (85.0, "legacy_unknown"),
+                "candidatex.code.cpp.class_declaration": (78.0, "legacy_unknown"),
+            },
+        ),
+    ],
+)
+def test_code_analyzers_emit_versioned_rule_metadata(analyzer, source, file_path, expected):
+    observations = analyzer(source, file_path, "https://github.com/test", "sha1", "1.0.0")
+
+    assert len(observations) == len(expected)
+    assert {item.signal_rule_id for item in observations} == set(expected)
+    for observation in observations:
+        strength, observation_type = expected[observation.signal_rule_id]
+        assert observation.signal_rule_version == "1.0.0"
+        assert observation.technical_signal_strength == strength
+        assert observation.observation_type == observation_type
+
+
+def test_manifest_dependencies_emit_versioned_rule_metadata():
+    dependencies = extract_manifest_dependencies("requirements.txt", "fastapi==0.115")
+    observations = dependencies_to_evidence(
+        dependencies, "https://github.com/test", "requirements.txt", "sha1", "1.0.0"
+    )
+
+    assert len(observations) == 1
+    observation = observations[0]
+    assert observation.signal_rule_id == "candidatex.dependencies.manifest_declaration"
+    assert observation.signal_rule_version == "1.0.0"
+    assert observation.technical_signal_strength == 55.0
+    assert observation.observation_type == "dependency:manifest"
+
+
 def test_documentation_and_architecture_analysis():
     readme_content = """
 # Project Alpha

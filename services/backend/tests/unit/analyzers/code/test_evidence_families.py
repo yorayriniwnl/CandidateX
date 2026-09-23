@@ -36,7 +36,13 @@ def test_manifest_and_python_import_share_dependency_family():
     assert manifest.evidence_family_id is not None
     assert manifest.evidence_family_id.startswith("ef1:")
     assert manifest.observation_type == "dependency:manifest"
+    assert manifest.signal_rule_id == "candidatex.dependencies.manifest_declaration"
+    assert manifest.signal_rule_version == "1.0.0"
+    assert manifest.technical_signal_strength == 55.0
     assert all(item.evidence_family_id == manifest.evidence_family_id for item in imports)
+    assert all(item.signal_rule_id == "candidatex.code.python.dependency_import" for item in imports)
+    assert all(item.signal_rule_version == "1.0.0" for item in imports)
+    assert all(item.technical_signal_strength == 55.0 for item in imports)
     assert all(item.raw_support_text for item in imports)
     assert manifest.source_family == SourceFamily.GITHUB
 
@@ -82,6 +88,11 @@ def test_python_and_typescript_route_registrations_share_semantic_family():
     assert python_route.evidence_family_id == typescript_route.evidence_family_id
     assert python_route.observation_type == "route:python_decorator"
     assert typescript_route.observation_type == "route:typescript_registration"
+    assert python_route.signal_rule_id == "candidatex.code.python.api_route"
+    assert typescript_route.signal_rule_id == "candidatex.code.typescript.api_route"
+    assert python_route.signal_rule_version == typescript_route.signal_rule_version == "1.0.0"
+    assert python_route.technical_signal_strength == 80.0
+    assert typescript_route.technical_signal_strength == 78.0
     assert python_route.evidence_family_id != other_path.evidence_family_id
 
 

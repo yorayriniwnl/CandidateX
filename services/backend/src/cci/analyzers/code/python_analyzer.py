@@ -8,6 +8,7 @@ from cci.domain.evidence_families import (
     normalize_family_subject,
 )
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 from cci.analyzers.code.dependencies import DEPENDENCY_CAPABILITY_MAP
 
 
@@ -60,13 +61,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         lineno = getattr(node, "lineno", 1)
         self.evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.code.python.dependency_import"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=self.repo_url,
                 immutable_revision=self.commit_sha,
                 artifact_path=self.file_path,
                 symbol_or_line=f"Line {lineno}: import {module_name}",
                 target_capability=capability,
-                observed_score=55.0,
+                technical_signal_strength=55.0,
                 is_positive_support=True,
                 raw_support_text=(
                     f"Python import of recognized dependency '{package_name}':\n"
@@ -166,13 +168,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         # 1. Async pattern evidence
         self.evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.code.python.async_function"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=self.repo_url,
                 immutable_revision=self.commit_sha,
                 artifact_path=self.file_path,
                 symbol_or_line=f"Line {lineno}: async def {node.name}",
                 target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                observed_score=75.0,
+                technical_signal_strength=75.0,
                 is_positive_support=True,
                 raw_support_text=f"Asynchronous function definition '{node.name}':\n{snippet}",
                 extractor_version=self.extractor_version,
@@ -212,13 +215,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
                 )
                 self.evidence.append(
                     EvidenceInput(
+                        **signal_rule_fields("candidatex.code.python.api_route"),
                         source_family=SourceFamily.GITHUB,
                         source_locator=self.repo_url,
                         immutable_revision=self.commit_sha,
                         artifact_path=self.file_path,
                         symbol_or_line=f"Line {lineno}: @{http_method} {node.name}",
                         target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                        observed_score=80.0,
+                        technical_signal_strength=80.0,
                         is_positive_support=True,
                         raw_support_text=f"API Route handler '{node.name}' ({http_method}):\n{snippet}",
                         extractor_version=self.extractor_version,
@@ -236,13 +240,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         if self._has_dependency_injection(node):
             self.evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.python.dependency_injection"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=self.repo_url,
                     immutable_revision=self.commit_sha,
                     artifact_path=self.file_path,
                     symbol_or_line=f"Line {lineno}: {node.name}(...Depends)",
                     target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                    observed_score=82.0,
+                    technical_signal_strength=82.0,
                     is_positive_support=True,
                     raw_support_text=f"Dependency Injection pattern in '{node.name}':\n{snippet}",
                     extractor_version=self.extractor_version,
@@ -253,13 +258,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         if self._has_auth_param_or_decorator(node):
             self.evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.python.auth_guard"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=self.repo_url,
                     immutable_revision=self.commit_sha,
                     artifact_path=self.file_path,
                     symbol_or_line=f"Line {lineno}: {node.name}(auth)",
                     target_capability=CapabilityKey.SECURITY,
-                    observed_score=85.0,
+                    technical_signal_strength=85.0,
                     is_positive_support=True,
                     raw_support_text=f"Authentication/Authorization guard in '{node.name}':\n{snippet}",
                     extractor_version=self.extractor_version,
@@ -277,13 +283,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         if any("basemodel" in b or "schema" in b for b in base_names_lower):
             self.evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.python.pydantic_schema"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=self.repo_url,
                     immutable_revision=self.commit_sha,
                     artifact_path=self.file_path,
                     symbol_or_line=f"Line {lineno}: class {node.name}(BaseModel)",
                     target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=78.0,
+                    technical_signal_strength=78.0,
                     is_positive_support=True,
                     raw_support_text=f"Pydantic schema validation model '{node.name}':\n{snippet}",
                     extractor_version=self.extractor_version,
@@ -297,13 +304,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         ):
             self.evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.python.ml_class"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=self.repo_url,
                     immutable_revision=self.commit_sha,
                     artifact_path=self.file_path,
                     symbol_or_line=f"Line {lineno}: class {node.name}({', '.join(base_names)})",
                     target_capability=CapabilityKey.MACHINE_LEARNING,
-                    observed_score=85.0,
+                    technical_signal_strength=85.0,
                     is_positive_support=True,
                     raw_support_text=f"Machine Learning model/dataset class '{node.name}':\n{snippet}",
                     extractor_version=self.extractor_version,
@@ -317,13 +325,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         ):
             self.evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.python.architecture_class"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=self.repo_url,
                     immutable_revision=self.commit_sha,
                     artifact_path=self.file_path,
                     symbol_or_line=f"Line {lineno}: class {node.name}",
                     target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                    observed_score=80.0,
+                    technical_signal_strength=80.0,
                     is_positive_support=True,
                     raw_support_text=f"Layered architectural component '{node.name}':\n{snippet}",
                     extractor_version=self.extractor_version,
@@ -339,13 +348,14 @@ class PythonStructuralVisitor(ast.NodeVisitor):
 
         self.evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.code.python.try_except"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=self.repo_url,
                 immutable_revision=self.commit_sha,
                 artifact_path=self.file_path,
                 symbol_or_line=f"Line {lineno}: try/except",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=72.0,
+                technical_signal_strength=72.0,
                 is_positive_support=True,
                 raw_support_text=f"Structured error handling block:\n{snippet}",
                 extractor_version=self.extractor_version,

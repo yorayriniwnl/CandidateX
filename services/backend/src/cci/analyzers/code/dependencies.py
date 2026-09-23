@@ -8,6 +8,7 @@ import tomllib
 from cci.domain.contracts import EvidenceInput
 from cci.domain.evidence_families import build_evidence_family_identity
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 DEPENDENCY_CAPABILITY_MAP: dict[str, CapabilityKey] = {
     # Backend
@@ -286,13 +287,14 @@ def dependencies_to_evidence(
             )
             evidence_list.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.dependencies.manifest_declaration"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {dep.line_number}: {dep.name}",
                     target_capability=target_cap,
-                    observed_score=55.0,  # Baseline declaration score
+                    technical_signal_strength=55.0,  # Baseline declaration score
                     is_positive_support=True,
                     raw_support_text=f"Declared dependency '{dep.name}' (version: {dep.version or 'unpinned'}) in {file_path}:\n{dep.raw_line}",
                     extractor_version=extractor_version,

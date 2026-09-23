@@ -5,6 +5,7 @@ import re
 from cci.domain.contracts import EvidenceInput
 from cci.domain.evidence_families import build_evidence_family_identity
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 
 def analyze_typescript_javascript(
@@ -55,13 +56,14 @@ def analyze_typescript_javascript(
             )
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.typescript.api_route"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: {router_obj}.{method}('{path}')",
                     target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=78.0,
+                    technical_signal_strength=78.0,
                     is_positive_support=True,
                     raw_support_text=f"API Route handler in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -75,6 +77,7 @@ def analyze_typescript_javascript(
         if re.search(r"\basync\s+(function|\([^)]*\)|[a-zA-Z0-9_]+\s*\()", trimmed):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.typescript.async_handler"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
@@ -83,7 +86,7 @@ def analyze_typescript_javascript(
                     target_capability=CapabilityKey.FRONTEND_ENGINEERING
                     if file_path.endswith((".tsx", ".jsx"))
                     else CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=74.0,
+                    technical_signal_strength=74.0,
                     is_positive_support=True,
                     raw_support_text=f"Asynchronous function handler:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -94,13 +97,14 @@ def analyze_typescript_javascript(
         if re.search(r"\bz\.object\s*\(", trimmed):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.typescript.zod_schema"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: z.object(...)",
                     target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                    observed_score=80.0,
+                    technical_signal_strength=80.0,
                     is_positive_support=True,
                     raw_support_text=f"Zod schema validation model in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -111,13 +115,14 @@ def analyze_typescript_javascript(
         if re.search(r"\btry\s*\{", trimmed):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.typescript.try_catch"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: try/catch",
                     target_capability=CapabilityKey.TESTING_QUALITY,
-                    observed_score=70.0,
+                    technical_signal_strength=70.0,
                     is_positive_support=True,
                     raw_support_text=f"Structured error handling block:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -148,13 +153,14 @@ def analyze_go_source(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.go.http_route"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: HTTP Handler",
                     target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=82.0,
+                    technical_signal_strength=82.0,
                     is_positive_support=True,
                     raw_support_text=f"Go HTTP route registration in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -165,13 +171,14 @@ def analyze_go_source(
         if re.search(r"\bgo\s+func\(|\bmake\s*\(\s*chan\b", trimmed):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.go.goroutine_channel"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: Concurrency Goroutine/Channel",
                     target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=85.0,
+                    technical_signal_strength=85.0,
                     is_positive_support=True,
                     raw_support_text=f"Concurrent goroutine / channel workflow in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -182,13 +189,14 @@ def analyze_go_source(
         if "if err != nil" in trimmed:
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.go.error_guard"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: if err != nil",
                     target_capability=CapabilityKey.TESTING_QUALITY,
-                    observed_score=72.0,
+                    technical_signal_strength=72.0,
                     is_positive_support=True,
                     raw_support_text=f"Explicit error propagation check:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -225,13 +233,14 @@ def analyze_java_source(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.java.spring_endpoint"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: Spring Endpoint",
                     target_capability=CapabilityKey.BACKEND_ENGINEERING,
-                    observed_score=80.0,
+                    technical_signal_strength=80.0,
                     is_positive_support=True,
                     raw_support_text=f"Spring REST endpoint annotation in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -242,13 +251,14 @@ def analyze_java_source(
         if any(ann in trimmed for ann in ("@Service", "@Repository", "@Component")):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.java.spring_component"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: Spring Component",
                     target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                    observed_score=80.0,
+                    technical_signal_strength=80.0,
                     is_positive_support=True,
                     raw_support_text=f"Layered Spring component annotation in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -284,13 +294,14 @@ def analyze_c_cpp_source(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.cpp.concurrency_construct"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: Modern C++ RAII Smart Pointer",
                     target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                    observed_score=85.0,
+                    technical_signal_strength=85.0,
                     is_positive_support=True,
                     raw_support_text=f"Modern C++ memory management in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -309,13 +320,14 @@ def analyze_c_cpp_source(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.code.cpp.class_declaration"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: STL Data Structure / Algorithm",
                     target_capability=CapabilityKey.ALGORITHMS_PROBLEM_SOLVING,
-                    observed_score=78.0,
+                    technical_signal_strength=78.0,
                     is_positive_support=True,
                     raw_support_text=f"Standard Template Library algorithm/structure:\n{trimmed}",
                     extractor_version=extractor_version,
