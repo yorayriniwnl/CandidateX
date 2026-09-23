@@ -1,4 +1,4 @@
-"""Unit tests for the batch candidate evaluation and cohort ranking CLI."""
+"""Unit tests for descriptive batch candidate evaluation exports."""
 
 import json
 from pathlib import Path
@@ -21,7 +21,7 @@ def test_extract_candidate_name():
 
 
 def test_batch_evaluate_candidates_execution(tmp_path: Path):
-    """Verify that batch evaluation executes on multiple CVs, generates leaderboard, and sorts by RCI."""
+    """Verify cohort exports describe evidence without assigning candidate ranks."""
     # 1. Create a sample cohort directory
     cv_dir = tmp_path / "cvs"
     cv_dir.mkdir()
@@ -50,7 +50,7 @@ Requirements:
 
     # 2. Execute batch evaluation
     result = run_batch_evaluation(
-        cv_paths=[cv_dir / "alice_chen.md", cv_dir / "bob_junior.md"],
+        cv_paths=[cv_dir / "bob_junior.md", cv_dir / "alice_chen.md"],
         jd_text=jd_content,
         role=CanonicalRole.BACKEND,
         output_dir=output_dir,
@@ -59,24 +59,31 @@ Requirements:
     assert result["count"] == 2
     candidates = result["candidates"]
     assert len(candidates) == 2
-
-    # Verify ranking: Alice should rank higher than Bob for Senior Backend Engineer
-    assert candidates[0]["rank"] == 1
-    assert candidates[1]["rank"] == 2
-    # If both have RCI, assert rank 0 has >= rank 1
-    if candidates[0]["rci"] is not None and candidates[1]["rci"] is not None:
-        assert candidates[0]["rci"] >= candidates[1]["rci"]
+    assert [candidate["name"] for candidate in candidates] == [
+        "Bob Junior",
+        "Alice Developer",
+    ]
+    assert all("rank" not in candidate for candidate in candidates)
+    assert all("rci" not in candidate for candidate in candidates)
+    assert all("coverage_profile" in candidate for candidate in candidates)
+    assert all("unresolved_capabilities" in candidate for candidate in candidates)
+    assert all("interview_verification_capabilities" in candidate for candidate in candidates)
 
     # Verify artifact generation in output directory
-    assert (output_dir / "cohort_ranking.json").exists()
-    assert (output_dir / "cohort_ranking.md").exists()
-    assert (output_dir / "cohort_ranking.html").exists()
+    assert (output_dir / "cohort_comparison.json").exists()
+    assert (output_dir / "cohort_comparison.md").exists()
+    assert (output_dir / "cohort_comparison.html").exists()
+    assert not (output_dir / "cohort_ranking.json").exists()
+    assert not (output_dir / "cohort_ranking.md").exists()
+    assert not (output_dir / "cohort_ranking.html").exists()
 
     # Verify JSON content
-    with open(output_dir / "cohort_ranking.json", "r", encoding="utf-8") as f:
+    with open(output_dir / "cohort_comparison.json", "r", encoding="utf-8") as f:
         data = json.load(f)
         assert data["target_role"] == "backend"
         assert len(data["candidates"]) == 2
+        assert all("rank" not in candidate and "rci" not in candidate for candidate in data["candidates"])
+        assert all("coverage_profile" in candidate for candidate in data["candidates"])
 
     # Verify individual dossier exports
     for c in candidates:
@@ -85,10 +92,17 @@ Requirements:
         assert (output_dir / f"dossier_{cid}.html").exists()
 
     # Verify HTML and MD content
-    md_text = (output_dir / "cohort_ranking.md").read_text(encoding="utf-8")
-    assert "Cohort Capability Leaderboard" in md_text
+    md_text = (output_dir / "cohort_comparison.md").read_text(encoding="utf-8")
+    assert "Cohort Evidence Comparison" in md_text
     assert "Decision Support Invariant" in md_text
+    assert "rank" not in md_text.lower()
+    assert "top candidate" not in md_text.lower()
+    assert "Role Capability Index (RCI)" not in md_text
+    assert "Unresolved Areas" in md_text
+    assert "Dimensions Requiring Interview Verification" in md_text
 
-    html_text = (output_dir / "cohort_ranking.html").read_text(encoding="utf-8")
-    assert "Candidate Cohort Evaluation Leaderboard" in html_text
+    html_text = (output_dir / "cohort_comparison.html").read_text(encoding="utf-8")
+    assert "Candidate Cohort Evidence Comparison" in html_text
     assert "Employer Decision Support" in html_text
+    assert "Leaderboard" not in html_text
+    assert "Rank" not in html_text
