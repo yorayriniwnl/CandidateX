@@ -153,6 +153,17 @@ def test_lcov_with_unrecognized_content_and_lone_counter_is_not_inspected():
     assert coverage.skipped_reasons["decode_parse_failure"] == 1
 
 
+def test_lcov_with_malformed_da_record_is_not_inspected():
+    data = archive_bytes({
+        "coverage/lcov.info": b"SF:x\nDA:garbage\nLF:1\nLH:1\nend_of_record\n",
+    })
+    with SafeRepositoryWorkspace() as workspace:
+        _, receipt = inspect_archive(data, workspace)
+    coverage = receipt.categories["coverage"]
+    assert (coverage.eligible, coverage.inspected) == (1, 0)
+    assert coverage.skipped_reasons["decode_parse_failure"] == 1
+
+
 def test_complete_git_tree_inspects_all_eligible_files():
     files = {"src/app.py": b"print(1)\n", "requirements.txt": b"fastapi\n", "coverage.xml": b'<coverage line-rate="1"/>'}
     fetcher = FakeFetcher(files)
