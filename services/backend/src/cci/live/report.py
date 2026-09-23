@@ -46,7 +46,7 @@ def build_report(intake, sources):
         skills.append({'skill': skill, 'learning': normalize_skill(skill) in learning,
             'status': 'repository_support' if attributed else 'repository_only' if matches else 'public_mention_only' if mentions else 'not_observed',
             'evidence': matches[:12], 'evidence_count': len(matches), 'public_mentions': mentions,
-            'explanation': ('GitHub path history links the inspected artifact to the declared account. Human identity and mastery remain unverified.' if attributed else
+            'explanation': ('GitHub path history associates commits on the inspected path with the declared account. Repository attribution and human identity remain unverified; static rules do not establish proficiency.' if attributed else
                             'Technology appears in a repository, but candidate attribution was not established.' if matches else
                             'Public page text mentions this skill; self-published mentions do not establish capability.' if mentions else
                             'No matching technology was observed in the bounded scan. This is not a claim that the candidate lacks the skill.')})
@@ -116,4 +116,4 @@ def build_report(intake, sources):
         'coverage': {'supplied_sources': len(sources), 'observed_sources': sum(s['status'] == 'observed' for s in sources),
                      'skills_declared': len(skills), 'skills_with_repository_matches': sum(bool(s['evidence']) for s in skills),
                      'credential_claims': len(credentials)},
-        'method': 'Deterministic document extraction, bounded public acquisition, and exact technology matching. Resume claims remain declarations unless separate evidence supports them; public-page link discovery is retained for follow-up analysis.'}
+        'method': 'Deterministic document extraction, bounded public acquisition, and exact technology matching. Resume claims remain declarations unless separate evidence supports them; public-page link discovery is retained for follow-up analysis. Static rule strengths are uncalibrated policy heuristics and do not establish proficiency.'}

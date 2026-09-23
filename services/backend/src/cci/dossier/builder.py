@@ -87,7 +87,7 @@ def generate_interview_questions(
             )
             guidance = (
                 "Listen for specific technical details (architecture, concurrency, error handling) "
-                "indicating deep hands-on mastery rather than theoretical familiarity."
+                "and ask for concrete implementation and verification details."
             )
             followups = [
                 "What were the most challenging edge cases or bottlenecks encountered?",

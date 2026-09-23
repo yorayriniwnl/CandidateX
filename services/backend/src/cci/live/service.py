@@ -40,7 +40,7 @@ def analyze_resume(request: LiveAnalysisRequest):
         raise RuntimeError('The scoring pipeline could not produce a dossier.')
     limitations = [
         'Resume identity and GitHub account association are candidate declarations, not identity verification.',
-        'Public GitHub evidence is fetched live. Static heuristic observations are not proof of mastery or job performance.',
+        'Public GitHub evidence is fetched live. Static heuristic observations do not prove mastery or job performance; rule strengths are not calibrated proficiency ratings.',
         'Source reliability uses configured priors only; no simulated review outcomes are used.',
         'Verification/depth confidence factors are conservative prototype settings, not empirically calibrated probabilities.',
         'Repository association and repository-level contribution are separate from path-specific artifact contribution.',

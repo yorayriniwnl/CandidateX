@@ -146,6 +146,19 @@ def test_generate_interview_questions():
     assert "coverage gap" in q2.rationale.lower()
 
 
+def test_coverage_gap_question_requests_implementation_and_verification_details():
+    fixtures = _mock_dossier_fixtures()
+    questions = generate_interview_questions(
+        probes=fixtures["probes"],
+        capability_conflicts=fixtures["conflicts"],
+        evidence_records=fixtures["evidence"],
+    )
+    guidance = questions[1].verification_guidance.lower()
+    assert "implementation" in guidance
+    assert "verification" in guidance
+    assert "mastery" not in guidance
+
+
 def test_dossier_builder_retains_family_metadata_with_evidence_records():
     fixtures = _mock_dossier_fixtures()
     record = fixtures["evidence"][0].model_copy(

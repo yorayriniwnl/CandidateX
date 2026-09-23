@@ -2,6 +2,8 @@
 
 FastAPI & SQLAlchemy 2.0 implementation of the paper-aligned CCI decision support system.
 
+The [technical signal rule catalog](../../docs/contracts/technical-signal-rules.md) lists all 52 static detectors, their exact current strengths, and their limits. These strengths are uncalibrated policy heuristics. The rules do not certify proficiency or predict job performance.
+
 ## GitHub attribution boundaries
 
 A supplied GitHub URL records a repository association. Account matches in the recent repository commit sample are recorded separately as repository contribution and do not establish authorship of every inspected file.

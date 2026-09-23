@@ -13,7 +13,7 @@ Candidate Capability Intelligence (CCI) provides employer/interviewer-side techn
    - Remaining repositories on the explicitly provided GitHub profile receive **LIGHT** analysis (commit counts, languages, recency, high-level metadata).
 4. **Missing or insufficiently attributed evidence is UNKNOWN**: It reduces **Evidence Coverage** and withholds the candidate estimate, but never assigns zero capability by default.
 5. **Separation of the Observed Capability Index and Coverage**:
-   - The **Observed Capability Index** reflects proficiency only on capabilities meeting the configured attribution-gated coverage threshold. It is based only on observed evidence and must be interpreted with its evidence context.
+   - The **Observed Capability Index** is an observed-evidence summary computed only for capabilities meeting the configured attribution-gated coverage threshold. It is not a proficiency measure and must be interpreted with its evidence context. The underlying static rule strengths are uncalibrated policy heuristics; see the [technical signal rule catalog](technical-signal-rules.md).
    - **Evidence Coverage** measures the role-weighted proportion of capabilities supported by empirical evidence.
    - An index below the configured coverage threshold is not suitable for standalone presentation. Indices based on different observed capability sets are not directly comparable and must not be ranked against one another.
 6. **No Code Execution**: Candidate code is never executed, built, or run in test runners. All extraction is deterministic static and operational inspection.

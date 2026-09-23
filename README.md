@@ -6,7 +6,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
 
-> **CandidateX analyzes real resumes, GitHub profiles and repositories, and supplied public links live.** It extracts PDF/DOCX sections, skills, project claims, education and certificates; inspects commit-pinned source files and public page text; and produces a role-aware dossier with traceable skill matches and explicit verification gaps. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
+> **CandidateX analyzes real resumes, GitHub profiles and repositories, and supplied public links live.** It extracts PDF/DOCX sections, skills, project claims, education and certificates; inspects commit-pinned source files and public page text; and produces a role-aware dossier with traceable skill matches and explicit verification gaps. Static rule strengths are uncalibrated policy heuristics; they do not certify proficiency, predict job performance, or establish validated hiring accuracy. See the [technical signal rule catalog](docs/contracts/technical-signal-rules.md).
 
 **Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
 
@@ -34,9 +34,9 @@ CCI is designed under strict ethical, mathematical, and operational constraints:
 2. **Closed-World CV Candidate Manifest**: Analysis is strictly constrained to resources explicitly supplied by the candidate (e.g. CV, linked GitHub, portfolio links). No unconstrained scraping or unsupplied identity discovery.
 3. **Candidate Code is NEVER Executed**: Untrusted candidate repositories are analyzed purely via a Python AST parser and text-pattern analyzers for TypeScript/JavaScript, Go, Java, and C++, dependency manifests, and infrastructure definitions. No test runners, containers, sub-processes, or headless JS browsers are ever launched against candidate code.
 4. **Missing or weakly attributed evidence is `UNKNOWN`**: A lack of sufficient candidate attribution drops **Evidence Coverage** and withholds the estimate; it never assigns an arbitrary zero capability score.
-5. **Separation of RCI and Coverage**:
-   - **Role Capability Index (RCI)** reflects estimates only for technical dimensions that meet the configured attribution-gated evidence threshold.
-   - **Evidence Coverage** reflects the fraction of job-critical capabilities backed by sufficient empirical evidence.
+5. **Separation of the Observed Capability Index and Coverage**:
+   - **Observed Capability Index** summarizes evidence only for technical dimensions that meet the configured attribution-gated coverage threshold; it is not a proficiency measure. `rci` remains a deprecated compatibility alias.
+   - **Evidence Coverage** reflects the role-weighted share of capability dimensions supported by observed evidence.
 6. **Traceable Provenance**: Demonstration observations carry content revisions, source locators, SHA-256 fingerprints, extractor versions, confidence factors, and project clusters. These are synthetic artifacts; database-wide append-only guarantees are not claimed.
 7. **Functional Rescoring**: Overrides reuse the current evidence snapshot and update scores, coverage, probes, questions, and graph together. Prior snapshots and justifications remain inspectable in the exported history.
 8. **No Live Acquisition in the Demonstration**: Synthetic source locators are never fetched. The live workflow uses its separate DNS-pinned `live/public_links.py` transport for supplied public pages. Legacy deployment-inspection helpers are not used by that acquisition path and do not establish connection-level DNS pinning.
@@ -126,10 +126,10 @@ Interview probes are prioritized to maximize uncertainty reduction:
 $$I_k = w_k [0.40(1-\mathrm{Cov}_k) + 0.35\,\mathrm{CIwidth}_k + 0.25\,\mathrm{Conf}_k]$$
 Here interval width is normalized to [0, 1]. An unavailable interval uses a conservative maximal uncertainty term for probe prioritization.
 
-### 7. Role Capability Index (RCI) & Evidence Coverage
+### 7. Observed Capability Index & Evidence Coverage
 For each source cluster $g$, unique artifacts contribute their strongest attribution-gated quality $q_{g,j}$ once, sorted from strongest to weakest. Further artifacts in the same cluster receive geometrically diminishing weight $\delta^{j-1}$:
 $$M_{g,k} = \sum_{j=1}^{n_g} q_{g,j}\,\delta^{j-1}, \quad \mathrm{Cov}_k = \min\left(1, \frac{\sum_g M_{g,k}}{\tau_k}\right), \quad \delta=0.5$$
-Clusters use source family plus normalized cluster ID (or source locator). Content-identical artifacts across repositories are credited once. Overall role coverage remains $\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \mathrm{Cov}_k$, and RCI uses only capabilities meeting the 0.35 default minimum.
+Clusters use source family plus normalized cluster ID (or source locator). Content-identical artifacts across repositories are credited once. Overall role coverage remains $\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \mathrm{Cov}_k$, and the Observed Capability Index uses only capabilities meeting the 0.35 default minimum. It summarizes bounded evidence, not proficiency.
 
 ---
 
