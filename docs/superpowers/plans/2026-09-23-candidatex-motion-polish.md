@@ -89,10 +89,11 @@
 **Files:**
 - Review: `apps/web/app/page.tsx`, `apps/web/app/analyze/page.tsx`, `apps/web/app/research-demo/page.tsx`, and the touched CSS/TSX files.
 
-- [ ] Review the landing page and analysis wizard at desktop and mobile sizes with normal motion and reduced motion enabled. The local preview is live, but the browser-control service could not load its request-header policy during this review.
-- [ ] Confirm no new always-running animation, hidden content, layout shift, or horizontal overflow is introduced.
+- [x] Review the landing page and analysis wizard at desktop and mobile sizes with normal motion and reduced motion enabled using the local browser.
+- [x] Confirm no new always-running animation or horizontal overflow; reduced-motion views keep content visible. Fix the research-demo mobile header so all three navigation links fit at 390 px.
 - [x] Run `pnpm --filter web typecheck`, `pnpm --filter web build`, and `git diff --check`.
 - [x] Commit the plan and implementation together with a scoped message, then push `codex/candidatex-evidence-os` to `origin` so the existing PR updates.
+- [x] During the mobile review, stack and wrap the research-demo navigation so all links remain visible at narrow widths.
 
 ## Research Notes
 
