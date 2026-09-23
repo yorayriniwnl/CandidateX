@@ -1,37 +1,35 @@
 # CandidateX SaaS commercial readiness audit
 
 **Review date:** 2026-09-24
-**Reviewed branch:** codex/candidatex-saas-readiness  
-**Reviewed commit:** 932082bcb9b6e2c0914c7372a8e739ab6df7e2cc, based on origin/main baa559f
+**Reviewed branch:** codex/candidatex-saas-readiness
+**Reviewed code snapshot:** 048990f47269750ff9daef7c11a4bc262faafc3a, containing backend-hardening tip 7773d6f30e6ee1a0485d873e238e9d96958f3e77 and Evidence OS tip 2dce46cde56211bd688659fa9505f66209b4561c; based on origin/main baa559f
 **Verdict:** Not ready for a commercial multi-tenant launch or customer applicant data.
 
 ## Scope
 
-This review covered the merged backend-hardening and Evidence OS branches, backend and frontend API wiring, candidate and dossier persistence paths, deployment configuration, demo data, current public pages, and the available automated checks. The public production source commit was not confirmed, so production behavior is reported separately from the branch under review.
+This review covers the combined backend-hardening and Evidence OS process branches, their API wiring and persistence paths, deployment configuration, demo data, and automated checks. I also inspected the current origin/main head and the changes that postdate the reviewed branch. The deployed production source commit was not confirmed, so this review does not certify the running deployment.
 
 ## Branch currency
 
-The pushed Evidence OS tip `d19d20dda69eceec54ff78e98c35fa60e262a3d6` and backend-hardening tip `21ac4ed13358b8aa42ed4187da3cb5b0a9c50186` are included in reviewed merge `932082bcb9b6e2c0914c7372a8e739ab6df7e2cc`. The frontend update adds motion and reduced-motion handling. The backend adds typed negative-evidence fields, rule-catalog checks, and a deterministic expectation parser. The parser is not called by the live analysis path, and the production contradiction evaluator described by the backend design is not present; its catalog test remains skipped.
+The published Evidence OS tip 2dce46c and backend-hardening tip 7773d6f are represented in the reviewed candidate branch at 048990f. The frontend branch adds a mobile navigation fix. The backend adds explicit claim scope and polarity parsing plus a versioned scan inventory that counts eligible, inspected, and skipped files by category for archive and bounded Git blob acquisition.
 
-The shared checkout is on a separate `main` line at `aebee8e3b39ff4dab10663a7f3f3c98f474623b9` and has modified and untracked files. It contains a local demo-fixture privacy commit and additional frontend, Compose, and settings changes, but neither that commit nor those working-tree changes are included in this pushed integration branch. This report's verdict applies to `codex/candidatex-saas-readiness`; reconcile and verify the separate checkout before treating it as the release candidate.
+The candidate branch is based on common ancestor baa559f, while origin/main advanced to 50556ac during this review. Current main includes PR #22, the production UI branch, and commit 2a98033, which hardens local development defaults (DEBUG=false, no built-in secret, required Compose database password, and loopback-only port bindings). Those main changes are not included in the reviewed candidate branch. An exploratory sync encountered conflicts across the README, application layout and home page, Evidence OS components, tests, and lockfile; it was aborted before any merge was committed. Select and reconcile the release branch, then rerun verification on that exact tree.
+
+The latest main defaults improve local configuration but do not add authentication, tenant authorization, candidate lifecycle controls, or production operations. The current shared checkout is also a separate line at aebee8e with user changes; do not treat it as the same source tree as origin/main or this candidate branch.
 
 ## Verification completed
 
-- Backend suite on the latest reviewed tip: 460 passed, 1 skipped. The skipped test requires `cci/contradictions/candidates.py`, which is absent. The new expectation parser has unit coverage but no live-service call site.
-- Web TypeScript check through the lint script: passed.
+- Backend suite on published backend-hardening tip 7773d6f: 490 passed, 1 skipped, 5 warnings. The skipped test is tests/unit/test_signal_rule_catalog.py:153; it requires the absent contradiction evaluator.
+- Frontend TypeScript check: passed.
 - Next.js production build: passed.
-- Playwright browser suite: 23 of 23 passed on the final full run. An earlier run timed out while taking the interview-section screenshot; the isolated test and subsequent full run passed.
+- Playwright browser suite on the combined candidate branch: 23 of 23 passed in 1.8 minutes. The local Playwright configuration starts cci.main and Next.js; it does not exercise the Vercel services/backend/app.py entrypoint or certify the deployed company API.
 - Production JavaScript dependency audit: no known vulnerabilities reported.
-- Python `pip check`: no broken requirements found. This does not replace a vulnerability audit or dependency lock.
-- The branch contains the backend-hardening commits and the merged Evidence OS work. The combined candidate branch was pushed to origin.
+- Python pip check: no broken requirements found. This is not a Python vulnerability audit and does not replace a lockfile.
+- Node emitted a warning that the configured Kaspersky root certificate could not be loaded. Python reported upstream HTTP test-client and Alembic path deprecation warnings.
 
-Node commands printed a warning that the configured Kaspersky root certificate file could not be loaded. The Python suite also printed upstream deprecation warnings for the HTTP test client and Alembic path configuration.
+### Separate shared-checkout and current-main state
 
-### Separate shared-checkout verification (not the reviewed release branch)
-
-The divergent shared `main` checkout at `aebee8e3b39ff4dab10663a7f3f3c98f474623b9`, with its uncommitted changes, was also checked independently. From `services/backend`, the CI-style pytest command passed 246 tests with two dependency deprecation warnings. The web checks passed `next typegen`, TypeScript typechecking, production build, and 22 Playwright cases. Running pytest from the repository root instead fails during collection because both `tests/security/test_ssrf.py` and `tests/unit/security/test_ssrf.py` import as `test_ssrf`; the CI workflow runs pytest from `services/backend`, and that documented invocation passed.
-
-The local-only `aebee8e` commit replaces the known sample CV and seeder identities with synthetic labels and reserved `.invalid` contacts and URLs, with regression checks for those fixtures. That privacy improvement is not present on the pushed integration branch and must be reconciled before it can close the release-branch finding.
+The shared checkout at aebee8e has its own history and uncommitted changes. Its prior local verification passed 246 backend tests, the web typecheck/build, and 22 Playwright cases; those results do not apply to the reviewed candidate branch or certify origin/main at 50556ac. The local aebee8e privacy commit sanitizes sample CV and seeder identities, but that change is absent from both the reviewed candidate branch and current origin/main. Current main still contains named candidate examples, university email addresses, and live GitHub URLs.
 
 ## Launch blockers
 
@@ -69,25 +67,27 @@ The live request path intentionally avoids server-side retention, which is usefu
 
 ### High: negative-evidence qualification is not enforced end to end
 
-The latest backend branch adds `NegativeEvidenceDetails`, four contradiction rule IDs, and a deterministic expectation parser. The parser is only defined and imported by `cci.live.claims`; `git grep` shows no live-service call site connecting it to acquisition or claim corroboration. The `cci/contradictions/candidates.py` evaluator referenced by the catalog is absent, so its catalog test explicitly skips. `EvidenceRecord` labels any negative record with details as `qualified` without enforcing `observed_scan_completeness >= required_scan_completeness` or recomputing the claim reference from the claim and scope. The scan-scope model is frozen but contains a mutable `artifact_paths` list.
+The latest backend adds NegativeEvidenceDetails, registered contradiction rule IDs, deterministic claim-expectation parsing, and a versioned repository scan inventory. The inventory now counts eligible, inspected, and skipped files by category and records skip reasons. However, RepositoryScanCompleteness remains local to acquisition: acquire_repository uses it only to reject a missing or truncated inventory, and the successful repository receipt does not serialize the category completeness values. No live evaluator consumes those values or compares them with NegativeEvidenceDetails.required_scan_completeness.
 
-The existing consumers continue to branch only on `is_positive_support`: evidence-family scoring, contradiction diagnostics, claim corroboration, graph construction, and uncertainty calculations do not exclude `legacy_unqualified` negative records. The database `Evidence` row stores polarity and generic provenance, and the current repository mapping does not persist the new typed detail field. The new contract therefore does not yet deliver the design's required behavior for incomplete scans, legacy records, or database round-trips.
+The cci/contradictions/candidates.py evaluator referenced by the rule-catalog test is absent, so its test remains skipped. The expectation parser is imported by cci.live.claims but has no live-service call site. EvidenceRecord labels any negative record with details as qualified without enforcing observed_scan_completeness >= required_scan_completeness or recomputing the claim reference from the claim and scope. The scan-scope model is frozen but contains a mutable artifact_paths list.
+
+Evidence-family scoring, contradiction diagnostics, claim corroboration, graph construction, and uncertainty calculations still branch on is_positive_support and can therefore consume legacy unqualified negatives. The database Evidence row and repository mapping do not persist the typed negative-evidence details or qualification. The new scan inventory is a useful measurement substrate, but it is not yet an end-to-end qualification control.
 
 **Impact:** contradiction and negative-support outputs are not ready to influence company hiring decisions. Implement claim-scoped candidate generation, enforce completeness and immutable scope, persist and return qualification details, and make every scoring, graph, and claim consumer ignore unqualified legacy negatives. Add end-to-end tests for incomplete, missing, malformed, and cross-claim evidence before relying on these results.
 
 ### High: demo fixtures contain plausible personal identities and live service URLs
 
-scripts/seed_db.py, the five examples/sample_*_cv.txt files, and the legacy dossier UI contain named candidate profiles, university or company email addresses, and github.com accounts. The test suite also includes an identity named AYUSH ROY. These values could be mistaken for real candidates or resolve to real accounts.
+The reviewed candidate branch and current origin/main still contain named candidate profiles, university email addresses, and live GitHub accounts in scripts/seed_db.py, examples/sample_*_cv.txt, and the legacy dossier UI. Current origin/main still includes an Ayush Roy sample and a university email. The separate local aebee8e commit replaces the known sample CV and seeder identities with synthetic labels and reserved .invalid contacts and URLs, but it is not included in either pushed branch.
 
-**Impact:** replace all demo identities with clearly synthetic labels and reserved .invalid email and URL domains. Keep an obvious synthetic-data notice with the sample documents and UI.
+**Impact:** replace all demo identities with clearly synthetic labels and reserved .invalid email and URL domains across seed data, sample files, mocks, and UI defaults. Keep a visible synthetic-data notice with samples and demo screens.
 
 ### High: production hardening and operating evidence are incomplete
 
-The public production page returned HTTP 200 for /, /analyze, /hr, and /workspace when checked. Those responses included Access-Control-Allow-Origin: * and did not include Content-Security-Policy or X-Frame-Options. The web config does not set these headers. The local development Compose file has a fixed default Postgres password and publishes database, Redis, backend, and web ports to the host. Backend Settings also defaults DEBUG to true and defines a development secret.
+The reviewed candidate branch predates current main's commit 2a98033, which improves the local Compose and settings defaults: DEBUG is false, the built-in secret is removed, Compose requires an ignored .env password, and service ports bind to loopback. Those fixes are not in the reviewed candidate snapshot. Even on current main, local-development defaults do not prove production configuration or deployment safety.
 
-The Compose file labels itself a development/integration stack; these are release risks if those defaults or that stack are reused in production. I found no repository evidence of a production secret-management policy, backup/restore drill, customer SLO, incident runbook, or monitoring/alerting ownership.
+An earlier public-page check found Access-Control-Allow-Origin: * and no Content-Security-Policy or X-Frame-Options. Because the deployed source commit is unconfirmed and main moved during this audit, recheck the live headers against the selected release deployment. I found no repository evidence of a production secret-management policy, backup/restore drill, customer SLO, incident runbook, or monitoring/alerting ownership.
 
-**Impact:** establish a production-only configuration with strong secret management, least-privilege network exposure, explicit allowed origins, suitable browser security headers, and tested operational recovery before launch.
+**Impact:** choose and verify the production source and topology, establish explicit browser security headers and allowed origins at the deployed edge, and document tested recovery and operating ownership before launch.
 
 ### High: public analysis compute has no per-user throttling or tenant quotas
 
