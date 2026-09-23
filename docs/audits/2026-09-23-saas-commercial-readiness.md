@@ -9,6 +9,10 @@
 
 This review covered the merged backend-hardening and Evidence OS branches, backend and frontend API wiring, candidate and dossier persistence paths, deployment configuration, demo data, current public pages, and the available automated checks. The public production source commit was not confirmed, so production behavior is reported separately from the branch under review.
 
+## Branch currency
+
+The pushed Evidence OS tip `a456eb8ff24f5d762fc6be22bb53b254ccce0794` is included in the reviewed merge. The pushed backend-hardening tip `4c012cf9f884b21cd930f5f4ce8ca721a10fbd87` adds only `docs/superpowers/specs/2026-09-23-negative-evidence-design.md` on top of backend code commit `b3b1ead1a8c5c80be9543266d831b91f52c923b4`, which is already included in the reviewed merge. It does not change the audited backend implementation. Any unpublished backend-task changes are outside this review and need a follow-up audit if pushed.
+
 ## Verification completed
 
 - Backend test suite: full suite passed.
