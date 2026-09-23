@@ -48,6 +48,19 @@ def test_security_header_policy_bonus_is_once_and_score_caps_at_95():
     assert (all_headers["header_count"], all_headers["score"]) == (6, 95.0)
 
 
+@pytest.mark.parametrize("headers, expected_score", [
+    ({"Strict-Transport-Security": "max-age=1"}, 73.0),
+    ({"Content-Security-Policy": "default-src 'self'"}, 75.0),
+    ({"X-Content-Type-Options": "nosniff"}, 70.0),
+    ({"X-Frame-Options": "DENY"}, 69.0),
+    ({"Referrer-Policy": "no-referrer"}, 68.0),
+    ({"Permissions-Policy": "camera=()"}, 68.0),
+])
+def test_security_header_bonus_weights(headers, expected_score):
+    result = analyze_security_headers(httpx.Headers(headers))
+    assert result["score"] == expected_score
+
+
 def test_analyze_html_structure():
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -84,6 +97,15 @@ def test_html_title_does_not_add_strength_and_all_scored_markers_cap_at_90():
             all_markers["has_og_tags"], all_markers["score"]) == (
         True, True, True, 90.0
     )
+
+
+@pytest.mark.parametrize("html, expected_score", [
+    ('<meta name="viewport">', 78.0),
+    ("<main>Content</main>", 77.0),
+    ('<meta property="og:title">', 75.0),
+])
+def test_html_structure_strength_bonuses(html, expected_score):
+    assert analyze_html_structure(html)["score"] == expected_score
 
 
 def test_inspect_live_deployment_with_mock():

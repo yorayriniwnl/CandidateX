@@ -427,6 +427,14 @@ def test_docker_compose_rule_conditional_strength(compose, expected):
     ]
 
 
+@pytest.mark.parametrize("services", ["null", "[]"])
+def test_docker_compose_non_mapping_services_is_unsupported(services):
+    with pytest.raises(AttributeError):
+        analyze_docker_compose(
+            f"services: {services}\n", "compose.yml", "https://github.com/test", "sha1"
+        )
+
+
 def test_ci_score_cap_keeps_rule_identity():
     ci = """jobs:
   test:
