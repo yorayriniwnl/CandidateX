@@ -1,9 +1,11 @@
 """Live path contracts: real document parsing and static acquisition, mocked only at HTTP."""
 import io
 import zipfile
+from datetime import datetime
 
 import httpx
 import pymupdf
+import pytest
 from fastapi.testclient import TestClient
 
 from cci.main import app
@@ -44,22 +46,30 @@ def transport(request):
 
 
 def readme_only_repository_transport(path_history_status=200, backend_file_count=1, requested_paths=None,
-                                    duplicate_repository_commit=False):
-    def commit(number, login):
+                                    duplicate_repository_commit=False,
+                                    latest_repository_activity='2026-09-22T00:00:00Z'):
+    def commit(number, login, date='2026-09-01T00:00:00Z'):
         return {
             'sha': f'{number:040x}',
             'author': {'login': login},
-            'commit': {'committer': {'date': '2026-09-01T00:00:00Z'}},
+            'commit': {'committer': {'date': date}},
         }
 
-    repository_commits = [commit(1, 'example')] + [commit(i, 'maintainer') for i in range(2, 31)]
+    repository_commits = [commit(1, 'example', latest_repository_activity)] + [
+        commit(i, 'maintainer') for i in range(2, 31)
+    ]
     if duplicate_repository_commit:
         duplicate = repository_commits[0].copy()
         duplicate['sha'] = duplicate['sha'].upper()
         repository_commits.insert(1, duplicate)
     backend_paths = ['app.py'] + [f'app_{i}.py' for i in range(1, backend_file_count)]
-    path_commits = {'README.md': [commit(1, 'example')]}
-    path_commits.update({path: [commit(10, 'maintainer'), commit(11, 'maintainer')]
+    path_commits = {
+        'README.md': [commit(1, 'example', '2026-09-22T00:00:00Z')]
+    }
+    path_commits.update({path: [
+        commit(10, 'maintainer', '2023-06-01T00:00:00Z'),
+        commit(11, 'maintainer', '2022-12-01T00:00:00Z'),
+    ]
                          for path in backend_paths})
     archive_data = io.BytesIO()
     with zipfile.ZipFile(archive_data, 'w') as z:
@@ -196,6 +206,126 @@ def test_readme_only_repository_contribution_does_not_attribute_backend_artifact
     assert python_skill['status'] == 'repository_only'
 
 
+def test_artifact_recency_uses_path_history_instead_of_recent_repository_activity(monkeypatch):
+    from cci.live import acquisition
+    from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
+    from cci.domain.enums import CapabilityKey
+
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport())
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    backend_record = next(
+        record for record in data['dossier']['evidence_records']
+        if record['provenance'].get('artifact_path') == 'app.py'
+    )
+    recency = backend_record['artifact_recency']
+    assert recency['state'] == 'known'
+    assert recency['last_meaningful_modification_at'].startswith('2023-06-01')
+    assert recency['last_meaningful_revision_sha'] == f'{10:040x}'
+    assert recency['repository_last_activity'].startswith('2026-09-22')
+
+    artifact_factor = compute_recency_factor(
+        calculate_elapsed_years(
+            datetime.fromisoformat(
+                recency['last_meaningful_modification_at'].replace('Z', '+00:00')
+            ),
+        ),
+        CapabilityKey.BACKEND_ENGINEERING,
+    )
+    repository_factor = compute_recency_factor(
+        calculate_elapsed_years(
+            datetime.fromisoformat(
+                recency['repository_last_activity'].replace('Z', '+00:00')
+            ),
+        ),
+        CapabilityKey.BACKEND_ENGINEERING,
+    )
+    assert backend_record['confidence_factors']['recency_factor'] == pytest.approx(artifact_factor)
+    assert backend_record['confidence_factors']['recency_factor'] < repository_factor
+
+
+def test_artifact_recency_keeps_candidate_touch_separate_from_latest_modification():
+    from cci.live.acquisition import build_artifact_recency
+
+    history = [
+        {
+            'sha': 'a' * 40,
+            'author': {'login': 'maintainer'},
+            'commit': {'committer': {'date': '2023-06-01T00:00:00Z'}},
+        },
+        {
+            'sha': 'b' * 40,
+            'author': {'login': 'example'},
+            'commit': {'committer': {'date': '2023-03-01T00:00:00Z'}},
+        },
+    ]
+
+    recency = build_artifact_recency(
+        history,
+        'example',
+        datetime.fromisoformat('2026-09-22T00:00:00+00:00'),
+    )
+
+    assert recency.state == 'known'
+    assert recency.last_meaningful_revision_sha == 'a' * 40
+    assert recency.last_meaningful_modification_at.isoformat().startswith('2023-06-01')
+    assert recency.candidate_contribution_revision_sha == 'b' * 40
+    assert recency.candidate_contribution_at.isoformat().startswith('2023-03-01')
+
+
+def test_bad_repository_activity_does_not_block_known_artifact_recency(monkeypatch):
+    from cci.live import acquisition
+
+    monkeypatch.setattr(
+        acquisition,
+        'HTTP_TRANSPORT',
+        readme_only_repository_transport(latest_repository_activity='not-a-date'),
+    )
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake().json(),
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': '',
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    record = next(
+        item for item in data['dossier']['evidence_records']
+        if item['provenance'].get('artifact_path') == 'app.py'
+    )
+    assert record['artifact_recency']['state'] == 'known'
+    assert record['artifact_recency']['last_meaningful_modification_at'].startswith('2023-06-01')
+    assert record['artifact_recency']['repository_last_activity'] is None
+
+
+def test_malformed_artifact_history_remains_explicitly_unknown():
+    from cci.live.acquisition import build_artifact_recency
+
+    recency = build_artifact_recency(
+        [{
+            'sha': 'a' * 40,
+            'author': {'login': 'example'},
+            'commit': {'committer': {'date': 'not-a-date'}},
+        }],
+        'example',
+        datetime.fromisoformat('2026-09-22T00:00:00+00:00'),
+    )
+
+    assert recency.state == 'artifact_recency_unknown'
+    assert recency.last_meaningful_modification_at is None
+    assert recency.last_meaningful_revision_sha is None
+    assert any('Repository last activity is retained separately' in item
+               for item in recency.limitations)
+
+
 def test_path_history_failure_does_not_fall_back_to_repository_commit_share(monkeypatch):
     from cci.live import acquisition
     monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(path_history_status=403))
@@ -216,6 +346,10 @@ def test_path_history_failure_does_not_fall_back_to_repository_commit_share(monk
     assert backend_records
     assert all(record['confidence_factors']['ownership_score'] == 0 for record in backend_records)
     assert all(record['artifact_attribution']['state'] == 'UNKNOWN' for record in backend_records)
+    assert all(record['artifact_recency']['state'] == 'artifact_recency_unknown' for record in backend_records)
+    assert all(record['artifact_recency']['last_meaningful_modification_at'] is None for record in backend_records)
+    assert all(record['artifact_recency']['repository_last_activity'].startswith('2026-09-22')
+               for record in backend_records)
     assert data['sources'][0]['status'] == 'observed'
 
 
@@ -238,6 +372,7 @@ def test_large_repository_attribution_budget_leaves_unqueried_paths_unknown(monk
     receipt = data['sources'][0]
     assert receipt['attribution_paths_considered'] == 30
     assert receipt['attribution_paths_requested'] == 24
+    assert receipt['artifact_recency_paths_requested'] == 24
     assert receipt['attribution_paths_deferred'] == 6
     assert len(requested_paths) == 24
     assert all('confidence_factors' in record and record['confidence_factors']['ownership_score'] == 0
@@ -245,9 +380,15 @@ def test_large_repository_attribution_budget_leaves_unqueried_paths_unknown(monk
     deferred = [item for item in receipt['artifact_attributions'] if item['artifact_path'] not in requested_paths]
     assert len(deferred) == 6
     assert all(item['state'] == 'UNKNOWN' and item['ownership_score'] == 0 for item in deferred)
+    deferred_recency = [
+        item for item in receipt['artifact_recencies']
+        if item['artifact_path'] not in requested_paths
+    ]
+    assert len(deferred_recency) == 6
+    assert all(item['state'] == 'artifact_recency_unknown' for item in deferred_recency)
 
 
-def test_missing_github_identity_skips_path_history_requests(monkeypatch):
+def test_missing_github_identity_fetches_recency_without_claiming_attribution(monkeypatch):
     from cci.live import acquisition
     requested_paths = []
     monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', readme_only_repository_transport(
@@ -263,8 +404,9 @@ def test_missing_github_identity_skips_path_history_requests(monkeypatch):
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert requested_paths == []
+    assert requested_paths == ['app.py']
     assert data['sources'][0]['attribution_paths_requested'] == 0
+    assert data['sources'][0]['artifact_recency_paths_requested'] == 1
     assert all(item['state'] == 'UNKNOWN' and item['ownership_score'] == 0
                for item in data['sources'][0]['artifact_attributions'])
     backend_records = [
@@ -273,6 +415,7 @@ def test_missing_github_identity_skips_path_history_requests(monkeypatch):
     ]
     assert backend_records
     assert all(record['artifact_attribution']['state'] == 'UNKNOWN' for record in backend_records)
+    assert all(record['artifact_recency']['state'] == 'known' for record in backend_records)
 
 
 def test_malformed_path_history_stays_unknown_without_repository_fallback():

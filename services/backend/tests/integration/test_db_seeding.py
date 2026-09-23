@@ -1,6 +1,7 @@
 """Integration test for database repository persistence, seeding, and invariant preservation."""
 
 import uuid
+from datetime import datetime, timezone
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,6 +11,7 @@ import cci.db.models as models
 import cci.db.repository as repo
 from cci.domain.contracts import (
     CandidateManifest,
+    ArtifactRecency,
     CapabilityEstimate,
     Dossier,
     EvidenceConfidenceFactors,
@@ -229,6 +231,12 @@ def test_repository_persists_family_metadata_weights_and_active_config(memory_db
             evidence_family_id=family_id,
             observation_type="dependency:manifest",
             evidence_family_basis={"schema": "ef1", "domain": "dependency"},
+            artifact_recency=ArtifactRecency(
+                state="known",
+                last_meaningful_modification_at=datetime(2023, 6, 1, tzinfo=timezone.utc),
+                last_meaningful_revision_sha="d" * 40,
+                repository_last_activity=datetime(2026, 9, 22, tzinfo=timezone.utc),
+            ),
             provenance={"artifact_path": "requirements.txt"},
         ),
         EvidenceRecord(
@@ -282,6 +290,14 @@ def test_repository_persists_family_metadata_weights_and_active_config(memory_db
         entity.provenance["evidence_family_basis"]["schema"] == "ef1"
         for entity in saved
     )
+    persisted_recency = next(
+        entity.provenance["artifact_recency"]
+        for entity in saved
+        if entity.fingerprint == "a" * 64
+    )
+    assert persisted_recency["state"] == "known"
+    assert persisted_recency["last_meaningful_revision_sha"] == "d" * 40
+    assert persisted_recency["repository_last_activity"] == "2026-09-22T00:00:00Z"
     links = memory_db.query(models.EvidenceCapabilityLink).all()
     assert {link.evidence_id: link.effective_weight for link in links} == {
         records[0].evidence_id: 1.0,

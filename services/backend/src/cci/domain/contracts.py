@@ -4,10 +4,10 @@ Frozen interfaces used across all analysis, scoring, extraction, and UI subsyste
 """
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from cci.domain.enums import (
     ArtifactAttributionState,
@@ -325,6 +325,45 @@ class ArtifactAttribution(BaseModel):
     limitations: list[str] = Field(default_factory=list)
 
 
+class ArtifactRecency(BaseModel):
+    """Path-specific modification history kept separate from repository activity."""
+
+    model_config = ConfigDict(frozen=True)
+
+    state: Literal["known", "artifact_recency_unknown"]
+    last_meaningful_modification_at: datetime | None = None
+    last_meaningful_revision_sha: str | None = Field(
+        default=None, pattern=r"^[a-fA-F0-9]{40}$"
+    )
+    candidate_contribution_at: datetime | None = None
+    candidate_contribution_revision_sha: str | None = Field(
+        default=None, pattern=r"^[a-fA-F0-9]{40}$"
+    )
+    repository_last_activity: datetime | None = None
+    basis: str = "github_path_commit_history"
+    limitations: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_recency_state(self):
+        if self.state == "known" and (
+            self.last_meaningful_modification_at is None
+            or self.last_meaningful_revision_sha is None
+        ):
+            raise ValueError("Known artifact recency requires a path timestamp and commit SHA")
+        if self.state == "artifact_recency_unknown" and (
+            self.last_meaningful_modification_at is not None
+            or self.last_meaningful_revision_sha is not None
+            or self.candidate_contribution_at is not None
+            or self.candidate_contribution_revision_sha is not None
+        ):
+            raise ValueError("Unknown artifact recency cannot carry path-history timestamps")
+        if (self.candidate_contribution_at is None) != (
+            self.candidate_contribution_revision_sha is None
+        ):
+            raise ValueError("Candidate contribution time and commit SHA must be supplied together")
+        return self
+
+
 class EvidenceRecord(BaseModel):
     """Immutable registered evidence row with cryptographic fingerprint and confidence factors."""
 
@@ -345,6 +384,7 @@ class EvidenceRecord(BaseModel):
     confidence_factors: EvidenceConfidenceFactors
     confidence: float = Field(..., ge=0.0, le=1.0, description="Computed c_e,k")
     artifact_attribution: ArtifactAttribution | None = None
+    artifact_recency: ArtifactRecency | None = None
     cluster_id: str | None = Field(
         None, description="Cluster grouping for effective count / bootstrap"
     )

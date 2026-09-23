@@ -334,6 +334,13 @@ def save_evidence_records(
                 or ev.provenance.get("evidence_family_basis", {})
             )
 
+        provenance = dict(ev.provenance)
+        if ev.artifact_recency is not None:
+            provenance["artifact_recency"] = ev.artifact_recency.model_dump(
+                mode="json"
+            )
+        provenance["evidence_family_basis"] = family_basis
+
         entity = models.Evidence(
             id=ev.evidence_id,
             analysis_run_id=analysis_run_id,
@@ -355,10 +362,7 @@ def save_evidence_records(
             factor_source_reliability=cf.source_reliability,
             computed_confidence=ev.confidence,
             cluster_id=ev.cluster_id,
-            provenance={
-                **ev.provenance,
-                "evidence_family_basis": family_basis,
-            },
+            provenance=provenance,
             analyzer_version=ev.provenance.get("analyzer_version", "1.0.0"),
         )
         session.add(entity)

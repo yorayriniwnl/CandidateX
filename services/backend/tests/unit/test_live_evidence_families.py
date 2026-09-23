@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from cci.domain.contracts import (
+    ArtifactRecency,
     ArtifactAttribution,
     EvidenceInput,
     RepositoryAssociation,
@@ -89,7 +90,15 @@ def test_live_conversion_retains_repeated_inputs_and_semantic_metadata():
         artifacts_by_path={"requirements.txt": artifact},
         snapshot_fingerprint="d" * 64,
         path_attributions={"requirements.txt": attribution},
-        commit_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        artifact_recencies={
+            "requirements.txt": ArtifactRecency(
+                state="known",
+                last_meaningful_modification_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                last_meaningful_revision_sha="e" * 40,
+                repository_last_activity=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            )
+        },
+        repository_last_activity=datetime(2025, 1, 2, tzinfo=timezone.utc),
         repository_association=association,
         repository_contribution=contribution,
     )
@@ -102,7 +111,15 @@ def test_live_conversion_retains_repeated_inputs_and_semantic_metadata():
         artifacts_by_path={"requirements.txt": artifact},
         snapshot_fingerprint="d" * 64,
         path_attributions={"requirements.txt": attribution},
-        commit_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        artifact_recencies={
+            "requirements.txt": ArtifactRecency(
+                state="known",
+                last_meaningful_modification_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                last_meaningful_revision_sha="e" * 40,
+                repository_last_activity=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            )
+        },
+        repository_last_activity=datetime(2025, 1, 2, tzinfo=timezone.utc),
         repository_association=association,
         repository_contribution=contribution,
     )

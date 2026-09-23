@@ -59,6 +59,8 @@ Given elapsed time $\Delta t_e$ (in years) since observation:
 $$t_{e,k} = \exp(-\lambda_k \cdot \Delta t_e)$$
 where $\lambda_k$ is the decay rate specific to capability $k$.
 
+For live repository evidence, $\Delta t_e$ is derived from the latest usable GitHub-reported commit touching the exact artifact path at the pinned repository revision. Git committer timestamps are repository metadata, not independent time attestations. `EvidenceRecord.artifact_recency` records the path timestamp and commit SHA, any latest commit linked to the declared GitHub account, and `repository_last_activity` as separate context. If path history is unavailable, malformed, or outside the bounded request budget, the state is `artifact_recency_unknown`; repository activity is never substituted for artifact age. The neutral recency multiplier used for an unknown value is not a freshness claim, and the explicit state and limitations must be retained.
+
 ### 3.3. Attribution-Gated Evidence Weight
 Each evidence record $e$ supporting capability $k$ combines five evidence-quality factors and a direct candidate-attribution gate:
 $$q_{e,k} = \left( a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1/5}, \qquad c_{e,k} = o_e \cdot q_{e,k}$$
@@ -125,7 +127,8 @@ All models are defined with Pydantic V2 and `model_config = ConfigDict(frozen=Tr
 - `NormalizedRequirement`: Standardized requirement from JD.
 - `EvidenceConfidenceFactors`: Five evidence-quality factors plus the separate attribution gate.
 - `EvidenceInput`: Analyzer observation before registration.
-- `EvidenceRecord`: Immutable registered evidence with SHA-256 fingerprint.
+- `EvidenceRecord`: Immutable registered evidence with SHA-256 fingerprint and explicit artifact-recency state.
+- `ArtifactRecency`: Path-specific modification time and immutable revision, declared-account contribution time where available, separate repository activity, or an explicit unknown state.
 - `SourceReliabilitySnapshot`: Beta prior/posterior state.
 - `OwnershipAssessment`: Authorship estimation and feature vectors.
 - `CapabilityEstimate`: $q_k, n_{\text{eff},k}, SE_k$, and bootstrap CI.

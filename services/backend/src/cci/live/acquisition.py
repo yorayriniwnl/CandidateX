@@ -27,6 +27,7 @@ from cci.analyzers.repository.indexer import (
 )
 from cci.config import settings
 from cci.domain.contracts import (
+    ArtifactRecency,
     ArtifactAttribution,
     EvidenceConfidenceFactors,
     EvidenceInput,
@@ -188,7 +189,8 @@ def build_live_evidence_records(
     artifacts_by_path: Mapping[str, Any],
     snapshot_fingerprint: str,
     path_attributions: Mapping[str, ArtifactAttribution],
-    commit_date: datetime,
+    artifact_recencies: Mapping[str, ArtifactRecency],
+    repository_last_activity: datetime | None,
     repository_association: RepositoryAssociation,
     repository_contribution: RepositoryContribution,
 ) -> list[EvidenceRecord]:
@@ -222,6 +224,12 @@ def build_live_evidence_records(
                 observation.artifact_path,
                 "No path-specific commit history was available for this observation; repository contribution is not used as fallback.",
             )
+        artifact_recency = artifact_recencies.get(observation.artifact_path)
+        if artifact_recency is None:
+            artifact_recency = unknown_artifact_recency(
+                repository_last_activity,
+                "Path history was unavailable or outside the bounded request budget; repository activity is not used as artifact recency.",
+            )
 
         family_id = observation.evidence_family_id
         family_basis = observation.evidence_family_basis
@@ -240,8 +248,15 @@ def build_live_evidence_records(
         factors = EvidenceConfidenceFactors(
             artifact_integrity=1.0,
             ownership_score=artifact_attribution.ownership_score,
-            recency_factor=compute_recency_factor(
-                calculate_elapsed_years(commit_date), observation.target_capability
+            recency_factor=(
+                compute_recency_factor(
+                    calculate_elapsed_years(
+                        artifact_recency.last_meaningful_modification_at
+                    ),
+                    observation.target_capability,
+                )
+                if artifact_recency.state == "known"
+                else 1.0
             ),
             verification_level=0.55,
             depth_specificity=0.5,
@@ -263,6 +278,7 @@ def build_live_evidence_records(
                 confidence_factors=factors,
                 confidence=factors.composite_confidence,
                 artifact_attribution=artifact_attribution,
+                artifact_recency=artifact_recency,
                 cluster_id=cluster_id,
                 evidence_family_id=family_id,
                 observation_type=observation.observation_type,
@@ -275,7 +291,7 @@ def build_live_evidence_records(
                     "extractor_version": observation.extractor_version,
                     "verification_status": "live_static_inspection",
                     "observed_at": datetime.now(timezone.utc).isoformat(),
-                    "commit_date": commit_date.isoformat(),
+                    "artifact_recency": artifact_recency.model_dump(mode="json"),
                     "artifact_url": (
                         f"{source_locator}/blob/{immutable_revision}/"
                         f"{quote(observation.artifact_path, safe='/')}"
@@ -298,26 +314,179 @@ def build_live_evidence_records(
     return records
 
 
-def get_artifact_attribution(fetcher, owner, repo, revision_sha, artifact_path, identity):
-    """Reads bounded history for one path; repository-wide contribution is never a fallback."""
+def unknown_artifact_recency(repository_last_activity, reason):
+    """Creates an explicit unknown state without substituting repository activity."""
+    return ArtifactRecency(
+        state="artifact_recency_unknown",
+        repository_last_activity=repository_last_activity,
+        limitations=[
+            reason,
+            "Repository last activity is retained separately and is not artifact recency.",
+            "No freshness claim is made; the neutral recency factor must not be interpreted as recent activity.",
+        ],
+    )
+
+
+def fetch_artifact_path_history(fetcher, owner, repo, revision_sha, artifact_path):
+    """Fetches one bounded path history for both recency and attribution decisions."""
+    endpoint = (
+        f'/repos/{owner}/{repo}/commits?path={quote(artifact_path, safe="/")}'
+        f'&sha={revision_sha}&per_page={MAX_RECENT_COMMITS}'
+    )
+    try:
+        path_commits = fetcher.get(endpoint)
+    except AcquisitionError as exc:
+        return None, f"Path history was unavailable ({exc.status}).", exc.status in {
+            "rate_limited",
+            "timeout",
+            "unavailable",
+        }
+    except (httpx.RequestError, ValueError, TypeError):
+        return None, "Path history could not be safely parsed.", True
+    if not isinstance(path_commits, list):
+        return None, "Path history response was malformed.", False
+    if not path_commits:
+        return None, "Path history was empty.", False
+    return path_commits[:MAX_RECENT_COMMITS], None, False
+
+
+def _parse_github_timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def build_artifact_recency(
+    path_commits,
+    identity,
+    repository_last_activity,
+    history_error=None,
+):
+    """Derives modification dates only from commit history for the exact artifact path."""
+    if history_error:
+        return unknown_artifact_recency(repository_last_activity, history_error)
+    if not isinstance(path_commits, list) or not path_commits:
+        return unknown_artifact_recency(
+            repository_last_activity,
+            "No usable path-specific history was available for this artifact.",
+        )
+
+    unique = {}
+    for commit in path_commits[:MAX_RECENT_COMMITS]:
+        if not isinstance(commit, dict):
+            return unknown_artifact_recency(
+                repository_last_activity,
+                "Path history contained malformed commit metadata.",
+            )
+        commit_sha = commit.get("sha")
+        if not isinstance(commit_sha, str) or not re.fullmatch(
+            r"[a-fA-F0-9]{40}", commit_sha
+        ):
+            return unknown_artifact_recency(
+                repository_last_activity,
+                "Path history contained a commit without a valid immutable SHA.",
+            )
+        commit_details = commit.get("commit")
+        committer = commit_details.get("committer") if isinstance(commit_details, dict) else None
+        raw_date = committer.get("date") if isinstance(committer, dict) else None
+        modified_at = _parse_github_timestamp(raw_date)
+        if modified_at is None:
+            return unknown_artifact_recency(
+                repository_last_activity,
+                "Path history contained a commit without a usable committer timestamp.",
+            )
+        author = commit.get("author")
+        login = author.get("login") if isinstance(author, dict) else None
+        normalized_sha = commit_sha.lower()
+        entry = (modified_at, login)
+        if normalized_sha in unique and unique[normalized_sha] != entry:
+            return unknown_artifact_recency(
+                repository_last_activity,
+                "Duplicate path-history rows conflicted on timestamp or GitHub account.",
+            )
+        unique[normalized_sha] = entry
+
+    if not unique:
+        return unknown_artifact_recency(
+            repository_last_activity,
+            "Path history had no valid commit rows.",
+        )
+
+    latest_sha, (latest_at, _) = max(
+        unique.items(), key=lambda item: (item[1][0], item[0])
+    )
+    matching = [
+        (commit_sha, modified_at)
+        for commit_sha, (modified_at, login) in unique.items()
+        if identity and isinstance(login, str) and login.casefold() == identity.casefold()
+    ]
+    candidate_contribution_at = None
+    candidate_contribution_sha = None
+    if matching:
+        candidate_contribution_sha, candidate_contribution_at = max(
+            matching, key=lambda item: (item[1], item[0])
+        )
+
+    limitations = [
+        f"Artifact recency uses at most the latest {MAX_RECENT_COMMITS} commits touching this path.",
+        "A matching GitHub account is not independent verification of the candidate's human identity.",
+        "Git committer timestamps are repository metadata and are not independently time-attested.",
+    ]
+    if any(not isinstance(login, str) or not login for _, login in unique.values()):
+        limitations.append(
+            "Some path commits have no linked GitHub account; candidate contribution time may be incomplete."
+        )
+        candidate_contribution_at = None
+        candidate_contribution_sha = None
+
+    return ArtifactRecency(
+        state="known",
+        last_meaningful_modification_at=latest_at,
+        last_meaningful_revision_sha=latest_sha,
+        candidate_contribution_at=candidate_contribution_at,
+        candidate_contribution_revision_sha=candidate_contribution_sha,
+        repository_last_activity=repository_last_activity,
+        limitations=limitations,
+    )
+
+
+def get_artifact_attribution(
+    fetcher,
+    owner,
+    repo,
+    revision_sha,
+    artifact_path,
+    identity,
+    path_commits=None,
+    history_error=None,
+    history_stop_requests=False,
+):
+    """Reads bounded path history; repository-wide contribution is never a fallback."""
     if not identity:
         return unknown_artifact_attribution(
             revision_sha, artifact_path, 'No candidate-declared GitHub account was supplied.'
         ), False
 
-    endpoint = (f'/repos/{owner}/{repo}/commits?path={quote(artifact_path, safe="/")}'
-                f'&sha={revision_sha}&per_page={MAX_RECENT_COMMITS}')
-    try:
-        path_commits = fetcher.get(endpoint)
-    except AcquisitionError as exc:
+    if history_error:
         return unknown_artifact_attribution(
             revision_sha, artifact_path,
-            f'Path history was unavailable ({exc.status}); artifact attribution remains unknown.',
-        ), exc.status in {'rate_limited', 'timeout', 'unavailable'}
-    except (httpx.RequestError, ValueError, TypeError):
+            f'{history_error} Artifact attribution remains unknown.',
+        ), history_stop_requests
+    if path_commits is None:
+        path_commits, history_error, history_stop_requests = fetch_artifact_path_history(
+            fetcher, owner, repo, revision_sha, artifact_path
+        )
+    if history_error:
         return unknown_artifact_attribution(
-            revision_sha, artifact_path, 'Path history could not be safely parsed; artifact attribution remains unknown.'
-        ), True
+            revision_sha, artifact_path,
+            f'{history_error} Artifact attribution remains unknown.',
+        ), history_stop_requests
 
     if not isinstance(path_commits, list) or not path_commits:
         return unknown_artifact_attribution(
@@ -440,13 +609,17 @@ def acquire_repository(
     ownership = min(.9, authored / len(commits)) if identity else 0.0
     if metadata.get('fork'):
         ownership = min(.5, ownership)
-    try:
-        commit_date = commits[0]['commit']['committer']['date']
-        if not isinstance(commit_date, str):
-            raise TypeError('Commit date is missing or malformed.')
-        observed_date = datetime.fromisoformat(commit_date.replace('Z', '+00:00'))
-    except (AttributeError, KeyError, TypeError, ValueError) as exc:
-        raise AcquisitionError('parse_failed', 'GitHub returned malformed commit date metadata.') from exc
+    latest_commit_details = commits[0].get('commit')
+    latest_committer = (
+        latest_commit_details.get('committer')
+        if isinstance(latest_commit_details, dict)
+        else None
+    )
+    repository_last_activity = _parse_github_timestamp(
+        latest_committer.get('date') if isinstance(latest_committer, dict) else None
+    )
+    if repository_last_activity is None:
+        repository_last_activity = _parse_github_timestamp(metadata.get('pushed_at'))
     association = RepositoryAssociation(
         repository_url=url,
         candidate_identifier=identity or None,
@@ -500,23 +673,51 @@ def acquire_repository(
                 )
         ordered_paths = sorted(path_scores, key=lambda path: (-path_scores[path], path))
         selected_paths = ordered_paths[:max(0, attribution_path_budget)]
-        path_attributions, requested_paths = {}, []
+        path_attributions, artifact_recencies = {}, {}
+        requested_paths, history_paths_requested = [], []
         stop_path_requests = False
         for path in selected_paths:
             if stop_path_requests:
                 path_attributions[path] = unknown_artifact_attribution(
                     sha, path, 'Path history requests stopped after a source or time-budget failure; repository contribution is not used as fallback.'
                 )
+                artifact_recencies[path] = unknown_artifact_recency(
+                    repository_last_activity,
+                    'Path history requests stopped after a source or time-budget failure; repository activity is not used as artifact recency.',
+                )
                 continue
             if identity:
                 requested_paths.append(path)
-            path_attribution, stop_path_requests = get_artifact_attribution(
-                fetcher, owner, repo, sha, path, identity
+            history_paths_requested.append(path)
+            path_commits, history_error, stop_path_requests = fetch_artifact_path_history(
+                fetcher, owner, repo, sha, path
+            )
+            artifact_recencies[path] = build_artifact_recency(
+                path_commits,
+                identity,
+                repository_last_activity,
+                history_error=history_error,
+            )
+            path_attribution, attribution_stop_requests = get_artifact_attribution(
+                fetcher,
+                owner,
+                repo,
+                sha,
+                path,
+                identity,
+                path_commits=path_commits,
+                history_error=history_error,
+                history_stop_requests=stop_path_requests,
             )
             path_attributions[path] = path_attribution
+            stop_path_requests = stop_path_requests or attribution_stop_requests
         for path in ordered_paths[len(selected_paths):]:
             path_attributions[path] = unknown_artifact_attribution(
                 sha, path, 'Path history was outside the bounded request budget; repository contribution is not used as fallback.'
+            )
+            artifact_recencies[path] = unknown_artifact_recency(
+                repository_last_activity,
+                'Path history was outside the bounded request budget; repository activity is not used as artifact recency.',
             )
         cluster_id = normalized_repository_identity(url)
         records = build_live_evidence_records(
@@ -528,19 +729,33 @@ def acquire_repository(
             artifacts_by_path=by_path,
             snapshot_fingerprint=snapshot.snapshot_fingerprint,
             path_attributions=path_attributions,
-            commit_date=observed_date,
+            artifact_recencies=artifact_recencies,
+            repository_last_activity=repository_last_activity,
             repository_association=association,
             repository_contribution=contribution,
         )
         receipt = {'url': url, 'status': 'observed', 'detail': 'Fetched public commit and statically inspected selected files.',
             'commit_sha': sha, 'fetched_at': datetime.now(timezone.utc).isoformat(), 'files_inspected': len(artifacts),
+            'repository_last_activity': (
+                repository_last_activity.isoformat()
+                if repository_last_activity is not None
+                else None
+            ),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,
             'ownership_score': ownership, 'candidate_sampled_commits': authored, 'sampled_commits': len(commits),
             'repository_association': association.model_dump(mode='json'),
             'repository_contribution': contribution.model_dump(mode='json'),
             'artifact_attributions': [path_attributions[path].model_dump(mode='json') for path in ordered_paths],
+            'artifact_recencies': [
+                {
+                    'artifact_path': path,
+                    **artifact_recencies[path].model_dump(mode='json'),
+                }
+                for path in ordered_paths
+            ],
             'attribution_paths_considered': len(ordered_paths),
             'attribution_paths_requested': len(requested_paths),
+            'artifact_recency_paths_requested': len(history_paths_requested),
             'attribution_paths_deferred': max(0, len(ordered_paths) - len(selected_paths)),
             'kind': 'repository', 'acquisition_method': method,
             'repository_review': review_repository(workspace.root, artifacts, url, sha, metadata)}
