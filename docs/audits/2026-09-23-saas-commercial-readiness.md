@@ -26,6 +26,12 @@ The shared checkout is on a separate `main` line at `aebee8e3b39ff4dab10663a7f3f
 
 Node commands printed a warning that the configured Kaspersky root certificate file could not be loaded. The Python suite also printed upstream deprecation warnings for the HTTP test client and Alembic path configuration.
 
+### Separate shared-checkout verification (not the reviewed release branch)
+
+The divergent shared `main` checkout at `aebee8e3b39ff4dab10663a7f3f3c98f474623b9`, with its uncommitted changes, was also checked independently. From `services/backend`, the CI-style pytest command passed 246 tests with two dependency deprecation warnings. The web checks passed `next typegen`, TypeScript typechecking, production build, and 22 Playwright cases. Running pytest from the repository root instead fails during collection because both `tests/security/test_ssrf.py` and `tests/unit/security/test_ssrf.py` import as `test_ssrf`; the CI workflow runs pytest from `services/backend`, and that documented invocation passed.
+
+The local-only `aebee8e` commit replaces the known sample CV and seeder identities with synthetic labels and reserved `.invalid` contacts and URLs, with regression checks for those fixtures. That privacy improvement is not present on the pushed integration branch and must be reconciled before it can close the release-branch finding.
+
 ## Launch blockers
 
 ### Critical: no authenticated user or server-verified tenant boundary
