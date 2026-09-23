@@ -4,10 +4,18 @@ Frozen interfaces used across all analysis, scoring, extraction, and UI subsyste
 """
 
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from cci.domain.enums import (
     ArtifactAttributionState,
@@ -17,6 +25,7 @@ from cci.domain.enums import (
     RequirementPriority,
     SourceFamily,
 )
+from cci.domain.evidence_families import normalize_source_cluster
 
 # ---------------------------------------------------------------------------
 # Scoring Configuration
@@ -610,7 +619,8 @@ class AnalysisScore(BaseModel):
         None,
         ge=0.0,
         le=100.0,
-        description="RCI = 100 * sum_{k in obs}(w_k * q_k) / sum_{k in obs}(w_k)",
+        description="Deprecated compatibility field for the observed-only capability index",
+        json_schema_extra={"deprecated": True},
     )
     coverage: float = Field(
         ...,
@@ -623,6 +633,45 @@ class AnalysisScore(BaseModel):
     )
     observed_capabilities_count: int = Field(..., ge=0, le=12)
     scoring_config_version: str
+
+
+class ObservedIndexContext(BaseModel):
+    """Context needed to interpret an observed-only capability index."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metric_label: Literal["Observed Capability Index"] = "Observed Capability Index"
+    basis: Literal["Based only on observed evidence."] = (
+        "Based only on observed evidence."
+    )
+    role_weighted_evidence_coverage: float = Field(..., ge=0.0, le=1.0)
+    observed_role_dimensions: int = Field(..., ge=0, le=12)
+    total_role_dimensions: int = Field(default=12, ge=1, le=12)
+    coverage_sufficiency_threshold: float = Field(..., ge=0.0, le=1.0)
+    is_insufficient_evidence: bool
+    standalone_presentation_allowed: bool
+    unique_independent_source_cluster_count: int | None = Field(default=None, ge=0)
+    independent_source_cluster_counts_by_capability: dict[
+        CapabilityKey, int
+    ] = Field(default_factory=dict)
+    mean_path_attribution_confidence: float | None = Field(
+        default=None, ge=0.0, le=1.0
+    )
+    path_attribution_sample_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_observed_index_context(self):
+        if self.standalone_presentation_allowed == self.is_insufficient_evidence:
+            raise ValueError(
+                "Standalone presentation is allowed exactly when evidence is sufficient"
+            )
+        if (self.mean_path_attribution_confidence is None) != (
+            self.path_attribution_sample_count == 0
+        ):
+            raise ValueError(
+                "Path attribution mean and sample count must be available together"
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -666,6 +715,96 @@ class InterviewQuestion(BaseModel):
     suggested_followups: list[str] = Field(default_factory=list)
 
 
+def _build_observed_index_context(
+    *,
+    coverage: float,
+    is_insufficient_evidence: bool,
+    coverage_sufficiency_threshold: float,
+    capability_estimates: dict[CapabilityKey, CapabilityEstimate],
+    evidence_records: list[EvidenceRecord],
+) -> ObservedIndexContext:
+    effective_insufficient = is_insufficient_evidence or (
+        coverage < coverage_sufficiency_threshold
+    )
+    observed_capabilities = {
+        capability
+        for capability, estimate in capability_estimates.items()
+        if estimate.is_observed and estimate.estimate is not None
+    }
+
+    cluster_counts = {
+        capability: capability_estimates[capability].cluster_count
+        if capability in capability_estimates
+        else 0
+        for capability in CapabilityKey
+    }
+    cluster_keys = set()
+    for record in evidence_records:
+        if (
+            record.target_capability not in observed_capabilities
+            or record.confidence <= 0.0
+        ):
+            continue
+        cluster_id = (record.cluster_id or record.source_locator).strip()
+        if cluster_id:
+            cluster_keys.add(
+                normalize_source_cluster(record.source_family, cluster_id)
+            )
+
+    attribution_by_path: dict[tuple[str, str], tuple[float, str, float]] = {}
+    for record in evidence_records:
+        attribution = record.artifact_attribution
+        source_locator = record.source_locator.strip()
+        if (
+            record.target_capability not in observed_capabilities
+            or attribution is None
+            or not attribution.artifact_path
+        ):
+            continue
+        source_identity = source_locator or (record.cluster_id or "").strip()
+        if not source_identity:
+            continue
+        normalized_path = PurePosixPath(
+            attribution.artifact_path.replace("\\", "/")
+        ).as_posix()
+        if normalized_path in {"", "."}:
+            continue
+        source_cluster_key = normalize_source_cluster(
+            record.source_family, source_identity
+        )
+        path_key = (source_cluster_key, normalized_path)
+        created_at = record.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        captured_at = created_at.astimezone(timezone.utc).timestamp()
+        captured_key = (
+            captured_at,
+            attribution.revision_sha,
+            attribution.attribution_confidence,
+        )
+        previous = attribution_by_path.get(path_key)
+        if previous is None or captured_key[:2] > previous[:2]:
+            attribution_by_path[path_key] = captured_key
+
+    attribution_values = [value[2] for value in attribution_by_path.values()]
+    return ObservedIndexContext(
+        role_weighted_evidence_coverage=coverage,
+        observed_role_dimensions=len(observed_capabilities),
+        total_role_dimensions=len(CapabilityKey),
+        coverage_sufficiency_threshold=coverage_sufficiency_threshold,
+        is_insufficient_evidence=effective_insufficient,
+        standalone_presentation_allowed=not effective_insufficient,
+        unique_independent_source_cluster_count=len(cluster_keys) or None,
+        independent_source_cluster_counts_by_capability=cluster_counts,
+        mean_path_attribution_confidence=(
+            sum(attribution_values) / len(attribution_values)
+            if attribution_values
+            else None
+        ),
+        path_attribution_sample_count=len(attribution_values),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Dossier Snapshot
 # ---------------------------------------------------------------------------
@@ -680,8 +819,15 @@ class Dossier(BaseModel):
     candidate_id: UUID
     analysis_run_id: UUID
     role: CanonicalRole
-    rci: float | None = Field(None, ge=0.0, le=100.0)
+    rci: float | None = Field(
+        None,
+        ge=0.0,
+        le=100.0,
+        description="Deprecated compatibility field; use observed_capability_index and its context",
+        json_schema_extra={"deprecated": True},
+    )
     coverage: float = Field(..., ge=0.0, le=1.0)
+    coverage_sufficiency_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
     is_insufficient_evidence: bool
     capability_estimates: dict[CapabilityKey, CapabilityEstimate]
     capability_conflicts: dict[CapabilityKey, CapabilityConflict]
@@ -713,3 +859,19 @@ class Dossier(BaseModel):
         }
     )
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @computed_field(description="Observed-only score over capabilities with sufficient evidence")
+    @property
+    def observed_capability_index(self) -> float | None:
+        return self.rci
+
+    @computed_field
+    @property
+    def observed_index_context(self) -> ObservedIndexContext:
+        return _build_observed_index_context(
+            coverage=self.coverage,
+            is_insufficient_evidence=self.is_insufficient_evidence,
+            coverage_sufficiency_threshold=self.coverage_sufficiency_threshold,
+            capability_estimates=self.capability_estimates,
+            evidence_records=self.evidence_records,
+        )

@@ -6,7 +6,9 @@ from uuid import UUID
 import cci.db.repository as repo
 from cci.db.session import SessionLocal
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from cci.domain.contracts import ObservedIndexContext
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
 
@@ -16,7 +18,13 @@ class CandidateSummaryResponse(BaseModel):
     display_name: str
     primary_email: str | None = None
     has_completed_dossier: bool
-    rci: float | None = None
+    rci: float | None = Field(
+        default=None,
+        description="Deprecated compatibility field; use observed_capability_index and its context",
+        json_schema_extra={"deprecated": True},
+    )
+    observed_capability_index: float | None = None
+    observed_index_context: ObservedIndexContext | None = None
     coverage: float | None = None
     role: str | None = None
     has_meaningful_conflict: bool = False
@@ -66,6 +74,12 @@ def list_candidates(
                         primary_email=c.primary_email,
                         has_completed_dossier=has_dossier,
                         rci=rci,
+                        observed_capability_index=(
+                            dossier.observed_capability_index if dossier else None
+                        ),
+                        observed_index_context=(
+                            dossier.observed_index_context if dossier else None
+                        ),
                         coverage=coverage,
                         role=role_val,
                         has_meaningful_conflict=has_conflict,

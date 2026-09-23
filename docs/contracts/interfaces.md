@@ -12,9 +12,10 @@ Candidate Capability Intelligence (CCI) provides employer/interviewer-side techn
    - Explicit CV-listed repositories receive **DEEP** analysis (bounded AST, dependency graph, testing, and infra extraction).
    - Remaining repositories on the explicitly provided GitHub profile receive **LIGHT** analysis (commit counts, languages, recency, high-level metadata).
 4. **Missing or insufficiently attributed evidence is UNKNOWN**: It reduces **Evidence Coverage** and withholds the candidate estimate, but never assigns zero capability by default.
-5. **Separation of RCI and Coverage**:
-   - **RCI** reflects estimated technical proficiency only on capabilities meeting the configured attribution-gated coverage threshold.
-   - **Evidence Coverage** measures the proportion of role-critical capabilities supported by empirical evidence.
+5. **Separation of the Observed Capability Index and Coverage**:
+   - The **Observed Capability Index** reflects proficiency only on capabilities meeting the configured attribution-gated coverage threshold. It is based only on observed evidence and must be interpreted with its evidence context.
+   - **Evidence Coverage** measures the role-weighted proportion of capabilities supported by empirical evidence.
+   - An index below the configured coverage threshold is not suitable for standalone presentation. Indices based on different observed capability sets are not directly comparable and must not be ranked against one another.
 6. **No Code Execution**: Candidate code is never executed, built, or run in test runners. All extraction is deterministic static and operational inspection.
 7. **Absolute Provenance & Immutability**: Every derived observation retains its cryptographic fingerprint, file/symbol locator, and analyzer version. Evidence rows are immutable in persistence.
 8. **Decoupled Acquisition & Rescoring**: Evidence acquisition is expensive and cached; role re-scoring against new or updated job descriptions is purely functional and inexpensive.
@@ -108,7 +109,7 @@ The automatic role profile applies temperature-scaled softmax to $u_k$, then pro
 
 These are deterministic outputs under the default policy settings, not empirically calibrated hiring weights. The machine-readable matrix includes all 12 capability weights per scenario at `docs/audits/jd-weighting-adversarial-matrix.json`.
 
-### 3.7. Evidence Coverage & Role Capability Index (RCI)
+### 3.7. Evidence Coverage & Observed Capability Index
 Within independent source cluster $g$, evidence is grouped by artifact. An artifact contributes its strongest attribution-gated confidence $q_{g,j}$ once; distinct artifacts are ordered from strongest to weakest and receive geometric diminishing returns with configured decay $\delta$ (default 0.5):
 $$M_{g,k} = \sum_{j=1}^{n_g} q_{g,j}\delta^{j-1}, \qquad \text{Cov}_k = \min\left(1, \frac{\sum_g M_{g,k}}{\tau_k}\right)$$
 The cluster identity combines source family and normalized cluster ID (falling back to source locator). Content-identical artifacts across clusters are credited once. Family multipliers adjust confidence before both capability estimation and coverage. This keeps semantic observation correlation, artifact depth, and source independence distinct.
@@ -117,8 +118,10 @@ $$\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \text{Cov}_k$$
 
 A candidate capability estimate is emitted only when attribution-gated coverage meets `ScoringConfig.low_coverage_threshold` (0.35 by default). Below that threshold, the estimate is `UNKNOWN` (`None`); its technical observations and nonzero coverage remain available, and no zero capability is inferred.
 
-Role Capability Index (RCI) computed strictly over capabilities whose attribution-gated coverage meets the configured threshold:
-$$\text{RCI}(C, J) = 100 \cdot \frac{\sum_{k \in \text{observed}} w_k \cdot q_k}{\sum_{k \in \text{observed}} w_k}$$
+The Observed Capability Index is computed strictly over capabilities whose attribution-gated coverage meets the configured threshold:
+$$\text{ObservedIndex}(C, J) = 100 \cdot \frac{\sum_{k \in \text{observed}} w_k \cdot q_k}{\sum_{k \in \text{observed}} w_k}$$
+
+The API retains `rci` as a deprecated compatibility field and exposes the same value as `observed_capability_index`. Dossier and candidate-summary responses include `observed_index_context`: the metric label and observed-only basis, role-weighted coverage, the configured sufficiency threshold, observed and total dimension counts, sufficiency and standalone-presentation flags, source-cluster counts, and mean path-attribution confidence with its unique-path sample count. A missing cluster identity or attribution sample is `null` (UNKNOWN); zero is reserved for a measured zero count. Below the configured threshold, the response and Markdown/HTML exports state that standalone presentation is not allowed and that the index is based only on observed evidence. Candidate comparisons must not rank partial indices with different observed dimension sets.
 
 ### 3.8. Probe Priority Index
 Priority score directing the interviewer's focus:
@@ -144,7 +147,7 @@ All models are defined with Pydantic V2 and `model_config = ConfigDict(frozen=Tr
 - `CapabilityUncertainty`: Epistemic uncertainty and CI bounds.
 - `CapabilityConflict`: Contradiction diagnostic $D_k$.
 - `RoleProfile`: Bounded automatic weights $w_k$ summing to 1.0, including the temperature used; explicit expert overrides remain separately identified.
-- `AnalysisScore`: RCI, Coverage, and sufficiency status.
+- `AnalysisScore`: observed-only capability index (legacy `rci` field), Coverage, and sufficiency status.
 - `ProbePriority`: Ranked inquiry targets $I_k$.
 - `InterviewQuestion`: Evidence-grounded probe questions.
 - `Dossier`: Consolidated snapshot for interviewer UI.
@@ -186,7 +189,7 @@ All 41 entities are implemented in `cci.db.models`:
 28. `capability_estimates` (Estimated capability scores)
 29. `capability_uncertainty` (Uncertainty diagnostics)
 30. `capability_conflicts` (Contradiction diagnostics)
-31. `analysis_scores` (Overall RCI and Coverage)
+31. `analysis_scores` (Overall observed-only index in the legacy RCI column, and Coverage)
 32. `scoring_configs` (Versioned parameter configurations)
 33. `interview_probe_priorities` (Ranked probe priorities)
 34. `interview_questions` (Interviewer questions)

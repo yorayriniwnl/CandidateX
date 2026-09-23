@@ -8,7 +8,7 @@ Formal 10-Stage Pipeline Lifecycle:
 5. CALIBRATING_RELIABILITY: Beta-Binomial source family reliability updates.
 6. ESTIMATING_OWNERSHIP: Heuristic authorship attribution.
 7. COMPUTING_UNCERTAINTY: Cluster bootstrap CIs and Kish effective counts.
-8. SCORING: Formal point estimates q_k and Role Capability Index (RCI).
+8. SCORING: Formal point estimates q_k and observed-only capability index.
 9. PRIORITIZING_PROBES: Contradiction diagnostics D_k and information value ranking I_k.
 10. GENERATING_DOSSIER: Heterogeneous CEG graph construction and dossier compilation.
 
@@ -112,7 +112,7 @@ def _init_stage_progress() -> list[StageProgress]:
         (AnalysisStage.CALIBRATING_RELIABILITY, "5. Source Calibration"),
         (AnalysisStage.ESTIMATING_OWNERSHIP, "6. Ownership Attribution"),
         (AnalysisStage.COMPUTING_UNCERTAINTY, "7. Bootstrap Uncertainty"),
-        (AnalysisStage.SCORING, "8. Capability Scoring & RCI"),
+        (AnalysisStage.SCORING, "8. Capability Scoring & Observed Index"),
         (AnalysisStage.PRIORITIZING_PROBES, "9. Information Value & Probes"),
         (AnalysisStage.GENERATING_DOSSIER, "10. Compile CEG & Dossier"),
     ]
@@ -276,7 +276,7 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         # Stage 8: SCORING
         # ----------------------------------------------------------------------
-        advance_stage(AnalysisStage.SCORING, "Computing Role Capability Index (RCI)")
+        advance_stage(AnalysisStage.SCORING, "Computing observed-only capability index")
         # Parse JD requirements or use canonical profile
         norm_reqs: list[NormalizedRequirement] = []
         if jd_text:
@@ -351,6 +351,7 @@ def execute_analysis_pipeline(
             rci=rci_score,
             coverage=coverage_score,
             is_insufficient_evidence=(coverage_score < cfg.low_coverage_threshold),
+            coverage_sufficiency_threshold=cfg.low_coverage_threshold,
         )
 
         dossier_versions = dict(dossier.versions)

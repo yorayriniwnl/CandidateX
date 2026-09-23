@@ -1,13 +1,18 @@
 """Unit tests for Job Description parser and Candidate Directory API routers."""
 
 import uuid
+from contextlib import nullcontext
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from fastapi.testclient import TestClient
 import pytest
 
 from cci.main import app
 import cci.db.repository as repo
-from cci.domain.contracts import CandidateManifest
+from cci.domain.contracts import CandidateManifest, ObservedIndexContext
 from cci.domain.enums import CanonicalRole
+from cci.api.routers import candidates as candidates_router
+from cci.api.routers.candidates import CandidateSummaryResponse
 
 client = TestClient(app)
 
@@ -55,6 +60,58 @@ def test_list_candidates_endpoint():
     response = client.get("/api/v1/candidates")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_candidate_summary_contract_exposes_observed_index_context():
+    assert "observed_capability_index" in CandidateSummaryResponse.model_fields
+    assert "observed_index_context" in CandidateSummaryResponse.model_fields
+
+
+def test_candidate_summary_api_returns_context_for_partial_index(monkeypatch):
+    candidate_id = uuid.uuid4()
+    context = ObservedIndexContext(
+        role_weighted_evidence_coverage=0.2,
+        observed_role_dimensions=1,
+        coverage_sufficiency_threshold=0.35,
+        is_insufficient_evidence=True,
+        standalone_presentation_allowed=False,
+        unique_independent_source_cluster_count=2,
+        independent_source_cluster_counts_by_capability={},
+    )
+    candidate = SimpleNamespace(
+        id=candidate_id,
+        display_name="Test Candidate",
+        primary_email=None,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    dossier = SimpleNamespace(
+        rci=76.5,
+        observed_capability_index=76.5,
+        observed_index_context=context,
+        coverage=0.2,
+        role=CanonicalRole.BACKEND,
+        capability_conflicts={},
+    )
+    monkeypatch.setattr(
+        candidates_router, "SessionLocal", lambda: nullcontext(object())
+    )
+    monkeypatch.setattr(
+        candidates_router.repo, "list_candidates", lambda db, **kwargs: [candidate]
+    )
+    monkeypatch.setattr(
+        candidates_router.repo,
+        "get_dossier_by_candidate_id",
+        lambda db, _candidate_id: dossier,
+    )
+
+    response = client.get("/api/v1/candidates")
+
+    assert response.status_code == 200
+    summary = response.json()[0]
+    assert summary["rci"] == 76.5
+    assert summary["observed_capability_index"] == 76.5
+    assert summary["observed_index_context"]["standalone_presentation_allowed"] is False
+    assert summary["observed_index_context"]["metric_label"] == "Observed Capability Index"
 
 
 def test_get_candidate_not_found():

@@ -136,6 +136,7 @@ def build_candidate_dossier(
     rci: float | None = None,
     coverage: float = 0.0,
     is_insufficient_evidence: bool = False,
+    coverage_sufficiency_threshold: float = 0.35,
 ) -> Dossier:
     """Builds a complete, immutable Dossier snapshot."""
     # Generate questions if not explicitly provided
@@ -157,6 +158,7 @@ def build_candidate_dossier(
         role=role,
         rci=rci,
         coverage=coverage,
+        coverage_sufficiency_threshold=coverage_sufficiency_threshold,
         is_insufficient_evidence=is_insufficient_evidence,
         capability_estimates=capability_estimates,
         capability_conflicts=capability_conflicts,

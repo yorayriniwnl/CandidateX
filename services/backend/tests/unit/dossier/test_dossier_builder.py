@@ -1,5 +1,6 @@
 """Unit tests for Dossier Builder, interview question generator, and API endpoints."""
 
+from datetime import datetime, timezone
 from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 from cci.api.routers.dossier import register_dossier
 from cci.claims.corroborator import ClaimCorroborationResult
 from cci.domain.contracts import (
+    ArtifactAttribution,
     CapabilityConflict,
     CapabilityEstimate,
     Dossier,
@@ -16,7 +18,7 @@ from cci.domain.contracts import (
     OwnershipAssessment,
     ProbePriority,
 )
-from cci.domain.enums import CanonicalRole, CapabilityKey, ClaimStatus, GraphEdgeType, GraphNodeType, SourceFamily
+from cci.domain.enums import ArtifactAttributionState, CanonicalRole, CapabilityKey, ClaimStatus, GraphEdgeType, GraphNodeType, SourceFamily
 from cci.dossier.builder import build_candidate_dossier, generate_interview_questions
 from cci.graph.ceg import CandidateEvidenceGraph, CEGEdge, CEGNode
 from cci.main import app
@@ -199,6 +201,76 @@ def test_build_candidate_dossier():
     assert len(dossier.system_limitations) >= 3
 
 
+def test_dossier_exposes_observed_index_context_without_hiding_partial_score():
+    fixtures = _mock_dossier_fixtures()
+    estimates = dict(fixtures["estimates"])
+    estimates[CapabilityKey.BACKEND_ENGINEERING] = estimates[
+        CapabilityKey.BACKEND_ENGINEERING
+    ].model_copy(update={"cluster_count": 3})
+
+    def attributed_record(path, confidence, cluster_id, day, revision):
+        return fixtures["evidence"][0].model_copy(
+            update={
+                "cluster_id": cluster_id,
+                "created_at": datetime(2026, 1, day, tzinfo=timezone.utc),
+                "artifact_attribution": ArtifactAttribution(
+                    artifact_path=path,
+                    revision_sha=revision * 40,
+                    state=ArtifactAttributionState.STRONG_ATTRIBUTION,
+                    ownership_score=0.8,
+                    attribution_confidence=confidence,
+                    candidate_commit_count=2,
+                    sampled_path_commit_count=3,
+                ),
+            }
+        )
+
+    records = [
+        attributed_record("src/api/routes.py", 0.9, "repo-a", 1, "a"),
+        attributed_record("src/api/routes.py", 0.6, "repo-b", 2, "b"),
+        attributed_record("src/worker.py", 0.4, "repo-c", 3, "c"),
+    ]
+    dossier = build_candidate_dossier(
+        candidate_id=fixtures["cand_id"],
+        analysis_run_id=fixtures["run_id"],
+        role=CanonicalRole.BACKEND,
+        capability_estimates=estimates,
+        capability_conflicts=fixtures["conflicts"],
+        role_requirements=fixtures["requirements"],
+        ownership_assessments=fixtures["ownership"],
+        claims_corroboration=fixtures["claims"],
+        interview_probes=fixtures["probes"],
+        evidence_records=records,
+        rci=82.4,
+        coverage=0.2,
+        is_insufficient_evidence=True,
+        coverage_sufficiency_threshold=0.5,
+    )
+
+    context = dossier.observed_index_context
+    assert dossier.observed_capability_index == 82.4
+    assert context.metric_label == "Observed Capability Index"
+    assert context.basis == "Based only on observed evidence."
+    assert context.role_weighted_evidence_coverage == 0.2
+    assert context.observed_role_dimensions == 1
+    assert context.total_role_dimensions == len(CapabilityKey)
+    assert context.coverage_sufficiency_threshold == 0.5
+    assert context.is_insufficient_evidence is True
+    assert context.standalone_presentation_allowed is False
+    assert context.unique_independent_source_cluster_count == 3
+    assert context.independent_source_cluster_counts_by_capability[
+        CapabilityKey.BACKEND_ENGINEERING
+    ] == 3
+    assert context.mean_path_attribution_confidence == pytest.approx(0.5)
+    assert context.path_attribution_sample_count == 2
+    serialized = dossier.model_dump(mode="json")
+    assert serialized["observed_capability_index"] == 82.4
+    assert (
+        serialized["observed_index_context"]["metric_label"]
+        == "Observed Capability Index"
+    )
+
+
 def test_dossier_api_endpoints():
     fixtures = _mock_dossier_fixtures()
     cand_id = fixtures["cand_id"]
@@ -235,6 +307,14 @@ def test_dossier_api_endpoints():
     assert "dossier" in data
     assert data["dossier"]["role"] == "backend"
     assert data["dossier"]["rci"] == 85.0
+    assert data["dossier"]["observed_capability_index"] == 85.0
+    assert (
+        data["dossier"]["observed_index_context"]["metric_label"]
+        == "Observed Capability Index"
+    )
+    assert data["dossier"]["observed_index_context"][
+        "standalone_presentation_allowed"
+    ] is True
 
     # 2. GET /api/v1/dossier/{candidate_id}/graph
     res_graph = client.get(f"/api/v1/dossier/{cand_id}/graph")

@@ -19,7 +19,48 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     )
     coverage_pct = round(dossier.coverage * 100, 1)
-    rci_display = f"{dossier.rci:.1f} / 100" if dossier.rci is not None else "UNKNOWN"
+    index_context = dossier.observed_index_context
+    index_display = (
+        f"{dossier.observed_capability_index:.1f} / 100"
+        if dossier.observed_capability_index is not None
+        else "UNKNOWN"
+    )
+    threshold_pct = round(index_context.coverage_sufficiency_threshold * 100, 1)
+    cluster_count_display = (
+        str(index_context.unique_independent_source_cluster_count)
+        if index_context.unique_independent_source_cluster_count is not None
+        else "UNKNOWN"
+    )
+    attribution_display = (
+        f"{index_context.mean_path_attribution_confidence * 100:.1f}% "
+        f"(n={index_context.path_attribution_sample_count} unique paths)"
+        if index_context.mean_path_attribution_confidence is not None
+        else "UNKNOWN (n=0 unique paths)"
+    )
+    if index_context.is_insufficient_evidence:
+        if dossier.coverage < index_context.coverage_sufficiency_threshold:
+            evidence_status_detail = (
+                f"Coverage is below the configured {threshold_pct}% threshold; "
+                "focus interview on unobserved gaps"
+            )
+        else:
+            evidence_status_detail = (
+                "Dossier is marked insufficient despite meeting the configured "
+                "coverage threshold"
+            )
+    else:
+        evidence_status_detail = "Coverage meets the configured threshold"
+    standalone_status = (
+        "NOT ALLOWED"
+        if not index_context.standalone_presentation_allowed
+        else "ALLOWED"
+    )
+    standalone_detail = (
+        "Standalone presentation is not allowed; do not use the index as a "
+        "standalone candidate-grade number"
+        if not index_context.standalone_presentation_allowed
+        else "The index remains evidence-based decision support"
+    )
     role_title = dossier.role.value.replace("_", " ").title()
 
     lines = [
@@ -31,6 +72,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         "> [!IMPORTANT]",
         "> **Core Platform Invariant: Employer Decision Support Only.**",
         "> This dossier assists human hiring teams and technical interviewers with empirically grounded evidence.",
+        "> **Based only on observed evidence.**",
         "> It never makes automated hiring or rejection determinations. Missing or insufficiently attributed capabilities evaluate strictly to `UNKNOWN`.",
         "",
         "---",
@@ -39,9 +81,13 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         "",
         "| Metric | Value | Interpretation |",
         "| :--- | :---: | :--- |",
-        f"| **Role Capability Index (RCI)** | **{rci_display}** | Capability across observed technical dimensions |",
-        f"| **Evidence Coverage** | **{coverage_pct}%** | Percentage of job-critical capabilities backed by direct evidence |",
-        f"| **Evidence Status** | **{'INSUFFICIENT' if dossier.is_insufficient_evidence else 'ROBUST'}** | {'Coverage below threshold; focus interview on unobserved gaps' if dossier.is_insufficient_evidence else 'Sufficient empirical grounding observed'} |",
+        f"| **Observed Capability Index** | **{index_display}** | Based only on observed evidence |",
+        f"| **Role-Weighted Evidence Coverage** | **{coverage_pct}%** | Sufficiency threshold: {threshold_pct}% |",
+        f"| **Observed Role Dimensions** | **{index_context.observed_role_dimensions} / {index_context.total_role_dimensions}** | Dimensions with sufficient attributed evidence |",
+        f"| **Independent Source Clusters** | **{cluster_count_display}** | Unique clusters represented among observed dimensions |",
+        f"| **Mean Path Attribution Confidence** | **{attribution_display}** | Latest attribution per unique source path with available data |",
+        f"| **Evidence Status** | **{'INSUFFICIENT' if index_context.is_insufficient_evidence else 'SUFFICIENT'}** | {evidence_status_detail} |",
+        f"| **Standalone Presentation** | **{standalone_status}** | {standalone_detail} |",
         f"| **Target Role** | `{dossier.role.value}` | Normalized against canonical role ontology requirements |",
         "",
         "---",
@@ -167,7 +213,31 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         else datetime.now(timezone.utc).strftime("%B %d, %Y - %H:%M UTC")
     )
     coverage_pct = round(dossier.coverage * 100, 1)
-    rci_display = f"{dossier.rci:.1f}" if dossier.rci is not None else "UNKNOWN"
+    index_context = dossier.observed_index_context
+    index_display = (
+        f"{dossier.observed_capability_index:.1f}"
+        if dossier.observed_capability_index is not None
+        else "UNKNOWN"
+    )
+    threshold_pct = round(index_context.coverage_sufficiency_threshold * 100, 1)
+    cluster_count_display = (
+        str(index_context.unique_independent_source_cluster_count)
+        if index_context.unique_independent_source_cluster_count is not None
+        else "UNKNOWN"
+    )
+    attribution_display = (
+        f"{index_context.mean_path_attribution_confidence * 100:.1f}% "
+        f"(n={index_context.path_attribution_sample_count} unique paths)"
+        if index_context.mean_path_attribution_confidence is not None
+        else "UNKNOWN (n=0 unique paths)"
+    )
+    insufficient_detail = (
+        f"Role-weighted coverage is {coverage_pct}%, below the configured "
+        f"threshold of {threshold_pct}%."
+        if dossier.coverage < index_context.coverage_sufficiency_threshold
+        else f"Coverage is {coverage_pct}%, meeting the configured threshold of "
+        f"{threshold_pct}%, but the dossier is marked insufficient."
+    )
     role_title = dossier.role.value.replace("_", " ").title()
     cand_safe = html.escape(candidate_name)
 
@@ -730,11 +800,11 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
 
         <!-- Low Coverage Alert -->
         {
-        '<div class="alert-banner"><strong>Low Evidence Coverage Alert:</strong> Direct evidence coverage is below 30% ('
-        + str(coverage_pct)
-        + "%). The candidate capability index reflects only observed dimensions; prioritize technical interviews on unobserved gaps.</div>"
-        if (dossier.coverage < 0.30 or dossier.is_insufficient_evidence)
-        else ""
+        f'<div class="alert-banner"><strong>INSUFFICIENT EVIDENCE:</strong> {insufficient_detail} '
+        'Based only on observed evidence. Standalone presentation is not allowed; '
+        'prioritize technical interviews on unobserved gaps.</div>'
+        if index_context.is_insufficient_evidence
+        else '<div class="decision-support-note"><strong>Based only on observed evidence.</strong></div>'
     }
 
         <!-- Header Card -->
@@ -754,32 +824,37 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
             <!-- Scorecards -->
             <div class="metrics-grid">
                 <div class="metric-card">
-                    <div class="metric-label">Role Capability Index (RCI)</div>
+                    <div class="metric-label">Observed Capability Index</div>
                     <div class="metric-value">{
-        rci_display
+        index_display
     } <span style="font-size: 14px; color: var(--text-sub);">/ 100</span></div>
-                    <div class="metric-sub">Observed technical dimensions</div>
+                    <div class="metric-sub">Based only on observed evidence. {index_context.observed_role_dimensions} of {index_context.total_role_dimensions} role dimensions observed.</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Evidence Coverage</div>
+                    <div class="metric-label">Role-Weighted Evidence Coverage</div>
                     <div class="metric-value" style="color: {
-        "var(--accent-amber)" if dossier.coverage < 0.30 else "var(--accent-emerald)"
+        "var(--accent-amber)" if index_context.is_insufficient_evidence else "var(--accent-emerald)"
     };">{coverage_pct}%</div>
-                    <div class="metric-sub">Role requirement satisfaction</div>
+                    <div class="metric-sub">Configured sufficiency threshold: {threshold_pct}%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Empirical Status</div>
                     <div class="metric-value" style="font-size: 22px; color: {
         "var(--accent-amber)"
-        if dossier.is_insufficient_evidence
+        if index_context.is_insufficient_evidence
         else "var(--accent-emerald)"
     };">
                         {
-        "INSUFFICIENT" if dossier.is_insufficient_evidence else "ROBUST"
+        "INSUFFICIENT" if index_context.is_insufficient_evidence else "SUFFICIENT"
     }
                     </div>
                     <div class="metric-sub">Evidence threshold verification</div>
                 </div>
+            </div>
+            <div class="decision-support-note">
+                <strong>Evidence context:</strong> {cluster_count_display} independent source clusters;
+                mean path attribution confidence {attribution_display}.
+                {"Standalone presentation is not allowed below the configured coverage threshold." if not index_context.standalone_presentation_allowed else "The index is an observed-only decision-support measure."}
             </div>
         </div>
 

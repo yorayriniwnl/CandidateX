@@ -1,4 +1,4 @@
-"""Capability estimates, RCI, and Coverage API schemas."""
+"""Capability estimates, observed index, and coverage API schemas."""
 
 from uuid import UUID
 
@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 
 class ScoringOverviewResponse(BaseModel):
-    """Interviewer score summary combining RCI, Coverage, and capability details."""
+    """Interviewer score summary combining the legacy RCI field, coverage, and capability details."""
 
     analysis_run_id: UUID
     overall_score: AnalysisScore

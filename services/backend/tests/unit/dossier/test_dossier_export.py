@@ -124,7 +124,7 @@ def test_generate_markdown_brief_content(sample_dossier):
 
     assert "# Candidate Technical Intelligence Brief: Sarah Connor" in md
     assert "Decision Support Only" in md
-    assert "Role Capability Index (RCI)" in md
+    assert "Observed Capability Index" in md
     assert "88.5 / 100" in md
     assert "35.0%" in md
     assert "Backend Engineering" in md
@@ -147,6 +147,24 @@ def test_generate_html_brief_content(sample_dossier):
     assert "Backend Engineering" in html_doc
     assert "probe-card" in html_doc
     assert "Evaluation Guidance:" in html_doc
+
+
+def test_low_coverage_exports_label_index_as_observed_only(sample_dossier):
+    partial_dossier = sample_dossier.model_copy(
+        update={"coverage": 0.20, "is_insufficient_evidence": False}
+    )
+    assert partial_dossier.observed_index_context.is_insufficient_evidence is True
+    assert partial_dossier.observed_index_context.standalone_presentation_allowed is False
+
+    markdown = generate_markdown_brief(partial_dossier)
+    html_doc = generate_html_brief(partial_dossier)
+
+    for report in (markdown, html_doc):
+        assert "Observed Capability Index" in report
+        assert "Based only on observed evidence." in report
+        assert "standalone presentation is not allowed" in report.lower()
+        assert "35.0%" in report
+    assert "Role Capability Index (RCI)" not in markdown
 
 
 def test_dossier_export_api_endpoints(sample_dossier):
