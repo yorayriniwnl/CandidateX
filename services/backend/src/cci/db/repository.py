@@ -64,7 +64,7 @@ def save_user(
     organization_id: UUID,
     email: str,
     full_name: str,
-    hashed_password: str = "pbkdf2_sha256$insecure_dev_hash",
+    hashed_password: str,
     role: str = "interviewer",
     user_id: UUID | None = None,
 ) -> models.User:
