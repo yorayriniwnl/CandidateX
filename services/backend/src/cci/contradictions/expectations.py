@@ -26,7 +26,14 @@ _COMPARATORS = {
 _COMPARATOR_PATTERN = r"no less than|no more than|at least|at most|under|below|>=|<=|>|<"
 _REPOSITORY_PATTERN = re.compile(r"(?<![\w./-])([a-z0-9][a-z0-9-]{0,38})/([a-z0-9][a-z0-9_.-]{0,99})(?![\w./-])", re.I)
 _GITHUB_URL_PATTERN = re.compile(r"https://(?:www\.)?github\.com/[a-z0-9-]+/[a-z0-9_.-]+(?:/[^\s]*)?", re.I)
+_LABELED_REPOSITORY_PATTERN = re.compile(
+    r"\b(?:repo|repository|github)\s*[:=]\s*([a-z0-9][a-z0-9-]{0,38}/[a-z0-9][a-z0-9_.-]{0,99})(?![\w./-])", re.I,
+)
 _URL_PATTERN = re.compile(r"https://[^\s<>]+", re.I)
+_NEGATION_PATTERN = re.compile(
+    r"\b(?:not|never|without|cannot|can't|didn't|don't|doesn't|wasn't|weren't)\b|"
+    r"\bno\b(?!\s+(?:less|more)\s+than)", re.I,
+)
 _COVERAGE_PATTERN = re.compile(
     rf"(?<!\w)(?P<comparator>at least|no less than|>=|>)\s*"
     r"(?P<number>\d+(?:\.\d+)?)\s*%\s*"
@@ -118,7 +125,7 @@ def parse_observable_claim(
 ) -> list[ObservableClaimExpectation]:
     """Parse exactly one supported assertion; ambiguity remains unparsed."""
     normalized = _normalize(text)
-    if not normalized:
+    if not normalized or _NEGATION_PATTERN.search(normalized):
         return []
     try:
         scope = normalize_repository_scope(repository_scope) if repository_scope else None
@@ -171,17 +178,13 @@ def _project_repositories(text: str) -> set[str]:
     urls = _GITHUB_URL_PATTERN.findall(text)
     stripped = _GITHUB_URL_PATTERN.sub(" ", text)
     scopes = set()
-    bare_scopes = [
-        match.group(0) for match in _REPOSITORY_PATTERN.finditer(stripped)
-        if not re.search(r"\d+(?:\.\d+)?\s+$", stripped[:match.start()])
-    ]
-    for value in [url.rstrip(".,;") for url in urls] + bare_scopes:
+    labeled_scopes = _LABELED_REPOSITORY_PATTERN.findall(stripped)
+    for value in urls + labeled_scopes:
         try:
-            scope = normalize_repository_scope(value)
+            scope = normalize_repository_scope(value.rstrip(".,;"))
         except ValueError:
             continue
-        if scope not in {"req/s", "ops/s", "mb/s", "gb/s"}:
-            scopes.add(scope)
+        scopes.add(scope)
     return scopes
 
 
