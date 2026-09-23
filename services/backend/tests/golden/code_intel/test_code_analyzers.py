@@ -68,6 +68,14 @@ async def get_users(user=Depends(auth_dep)):
     support_texts = [e.raw_support_text for e in evidence]
     assert any("Dependency injection" in t or "auth_dep" in t for t in support_texts)
     assert any("HTTPException" in t for t in support_texts)
+    route_observations = [e for e in evidence if "API Route handler" in e.raw_support_text]
+    assert len(route_observations) == 1
+    assert route_observations[0].evidence_family_id is not None
+    assert route_observations[0].observation_type == "route:python_decorator"
+    dependency_imports = [
+        e for e in evidence if e.observation_type == "dependency:python_import"
+    ]
+    assert any(e.evidence_family_id is not None for e in dependency_imports)
 
 
 def test_dependency_manifest_analysis():
@@ -98,6 +106,8 @@ torch>=2.0.0
         assert e.source_family == SourceFamily.GITHUB
         assert e.source_locator == "https://github.com/alice/project"
         assert e.immutable_revision == "abcd1234"
+        assert e.evidence_family_id is not None
+        assert e.observation_type == "dependency:manifest"
 
 
 def test_polyglot_source_analysis():

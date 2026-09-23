@@ -3,6 +3,7 @@
 import re
 
 from cci.domain.contracts import EvidenceInput
+from cci.domain.evidence_families import build_evidence_family_identity
 from cci.domain.enums import CapabilityKey, SourceFamily
 
 
@@ -27,6 +28,31 @@ def analyze_typescript_javascript(
         )
         if route_match:
             router_obj, method, path = route_match.groups()
+            route_suffix = trimmed[route_match.end() :]
+            named_function = re.match(
+                r"\s*,\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)",
+                route_suffix,
+            )
+            handler_reference = re.match(
+                r"\s*,\s*([A-Za-z_$][\w$]*)\s*(?=,|\))",
+                route_suffix,
+            )
+            source_construct = (
+                named_function.group(1)
+                if named_function
+                else handler_reference.group(1)
+                if handler_reference
+                else "inline_handler"
+                if "=>" in route_suffix
+                else "route_registration"
+            )
+            identity = build_evidence_family_identity(
+                source_family=SourceFamily.GITHUB,
+                cluster_id=repo_url,
+                capability=CapabilityKey.BACKEND_ENGINEERING,
+                fact_domain="route",
+                subject=f"{method.upper()}|{path}|{source_construct}",
+            )
             evidence.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -39,6 +65,9 @@ def analyze_typescript_javascript(
                     is_positive_support=True,
                     raw_support_text=f"API Route handler in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
+                    evidence_family_id=identity.evidence_family_id,
+                    observation_type="route:typescript_registration",
+                    evidence_family_basis=identity.basis,
                 )
             )
 

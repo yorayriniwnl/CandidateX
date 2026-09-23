@@ -3,7 +3,12 @@
 import ast
 
 from cci.domain.contracts import EvidenceInput
+from cci.domain.evidence_families import (
+    build_evidence_family_identity,
+    normalize_family_subject,
+)
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.analyzers.code.dependencies import DEPENDENCY_CAPABILITY_MAP
 
 
 class PythonStructuralVisitor(ast.NodeVisitor):
@@ -31,6 +36,59 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         slice_end = min(start_line + max_lines, end_line)
         return "\n".join(self.source_lines[start_line:slice_end])
 
+    def _append_dependency_import(
+        self,
+        module_name: str,
+        node: ast.Import | ast.ImportFrom,
+    ) -> None:
+        """Emits a bounded observation for a recognized external dependency import."""
+        package_name = normalize_family_subject(
+            "dependency",
+            module_name.split(".", 1)[0],
+        )
+        capability = DEPENDENCY_CAPABILITY_MAP.get(package_name)
+        if capability is None:
+            return
+
+        identity = build_evidence_family_identity(
+            source_family=SourceFamily.GITHUB,
+            cluster_id=self.repo_url,
+            capability=capability,
+            fact_domain="dependency",
+            subject=package_name,
+        )
+        lineno = getattr(node, "lineno", 1)
+        self.evidence.append(
+            EvidenceInput(
+                source_family=SourceFamily.GITHUB,
+                source_locator=self.repo_url,
+                immutable_revision=self.commit_sha,
+                artifact_path=self.file_path,
+                symbol_or_line=f"Line {lineno}: import {module_name}",
+                target_capability=capability,
+                observed_score=55.0,
+                is_positive_support=True,
+                raw_support_text=(
+                    f"Python import of recognized dependency '{package_name}':\n"
+                    f"{self._get_snippet(node)}"
+                ),
+                extractor_version=self.extractor_version,
+                evidence_family_id=identity.evidence_family_id,
+                observation_type="dependency:python_import",
+                evidence_family_basis=identity.basis,
+            )
+        )
+
+    def visit_Import(self, node: ast.Import) -> None:
+        """Records recognized dependencies imported with an import statement."""
+        for imported in node.names:
+            self._append_dependency_import(imported.name, node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Records recognized dependencies imported with a from statement."""
+        if node.level == 0 and node.module:
+            self._append_dependency_import(node.module, node)
+
     def _is_route_decorator(self, decorator: ast.AST) -> str | None:
         """Checks if decorator is an API route (e.g., @app.get, @router.post, @app.route)."""
         if isinstance(decorator, ast.Call):
@@ -48,6 +106,21 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         elif isinstance(decorator, ast.Attribute):
             if decorator.attr.lower() in ("get", "post", "put", "delete", "patch"):
                 return decorator.attr.upper()
+        return None
+
+    def _route_decorator_path(self, decorator: ast.AST) -> str | None:
+        """Returns only literal route paths; dynamic paths use fallback identity."""
+        if not isinstance(decorator, ast.Call):
+            return None
+        for argument in decorator.args[:1]:
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                return argument.value
+        for keyword in decorator.keywords:
+            if keyword.arg in {"path", "rule"} and isinstance(
+                keyword.value, ast.Constant
+            ):
+                if isinstance(keyword.value.value, str):
+                    return keyword.value.value
         return None
 
     def _has_auth_param_or_decorator(
@@ -125,6 +198,18 @@ class PythonStructuralVisitor(ast.NodeVisitor):
         for d in node.decorator_list:
             http_method = self._is_route_decorator(d)
             if http_method:
+                route_path = self._route_decorator_path(d)
+                identity = (
+                    build_evidence_family_identity(
+                        source_family=SourceFamily.GITHUB,
+                        cluster_id=self.repo_url,
+                        capability=CapabilityKey.BACKEND_ENGINEERING,
+                        fact_domain="route",
+                        subject=f"{http_method}|{route_path}|{node.name}",
+                    )
+                    if route_path is not None
+                    else None
+                )
                 self.evidence.append(
                     EvidenceInput(
                         source_family=SourceFamily.GITHUB,
@@ -137,6 +222,13 @@ class PythonStructuralVisitor(ast.NodeVisitor):
                         is_positive_support=True,
                         raw_support_text=f"API Route handler '{node.name}' ({http_method}):\n{snippet}",
                         extractor_version=self.extractor_version,
+                        evidence_family_id=(
+                            identity.evidence_family_id if identity is not None else None
+                        ),
+                        observation_type="route:python_decorator",
+                        evidence_family_basis=(
+                            identity.basis if identity is not None else {}
+                        ),
                     )
                 )
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import defusedxml.ElementTree as ET
 import tomllib
 from cci.domain.contracts import EvidenceInput
+from cci.domain.evidence_families import build_evidence_family_identity
 from cci.domain.enums import CapabilityKey, SourceFamily
 
 DEPENDENCY_CAPABILITY_MAP: dict[str, CapabilityKey] = {
@@ -276,6 +277,13 @@ def dependencies_to_evidence(
                 break
 
         if target_cap:
+            identity = build_evidence_family_identity(
+                source_family=SourceFamily.GITHUB,
+                cluster_id=repo_url,
+                capability=target_cap,
+                fact_domain="dependency",
+                subject=dep.name,
+            )
             evidence_list.append(
                 EvidenceInput(
                     source_family=SourceFamily.GITHUB,
@@ -288,6 +296,9 @@ def dependencies_to_evidence(
                     is_positive_support=True,
                     raw_support_text=f"Declared dependency '{dep.name}' (version: {dep.version or 'unpinned'}) in {file_path}:\n{dep.raw_line}",
                     extractor_version=extractor_version,
+                    evidence_family_id=identity.evidence_family_id,
+                    observation_type="dependency:manifest",
+                    evidence_family_basis=identity.basis,
                 )
             )
 
