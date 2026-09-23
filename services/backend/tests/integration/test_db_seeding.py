@@ -59,6 +59,7 @@ def test_repository_organization_and_user_creation(memory_db):
         organization_id=org.id,
         email="interviewer@testcorp.com",
         full_name="Interviewer One",
+        hashed_password="!disabled-test-user!",
     )
     assert user.id is not None
     assert user.organization_id == org.id
@@ -69,6 +70,7 @@ def test_repository_organization_and_user_creation(memory_db):
         organization_id=org.id,
         email="interviewer@testcorp.com",
         full_name="Interviewer One",
+        hashed_password="!disabled-test-user!",
     )
     assert user_duplicate.id == user.id
 

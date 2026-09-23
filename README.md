@@ -21,7 +21,7 @@ Open `/analyze` (also the default `/` route). `/research-demo` is explicitly syn
 3. [Formal Mathematical Framework](#formal-mathematical-framework)
 4. [Research Experiments & Ablation Studies](#research-experiments--ablation-studies)
 5. [Quickstart & Local Development](#quickstart--local-development)
-6. [Docker Deployment](#docker-deployment)
+6. [Local Docker Integration Stack](#local-docker-integration-stack)
 7. [Verification & Test Matrix](#verification--test-matrix)
 
 ---
@@ -238,19 +238,22 @@ Open `http://localhost:3000` for the paper demonstration. The earlier `/workspac
 
 ---
 
-## Docker Deployment
+## Local Docker Integration Stack
 
-Legacy container configuration is provided in `docker-compose.yml`; it is not the verified research-demo startup path. Database drivers, migrations, service routing, and worker state require validation before deployment. The configuration includes security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
+The Compose stack is for local development and integration checks. It runs PostgreSQL 16, Redis 7, FastAPI, and the Next.js server. Host ports bind to `127.0.0.1`; the database password must be supplied through the ignored `.env` file. The backend runs in development mode. This stack is not a production deployment: the full `cci.main` API does not enforce user authentication or organization membership, so do not expose it to a network or use it for live hiring data.
 
-```bash
-# Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
-docker-compose up --build -d
+```powershell
+# Copy the local template, then set POSTGRES_PASSWORD to a unique URL-safe value.
+Copy-Item .env.example .env
 
-# Verify all services are responsive
-python scripts/smoke_test.py
+# Start PostgreSQL 16, Redis 7, FastAPI, and the web app on localhost.
+docker compose up --build -d
+
+# Verify local services are responsive.
+& services/backend/.venv/Scripts/python.exe scripts/smoke_test.py
 ```
 
-- Web Dashboard: `http://localhost:3000`
+- Web app: `http://localhost:3000`
 - FastAPI Documentation: `http://localhost:8000/docs`
 - Healthcheck Endpoint: `http://localhost:8000/health`
 
