@@ -24,12 +24,12 @@ import { AnimatedCounter } from '../ui/AnimatedCounter';
 import { GlassButton } from '../ui/GlassButton';
 
 const CANONICAL_CANDIDATE_LIST = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'Backend (Senior)' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', role: 'Frontend (Staff)' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ML Engineer (Senior)' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'DevOps / SRE (Staff)' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', role: 'Fullstack (Principal)' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'Backend (Discrepancy Demo)' },
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Example Candidate One', role: 'Backend (Senior)' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Example Candidate Two', role: 'Frontend (Staff)' },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Example Candidate Three', role: 'ML Engineer (Senior)' },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Example Candidate Four', role: 'DevOps / SRE (Staff)' },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'Example Candidate Five', role: 'Fullstack (Principal)' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'Example Candidate Six', role: 'Backend (Discrepancy Demo)' },
 ];
 
 export const DossierHeader: React.FC<{
@@ -37,7 +37,7 @@ export const DossierHeader: React.FC<{
   candidateName?: string;
   onOpenWeightsModal?: () => void;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ dossier, candidateName = 'Ayush Roy', onOpenWeightsModal, onSelectCandidate }) => {
+}> = ({ dossier, candidateName = 'Example Candidate One', onOpenWeightsModal, onSelectCandidate }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isCandidateMenuOpen, setIsCandidateMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
