@@ -2,48 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================================
-   CCI Design System — Deep Space Color Tokens
-   ============================================================ */
+/* CandidateX Evidence OS tokens. Status colors are reserved for their meaning. */
 :root {
-  /* Base surfaces */
-  --bg-primary: #030712;
-  --bg-elevated: #0a0f1e;
-  --bg-surface: rgba(255, 255, 255, 0.03);
-  --bg-surface-hover: rgba(255, 255, 255, 0.06);
-  --bg-surface-active: rgba(255, 255, 255, 0.08);
+  --background: #07090d;
+  --foreground: #f4f7fa;
+  --surface-1: #0c1016;
+  --surface-2: #10151d;
+  --surface-3: #151b23;
+  --border-default: #202833;
+  --border-strong: #303b47;
+  --text-primary: #f4f7fa;
+  --text-secondary: #9aa5b1;
+  --text-muted: #65717d;
+  --status-observed: #30d58a;
+  --status-incomplete: #f5b942;
+  --status-conflict: #ff5964;
+  --status-unknown: #738196;
+  --accent-role: #6c7cff;
 
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.10);
-  --border-active: rgba(99, 102, 241, 0.5);
-  --border-focus: rgba(99, 102, 241, 0.6);
-
-  /* Glow colors */
-  --glow-indigo: rgba(99, 102, 241, 0.15);
-  --glow-violet: rgba(139, 92, 246, 0.15);
-  --glow-cyan: rgba(34, 211, 238, 0.12);
-  --glow-emerald: rgba(52, 211, 153, 0.12);
-
-  /* Text hierarchy */
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  --text-accent: #a5b4fc;
-
-  /* Semantic colors */
-  --success: #34d399;
-  --success-muted: rgba(52, 211, 153, 0.15);
-  --warning: #fbbf24;
-  --warning-muted: rgba(251, 191, 36, 0.15);
-  --danger: #f87171;
-  --danger-muted: rgba(248, 113, 113, 0.15);
-  --info: #38bdf8;
-  --info-muted: rgba(56, 189, 248, 0.15);
-
-  /* Foreground/background compat */
-  --background: #030712;
-  --foreground: #f1f5f9;
+  /* Compatibility tokens used by the isolated research and prototype routes. */
+  --bg-primary: var(--background);
+  --bg-elevated: var(--surface-1);
+  --bg-surface: rgb(255 255 255 / 0.025);
+  --bg-surface-hover: rgb(255 255 255 / 0.05);
+  --bg-surface-active: rgb(255 255 255 / 0.07);
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-active: rgb(108 124 255 / 0.45);
+  --border-focus: rgb(108 124 255 / 0.65);
+  --glow-indigo: rgb(108 124 255 / 0.08);
+  --glow-violet: rgb(140 152 255 / 0.08);
+  --glow-cyan: rgb(48 213 138 / 0.05);
+  --glow-emerald: rgb(48 213 138 / 0.08);
+  --text-accent: #8c98ff;
+  --success: var(--status-observed);
+  --success-muted: rgb(48 213 138 / 0.1);
+  --warning: var(--status-incomplete);
+  --warning-muted: rgb(245 185 66 / 0.1);
+  --danger: var(--status-conflict);
+  --danger-muted: rgb(255 89 100 / 0.1);
+  --info: #8c98ff;
+  --info-muted: rgb(108 124 255 / 0.1);
 }
 
 /* ============================================================

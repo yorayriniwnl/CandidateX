@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { CapabilityKey, CanonicalRole } from '../../types/cci';
 import { demoRequest, label, SOURCES, type DemoInput, type DemoResult, type Scenario } from '../../lib/research-demo';
 
@@ -30,6 +30,7 @@ const number = (value: number | null, digits = 1) => value === null ? 'Unknown' 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 export default function ResearchDemonstration() {
+  const prefersReducedMotion = useReducedMotion();
   const [input, setInput] = useState<DemoInput>(INITIAL);
   const [result, setResult] = useState<DemoResult | null>(null);
   const [previous, setPrevious] = useState<DemoResult | null>(null);
@@ -90,12 +91,12 @@ export default function ResearchDemonstration() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#030712] text-slate-100 pb-16 font-sans">
-      <nav className="border-b border-white/[0.06] backdrop-blur-md bg-white/[0.02] flex justify-between items-center gap-5 px-6 py-4 text-sm mb-12 shadow-sm" aria-label="Research navigation">
+      <nav className="border-b border-white/[0.06] backdrop-blur-md bg-white/[0.02] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 text-sm mb-12 shadow-sm" aria-label="Research navigation">
         <div>
           <span className="tracking-tighter text-2xl font-extrabold mr-2">CandidateX</span> 
           <span className="font-mono text-indigo-400 uppercase tracking-widest text-xs hidden sm:inline">/ Research demonstration</span>
         </div>
-        <div className="flex gap-5">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs sm:gap-5 sm:text-sm">
           <a href="#method" className="text-indigo-200 hover:text-indigo-100">The method</a>
           <a href="#benchmarks" className="text-indigo-200 hover:text-indigo-100">Experiments</a>
           <Link href="/workspace" className="text-indigo-200 hover:text-indigo-100">Prototype workspace</Link>
@@ -166,7 +167,13 @@ export default function ResearchDemonstration() {
             
             <AnimatePresence mode="wait">
               {!result && (
-                <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                <motion.div
+                  key="empty"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReducedMotion ? undefined : { opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
+                >
                   <GlassCard className="min-h-[380px] flex flex-col justify-center p-8 md:p-12">
                     <div className="font-mono text-indigo-400 uppercase tracking-widest text-xs mb-4">02 / Observe the mechanism</div>
                     <h2 className="text-2xl font-bold mb-4">{busy ? 'Calculating the dossier…' : 'A score should have an explanation.'}</h2>
@@ -192,7 +199,14 @@ export default function ResearchDemonstration() {
               )}
 
               {result && dossier && (
-                <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6" ref={resultRef}>
+                <motion.div
+                  key="result"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.36, ease: [0.2, 0.7, 0.2, 1] }}
+                  className="flex flex-col gap-6"
+                  ref={resultRef}
+                >
                   <GlassCard glow="indigo">
                     <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
                       <div>
