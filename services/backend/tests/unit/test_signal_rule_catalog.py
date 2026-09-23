@@ -35,3 +35,32 @@ def test_database_and_documentation_rules_are_registered(rule_id):
         "signal_rule_id": rule_id,
         "signal_rule_version": "1.0.0",
     }
+
+
+@pytest.mark.parametrize("rule_id", [
+    "candidatex.deployment.live_service",
+    "candidatex.deployment.security_headers",
+    "candidatex.deployment.responsive_dom",
+    "candidatex.deployment.tls_certificate",
+    "candidatex.infra.dockerfile",
+    "candidatex.infra.docker_compose",
+    "candidatex.infra.ci_workflow",
+    "candidatex.infra.kubernetes_manifest",
+    "candidatex.infra.terraform_hcl",
+    "candidatex.testing.python_suite",
+    "candidatex.testing.python_fixtures",
+    "candidatex.testing.python_parameterized",
+    "candidatex.testing.python_mocks",
+    "candidatex.testing.python_property_based",
+    "candidatex.testing.python_regex_fallback",
+    "candidatex.testing.javascript_suite",
+    "candidatex.testing.javascript_lifecycle",
+    "candidatex.testing.javascript_mocks",
+    "candidatex.testing.javascript_supertest",
+    "candidatex.testing.go_suite",
+])
+def test_deployment_infrastructure_and_testing_rules_are_registered(rule_id):
+    assert signal_rule_fields(rule_id) == {
+        "signal_rule_id": rule_id,
+        "signal_rule_version": "1.0.0",
+    }

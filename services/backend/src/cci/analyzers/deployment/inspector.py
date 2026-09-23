@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 from cci.security.ssrf import SSRFSecurityError, safe_http_get
 
 EXTRACTOR_VERSION = "1.0.0"
@@ -159,13 +160,14 @@ def inspect_live_deployment(
 
     evidence.append(
         EvidenceInput(
+            **signal_rule_fields("candidatex.deployment.live_service"),
             source_family=SourceFamily.DEPLOYMENT,
             source_locator=deployment_url,
             immutable_revision=revision,
             artifact_path="live_deployment",
             symbol_or_line=f"HTTP {response.status_code}",
             target_capability=CapabilityKey.DEVOPS_CLOUD,
-            observed_score=82.0 if cdn_hints else 76.0,
+            technical_signal_strength=82.0 if cdn_hints else 76.0,
             is_positive_support=True,
             raw_support_text=f"Live operational web service verified at {deployment_url} (Status: {response.status_code}, {cdn_desc})",
             extractor_version=EXTRACTOR_VERSION,
@@ -187,13 +189,14 @@ def inspect_live_deployment(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.deployment.security_headers"),
                 source_family=SourceFamily.DEPLOYMENT,
                 source_locator=deployment_url,
                 immutable_revision=revision,
                 artifact_path="security_headers",
                 symbol_or_line=f"{sec_analysis['header_count']} Security Headers",
                 target_capability=CapabilityKey.SECURITY,
-                observed_score=sec_analysis["score"],
+                technical_signal_strength=sec_analysis["score"],
                 is_positive_support=True,
                 raw_support_text=f"Defensive HTTP security headers verified at {deployment_url}: {', '.join(sec_features)}",
                 extractor_version=EXTRACTOR_VERSION,
@@ -208,13 +211,14 @@ def inspect_live_deployment(
         if html_analysis["features"]:
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.deployment.responsive_dom"),
                     source_family=SourceFamily.DEPLOYMENT,
                     source_locator=deployment_url,
                     immutable_revision=revision,
                     artifact_path="html_dom",
                     symbol_or_line="Responsive DOM Layout",
                     target_capability=CapabilityKey.FRONTEND_ENGINEERING,
-                    observed_score=html_analysis["score"],
+                    technical_signal_strength=html_analysis["score"],
                     is_positive_support=True,
                     raw_support_text=f"Modern responsive web architecture verified at {deployment_url}: {'; '.join(html_analysis['features'])}",
                     extractor_version=EXTRACTOR_VERSION,
@@ -227,13 +231,14 @@ def inspect_live_deployment(
         if tls_info.get("is_valid"):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.deployment.tls_certificate"),
                     source_family=SourceFamily.DEPLOYMENT,
                     source_locator=deployment_url,
                     immutable_revision=revision,
                     artifact_path="tls_certificate",
                     symbol_or_line=f"TLS {tls_info.get('tls_version', 'v1.3')}",
                     target_capability=CapabilityKey.SECURITY,
-                    observed_score=84.0,
+                    technical_signal_strength=84.0,
                     is_positive_support=True,
                     raw_support_text=f"Valid production TLS certificate verified for {hostname} (Expires: {tls_info.get('notAfter')})",
                     extractor_version=EXTRACTOR_VERSION,

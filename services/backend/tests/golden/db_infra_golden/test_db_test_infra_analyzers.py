@@ -178,6 +178,16 @@ def test_mocking():
     hypo_ev = [e for e in evidence if "Hypothesis" in (e.symbol_or_line or "")]
     assert len(hypo_ev) == 1
     assert hypo_ev[0].observed_score == 92.0
+    assert {
+        ev.signal_rule_id: (ev.signal_rule_version, ev.technical_signal_strength)
+        for ev in evidence
+    } == {
+        "candidatex.testing.python_suite": ("1.0.0", 72.0),
+        "candidatex.testing.python_fixtures": ("1.0.0", 80.0),
+        "candidatex.testing.python_parameterized": ("1.0.0", 84.0),
+        "candidatex.testing.python_mocks": ("1.0.0", 85.0),
+        "candidatex.testing.python_property_based": ("1.0.0", 92.0),
+    }
 
 
 def test_polyglot_testing_analyzers():
@@ -194,6 +204,14 @@ describe('App', () => {
     )
     assert any(e.target_capability == CapabilityKey.TESTING_QUALITY for e in ts_ev)
     assert any("Supertest" in (e.symbol_or_line or "") for e in ts_ev)
+    assert {
+        ev.signal_rule_id: (ev.signal_rule_version, ev.technical_signal_strength)
+        for ev in ts_ev
+    } == {
+        "candidatex.testing.javascript_suite": ("1.0.0", 72.0),
+        "candidatex.testing.javascript_lifecycle": ("1.0.0", 78.0),
+        "candidatex.testing.javascript_supertest": ("1.0.0", 86.0),
+    }
 
     # Go table-driven
     go_test = """
@@ -212,6 +230,9 @@ func TestAdd(t *testing.T) {
     assert len(go_ev) > 0
     assert go_ev[0].target_capability == CapabilityKey.TESTING_QUALITY
     assert go_ev[0].observed_score >= 84.0  # Table-driven score
+    assert (go_ev[0].signal_rule_id, go_ev[0].signal_rule_version, go_ev[0].technical_signal_strength) == (
+        "candidatex.testing.go_suite", "1.0.0", 84.0
+    )
 
 
 def test_devops_and_infra_analyzers():
@@ -234,6 +255,9 @@ ENTRYPOINT ["/bin/app"]
     assert len(docker_ev) == 1
     assert docker_ev[0].target_capability == CapabilityKey.DEVOPS_CLOUD
     assert docker_ev[0].observed_score >= 88.0  # Multi-stage + nonroot + healthcheck
+    assert (docker_ev[0].signal_rule_id, docker_ev[0].signal_rule_version, docker_ev[0].technical_signal_strength) == (
+        "candidatex.infra.dockerfile", "1.0.0", min(72.0 + 12.0 + 6.0 + 4.0, 92.0)
+    )
 
     # Docker Compose
     compose = """
@@ -256,6 +280,9 @@ networks:
     assert len(compose_ev) == 1
     assert compose_ev[0].target_capability == CapabilityKey.DEVOPS_CLOUD
     assert compose_ev[0].observed_score >= 80.0
+    assert (compose_ev[0].signal_rule_id, compose_ev[0].signal_rule_version, compose_ev[0].technical_signal_strength) == (
+        "candidatex.infra.docker_compose", "1.0.0", min(74.0 + 5.0 + 5.0, 90.0)
+    )
 
     # CI Workflow
     ci = """
@@ -277,6 +304,9 @@ jobs:
     assert len(ci_ev) == 1
     assert ci_ev[0].target_capability == CapabilityKey.DEVOPS_CLOUD
     assert ci_ev[0].observed_score >= 88.0  # Matrix + cache + test
+    assert (ci_ev[0].signal_rule_id, ci_ev[0].signal_rule_version, ci_ev[0].technical_signal_strength) == (
+        "candidatex.infra.ci_workflow", "1.0.0", min(75.0 + 6.0 + 7.0 + 4.0, 94.0)
+    )
 
     # Kubernetes
     k8s = """
@@ -303,6 +333,9 @@ spec:
     assert len(k8s_ev) == 1
     assert k8s_ev[0].target_capability == CapabilityKey.DEVOPS_CLOUD
     assert k8s_ev[0].observed_score >= 88.0
+    assert (k8s_ev[0].signal_rule_id, k8s_ev[0].signal_rule_version, k8s_ev[0].technical_signal_strength) == (
+        "candidatex.infra.kubernetes_manifest", "1.0.0", min(80.0 + 7.0 + 5.0, 92.0)
+    )
 
     # Terraform
     tf = """
@@ -319,6 +352,54 @@ module "network" {
     assert len(tf_ev) == 1
     assert tf_ev[0].target_capability == CapabilityKey.DEVOPS_CLOUD
     assert tf_ev[0].observed_score >= 88.0
+    assert (tf_ev[0].signal_rule_id, tf_ev[0].signal_rule_version, tf_ev[0].technical_signal_strength) == (
+        "candidatex.infra.terraform_hcl", "1.0.0", min(82.0 + 4.0 + 5.0, 92.0)
+    )
+
+
+def test_testing_fallback_js_mock_and_go_score_branches():
+    fallback = analyze_python_test_file(
+        "def test_broken(:\n", "test_broken.py", "https://github.com/test", "sha1"
+    )[0]
+    assert (fallback.signal_rule_id, fallback.signal_rule_version, fallback.technical_signal_strength) == (
+        "candidatex.testing.python_regex_fallback", "1.0.0", 70.0
+    )
+
+    js_mock = analyze_js_ts_test_file(
+        "test('works', () => {}); jest.mock('dep');", "test.js", "https://github.com/test", "sha1"
+    )
+    assert {
+        ev.signal_rule_id: (ev.signal_rule_version, ev.technical_signal_strength)
+        for ev in js_mock
+    } == {
+        "candidatex.testing.javascript_suite": ("1.0.0", 72.0),
+        "candidatex.testing.javascript_mocks": ("1.0.0", 84.0),
+    }
+
+    for body, expected in (("", 74.0), ('t.Run("case", func(t *testing.T) {})', 80.0)):
+        go = analyze_go_test_file(
+            f"package p\nimport \"testing\"\nfunc TestThing(t *testing.T) {{ {body} }}",
+            "thing_test.go", "https://github.com/test", "sha1",
+        )[0]
+        assert (go.signal_rule_id, go.signal_rule_version, go.technical_signal_strength) == (
+            "candidatex.testing.go_suite", "1.0.0", expected
+        )
+
+
+def test_ci_score_cap_keeps_rule_identity():
+    ci = """jobs:
+  test:
+    strategy:
+      matrix:
+        python: ['3.11']
+    steps:
+      - uses: actions/cache@v3
+      - run: pytest && deploy
+"""
+    ev = analyze_ci_workflow(ci, "ci.yml", "https://github.com/test", "sha1")[0]
+    assert (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength) == (
+        "candidatex.infra.ci_workflow", "1.0.0", min(75.0 + 6.0 + 7.0 + 4.0 + 5.0, 94.0)
+    )
 
 
 def test_full_db_test_infra_operational_engine():

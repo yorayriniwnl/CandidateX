@@ -10,6 +10,7 @@ import re
 import yaml
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 EXTRACTOR_VERSION = "1.0.0"
 
@@ -57,13 +58,14 @@ def analyze_dockerfile(
 
     evidence.append(
         EvidenceInput(
+            **signal_rule_fields("candidatex.infra.dockerfile"),
             source_family=SourceFamily.GITHUB,
             source_locator=repo_url,
             immutable_revision=commit_sha,
             artifact_path=file_path,
             symbol_or_line=f"{file_path} ({'Multi-stage' if is_multistage else 'Single-stage'})",
             target_capability=CapabilityKey.DEVOPS_CLOUD,
-            observed_score=min(score, 92.0),
+            technical_signal_strength=min(score, 92.0),
             is_positive_support=True,
             raw_support_text=f"Container configuration in {file_path}: {'; '.join(features) if features else 'Standard container image definition'}",
             extractor_version=extractor_version,
@@ -117,13 +119,14 @@ def analyze_docker_compose(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.infra.docker_compose"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {service_count} services",
                 target_capability=CapabilityKey.DEVOPS_CLOUD,
-                observed_score=min(score, 90.0),
+                technical_signal_strength=min(score, 90.0),
                 is_positive_support=True,
                 raw_support_text=f"Docker Compose orchestration in {file_path}: {'; '.join(features)}",
                 extractor_version=extractor_version,
@@ -191,13 +194,14 @@ def analyze_ci_workflow(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.infra.ci_workflow"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: CI Pipeline",
                 target_capability=CapabilityKey.DEVOPS_CLOUD,
-                observed_score=min(score, 94.0),
+                technical_signal_strength=min(score, 94.0),
                 is_positive_support=True,
                 raw_support_text=f"Automated CI/CD workflow in {file_path} featuring: {'; '.join(features) if features else 'basic pipeline jobs'}",
                 extractor_version=extractor_version,
@@ -247,13 +251,14 @@ def analyze_kubernetes_manifest(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.infra.kubernetes_manifest"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(kinds)} K8s resources",
                 target_capability=CapabilityKey.DEVOPS_CLOUD,
-                observed_score=min(score, 92.0),
+                technical_signal_strength=min(score, 92.0),
                 is_positive_support=True,
                 raw_support_text=f"Kubernetes infrastructure manifests in {file_path}: {'; '.join(features)}",
                 extractor_version=extractor_version,
@@ -290,13 +295,14 @@ def analyze_terraform_hcl(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.infra.terraform_hcl"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Terraform IaC",
                 target_capability=CapabilityKey.DEVOPS_CLOUD,
-                observed_score=min(score, 92.0),
+                technical_signal_strength=min(score, 92.0),
                 is_positive_support=True,
                 raw_support_text=f"Declarative Terraform Infrastructure-as-Code in {file_path}: {'; '.join(features)}",
                 extractor_version=extractor_version,

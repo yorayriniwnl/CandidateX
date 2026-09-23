@@ -91,6 +91,33 @@ def test_inspect_live_deployment_with_mock():
         assert ev.immutable_revision == "live-2026"
         assert 0.0 <= ev.observed_score <= 100.0
 
+    assert {
+        ev.artifact_path: (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength)
+        for ev in evidence
+    } == {
+        "live_deployment": ("candidatex.deployment.live_service", "1.0.0", 82.0),
+        "security_headers": ("candidatex.deployment.security_headers", "1.0.0", 88.0),
+        "html_dom": ("candidatex.deployment.responsive_dom", "1.0.0", 85.0),
+    }
+
+
+def test_live_service_without_cdn_and_valid_tls(monkeypatch):
+    monkeypatch.setattr(
+        "cci.analyzers.deployment.inspector.inspect_tls_certificate",
+        lambda hostname: {"is_valid": True, "tls_version": "TLSv1.3", "notAfter": "later"},
+    )
+    evidence = inspect_live_deployment(
+        "https://example.com", commit_sha="sha1",
+        mock_response=httpx.Response(200, headers={"content-type": "text/plain"}, text="OK"),
+    )
+    assert {
+        ev.artifact_path: (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength)
+        for ev in evidence
+    } == {
+        "live_deployment": ("candidatex.deployment.live_service", "1.0.0", 76.0),
+        "tls_certificate": ("candidatex.deployment.tls_certificate", "1.0.0", 84.0),
+    }
+
 
 def test_inspect_live_deployment_failed_status():
     mock_resp = httpx.Response(

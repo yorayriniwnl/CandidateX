@@ -10,6 +10,7 @@ import re
 
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 EXTRACTOR_VERSION = "1.0.0"
 
@@ -74,13 +75,14 @@ def analyze_python_test_file(
         # A. Basic unit test suite presence
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_suite"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(test_funcs)} test cases",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=72.0,
+                technical_signal_strength=72.0,
                 is_positive_support=True,
                 raw_support_text=f"Python unit test suite containing {len(test_funcs)} test cases in {file_path}",
                 extractor_version=extractor_version,
@@ -91,13 +93,14 @@ def analyze_python_test_file(
     if fixtures:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_fixtures"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(fixtures)} fixtures",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=80.0,
+                technical_signal_strength=80.0,
                 is_positive_support=True,
                 raw_support_text=f"Structured test fixture architecture with {len(fixtures)} reusable fixtures in {file_path}",
                 extractor_version=extractor_version,
@@ -108,13 +111,14 @@ def analyze_python_test_file(
     if parameterized:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_parameterized"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: @pytest.mark.parametrize",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=84.0,
+                technical_signal_strength=84.0,
                 is_positive_support=True,
                 raw_support_text=f"Parameterized data-driven testing verified across {len(parameterized)} test functions in {file_path}",
                 extractor_version=extractor_version,
@@ -125,13 +129,14 @@ def analyze_python_test_file(
     if has_mocks or "unittest.mock" in content or "mocker." in content:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_mocks"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Mocking / Stubbing",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=85.0,
+                technical_signal_strength=85.0,
                 is_positive_support=True,
                 raw_support_text=f"Isolation of external dependencies and subsystem mocking verified in {file_path}",
                 extractor_version=extractor_version,
@@ -142,13 +147,14 @@ def analyze_python_test_file(
     if has_hypothesis:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_property_based"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Hypothesis Property Testing",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=92.0,
+                technical_signal_strength=92.0,
                 is_positive_support=True,
                 raw_support_text=f"Advanced property-based / generative testing using Hypothesis in {file_path}",
                 extractor_version=extractor_version,
@@ -171,13 +177,14 @@ def _regex_fallback_python_test(
     if test_funcs:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.python_regex_fallback"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(test_funcs)} test cases",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=70.0,
+                technical_signal_strength=70.0,
                 is_positive_support=True,
                 raw_support_text=f"Python test functions identified: {', '.join(test_funcs[:5])}",
                 extractor_version=extractor_version,
@@ -208,13 +215,14 @@ def analyze_js_ts_test_file(
     if it_tests:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.javascript_suite"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(it_tests)} test cases",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=72.0,
+                technical_signal_strength=72.0,
                 is_positive_support=True,
                 raw_support_text=f"TypeScript/JavaScript test cases ({len(it_tests)} specifications) in {file_path}",
                 extractor_version=extractor_version,
@@ -224,13 +232,14 @@ def analyze_js_ts_test_file(
     if has_lifecycle:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.javascript_lifecycle"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Test Lifecycle Hooks",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=78.0,
+                technical_signal_strength=78.0,
                 is_positive_support=True,
                 raw_support_text=f"Test suite setup/teardown lifecycle management (beforeEach/afterEach) in {file_path}",
                 extractor_version=extractor_version,
@@ -240,13 +249,14 @@ def analyze_js_ts_test_file(
     if has_mocks:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.javascript_mocks"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Jest/Vitest Mocks",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=84.0,
+                technical_signal_strength=84.0,
                 is_positive_support=True,
                 raw_support_text=f"Mocking and isolation of dependencies (jest.mock / vi.mock) in {file_path}",
                 extractor_version=extractor_version,
@@ -256,13 +266,14 @@ def analyze_js_ts_test_file(
     if has_supertest:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.javascript_supertest"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: Integration Supertest",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=86.0,
+                technical_signal_strength=86.0,
                 is_positive_support=True,
                 raw_support_text=f"End-to-end HTTP integration testing (Supertest) in {file_path}",
                 extractor_version=extractor_version,
@@ -302,13 +313,14 @@ def analyze_go_test_file(
         )
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.testing.go_suite"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(test_funcs)} test functions",
                 target_capability=CapabilityKey.TESTING_QUALITY,
-                observed_score=score,
+                technical_signal_strength=score,
                 is_positive_support=True,
                 raw_support_text=f"{desc} containing {len(test_funcs)} test functions: {', '.join(f[0] for f in test_funcs[:4])}",
                 extractor_version=extractor_version,
