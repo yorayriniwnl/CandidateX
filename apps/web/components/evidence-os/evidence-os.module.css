@@ -100,7 +100,7 @@
 
 .stepActions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px; }
 .muted { color: var(--muted-text); font-size: 11px; }
-.primaryButton, .secondaryButton { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 15px; padding: 0 14px; border: 1px solid var(--line-strong); font-size: 11px; font-weight: 590; text-decoration: none; cursor: pointer; transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease; }
+.primaryButton, .secondaryButton { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 15px; padding: 0 14px; border: 1px solid var(--line-strong); font-size: 11px; font-weight: 590; text-decoration: none; cursor: pointer; transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1); }
 .primaryButton { border-color: #e9eef2; background: #e9eef2; color: #090c10; }
 .primaryButton:hover:not(:disabled) { border-color: #cbd5dd; background: #cbd5dd; }
 .secondaryButton { background: transparent; color: #cbd3da; }
@@ -109,6 +109,8 @@
 .textButton { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: #c0cbd4; cursor: pointer; font-size: 10px; text-decoration: none; }
 .textButton:hover:not(:disabled), .inlineLink:hover { color: var(--ink); }
 .textButton:disabled { opacity: 0.5; cursor: default; }
+.primaryButton:hover:not(:disabled), .secondaryButton:hover:not(:disabled), .textButton:hover:not(:disabled) { transform: translateY(-1px); }
+.primaryButton:active:not(:disabled), .secondaryButton:active:not(:disabled), .textButton:active:not(:disabled) { transform: translateY(0) scale(0.985); }
 
 .errorBanner, .previousRunNotice { display: flex; gap: 11px; padding: 13px 15px; border-left: 2px solid var(--conflict); background: #171014; color: #f0b9be; font-size: 12px; line-height: 1.5; }
 .errorBanner { flex-direction: column; margin-bottom: 14px; }
@@ -208,12 +210,34 @@
 .sectionNav { display: flex; flex-direction: column; margin-top: 15px; }
 .sectionNav a { display: flex; gap: 10px; padding: 9px 7px; border-bottom: 1px solid #161e26; color: #8995a1; text-decoration: none; }
 .sectionNav a:hover { color: var(--ink); background: #0b1016; }
+.sectionNav a { transition: color 160ms ease, background-color 160ms ease, transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.sectionNav a:hover, .sectionNav a:focus-visible { transform: translateX(2px); }
 .navIndex { color: #56626f; font: 8px var(--font-mono), monospace; padding-top: 2px; }
 .sectionNav a > span:last-child { display: flex; flex-direction: column; gap: 3px; }
 .sectionNav strong { font-size: 10px; font-weight: 560; }
 .sectionNav small { color: #64717d; font-size: 8px; }
 .sectionNavHint { display: none; }
 .dossierContent { min-width: 0; }
+
+@keyframes cx-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pageHeading { animation: cx-enter 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.stepPanel { animation: cx-enter 360ms cubic-bezier(0.2, 0.7, 0.2, 1) 40ms both; }
+.dossierShell { animation: cx-enter 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.dossierToolbar { animation: cx-enter 340ms cubic-bezier(0.2, 0.7, 0.2, 1) 40ms both; }
+.dossierRail { animation: cx-enter 380ms cubic-bezier(0.2, 0.7, 0.2, 1) 80ms both; }
+.dossierContent > * { animation: cx-enter 360ms cubic-bezier(0.2, 0.7, 0.2, 1) 100ms both; }
+.dossierContent > :nth-child(2) { animation-delay: 140ms; }
+.dossierContent > :nth-child(3) { animation-delay: 180ms; }
+.dossierContent > :nth-child(4) { animation-delay: 220ms; }
+.dossierContent > :nth-child(5) { animation-delay: 260ms; }
+.dossierContent > :nth-child(6) { animation-delay: 300ms; }
+.dossierContent > :nth-child(7) { animation-delay: 340ms; }
+.dossierContent > :nth-child(8) { animation-delay: 380ms; }
+.dossierContent > :nth-child(n+9) { animation-delay: 420ms; }
 .overviewSection, .contentSection { scroll-margin-top: 82px; }
 .overviewSection { padding: 5px 0 34px; }
 .contentSection { padding: 40px 0 42px; border-top: 1px solid var(--line-strong); }
@@ -598,6 +622,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pageHeading, .stepPanel, .dossierShell, .dossierToolbar, .dossierRail, .dossierContent > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
   .runSpinner, .skeletonLine, .skeletonSectionTitle, .skeletonMetric, .skeletonCapabilityRow, .skeletonEvidenceRow { animation: none; border-top-color: var(--observed); }
-  .step, .primaryButton, .secondaryButton, .dropzone, .textButton { transition: none; }
+  .step, .primaryButton, .secondaryButton, .dropzone, .textButton, .sectionNav a { transition: none; }
+  .primaryButton:hover, .secondaryButton:hover, .textButton:hover,
+  .primaryButton:active, .secondaryButton:active, .textButton:active,
+  .sectionNav a:hover, .sectionNav a:focus-visible { transform: none; }
 }
