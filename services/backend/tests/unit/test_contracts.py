@@ -36,6 +36,7 @@ from cci.domain.contracts import (
     ScoringConfig,
     SourceReliabilitySnapshot,
 )
+from cci.api.contracts.analyses import AnalysisTriggerRequest
 
 
 def test_canonical_roles_exact_six():
@@ -224,10 +225,11 @@ def test_capability_estimate_observed_vs_missing():
 def test_scoring_config_defaults():
     """Validate versioned scoring configuration parameters."""
     config = ScoringConfig()
-    assert config.version == "4.0.0"
+    assert config.version == "5.0.0"
     assert config.temperature == 1.0
     assert config.low_coverage_threshold == 0.35
     assert config.cluster_artifact_decay == 0.5
+    assert config.evidence_family_decay == 0.5
     assert config.probe_alpha + config.probe_beta + config.probe_gamma == 1.0
     assert len(config.lambda_decay) == 12
     assert len(config.tau_saturation) == 12
@@ -236,6 +238,36 @@ def test_scoring_config_defaults():
 def test_cluster_artifact_decay_must_be_less_than_one():
     with pytest.raises(ValueError):
         ScoringConfig(cluster_artifact_decay=1.0)
+
+
+def test_evidence_family_decay_accepts_zero_but_rejects_one():
+    assert ScoringConfig(evidence_family_decay=0.0).evidence_family_decay == 0.0
+    with pytest.raises(ValidationError):
+        ScoringConfig(evidence_family_decay=1.0)
+
+
+def test_analysis_and_dossier_versions_default_to_scoring_v5():
+    request = AnalysisTriggerRequest(
+        candidate_id=uuid4(),
+        target_role=CanonicalRole.BACKEND,
+    )
+    dossier = Dossier(
+        candidate_id=uuid4(),
+        analysis_run_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        coverage=0.0,
+        is_insufficient_evidence=True,
+        capability_estimates={},
+        capability_conflicts={},
+        role_requirements=[],
+        ownership_assessments=[],
+        claims_corroboration=[],
+        interview_probes=[],
+        interview_questions=[],
+    )
+
+    assert request.scoring_config_version == "5.0.0"
+    assert dossier.versions["scoring_config_version"] == "5.0.0"
 
 
 def test_evidence_family_fields_default_for_existing_constructors():

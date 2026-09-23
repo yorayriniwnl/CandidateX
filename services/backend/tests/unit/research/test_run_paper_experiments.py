@@ -21,7 +21,7 @@ def test_quick_simulation_study(tmp_path: Path):
 
     assert "metadata" in results
     assert results["metadata"]["total_candidates"] == 2 * 2 * 5  # 20 candidates
-    assert results["metadata"]["scoring_config_version"] == "4.0.0"
+    assert results["metadata"]["scoring_config_version"] == "5.0.0"
     assert results["metadata"]["minimum_capability_coverage"] == 0.35
     assert results["metadata"]["cluster_artifact_decay"] == 0.5
     assert "ablation_summary" in results
@@ -48,11 +48,11 @@ def test_quick_simulation_study(tmp_path: Path):
     assert tex_file.exists()
     assert role_file.exists()
     assert json_file.exists()
-    assert "Scoring config 4.0.0" in md_file.read_text(encoding="utf-8")
+    assert "Scoring config 5.0.0" in md_file.read_text(encoding="utf-8")
     assert "coverage >= 0.35" in md_file.read_text(encoding="utf-8")
     assert "within-cluster artifact decay is 0.50" in md_file.read_text(encoding="utf-8")
     assert "UNKNOWN" in tex_file.read_text(encoding="utf-8")
-    assert "Scoring config 4.0.0" in role_file.read_text(encoding="utf-8")
+    assert "Scoring config 5.0.0" in role_file.read_text(encoding="utf-8")
     assert "artifact decay 0.5" in role_file.read_text(encoding="utf-8")
 
     # Verify JSON content
