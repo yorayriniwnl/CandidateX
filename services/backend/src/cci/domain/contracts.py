@@ -9,6 +9,7 @@ from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -31,6 +32,19 @@ from cci.domain.coverage_policy import (
     classify_evidence_state,
 )
 from cci.domain.evidence_families import normalize_source_cluster
+from cci.domain.signal_rules import SIGNAL_RULE_VERSIONS
+
+
+def _reject_conflicting_score_names(data: Any, legacy_name: str) -> Any:
+    if isinstance(data, dict):
+        canonical = data.get("technical_signal_strength")
+        legacy = data.get(legacy_name)
+        if canonical is not None and legacy is not None and canonical != legacy:
+            raise ValueError(
+                f"technical_signal_strength and {legacy_name} must match"
+            )
+    return data
+
 
 # ---------------------------------------------------------------------------
 # Scoring Configuration
@@ -288,9 +302,15 @@ class EvidenceInput(BaseModel):
     artifact_path: str | None = None
     symbol_or_line: str | None = None
     target_capability: CapabilityKey
-    observed_score: float = Field(
-        ..., ge=0.0, le=100.0, description="Technical support rating z_e,k in [0, 100]"
+    technical_signal_strength: float = Field(
+        ...,
+        ge=0.0,
+        le=100.0,
+        validation_alias=AliasChoices("technical_signal_strength", "observed_score"),
+        description="Heuristic technical signal strength in [0, 100]",
     )
+    signal_rule_id: str | None = None
+    signal_rule_version: str | None = None
     is_positive_support: bool = Field(
         default=True,
         description="True for positive support P, False for negative support N",
@@ -319,6 +339,26 @@ class EvidenceInput(BaseModel):
         description="Semantic identity basis retained in evidence provenance",
     )
     observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_conflicting_score_names(cls, data: Any) -> Any:
+        return _reject_conflicting_score_names(data, "observed_score")
+
+    @model_validator(mode="after")
+    def validate_signal_rule(self):
+        if self.signal_rule_id is None and self.signal_rule_version is None:
+            return self
+        if self.signal_rule_id is None or self.signal_rule_version is None:
+            raise ValueError("Signal rule ID and version must be supplied together")
+        if SIGNAL_RULE_VERSIONS.get(self.signal_rule_id) != self.signal_rule_version:
+            raise ValueError("Signal rule ID and version must match the registry")
+        return self
+
+    @property
+    def observed_score(self) -> float:
+        """Compatibility accessor for pre-Fix-11 analyzer consumers."""
+        return self.technical_signal_strength
 
 
 class RepositoryAssociation(BaseModel):
@@ -423,7 +463,13 @@ class EvidenceRecord(BaseModel):
     immutable_revision: str
     artifact_id: UUID | None = None
     target_capability: CapabilityKey
-    support_score: float = Field(..., ge=0.0, le=100.0, description="z_e,k in [0, 100]")
+    technical_signal_strength: float = Field(
+        ...,
+        ge=0.0,
+        le=100.0,
+        validation_alias=AliasChoices("technical_signal_strength", "support_score"),
+        description="Heuristic technical signal strength in [0, 100]",
+    )
     is_positive_support: bool = True
     confidence_factors: EvidenceConfidenceFactors
     confidence: float = Field(..., ge=0.0, le=1.0, description="Computed c_e,k")
@@ -453,6 +499,34 @@ class EvidenceRecord(BaseModel):
         default_factory=dict, description="File, line, commit, and inspection metadata"
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_provenance(cls, data: Any) -> Any:
+        data = _reject_conflicting_score_names(data, "support_score")
+        if isinstance(data, dict):
+            provenance = data.get("provenance")
+            if provenance is None:
+                provenance = {}
+            if isinstance(provenance, dict) and not (
+                provenance.get("signal_rule_id")
+                and provenance.get("signal_rule_version")
+            ):
+                data = {
+                    **data,
+                    "provenance": {
+                        **provenance,
+                        "signal_rule_id": "legacy_unknown",
+                        "signal_rule_version": "legacy_unknown",
+                    },
+                }
+        return data
+
+    @computed_field(deprecated=True)
+    @property
+    def support_score(self) -> float:
+        """Deprecated compatibility value for stored rows and API clients."""
+        return self.technical_signal_strength
 
 
 # ---------------------------------------------------------------------------

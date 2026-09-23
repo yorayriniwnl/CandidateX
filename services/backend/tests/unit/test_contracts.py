@@ -346,6 +346,78 @@ def test_evidence_family_contracts_reject_values_outside_storage_limits():
     with pytest.raises(ValidationError):
         EvidenceInput(**base, evidence_family_id="ef1:" + "a" * 65)
 
+    input_values = {key: value for key, value in base.items() if key != "observed_score"}
+    assert (
+        EvidenceInput(**input_values, technical_signal_strength=55.0).observed_score
+        == 55.0
+    )
+    assert (
+        EvidenceInput(**input_values, observed_score=55.0).technical_signal_strength
+        == 55.0
+    )
+    with pytest.raises(ValidationError):
+        EvidenceInput(
+            **input_values, technical_signal_strength=55.0, observed_score=56.0
+        )
+
+
+def test_evidence_input_signal_rule_pair_must_match_registry():
+    base = {
+        "source_family": SourceFamily.GITHUB,
+        "source_locator": "https://github.com/acme/api",
+        "immutable_revision": "a" * 40,
+        "target_capability": CapabilityKey.BACKEND_ENGINEERING,
+        "technical_signal_strength": 55.0,
+        "raw_support_text": "async function",
+        "extractor_version": "test-v1",
+    }
+    rule_id = "candidatex.code.python.async_function"
+    valid = EvidenceInput(
+        **base, signal_rule_id=rule_id, signal_rule_version="1.0.0"
+    )
+    assert valid.signal_rule_id == rule_id
+    for extra in (
+        {"signal_rule_id": rule_id},
+        {"signal_rule_version": "1.0.0"},
+        {"signal_rule_id": rule_id, "signal_rule_version": "2.0.0"},
+    ):
+        with pytest.raises(ValidationError):
+            EvidenceInput(**base, **extra)
+
+
+def test_evidence_record_score_aliases_and_legacy_provenance():
+    base = {
+        "fingerprint": "a" * 64,
+        "source_family": SourceFamily.GITHUB,
+        "source_locator": "https://github.com/acme/api",
+        "immutable_revision": "a" * 40,
+        "target_capability": CapabilityKey.BACKEND_ENGINEERING,
+        "confidence_factors": EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        "confidence": 1.0,
+        "provenance": {"file": "api.py"},
+    }
+    for score_key in ("technical_signal_strength", "support_score"):
+        record = EvidenceRecord(**base, **{score_key: 55.0})
+        serialized = record.model_dump(mode="json")
+        assert serialized["technical_signal_strength"] == 55.0
+        assert serialized["support_score"] == 55.0
+        assert serialized["provenance"] == {
+            "file": "api.py",
+            "signal_rule_id": "legacy_unknown",
+            "signal_rule_version": "legacy_unknown",
+        }
+    with pytest.raises(ValidationError):
+        EvidenceRecord(**base, technical_signal_strength=55.0, support_score=56.0)
+    schema = EvidenceRecord.model_json_schema(mode="serialization")
+    assert schema["properties"]["support_score"]["deprecated"] is True
+
 
 def test_evidence_detail_response_serializes_family_and_scope_metadata():
     record = EvidenceRecord(
