@@ -13,6 +13,8 @@ This review covered the merged backend-hardening and Evidence OS branches, backe
 
 The pushed Evidence OS tip `a456eb8ff24f5d762fc6be22bb53b254ccce0794` is included in the reviewed merge. The pushed backend-hardening tip `4c012cf9f884b21cd930f5f4ce8ca721a10fbd87` adds only `docs/superpowers/specs/2026-09-23-negative-evidence-design.md` on top of backend code commit `b3b1ead1a8c5c80be9543266d831b91f52c923b4`, which is already included in the reviewed merge. It does not change the audited backend implementation. Any unpublished backend-task changes are outside this review and need a follow-up audit if pushed.
 
+The shared checkout is on a separate `main` line at `aebee8e3b39ff4dab10663a7f3f3c98f474623b9` and has modified and untracked files. It contains a local demo-fixture privacy commit and additional frontend, Compose, and settings changes, but neither that commit nor those working-tree changes are included in this pushed integration branch. This report's verdict applies to `codex/candidatex-saas-readiness`; reconcile and verify the separate checkout before treating it as the release candidate.
+
 ## Verification completed
 
 - Backend test suite: full suite passed.
