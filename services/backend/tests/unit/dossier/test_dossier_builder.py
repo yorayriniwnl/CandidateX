@@ -26,6 +26,14 @@ from cci.main import app
 client = TestClient(app)
 
 
+def test_openapi_marks_support_score_compatibility_field_deprecated():
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    evidence_schema = response.json()["components"]["schemas"]["EvidenceRecord"]["properties"]
+    assert evidence_schema["technical_signal_strength"]["type"] == "number"
+    assert evidence_schema["support_score"]["deprecated"] is True
+
+
 def _mock_dossier_fixtures():
     cand_id = uuid4()
     run_id = uuid4()
@@ -331,6 +339,10 @@ def test_dossier_api_endpoints():
     assert "dossier" in data
     assert data["dossier"]["role"] == "backend"
     assert data["dossier"]["rci"] == 85.0
+    evidence_json = data["dossier"]["evidence_records"][0]
+    assert evidence_json["technical_signal_strength"] == evidence_json["support_score"] == 85.0
+    assert evidence_json["provenance"]["signal_rule_id"] == "legacy_unknown"
+    assert evidence_json["provenance"]["signal_rule_version"] == "legacy_unknown"
     assert data["dossier"]["observed_capability_index"] == 85.0
     assert (
         data["dossier"]["observed_index_context"]["metric_label"]
