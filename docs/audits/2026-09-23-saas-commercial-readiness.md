@@ -66,6 +66,12 @@ The Compose file labels itself a development/integration stack; these are releas
 
 **Impact:** establish a production-only configuration with strong secret management, least-privilege network exposure, explicit allowed origins, suitable browser security headers, and tested operational recovery before launch.
 
+### High: public analysis compute has no per-user throttling or tenant quotas
+
+The public live and demo routes cap individual payload sizes and request timeouts, but I found no application-level per-user or per-IP rate limiter, tenant usage quota, or request-concurrency policy in the backend or Next API handlers. The GitHub client handles upstream provider rate limits only.
+
+**Impact:** unauthenticated callers can repeatedly consume analysis and network capacity. Add edge/API throttling, concurrency limits, per-tenant quotas, cost monitoring, and burst tests before exposing the endpoints to company traffic.
+
 ### High: Python dependencies are not locked or included in the vulnerability audit
 
 The frontend has a pnpm lockfile and its production dependency audit found no known advisories. The Python runtime dependencies in services/backend/pyproject.toml use minimum-version ranges and the repository has no Python lockfile or Python advisory scan in the verified release workflow.
