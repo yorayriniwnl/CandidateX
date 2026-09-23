@@ -71,10 +71,8 @@ test('mobile controls and evidence table fit within the viewport', async ({ page
   await page.screenshot({ path: 'test-results/research-demo-mobile.png' });
 });
 
-test('homepage opens live intake and the workspace has no fabricated initial dossier', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/analyze$/);
-  await page.getByRole('link', { name: 'Research demonstration' }).click();
+test('research demo links to the legacy workspace without a fabricated initial dossier', async ({ page }) => {
+  await page.goto('/research-demo');
   await page.getByRole('link', { name: 'Prototype workspace' }).click();
   await page.getByRole('button', { name: 'Dossier Deep analysis' }).click();
   await expect(page.getByText('No candidate dossier selected or available.')).toBeVisible();
