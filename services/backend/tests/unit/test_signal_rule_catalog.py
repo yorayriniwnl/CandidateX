@@ -32,7 +32,7 @@ def _catalog_rows():
 
 def test_catalog_has_one_complete_row_per_registered_rule():
     rows = _catalog_rows()
-    assert len(rows) == 52
+    assert len(rows) == 56
     assert set(rows) == set(SIGNAL_RULE_VERSIONS)
     assert all(all(cells) for cells in rows.values())
     assert all(cells[1].strip("`") == SIGNAL_RULE_VERSIONS[rule_id] for rule_id, cells in rows.items())
@@ -92,7 +92,49 @@ def test_each_analyzer_emission_expands_one_registered_rule_mapping():
             emitted.append(mapping.args[0].value)
 
     assert len(emitted) == 52
-    assert Counter(emitted) == Counter({rule_id: 1 for rule_id in SIGNAL_RULE_VERSIONS})
+    analyzer_rules = {
+        rule_id for rule_id in SIGNAL_RULE_VERSIONS
+        if not rule_id.startswith("candidatex.contradiction.")
+    }
+    assert Counter(emitted) == Counter({rule_id: 1 for rule_id in analyzer_rules})
+
+
+def test_contradiction_rules_are_registered_with_catalog_strengths():
+    expected_strengths = {
+        "candidatex.contradiction.coverage_below_claim": "`70.0`",
+        "candidatex.contradiction.framework_usage_absent": "`55.0`",
+        "candidatex.contradiction.deployment_project_mismatch": "`85.0`",
+        "candidatex.contradiction.performance_claim_mismatch": "`70.0`",
+    }
+    rows = _catalog_rows()
+    for rule_id, strength in expected_strengths.items():
+        assert signal_rule_fields(rule_id) == {
+            "signal_rule_id": rule_id,
+            "signal_rule_version": "1.0.0",
+        }
+        assert rows[rule_id][4] == strength
+
+
+def test_each_contradiction_evaluator_uses_registered_rule_helper():
+    candidate_module = BACKEND_ROOT / "src/cci/contradictions/candidates.py"
+    if not candidate_module.exists():
+        pytest.skip("Contradiction evaluators are introduced in Task 4")
+    tree = ast.parse(candidate_module.read_text(encoding="utf-8"), filename=str(candidate_module))
+    helper_rule_ids = {
+        node.args[0].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "signal_rule_fields"
+        and len(node.args) == 1
+        and isinstance(node.args[0], ast.Constant)
+    }
+    assert helper_rule_ids == {
+        "candidatex.contradiction.coverage_below_claim",
+        "candidatex.contradiction.framework_usage_absent",
+        "candidatex.contradiction.deployment_project_mismatch",
+        "candidatex.contradiction.performance_claim_mismatch",
+    }
 
 
 def test_contract_describes_observed_index_as_evidence_summary():

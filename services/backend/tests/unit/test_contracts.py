@@ -460,3 +460,168 @@ def test_evidence_detail_response_serializes_family_and_scope_metadata():
     assert serialized["observation_type"] == "route:python_decorator"
     assert serialized["cluster_id"] == "https://github.com/acme/api"
     assert serialized["artifact_id"] == str(record.artifact_id)
+
+
+def _negative_details(scope_kind="artifact", **scope_overrides):
+    scope = {
+        "scope_kind": scope_kind,
+        "repository_scope": "acme/api",
+        "pinned_revision": "a" * 40,
+        "artifact_paths": ["coverage.xml"],
+        "category": "coverage_report",
+        "scope_version": "candidatex.negative-scan-scope/1.0.0",
+    }
+    scope.update(scope_overrides)
+    return {
+        "claim_reference": "cr1:" + "b" * 64,
+        "candidate_type": "candidatex.contradiction.coverage_below_claim",
+        "expected_observation": "At least 95% line coverage",
+        "actual_observation": "Pinned coverage.xml reports 71% line coverage",
+        "scan_scope": scope,
+        "required_scan_completeness": 1.0,
+        "observed_scan_completeness": 1.0,
+        "explanation": "The pinned report states 71%, below the claimed 95%.",
+    }
+
+
+def _negative_input_base():
+    return {
+        "source_family": SourceFamily.GITHUB,
+        "source_locator": "https://github.com/acme/api",
+        "immutable_revision": "a" * 40,
+        "target_capability": CapabilityKey.TESTING_QUALITY,
+        "technical_signal_strength": 70.0,
+        "raw_support_text": "coverage.xml line-rate=0.71",
+        "extractor_version": "contradiction-v1",
+    }
+
+
+def _negative_record_base():
+    return {
+        "fingerprint": "a" * 64,
+        "source_family": SourceFamily.GITHUB,
+        "source_locator": "https://github.com/acme/api",
+        "immutable_revision": "a" * 40,
+        "target_capability": CapabilityKey.TESTING_QUALITY,
+        "technical_signal_strength": 70.0,
+        "confidence_factors": EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        "confidence": 1.0,
+        "is_positive_support": False,
+    }
+
+
+def test_new_negative_evidence_requires_details():
+    with pytest.raises(ValidationError, match="negative evidence"):
+        EvidenceInput(**_negative_input_base(), is_positive_support=False)
+
+
+def test_qualified_negative_input_requires_matching_registered_rule():
+    details = _negative_details()
+    base = _negative_input_base()
+    with pytest.raises(ValidationError):
+        EvidenceInput(**base, is_positive_support=False, negative_evidence_details=details)
+    with pytest.raises(ValidationError):
+        EvidenceInput(
+            **base,
+            is_positive_support=False,
+            negative_evidence_details=details,
+            signal_rule_id="candidatex.contradiction.framework_usage_absent",
+            signal_rule_version="1.0.0",
+        )
+    qualified = EvidenceInput(
+        **base,
+        is_positive_support=False,
+        negative_evidence_details=details,
+        signal_rule_id=details["candidate_type"],
+        signal_rule_version="1.0.0",
+    )
+    assert qualified.model_dump(mode="json")["negative_evidence_qualification"] == "qualified"
+
+
+def test_negative_detail_scope_is_strict_and_synthetic_scope_is_not_production():
+    base = _negative_input_base()
+    rule_id = "candidatex.contradiction.coverage_below_claim"
+    for details in (
+        _negative_details(extra_scope_field=True),
+        _negative_details(scope_kind="synthetic"),
+        {**_negative_details(), "observed_scan_completeness": 1.1},
+    ):
+        with pytest.raises(ValidationError):
+            EvidenceInput(
+                **base,
+                is_positive_support=False,
+                negative_evidence_details=details,
+                signal_rule_id=rule_id,
+                signal_rule_version="1.0.0",
+            )
+    with pytest.raises(ValidationError):
+        EvidenceInput(**base, negative_evidence_details=_negative_details())
+
+
+def test_historical_negative_record_loads_as_legacy_unqualified():
+    record = EvidenceRecord(**_negative_record_base())
+    assert record.negative_evidence_details is None
+    assert record.negative_evidence_qualification == "legacy_unqualified"
+    assert record.model_dump(mode="json")["negative_evidence_qualification"] == "legacy_unqualified"
+
+
+def test_positive_record_serializes_null_negative_qualification():
+    record = EvidenceRecord(**{**_negative_record_base(), "is_positive_support": True})
+    assert record.model_dump(mode="json")["negative_evidence_qualification"] is None
+    with pytest.raises(ValidationError):
+        EvidenceRecord(
+            **{**_negative_record_base(), "is_positive_support": True},
+            negative_evidence_details=_negative_details(),
+        )
+
+
+def test_positive_input_serialization_preserves_legacy_fingerprint_payload():
+    serialized = EvidenceInput(**_negative_input_base()).model_dump(
+        mode="json", exclude={"observed_at", "signal_rule_id", "signal_rule_version"}
+    )
+    assert "negative_evidence_details" not in serialized
+    assert "negative_evidence_qualification" not in serialized
+
+
+def test_synthetic_negative_record_requires_synthetic_provenance():
+    details = _negative_details(
+        scope_kind="synthetic", repository_scope=None,
+        pinned_revision=None, artifact_paths=[], category=None,
+    )
+    record = EvidenceRecord(
+        **_negative_record_base(),
+        negative_evidence_details=details,
+        provenance={"synthetic": True},
+    )
+    assert record.negative_evidence_qualification == "qualified"
+    assert record.provenance["synthetic"] is True
+    with pytest.raises(ValidationError):
+        EvidenceRecord(
+            **_negative_record_base(),
+            negative_evidence_details=details,
+            provenance={},
+        )
+
+
+def test_production_qualified_record_requires_matching_rule_provenance():
+    details = _negative_details()
+    for provenance in ({}, {"signal_rule_id": "candidatex.code.python.async_function", "signal_rule_version": "1.0.0"}):
+        with pytest.raises(ValidationError):
+            EvidenceRecord(
+                **_negative_record_base(),
+                negative_evidence_details=details,
+                provenance=provenance,
+            )
+    record = EvidenceRecord(
+        **_negative_record_base(),
+        negative_evidence_details=details,
+        provenance={"signal_rule_id": details["candidate_type"], "signal_rule_version": "1.0.0"},
+    )
+    assert record.model_dump(mode="json")["negative_evidence_details"]["claim_reference"] == details["claim_reference"]

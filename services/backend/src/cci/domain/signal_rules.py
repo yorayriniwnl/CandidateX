@@ -55,6 +55,10 @@ SIGNAL_RULE_VERSIONS: dict[str, str] = {
         "candidatex.testing.javascript_mocks",
         "candidatex.testing.javascript_supertest",
         "candidatex.testing.go_suite",
+        "candidatex.contradiction.coverage_below_claim",
+        "candidatex.contradiction.framework_usage_absent",
+        "candidatex.contradiction.deployment_project_mismatch",
+        "candidatex.contradiction.performance_claim_mismatch",
     )
 }
 
