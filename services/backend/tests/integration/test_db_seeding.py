@@ -193,9 +193,33 @@ def test_evidence_immutability_in_repository(memory_db):
         memory_db.commit()
 
 
-def test_database_seeder_script_execution():
-    """Validates that scripts/seed_db.py executes cleanly without errors."""
+def test_database_seeder_uses_synthetic_candidate_data(tmp_path):
+    """Seeded candidate and recruiter data uses reserved, non-resolving contacts and links."""
     from scripts.seed_db import seed_database
-    test_db_file = "sqlite:///:memory:"
-    # Run seed_database with 2 sample cohorts in-memory
-    seed_database(db_url=test_db_file, reset=False, samples_count=2)
+    from urllib.parse import urlparse
+
+    test_db_file = f"sqlite:///{(tmp_path / 'seed.sqlite').as_posix()}"
+    seed_database(db_url=test_db_file, reset=False, samples_count=6)
+
+    engine = create_engine(test_db_file)
+    Session = sessionmaker(bind=engine)
+    with Session() as session:
+        candidates = session.query(models.Candidate).all()
+        recruiters = session.query(models.User).all()
+        sources = session.query(models.CandidateSource).all()
+
+        assert len(candidates) == 6
+        assert all(candidate.display_name.startswith("Demo Candidate ") for candidate in candidates)
+        assert all(candidate.primary_email.endswith("@example.invalid") for candidate in candidates)
+        assert all(
+            urlparse(url).hostname == "github.invalid"
+            for candidate in candidates
+            for url in candidate.manifest_data["github_urls"]
+        )
+        assert recruiters
+        assert all(recruiter.full_name.startswith("Demo Recruiter ") for recruiter in recruiters)
+        assert all(recruiter.email.endswith("@example.invalid") for recruiter in recruiters)
+        assert sources
+        assert all(urlparse(source.source_url).hostname == "github.invalid" for source in sources)
+
+    engine.dispose()

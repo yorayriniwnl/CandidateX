@@ -1,7 +1,8 @@
-# Tariq Mansour
+Demo Candidate 04 - DevOps
+> Synthetic demo data for product illustration only. Not a real candidate or employer; source links use reserved .invalid domains.
 Staff Site Reliability & Cloud Infrastructure Engineer
-Email: tariq.mansour@example.com | GitHub: https://github.com/tmansour-infra
-Portfolio: https://tmansour.cloud | Location: Austin, TX
+Email: candidate-04@example.invalid | GitHub: https://github.invalid/demo-candidate-04
+Portfolio: https://portfolio.invalid/demo-candidate-04 | Location: Example City
 
 ## Summary
 Staff Site Reliability & Platform Engineer with 8+ years building mission-critical cloud infrastructure,
@@ -19,29 +20,29 @@ and chaos engineering. Maintainer of open-source Terraform security linting and 
 
 ## Open Source & Key Projects
 1. Terraform Security & Blast-Radius Policy Enforcer
-   Repository: https://github.com/tmansour-infra/tf-blast-guard
+   Repository: https://github.invalid/demo-candidate-04/tf-blast-guard
    - Static analysis tool evaluating Terraform plan files against OPA Rego policies to prevent catastrophic drops.
    - Comprehensive test suite in Go testing simulated deletion of RDS clusters and VPC route tables.
    - Used in production across 80+ enterprise engineering organizations.
 
 2. Multi-Region Kubernetes Automated Failover Operator
-   Repository: https://github.com/tmansour-infra/k8s-region-failover
+   Repository: https://github.invalid/demo-candidate-04/k8s-region-failover
    - Kubernetes controller managing DNS failover and state replication sync between US-East and EU-Central.
    - Automated health checks triggering Route53 health checks and active-passive failover in <45 seconds.
 
 3. Observability Baseline Module for EKS
-   Repository: https://github.com/tmansour-infra/eks-telemetry-stack
+   Repository: https://github.invalid/demo-candidate-04/eks-telemetry-stack
    - Reusable Helm chart and Terraform module deploying OpenTelemetry Collector, Prometheus, and Grafana.
    - Pre-configured golden signals (latency, traffic, errors, saturation) dashboards and PagerDuty alert rules.
 
 ## Professional Experience
 
-Staff Platform & SRE Engineer | Velocity Cloud (2021 - Present)
+Staff Platform & SRE Engineer | Example Cloud Operations (2021 - Present)
 - Led platform engineering team managing 45 production Kubernetes clusters across 4 cloud regions.
 - Architected zero-trust service mesh with Cilium eBPF, eliminating sidecar proxy CPU overhead by 22%.
 - Improved platform uptime from 99.91% to 99.995% through automated Canary rollouts and SLO-driven alerting.
 
-Senior DevOps Engineer | Apex FinTech Networks (2018 - 2021)
+Senior DevOps Engineer | Example Network Systems (2018 - 2021)
 - Built automated GitOps continuous deployment pipeline with ArgoCD for 65 distributed microservices.
 - Migrated 300+ legacy manually configured AWS resources into fully modularized Terraform with state locking.
 - Established blameless post-mortem culture and organized quarterly game days / chaos engineering drills.

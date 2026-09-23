@@ -1,7 +1,8 @@
-# Elena Rostova
+Demo Candidate 02 - Frontend
+> Synthetic demo data for product illustration only. Not a real candidate or employer; source links use reserved .invalid domains.
 Staff Frontend Platform & Web Applications Engineer
-Email: elena.rostova@example.com | GitHub: https://github.com/erostova-web
-Portfolio: https://erostova.design | Location: New York, NY
+Email: candidate-02@example.invalid | GitHub: https://github.invalid/demo-candidate-02
+Portfolio: https://portfolio.invalid/demo-candidate-02 | Location: Example City
 
 ## Summary
 Frontend Architect with 8+ years specializing in modern web performance, scalable design systems,
@@ -19,29 +20,29 @@ and type-safe web architectures.
 
 ## Open Source & Key Projects
 1. Headless Accessible UI Library (A11yKit)
-   Repository: https://github.com/erostova-web/a11y-kit-react
+   Repository: https://github.invalid/demo-candidate-02/a11y-kit-react
    - Designed unstyled, fully accessible React primitive components adhering to WAI-ARIA 1.2 patterns.
    - 100% test coverage with Playwright cross-browser visual regression and automated axe-core checks.
    - Adopted by over 450+ production web applications.
 
 2. Next.js Core Web Vitals Optimizer
-   Repository: https://github.com/erostova-web/next-vitals-booster
+   Repository: https://github.invalid/demo-candidate-02/next-vitals-booster
    - Developed Next.js plugin automating font subsetting, speculative prefetching, and critical CSS extraction.
    - Reduced client 75th-percentile INP by 38ms and LCP by 1.2s across enterprise dashboards.
 
 3. Type-Safe Client State Machine
-   Repository: https://github.com/erostova-web/type-state-engine
+   Repository: https://github.invalid/demo-candidate-02/type-state-engine
    - Lightweight finite state machine for complex multi-step checkout and onboarding user journeys.
    - Enforces strict TypeScript compile-time transitions with zero runtime bundle overhead.
 
 ## Professional Experience
 
-Staff Frontend Engineer | Dataview Systems (2022 - Present)
+Staff Frontend Engineer | Example Product Systems (2022 - Present)
 - Architected enterprise multi-tenant analytics dashboard serving 250,000 monthly active users.
 - Re-architected legacy SPA to Next.js with Server Components, improving First Contentful Paint by 62%.
 - Established company-wide frontend design system and automated accessibility regression pipeline in CI.
 
-Senior Frontend Engineer | MetricFlow Interactive (2018 - 2022)
+Senior Frontend Engineer | Example Metrics Group (2018 - 2022)
 - Built real-time collaborative canvas editor using WebSockets and Canvas/WebGL rendering.
 - Maintained Storybook design token registry synced directly with Figma design tokens.
 - Mentored 8 frontend engineers across frontend testing, performance budgets, and modern CSS layout techniques.

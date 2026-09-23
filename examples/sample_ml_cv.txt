@@ -1,7 +1,8 @@
-# Dr. Marcus Thorne
+Demo Candidate 03 ML
+> Synthetic demo data for product illustration only. Not a real candidate or employer; source links use reserved .invalid domains.
 Senior Machine Learning & Applied AI Systems Engineer
-Email: marcus.thorne@example.com | GitHub: https://github.com/mthorne-ai
-Portfolio: https://mthorne.ai | Location: Seattle, WA
+Email: candidate-03@example.invalid | GitHub: https://github.invalid/demo-candidate-03
+Portfolio: https://portfolio.invalid/demo-candidate-03 | Location: Example City
 
 ## Summary
 Applied Machine Learning Engineer and Researcher with 6+ years deploying scalable deep learning models,
@@ -19,30 +20,30 @@ and rigorous offline/online model evaluation. Author of open-source LLM alignmen
 
 ## Open Source & Key Projects
 1. Fast-Alignment: Deterministic LLM Preference Calibration Engine
-   Repository: https://github.com/mthorne-ai/fast-alignment
+   Repository: https://github.invalid/demo-candidate-03/fast-alignment
    - Built an open-source evaluation suite for direct preference optimization (DPO) and RLHF loss functions.
    - Designed statistical calibration checks measuring uncertainty and reward gaming with zero data leakage.
    - Comprehensive test coverage with unit tests on synthetic tensors and gradient descent checks.
 
 2. Distributed High-Throughput Vector Retrieval Gateway
-   Repository: https://github.com/mthorne-ai/vector-gateway-service
+   Repository: https://github.invalid/demo-candidate-03/vector-gateway-service
    - Developed a gRPC inference and embedding pipeline handling 4,000 queries/sec under 15ms latency.
    - Implemented dynamic batching and INT8 quantization with Triton Inference Server and Qdrant.
    - Enforced automated regression benchmarks in CI tracking cosine similarity divergence.
 
 3. Low-Rank Transformer Adaptor Toolkit
-   Repository: https://github.com/mthorne-ai/lora-tune-kit
+   Repository: https://github.invalid/demo-candidate-03/lora-tune-kit
    - Engineered modular fine-tuning toolkit supporting LoRA, QLoRA, and prefix-tuning across 7B-70B models.
    - Integrated automated GPU memory tracking and gradient checkpointing with DeepSpeed ZeRO-3.
 
 ## Professional Experience
 
-Senior Machine Learning Engineer | Cognition Horizons (2022 - Present)
+Senior Machine Learning Engineer | Example AI Research Group (2022 - Present)
 - Led production deployment of generative search and reranking models powering 15M enterprise queries/day.
 - Reduced model inference serving costs by 54% via INT4 weight-only quantization and continuous batching in vLLM.
 - Designed comprehensive offline evaluation harness tracking precision@k, recall@k, and hallucination rates.
 
-Machine Learning Engineer | Neural Dynamics Research (2019 - 2022)
+Machine Learning Engineer | Example ML Systems (2019 - 2022)
 - Built distributed training pipelines for multi-modal classification models on 64-GPU clusters.
 - Authored production data validation pipelines catching data drift, label corruption, and embedding anomalies.
 - Published 2 peer-reviewed workshop papers on model uncertainty quantification and calibration.

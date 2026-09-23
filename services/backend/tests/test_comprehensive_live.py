@@ -1,4 +1,6 @@
 import io
+from pathlib import Path
+from urllib.parse import urlparse
 
 import docx
 
@@ -8,7 +10,7 @@ from cci.live.report import build_report
 
 def test_docx_identity_tables_sections_and_skill_groups():
     document = docx.Document()
-    document.add_table(rows=1, cols=1).cell(0, 0).text = 'AYUSH ROY\nayush@example.com'
+    document.add_table(rows=1, cols=1).cell(0, 0).text = 'Demo Candidate\ncandidate@example.invalid'
     for line in ['Professional Summary', 'Software developer building public applications.',
                  'Technical Skills', 'DevOps & Tools: Docker, CI/CD, Git',
                  'Currently Learning: AWS (S3, Lambda), RAG',
@@ -21,7 +23,7 @@ def test_docx_identity_tables_sections_and_skill_groups():
     data = io.BytesIO()
     document.save(data)
     result = parse_resume(data.getvalue(), 'resume.docx')
-    assert result.manifest.display_name == 'AYUSH ROY'
+    assert result.manifest.display_name == 'Demo Candidate'
     assert 'CI/CD' in result.manifest.claimed_skills
     assert 'DevOps & Tools: Docker' not in result.manifest.claimed_skills
     assert 'AWS (S3, Lambda)' in result.manifest.claimed_skills
@@ -29,6 +31,33 @@ def test_docx_identity_tables_sections_and_skill_groups():
     assert result.resume_review.sections['certifications'] == ['Python (Basic) — HackerRank Certified']
     assert result.resume_review.sections['education'] == ['B.Tech Computer Science']
     assert result.resume_review.learning_skills == ['AWS (S3, Lambda)', 'RAG']
+
+
+def test_example_cv_fixtures_are_synthetic_and_non_resolving():
+    examples_dir = Path(__file__).resolve().parents[3] / 'examples'
+    fixtures = sorted(examples_dir.glob('sample_*_cv.txt'))
+    assert len(fixtures) == 5
+
+    for fixture in fixtures:
+        document = docx.Document()
+        for line in fixture.read_text(encoding='utf-8').splitlines():
+            document.add_paragraph(line)
+        data = io.BytesIO()
+        document.save(data)
+
+        intake = parse_resume(data.getvalue(), 'sample.docx')
+        assert intake.manifest.display_name.startswith('Demo Candidate ')
+        assert intake.manifest.email.endswith('@example.invalid')
+        assert 'Synthetic demo data for product illustration only.' in intake.text_preview
+
+        source_urls = (
+            intake.manifest.github_urls
+            + intake.manifest.project_links
+            + intake.manifest.portfolio_urls
+            + intake.manifest.deployment_urls
+        )
+        assert source_urls
+        assert all(urlparse(url).hostname.endswith('.invalid') for url in source_urls)
 
 
 def test_summary_heading_never_becomes_candidate_name():
