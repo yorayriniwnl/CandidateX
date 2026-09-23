@@ -115,6 +115,12 @@ def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):
     from cci.live import acquisition
     from tests.test_live_analysis import transport
     content = b'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/items")\ndef items():\n    return []\n'
+    inventories = []
+    original_inspect_git_blobs = acquisition.inspect_git_blobs
+    def record_git_inventory(*args):
+        result = original_inspect_git_blobs(*args)
+        inventories.append(result[1])
+        return result
     blob = hashlib.sha1(f'blob {len(content)}\0'.encode() + content).hexdigest()
     def respond(req):
         if '/git/trees/' in req.url.path:
@@ -124,12 +130,16 @@ def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):
         return transport(req)
     monkeypatch.setattr(acquisition, 'MAX_ARCHIVE_BYTES', 10)
     monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', httpx.MockTransport(respond))
+    monkeypatch.setattr(acquisition, 'inspect_git_blobs', record_git_inventory)
     evidence, _, sources = acquisition.acquire_sources(['https://github.com/example/api'], 'example')
     assert sources[0]['status'] == 'observed'
     assert sources[0]['acquisition_method'] == 'bounded_git_blobs'
     assert sources[0]['files_inspected'] == 1
     assert evidence
     assert sources[0]['repository_review']['technologies'][0]['name'] == 'Python'
+    assert inventories[0].inventory_complete is True
+    assert inventories[0].categories['source:python'].eligible == 1
+    assert inventories[0].categories['source:python'].inspected == 1
 
 
 def test_bare_portfolio_urls_do_not_extract_email_domains():
