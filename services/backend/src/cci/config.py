@@ -47,7 +47,6 @@ class Settings(BaseSettings):
     # Formal Scoring Parameters (Paper-aligned default v1)
     SCORING_CONFIG_VERSION: str = "1.0.0"
     DEFAULT_TEMPERATURE: float = 1.0
-    LOW_COVERAGE_THRESHOLD: float = 0.35
     CONTRADICTION_EPSILON: float = 1e-5
     PROBE_ALPHA: float = 0.40  # Coverage gap weight
     PROBE_BETA: float = 0.35  # CI width / uncertainty weight

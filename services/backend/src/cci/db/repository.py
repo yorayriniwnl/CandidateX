@@ -20,6 +20,7 @@ from cci.domain.contracts import (
     RoleProfile,
     ScoringConfig,
 )
+from cci.domain.coverage_policy import is_coverage_sufficient
 from cci.domain.enums import CanonicalRole
 from cci.domain.evidence_families import build_fallback_evidence_family_identity
 from cci.scoring.evidence_families import (
@@ -393,8 +394,13 @@ def save_dossier(
     cfg = scoring_config or ScoringConfig(
         version=dossier.versions.get(
             "scoring_config_version", ScoringConfig().version
-        )
+        ),
+        low_coverage_threshold=dossier.coverage_sufficiency_threshold,
     )
+    if cfg.low_coverage_threshold != dossier.coverage_sufficiency_threshold:
+        raise ValueError(
+            "Dossier coverage threshold must match the active scoring configuration"
+        )
     save_scoring_config(session, cfg)
 
     # Ensure Candidate exists or is attached
@@ -469,7 +475,9 @@ def save_dossier(
             capability_key=ck_str,
             epistemic_uncertainty=est.standard_error * 1.96,
             ci_width=ci_w,
-            is_low_coverage=(est.coverage_k < 0.35),
+            is_low_coverage=not is_coverage_sufficient(
+                est.coverage_k, threshold=cfg.low_coverage_threshold
+            ),
         )
         session.add(unc_entity)
 
@@ -579,7 +587,10 @@ def save_dossier(
     gap_caps = [
         (k, est)
         for k, est in dossier.capability_estimates.items()
-        if not est.is_observed or est.coverage_k < 0.35
+        if not est.is_observed
+        or not is_coverage_sufficient(
+            est.coverage_k, threshold=cfg.low_coverage_threshold
+        )
     ]
     if gap_caps:
         gap_md = "\n".join(

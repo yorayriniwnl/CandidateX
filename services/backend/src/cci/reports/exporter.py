@@ -38,16 +38,10 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         else "UNKNOWN (n=0 unique paths)"
     )
     if index_context.is_insufficient_evidence:
-        if dossier.coverage < index_context.coverage_sufficiency_threshold:
-            evidence_status_detail = (
-                f"Coverage is below the configured {threshold_pct}% threshold; "
-                "focus interview on unobserved gaps"
-            )
-        else:
-            evidence_status_detail = (
-                "Dossier is marked insufficient despite meeting the configured "
-                "coverage threshold"
-            )
+        evidence_status_detail = (
+            f"Coverage is below the configured {threshold_pct}% threshold; "
+            "focus interview on unobserved gaps"
+        )
     else:
         evidence_status_detail = "Coverage meets the configured threshold"
     standalone_status = (
@@ -233,10 +227,10 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
     )
     insufficient_detail = (
         f"Role-weighted coverage is {coverage_pct}%, below the configured "
-        f"threshold of {threshold_pct}%."
-        if dossier.coverage < index_context.coverage_sufficiency_threshold
+        f"threshold of {threshold_pct}."
+        if index_context.is_insufficient_evidence
         else f"Coverage is {coverage_pct}%, meeting the configured threshold of "
-        f"{threshold_pct}%, but the dossier is marked insufficient."
+        f"{threshold_pct}%."
     )
     role_title = dossier.role.value.replace("_", " ").title()
     cand_safe = html.escape(candidate_name)

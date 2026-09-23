@@ -16,7 +16,7 @@ from cci.domain.contracts import (
     EvidenceRecord,
     ScoringConfig,
 )
-from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
+from cci.domain.enums import CanonicalRole, CapabilityKey, EvidenceState, SourceFamily
 from cci.main import app
 from cci.pipeline.orchestrator import (
     AnalysisStage,
@@ -203,6 +203,45 @@ def test_functional_rescore_without_recrawling():
     assert rescored.capability_estimates[CapabilityKey.FRONTEND_ENGINEERING].is_observed is True
 
 
+def test_custom_coverage_threshold_survives_pipeline_and_rescore(monkeypatch):
+    import cci.pipeline.orchestrator as orchestrator
+
+    candidate_id = uuid4()
+    config = ScoringConfig(low_coverage_threshold=0.5)
+    state = execute_analysis_pipeline(
+        candidate_id=candidate_id,
+        role=CanonicalRole.BACKEND,
+        scoring_config=config,
+    )
+    assert state.dossier is not None
+    assert state.dossier.coverage_sufficiency_threshold == 0.5
+
+    uncertainty_thresholds = []
+    original_diagnostics = orchestrator.compute_uncertainty_diagnostics
+
+    def capture_diagnostics(estimate, config=None):
+        uncertainty_thresholds.append(config.low_coverage_threshold)
+        return original_diagnostics(estimate, config=config)
+
+    monkeypatch.setattr(
+        orchestrator, "compute_uncertainty_diagnostics", capture_diagnostics
+    )
+    monkeypatch.setattr(
+        orchestrator, "compute_evidence_coverage", lambda *args, **kwargs: 0.4
+    )
+
+    rescored = rescore_dossier(
+        state.dossier, {CapabilityKey.BACKEND_ENGINEERING: 1.0}
+    )
+
+    assert uncertainty_thresholds
+    assert set(uncertainty_thresholds) == {0.5}
+    assert rescored.coverage == 0.4
+    assert rescored.coverage_sufficiency_threshold == 0.5
+    assert rescored.is_insufficient_evidence is True
+    assert rescored.evidence_state == EvidenceState.INSUFFICIENT
+
+
 def test_pipeline_api_lifecycle():
     """Test full FastAPI lifecycle: run pipeline, query status, and rescore."""
     cand_id = str(uuid4())
@@ -224,6 +263,8 @@ def test_pipeline_api_lifecycle():
     assert data["status"] == "completed"
     assert data["dossier_id"] is not None
     assert data["rci"] is None  # URLs and self-claims are not analyzed observations
+    assert data["evidence_state"] == "INSUFFICIENT"
+    assert data["coverage_sufficiency_threshold"] == 0.35
     assert len(data["stages"]) == 10
 
     # 2. Query Status
@@ -232,6 +273,7 @@ def test_pipeline_api_lifecycle():
     status_data = status_resp.json()
     assert status_data["analysis_run_id"] == run_id
     assert status_data["status"] == "completed"
+    assert status_data["evidence_state"] == "INSUFFICIENT"
 
     # 3. Rescore Run
     rescore_payload = {

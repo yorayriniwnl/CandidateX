@@ -7,6 +7,7 @@ from typing import Iterable
 from uuid import UUID
 
 from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConfig
+from cci.domain.coverage_policy import is_coverage_sufficient
 from cci.domain.evidence_families import normalize_source_cluster
 from cci.domain.enums import CapabilityKey
 from cci.scoring.evidence_families import compute_record_family_weights
@@ -148,7 +149,9 @@ def has_sufficient_candidate_evidence(
 ) -> bool:
     """Whether attribution-gated evidence is sufficient to emit a candidate score."""
     cfg = config or ScoringConfig()
-    return coverage_k >= cfg.low_coverage_threshold
+    return is_coverage_sufficient(
+        coverage_k, threshold=cfg.low_coverage_threshold
+    )
 
 
 def compute_effective_evidence_count(confidences: list[float]) -> float:

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from cci.domain.contracts import ObservedIndexContext
+from cci.domain.enums import EvidenceState
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
 
@@ -26,6 +27,8 @@ class CandidateSummaryResponse(BaseModel):
     observed_capability_index: float | None = None
     observed_index_context: ObservedIndexContext | None = None
     coverage: float | None = None
+    coverage_sufficiency_threshold: float | None = None
+    evidence_state: EvidenceState = EvidenceState.UNKNOWN
     role: str | None = None
     has_meaningful_conflict: bool = False
     created_at: str
@@ -81,6 +84,12 @@ def list_candidates(
                             dossier.observed_index_context if dossier else None
                         ),
                         coverage=coverage,
+                        coverage_sufficiency_threshold=(
+                            dossier.coverage_sufficiency_threshold if dossier else None
+                        ),
+                        evidence_state=(
+                            dossier.evidence_state if dossier else EvidenceState.UNKNOWN
+                        ),
                         role=role_val,
                         has_meaningful_conflict=has_conflict,
                         created_at=c.created_at.isoformat()

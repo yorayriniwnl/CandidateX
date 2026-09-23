@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from cci.domain.contracts import Dossier
-from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.domain.enums import CanonicalRole, CapabilityKey, EvidenceState
 from cci.pipeline.service import pipeline_service
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
@@ -43,6 +43,8 @@ class PipelineStatusResponse(BaseModel):
     dossier_id: UUID | None = None
     rci: float | None = None
     coverage: float | None = None
+    coverage_sufficiency_threshold: float | None = None
+    evidence_state: EvidenceState = EvidenceState.UNKNOWN
     error: str | None = None
 
 
@@ -99,6 +101,12 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
         dossier_id=state.dossier.dossier_id if state.dossier else None,
         rci=state.dossier.rci if state.dossier else None,
         coverage=state.dossier.coverage if state.dossier else None,
+        coverage_sufficiency_threshold=(
+            state.dossier.coverage_sufficiency_threshold if state.dossier else None
+        ),
+        evidence_state=(
+            state.dossier.evidence_state if state.dossier else EvidenceState.UNKNOWN
+        ),
         error=state.error,
     )
 
@@ -139,6 +147,12 @@ def get_pipeline_status(run_id: UUID) -> Any:
         dossier_id=state.dossier.dossier_id if state.dossier else None,
         rci=state.dossier.rci if state.dossier else None,
         coverage=state.dossier.coverage if state.dossier else None,
+        coverage_sufficiency_threshold=(
+            state.dossier.coverage_sufficiency_threshold if state.dossier else None
+        ),
+        evidence_state=(
+            state.dossier.evidence_state if state.dossier else EvidenceState.UNKNOWN
+        ),
         error=state.error,
     )
 

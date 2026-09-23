@@ -26,6 +26,7 @@ from uuid import UUID, uuid4
 
 from cci.claims.corroborator import ExtractedClaimInput, corroborate_candidate_claims
 from cci.contradictions.diagnostic import compute_contradiction_diagnostic
+from cci.domain.coverage_policy import is_coverage_sufficient
 from cci.domain.contracts import (
     CapabilityConflict,
     CapabilityEstimate,
@@ -307,7 +308,7 @@ def execute_analysis_pipeline(
             )
 
         uncertainties = {
-            cap: compute_uncertainty_diagnostics(est)
+            cap: compute_uncertainty_diagnostics(est, config=cfg)
             for cap, est in capability_estimates.items()
         }
 
@@ -350,7 +351,9 @@ def execute_analysis_pipeline(
             evidence_records=raw_evidence,
             rci=rci_score,
             coverage=coverage_score,
-            is_insufficient_evidence=(coverage_score < cfg.low_coverage_threshold),
+            is_insufficient_evidence=not is_coverage_sufficient(
+                coverage_score, threshold=cfg.low_coverage_threshold
+            ),
             coverage_sufficiency_threshold=cfg.low_coverage_threshold,
         )
 
@@ -396,6 +399,10 @@ def rescore_dossier(
     - Operates strictly over already-observed capability point estimates q_k.
     - Missing or insufficiently attributed evidence remains UNKNOWN.
     """
+    cfg = ScoringConfig(
+        version=dossier.versions.get("scoring_config_version", ScoringConfig().version),
+        low_coverage_threshold=dossier.coverage_sufficiency_threshold,
+    )
     profile = build_role_profile(dossier.role_requirements, dossier.role)
     if dossier.role_weights:
         profile = profile.model_copy(update={"softmax_weights": dossier.role_weights})
@@ -410,6 +417,7 @@ def rescore_dossier(
     new_rci = compute_rci(
         capabilities=dossier.capability_estimates,
         role_weights=role_weights,
+        config=cfg,
     )
     new_cov = compute_evidence_coverage(
         capabilities=dossier.capability_estimates,
@@ -418,7 +426,7 @@ def rescore_dossier(
 
     # Recompute probe priorities
     uncertainties = {
-        cap: compute_uncertainty_diagnostics(est)
+        cap: compute_uncertainty_diagnostics(est, config=cfg)
         for cap, est in dossier.capability_estimates.items()
     }
 
@@ -440,7 +448,9 @@ def rescore_dossier(
     return dossier.model_copy(update={
         "dossier_id": uuid4(), "generated_at": datetime.now(timezone.utc),
         "rci": new_rci, "coverage": new_cov,
-        "is_insufficient_evidence": new_cov < ScoringConfig().low_coverage_threshold,
+        "is_insufficient_evidence": not is_coverage_sufficient(
+            new_cov, threshold=cfg.low_coverage_threshold
+        ),
         "role_weights": role_weights, "interview_probes": new_probes,
         "interview_questions": new_questions,
         "override_history": [*dossier.override_history, {

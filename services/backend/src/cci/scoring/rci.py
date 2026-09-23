@@ -8,6 +8,7 @@ from cci.domain.contracts import (
     RoleProfile,
     ScoringConfig,
 )
+from cci.domain.coverage_policy import is_coverage_sufficient
 from cci.domain.enums import CapabilityKey
 from cci.scoring.capability import has_sufficient_candidate_evidence
 
@@ -88,7 +89,9 @@ def evaluate_analysis_score(
         if est is not None and est.is_observed and est.estimate is not None
     )
 
-    is_insufficient = coverage < cfg.low_coverage_threshold
+    is_insufficient = not is_coverage_sufficient(
+        coverage, threshold=cfg.low_coverage_threshold
+    )
 
     return AnalysisScore(
         candidate_id=candidate_id,
@@ -98,4 +101,5 @@ def evaluate_analysis_score(
         is_insufficient_evidence=is_insufficient,
         observed_capabilities_count=observed_count,
         scoring_config_version=cfg.version,
+        coverage_sufficiency_threshold=cfg.low_coverage_threshold,
     )

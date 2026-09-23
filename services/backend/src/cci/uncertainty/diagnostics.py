@@ -5,6 +5,7 @@ from cci.domain.contracts import (
     CapabilityUncertainty,
     ScoringConfig,
 )
+from cci.domain.coverage_policy import is_coverage_sufficient
 
 
 def compute_uncertainty_diagnostics(
@@ -33,7 +34,9 @@ def compute_uncertainty_diagnostics(
     coverage_gap = 1.0 - estimate.coverage_k
     epistemic = (coverage_gap * 50.0) + min(50.0, ci_width / 2.0)
 
-    is_low_cov = estimate.coverage_k < cfg.low_coverage_threshold
+    is_low_cov = not is_coverage_sufficient(
+        estimate.coverage_k, threshold=cfg.low_coverage_threshold
+    )
 
     return CapabilityUncertainty(
         capability_key=estimate.capability_key,

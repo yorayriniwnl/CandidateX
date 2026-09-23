@@ -10,7 +10,7 @@ import pytest
 from cci.main import app
 import cci.db.repository as repo
 from cci.domain.contracts import CandidateManifest, ObservedIndexContext
-from cci.domain.enums import CanonicalRole
+from cci.domain.enums import CanonicalRole, EvidenceState
 from cci.api.routers import candidates as candidates_router
 from cci.api.routers.candidates import CandidateSummaryResponse
 
@@ -65,6 +65,8 @@ def test_list_candidates_endpoint():
 def test_candidate_summary_contract_exposes_observed_index_context():
     assert "observed_capability_index" in CandidateSummaryResponse.model_fields
     assert "observed_index_context" in CandidateSummaryResponse.model_fields
+    assert "evidence_state" in CandidateSummaryResponse.model_fields
+    assert "coverage_sufficiency_threshold" in CandidateSummaryResponse.model_fields
 
 
 def test_candidate_summary_api_returns_context_for_partial_index(monkeypatch):
@@ -74,6 +76,7 @@ def test_candidate_summary_api_returns_context_for_partial_index(monkeypatch):
         observed_role_dimensions=1,
         coverage_sufficiency_threshold=0.35,
         is_insufficient_evidence=True,
+        evidence_state=EvidenceState.INSUFFICIENT,
         standalone_presentation_allowed=False,
         unique_independent_source_cluster_count=2,
         independent_source_cluster_counts_by_capability={},
@@ -89,6 +92,8 @@ def test_candidate_summary_api_returns_context_for_partial_index(monkeypatch):
         observed_capability_index=76.5,
         observed_index_context=context,
         coverage=0.2,
+        coverage_sufficiency_threshold=0.35,
+        evidence_state=EvidenceState.INSUFFICIENT,
         role=CanonicalRole.BACKEND,
         capability_conflicts={},
     )
@@ -110,8 +115,38 @@ def test_candidate_summary_api_returns_context_for_partial_index(monkeypatch):
     summary = response.json()[0]
     assert summary["rci"] == 76.5
     assert summary["observed_capability_index"] == 76.5
+    assert summary["coverage_sufficiency_threshold"] == 0.35
+    assert summary["evidence_state"] == "INSUFFICIENT"
     assert summary["observed_index_context"]["standalone_presentation_allowed"] is False
     assert summary["observed_index_context"]["metric_label"] == "Observed Capability Index"
+
+
+def test_candidate_without_dossier_is_unknown_not_robust(monkeypatch):
+    candidate = SimpleNamespace(
+        id=uuid.uuid4(),
+        display_name="No Dossier",
+        primary_email=None,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        candidates_router, "SessionLocal", lambda: nullcontext(object())
+    )
+    monkeypatch.setattr(
+        candidates_router.repo, "list_candidates", lambda db, **kwargs: [candidate]
+    )
+    monkeypatch.setattr(
+        candidates_router.repo,
+        "get_dossier_by_candidate_id",
+        lambda db, _candidate_id: None,
+    )
+
+    response = client.get("/api/v1/candidates")
+
+    assert response.status_code == 200
+    summary = response.json()[0]
+    assert summary["coverage"] is None
+    assert summary["coverage_sufficiency_threshold"] is None
+    assert summary["evidence_state"] == "UNKNOWN"
 
 
 def test_get_candidate_not_found():

@@ -19,6 +19,10 @@ from cci.domain.contracts import (
     OwnershipAssessment,
     ProbePriority,
 )
+from cci.domain.coverage_policy import (
+    DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
+    is_coverage_sufficient,
+)
 from cci.domain.enums import CanonicalRole, CapabilityKey
 
 
@@ -135,10 +139,21 @@ def build_candidate_dossier(
     evidence_records: list[EvidenceRecord] | None = None,
     rci: float | None = None,
     coverage: float = 0.0,
-    is_insufficient_evidence: bool = False,
-    coverage_sufficiency_threshold: float = 0.35,
+    is_insufficient_evidence: bool | None = None,
+    coverage_sufficiency_threshold: float = DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
 ) -> Dossier:
     """Builds a complete, immutable Dossier snapshot."""
+    computed_insufficient = not is_coverage_sufficient(
+        coverage, threshold=coverage_sufficiency_threshold
+    )
+    if (
+        is_insufficient_evidence is not None
+        and is_insufficient_evidence != computed_insufficient
+    ):
+        raise ValueError(
+            "Dossier insufficiency must match the configured coverage threshold"
+        )
+
     # Generate questions if not explicitly provided
     if interview_questions is None:
         interview_questions = generate_interview_questions(
@@ -159,7 +174,7 @@ def build_candidate_dossier(
         rci=rci,
         coverage=coverage,
         coverage_sufficiency_threshold=coverage_sufficiency_threshold,
-        is_insufficient_evidence=is_insufficient_evidence,
+        is_insufficient_evidence=computed_insufficient,
         capability_estimates=capability_estimates,
         capability_conflicts=capability_conflicts,
         role_requirements=role_requirements,

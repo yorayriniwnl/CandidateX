@@ -168,6 +168,57 @@ def test_repository_dossier_persistence_and_reconstruction(memory_db):
     assert len(loaded_dossier.interview_probes) > 0
 
 
+def test_repository_uses_dossier_coverage_threshold_for_uncertainty_and_gaps(memory_db):
+    org = repo.save_organization(memory_db, "Coverage Policy Org", "coverage-policy")
+    candidate_id = uuid.uuid4()
+    run_id = uuid.uuid4()
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    estimate = CapabilityEstimate(
+        capability_key=capability,
+        estimate=60.0,
+        is_observed=True,
+        effective_evidence_count=1.0,
+        raw_evidence_count=1,
+        cluster_count=1,
+        coverage_k=0.4,
+    )
+    dossier = Dossier(
+        candidate_id=candidate_id,
+        analysis_run_id=run_id,
+        role=CanonicalRole.BACKEND,
+        coverage=0.4,
+        coverage_sufficiency_threshold=0.5,
+        is_insufficient_evidence=True,
+        capability_estimates={capability: estimate},
+        capability_conflicts={},
+        role_requirements=[],
+        ownership_assessments=[],
+        claims_corroboration=[],
+        interview_probes=[],
+        interview_questions=[],
+    )
+
+    repo.save_dossier(
+        memory_db,
+        dossier,
+        org.id,
+        scoring_config=ScoringConfig(low_coverage_threshold=0.5),
+    )
+
+    uncertainty = memory_db.query(models.CapabilityUncertaintyEntity).one()
+    gap = (
+        memory_db.query(models.DossierItem)
+        .filter_by(section_type="uncertain_area")
+        .one()
+    )
+    assert uncertainty.is_low_coverage is True
+    assert capability.value in gap.body_markdown
+    assert "Low Coverage" in gap.body_markdown
+    snapshot = memory_db.query(models.DossierSnapshot).one()
+    assert snapshot.summary_payload["coverage_sufficiency_threshold"] == 0.5
+    assert snapshot.summary_payload["evidence_state"] == "INSUFFICIENT"
+
+
 def test_evidence_immutability_in_repository(memory_db):
     """Enforces that evidence records saved through the repository layer cannot be modified."""
     org = repo.save_organization(memory_db, "Audit Org", "audit-org")

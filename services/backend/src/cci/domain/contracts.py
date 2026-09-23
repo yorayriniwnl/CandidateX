@@ -21,9 +21,14 @@ from cci.domain.enums import (
     ArtifactAttributionState,
     CanonicalRole,
     CapabilityKey,
+    EvidenceState,
     ReliabilityState,
     RequirementPriority,
     SourceFamily,
+)
+from cci.domain.coverage_policy import (
+    DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
+    classify_evidence_state,
 )
 from cci.domain.evidence_families import normalize_source_cluster
 
@@ -51,7 +56,7 @@ class ScoringConfig(BaseModel):
         description="Denominator stabilizer for contradiction diagnostic D_k",
     )
     low_coverage_threshold: float = Field(
-        default=0.35,
+        default=DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
         ge=0.0,
         le=1.0,
         description="Minimum coverage to emit candidate estimates; lower coverage also marks the analysis insufficient",
@@ -633,6 +638,20 @@ class AnalysisScore(BaseModel):
     )
     observed_capabilities_count: int = Field(..., ge=0, le=12)
     scoring_config_version: str
+    coverage_sufficiency_threshold: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="The active ScoringConfig.low_coverage_threshold for this analysis",
+    )
+
+    @computed_field
+    @property
+    def evidence_state(self) -> EvidenceState:
+        return classify_evidence_state(
+            self.coverage,
+            sufficiency_threshold=self.coverage_sufficiency_threshold,
+        )
 
 
 class ObservedIndexContext(BaseModel):
@@ -649,6 +668,7 @@ class ObservedIndexContext(BaseModel):
     total_role_dimensions: int = Field(default=12, ge=1, le=12)
     coverage_sufficiency_threshold: float = Field(..., ge=0.0, le=1.0)
     is_insufficient_evidence: bool
+    evidence_state: EvidenceState
     standalone_presentation_allowed: bool
     unique_independent_source_cluster_count: int | None = Field(default=None, ge=0)
     independent_source_cluster_counts_by_capability: dict[
@@ -661,9 +681,15 @@ class ObservedIndexContext(BaseModel):
 
     @model_validator(mode="after")
     def validate_observed_index_context(self):
-        if self.standalone_presentation_allowed == self.is_insufficient_evidence:
+        if (
+            self.evidence_state == EvidenceState.INSUFFICIENT
+        ) != self.is_insufficient_evidence:
+            raise ValueError("Evidence state and sufficiency flag must agree")
+        if self.evidence_state == EvidenceState.UNKNOWN:
+            raise ValueError("Observed index context requires measured coverage")
+        if self.is_insufficient_evidence and self.standalone_presentation_allowed:
             raise ValueError(
-                "Standalone presentation is allowed exactly when evidence is sufficient"
+                "Standalone presentation is not allowed when evidence is insufficient"
             )
         if (self.mean_path_attribution_confidence is None) != (
             self.path_attribution_sample_count == 0
@@ -718,14 +744,16 @@ class InterviewQuestion(BaseModel):
 def _build_observed_index_context(
     *,
     coverage: float,
-    is_insufficient_evidence: bool,
     coverage_sufficiency_threshold: float,
+    index_available: bool,
     capability_estimates: dict[CapabilityKey, CapabilityEstimate],
     evidence_records: list[EvidenceRecord],
 ) -> ObservedIndexContext:
-    effective_insufficient = is_insufficient_evidence or (
-        coverage < coverage_sufficiency_threshold
+    evidence_state = classify_evidence_state(
+        coverage,
+        sufficiency_threshold=coverage_sufficiency_threshold,
     )
+    effective_insufficient = evidence_state == EvidenceState.INSUFFICIENT
     observed_capabilities = {
         capability
         for capability, estimate in capability_estimates.items()
@@ -793,7 +821,10 @@ def _build_observed_index_context(
         total_role_dimensions=len(CapabilityKey),
         coverage_sufficiency_threshold=coverage_sufficiency_threshold,
         is_insufficient_evidence=effective_insufficient,
-        standalone_presentation_allowed=not effective_insufficient,
+        evidence_state=evidence_state,
+        standalone_presentation_allowed=(
+            index_available and not effective_insufficient
+        ),
         unique_independent_source_cluster_count=len(cluster_keys) or None,
         independent_source_cluster_counts_by_capability=cluster_counts,
         mean_path_attribution_confidence=(
@@ -827,7 +858,9 @@ class Dossier(BaseModel):
         json_schema_extra={"deprecated": True},
     )
     coverage: float = Field(..., ge=0.0, le=1.0)
-    coverage_sufficiency_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
+    coverage_sufficiency_threshold: float = Field(
+        default=DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD, ge=0.0, le=1.0
+    )
     is_insufficient_evidence: bool
     capability_estimates: dict[CapabilityKey, CapabilityEstimate]
     capability_conflicts: dict[CapabilityKey, CapabilityConflict]
@@ -867,11 +900,19 @@ class Dossier(BaseModel):
 
     @computed_field
     @property
+    def evidence_state(self) -> EvidenceState:
+        return classify_evidence_state(
+            self.coverage,
+            sufficiency_threshold=self.coverage_sufficiency_threshold,
+        )
+
+    @computed_field
+    @property
     def observed_index_context(self) -> ObservedIndexContext:
         return _build_observed_index_context(
             coverage=self.coverage,
-            is_insufficient_evidence=self.is_insufficient_evidence,
             coverage_sufficiency_threshold=self.coverage_sufficiency_threshold,
+            index_available=self.rci is not None,
             capability_estimates=self.capability_estimates,
             evidence_records=self.evidence_records,
         )

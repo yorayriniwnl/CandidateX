@@ -10,6 +10,7 @@ from cci.domain.enums import (
     CanonicalRole,
     CapabilityKey,
     ClaimStatus,
+    EvidenceState,
     GraphEdgeType,
     GraphNodeType,
     RequirementPriority,
@@ -284,6 +285,8 @@ def test_analysis_and_dossier_versions_default_to_scoring_v5_1():
     assert request.scoring_config_version == "5.1.0"
     assert dossier.versions["scoring_config_version"] == "5.1.0"
     assert dossier.observed_capability_index is None
+    assert dossier.evidence_state == EvidenceState.INSUFFICIENT
+    assert dossier.observed_index_context.evidence_state == EvidenceState.INSUFFICIENT
     assert dossier.observed_index_context.unique_independent_source_cluster_count is None
     assert dossier.observed_index_context.mean_path_attribution_confidence is None
     assert dossier.observed_index_context.path_attribution_sample_count == 0

@@ -172,6 +172,8 @@ def test_dossier_builder_retains_family_metadata_with_evidence_records():
 
     assert dossier.evidence_records == [record]
     assert dossier.evidence_records[0].evidence_family_id == "ef1:" + "d" * 64
+    assert dossier.is_insufficient_evidence is True
+    assert dossier.evidence_state.value == "INSUFFICIENT"
 
 
 def test_build_candidate_dossier():

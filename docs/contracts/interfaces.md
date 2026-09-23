@@ -118,6 +118,8 @@ $$\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \text{Cov}_k$$
 
 A candidate capability estimate is emitted only when attribution-gated coverage meets `ScoringConfig.low_coverage_threshold` (0.35 by default). Below that threshold, the estimate is `UNKNOWN` (`None`); its technical observations and nonzero coverage remain available, and no zero capability is inferred.
 
+`ScoringConfig.low_coverage_threshold` is the canonical backend sufficiency boundary used by estimation, uncertainty, persistence, rescoring, and API state. Candidate-summary and pipeline-status responses carry the active `coverage_sufficiency_threshold` and `evidence_state`; missing coverage is `UNKNOWN`, never a sufficient state. Below the configured threshold the state is `INSUFFICIENT`; otherwise descriptive coverage bands are `SPARSE` below 50%, `MODERATE` from 50% to below 75%, and `SUBSTANTIAL` from 75%. These labels describe evidence coverage, not candidate quality or readiness.
+
 The Observed Capability Index is computed strictly over capabilities whose attribution-gated coverage meets the configured threshold:
 $$\text{ObservedIndex}(C, J) = 100 \cdot \frac{\sum_{k \in \text{observed}} w_k \cdot q_k}{\sum_{k \in \text{observed}} w_k}$$
 

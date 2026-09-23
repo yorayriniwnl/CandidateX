@@ -20,6 +20,8 @@ Candidate capability estimates and the observed-only capability index use a sepa
 
 The Dossier and candidate-summary APIs expose the score as `observed_capability_index`; the legacy `rci` field remains as a deprecated compatibility alias. `observed_index_context` carries role-weighted coverage and its configured sufficiency threshold, observed/total dimensions, per-capability and unique source-cluster counts, and mean path-attribution confidence with a unique-path sample count. Missing cluster identity or attribution data is `null` (UNKNOWN), while a measured zero count is `0`. The index is always based only on observed dimensions. Below the configured coverage threshold, the API and Markdown/HTML exports mark it insufficient and prohibit standalone presentation. Partial indices over different observed dimensions are not directly comparable and must not be ranked.
 
+`ScoringConfig.low_coverage_threshold` is the canonical backend sufficiency boundary (0.35 by default); estimation, uncertainty, persistence, rescoring, Dossier output, candidate summaries, and pipeline status use the same active value. Candidate-summary and pipeline-status responses include `coverage_sufficiency_threshold` and `evidence_state`. Missing coverage is `UNKNOWN`; below the configured threshold is `INSUFFICIENT`; otherwise `SPARSE` is below 50%, `MODERATE` is 50% to below 75%, and `SUBSTANTIAL` is 75% or higher. These bands describe evidence coverage and do not rate candidates.
+
 The backend batch evaluator writes `cohort_comparison.{json,md,html}` with coverage profiles, evidence counts, unresolved areas, and dimensions requiring interview verification. It preserves input order and does not order candidates by the observed-only index.
 
 ## Job-description role weights

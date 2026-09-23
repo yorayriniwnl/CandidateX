@@ -49,6 +49,16 @@ class RequirementStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+class EvidenceState(str, Enum):
+    """Backend-owned descriptive state for role-weighted evidence coverage."""
+
+    UNKNOWN = "UNKNOWN"
+    INSUFFICIENT = "INSUFFICIENT"
+    SPARSE = "SPARSE"
+    MODERATE = "MODERATE"
+    SUBSTANTIAL = "SUBSTANTIAL"
+
+
 class ArtifactAttributionState(str, Enum):
     """How repository history links a declared GitHub account to one artifact path."""
 
