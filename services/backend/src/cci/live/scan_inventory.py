@@ -89,11 +89,47 @@ def report_is_parseable(relative_path: str, content: bytes) -> bool:
                                          parse_constant=reject_constant), dict)
         if relative_path.casefold().endswith(".xml"):
             return ET.fromstring(content).tag == "coverage"
-        lines = content.decode("utf-8").splitlines()
-        fields = [line.split(":", 1) for line in lines if line.startswith(("LH:", "LF:", "BRH:", "BRF:"))]
-        return bool(fields) and all(len(field) == 2 and field[1].isdigit() for field in fields)
+        return _lcov_is_parseable(content.decode("utf-8"))
     except (UnicodeDecodeError, ValueError, ET.ParseError):
         return False
+
+
+def _lcov_is_parseable(text: str) -> bool:
+    """Require complete source-file records before treating LCOV as inspected."""
+    allowed_fields = {"TN", "SF", "FN", "FNDA", "FNF", "FNH", "BRDA",
+                      "BRF", "BRH", "DA", "LF", "LH"}
+    count_fields = {"LF", "LH", "BRF", "BRH"}
+    in_record = False
+    completed = 0
+    counters = set()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line == "end_of_record":
+            if not in_record or not ({"LF", "LH"} <= counters or {"BRF", "BRH"} <= counters):
+                return False
+            completed += 1
+            in_record = False
+            counters.clear()
+            continue
+        field, separator, value = line.partition(":")
+        if not separator or field not in allowed_fields:
+            return False
+        if field == "SF":
+            if in_record or not value:
+                return False
+            in_record = True
+            continue
+        if field == "TN" and not in_record:
+            continue
+        if not in_record:
+            return False
+        if field in count_fields:
+            if not value.isdecimal():
+                return False
+            counters.add(field)
+    return completed > 0 and not in_record
 
 
 @dataclass(frozen=True)
