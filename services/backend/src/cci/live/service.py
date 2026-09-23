@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from cci.domain.contracts import RepositoryAssociation, RepositoryContribution, ScoringConfig
 from cci.graph.builder import build_dossier_graph
 from cci.live.acquisition import acquire_sources
@@ -9,12 +11,19 @@ from cci.live.report import build_report
 
 
 def analyze_resume(request: LiveAnalysisRequest):
+    analysis_run_id = uuid4()
+    scoring_config = ScoringConfig()
     manifest = request.intake.manifest
     extracted = list(dict.fromkeys(url for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls',
         'deployment_urls', 'portfolio_urls', 'project_links') for url in getattr(manifest, key)))
     selected = request.external_urls if request.external_urls is not None else extracted
     with ThreadPoolExecutor(max_workers=2) as pool:
-        github = pool.submit(acquire_sources, request.github_urls, request.github_identity)
+        github = pool.submit(
+            acquire_sources,
+            request.github_urls,
+            request.github_identity,
+            analysis_run_id,
+        )
         public = pool.submit(acquire_public_links, selected)
         evidence, ownership, sources = github.result()
         sources.extend(public.result())
@@ -25,7 +34,8 @@ def analyze_resume(request: LiveAnalysisRequest):
         if url.lower() not in {s['url'].lower() for s in sources}:
             sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted GitHub link not selected for this run.'})
     state = execute_analysis_pipeline(candidate_id=request.intake.candidate_id, role=request.role,
-        jd_text=request.jd_text, declared_claims=manifest.claimed_skills, custom_evidence=evidence, evidence_mode='live')
+        jd_text=request.jd_text, declared_claims=manifest.claimed_skills, custom_evidence=evidence,
+        evidence_mode='live', scoring_config=scoring_config, analysis_run_id=analysis_run_id)
     if state.dossier is None:
         raise RuntimeError('The scoring pipeline could not produce a dossier.')
     limitations = [
@@ -50,5 +60,5 @@ def analyze_resume(request: LiveAnalysisRequest):
     graph = build_dossier_graph(dossier)
     return {'intake': request.intake, 'dossier': dossier,
         'graph': graph.to_api_response(candidate_id=dossier.candidate_id, analysis_run_id=dossier.analysis_run_id),
-        'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': build_report(request.intake, sources), 'scoring_config': ScoringConfig(),
+        'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': build_report(request.intake, sources), 'scoring_config': scoring_config,
         'storage': 'request_only', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}

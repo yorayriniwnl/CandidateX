@@ -92,13 +92,19 @@ def test_full_service_retains_excluded_links_and_uses_public_pages_without_scori
     data = io.BytesIO()
     document.save(data)
     intake = parse_resume(data.getvalue(), 'resume.docx')
-    monkeypatch.setattr(service, 'acquire_sources', lambda urls, identity: ([], [], []))
+    acquired_run_ids = []
+    def fake_acquire_sources(urls, identity, analysis_run_id=None):
+        acquired_run_ids.append(analysis_run_id)
+        return [], [], []
+    monkeypatch.setattr(service, 'acquire_sources', fake_acquire_sources)
     monkeypatch.setattr(service, 'acquire_public_links', lambda urls: [{'url': u, 'status': 'observed',
         'excerpt': 'Python developer with a public portfolio.'} for u in urls])
     result = service.analyze_resume(LiveAnalysisRequest(intake=intake))
+    assert acquired_run_ids[-1] == result['dossier'].analysis_run_id
     assert result['analysis']['skills'][0]['status'] == 'public_mention_only'
     assert result['dossier'].rci is None
     result = service.analyze_resume(LiveAnalysisRequest(intake=intake, external_urls=[]))
+    assert acquired_run_ids[-1] == result['dossier'].analysis_run_id
     assert result['sources'][0]['status'] == 'not_selected'
 
 

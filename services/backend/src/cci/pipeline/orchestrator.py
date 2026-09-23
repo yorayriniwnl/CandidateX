@@ -131,10 +131,11 @@ def execute_analysis_pipeline(
     evidence_mode: str = "provided",
     scenario: str | None = None,
     scoring_config: ScoringConfig | None = None,
+    analysis_run_id: UUID | None = None,
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
     cfg = scoring_config or ScoringConfig()
-    run_id = uuid4()
+    run_id = analysis_run_id or uuid4()
     state = PipelineExecutionState(
         analysis_run_id=run_id,
         candidate_id=candidate_id,

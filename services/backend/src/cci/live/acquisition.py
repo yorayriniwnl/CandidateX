@@ -11,20 +11,32 @@ import re
 import stat
 import time
 import zipfile
-from collections import Counter
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from typing import Any
 from urllib.parse import quote
-from uuid import uuid5, NAMESPACE_URL
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import httpx
 from cci.analyzers.code.engine import run_code_intelligence
 from cci.analyzers.db_test_infra_engine import run_db_test_infra_intelligence
-from cci.analyzers.repository.indexer import categorize_file, index_repository_artifacts
+from cci.analyzers.repository.indexer import (
+    categorize_file,
+    index_repository_artifacts,
+)
 from cci.config import settings
-from cci.domain.contracts import (ArtifactAttribution, EvidenceConfidenceFactors, EvidenceRecord,
-    OwnershipAssessment, RepositoryAssociation, RepositoryContribution)
+from cci.domain.contracts import (
+    ArtifactAttribution,
+    EvidenceConfidenceFactors,
+    EvidenceInput,
+    EvidenceRecord,
+    OwnershipAssessment,
+    RepositoryAssociation,
+    RepositoryContribution,
+)
 from cci.domain.enums import ArtifactAttributionState
+from cci.domain.evidence_families import build_fallback_evidence_family_identity
 from cci.live.contracts import (MAX_REPOSITORIES, MAX_FILES, MAX_FILE_BYTES, MAX_ARCHIVE_BYTES,
     MAX_EXPANDED_BYTES, MAX_SECONDS, MAX_RECENT_COMMITS, MAX_ARTIFACT_ATTRIBUTION_PATHS, github_parts)
 from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
@@ -139,6 +151,153 @@ def commit_matches_account(commit, identity):
     return bool(identity and isinstance(login, str) and login.lower() == identity.lower())
 
 
+def evidence_ids_for_fingerprints(
+    analysis_run_id: UUID,
+    fingerprints: Sequence[str],
+) -> list[UUID]:
+    """Returns unique, deterministic evidence IDs for ordered fingerprint occurrences."""
+    occurrences: dict[str, int] = {}
+    evidence_ids: list[UUID] = []
+    for fingerprint in fingerprints:
+        occurrence = occurrences.get(fingerprint, 0)
+        occurrences[fingerprint] = occurrence + 1
+        evidence_ids.append(
+            uuid5(
+                NAMESPACE_URL,
+                f"{analysis_run_id}:{fingerprint}:{occurrence}",
+            )
+        )
+    return evidence_ids
+
+
+def normalized_repository_identity(source_locator: str) -> str:
+    """Canonicalizes a repository URL for cluster grouping and family fallback."""
+    owner, repository = github_parts(source_locator)
+    if repository is None:
+        raise ValueError("A repository URL is required to build a live cluster identity")
+    return f"https://github.com/{owner.casefold()}/{repository.casefold()}"
+
+
+def build_live_evidence_records(
+    observations: Sequence[EvidenceInput],
+    *,
+    analysis_run_id: UUID,
+    source_locator: str,
+    immutable_revision: str,
+    cluster_id: str,
+    artifacts_by_path: Mapping[str, Any],
+    snapshot_fingerprint: str,
+    path_attributions: Mapping[str, ArtifactAttribution],
+    commit_date: datetime,
+    repository_association: RepositoryAssociation,
+    repository_contribution: RepositoryContribution,
+) -> list[EvidenceRecord]:
+    """Converts every analyzer observation to a run-scoped immutable record."""
+    prepared: list[tuple[EvidenceInput, Any, str, str]] = []
+    for observation in observations:
+        artifact = artifacts_by_path.get(observation.artifact_path)
+        content_hash = (
+            artifact.content_sha256 if artifact else snapshot_fingerprint
+        )
+        payload = {
+            "artifact_sha256": content_hash,
+            **observation.model_dump(mode="json", exclude={"observed_at"}),
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode()
+        ).hexdigest()
+        prepared.append((observation, artifact, content_hash, fingerprint))
+
+    evidence_ids = evidence_ids_for_fingerprints(
+        analysis_run_id, [fingerprint for _, _, _, fingerprint in prepared]
+    )
+    records: list[EvidenceRecord] = []
+    for (observation, artifact, content_hash, fingerprint), evidence_id in zip(
+        prepared, evidence_ids
+    ):
+        artifact_attribution = path_attributions.get(observation.artifact_path)
+        if artifact_attribution is None:
+            artifact_attribution = unknown_artifact_attribution(
+                immutable_revision,
+                observation.artifact_path,
+                "No path-specific commit history was available for this observation; repository contribution is not used as fallback.",
+            )
+
+        family_id = observation.evidence_family_id
+        family_basis = observation.evidence_family_basis
+        if family_id is None:
+            identity = build_fallback_evidence_family_identity(
+                source_family=observation.source_family,
+                cluster_id=cluster_id,
+                artifact_path=observation.artifact_path,
+                capability=observation.target_capability,
+                observation_type=observation.observation_type,
+                fingerprint=fingerprint,
+            )
+            family_id = identity.evidence_family_id
+            family_basis = identity.basis
+
+        factors = EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=artifact_attribution.ownership_score,
+            recency_factor=compute_recency_factor(
+                calculate_elapsed_years(commit_date), observation.target_capability
+            ),
+            verification_level=0.55,
+            depth_specificity=0.5,
+            source_reliability=compute_source_reliability(
+                observation.source_family
+            ).posterior_mean,
+        )
+        records.append(
+            EvidenceRecord(
+                evidence_id=evidence_id,
+                fingerprint=fingerprint,
+                source_family=observation.source_family,
+                source_locator=source_locator,
+                immutable_revision=immutable_revision,
+                artifact_id=artifact.artifact_id if artifact else None,
+                target_capability=observation.target_capability,
+                support_score=observation.observed_score,
+                is_positive_support=observation.is_positive_support,
+                confidence_factors=factors,
+                confidence=factors.composite_confidence,
+                artifact_attribution=artifact_attribution,
+                cluster_id=cluster_id,
+                evidence_family_id=family_id,
+                observation_type=observation.observation_type,
+                evidence_family_basis=family_basis,
+                provenance={
+                    "artifact_path": observation.artifact_path,
+                    "artifact_sha256": content_hash,
+                    "symbol_or_line": observation.symbol_or_line,
+                    "raw_support_text": observation.raw_support_text[:2000],
+                    "extractor_version": observation.extractor_version,
+                    "verification_status": "live_static_inspection",
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                    "commit_date": commit_date.isoformat(),
+                    "artifact_url": (
+                        f"{source_locator}/blob/{immutable_revision}/"
+                        f"{quote(observation.artifact_path, safe='/')}"
+                        if artifact
+                        else source_locator
+                    ),
+                    "repository_association": repository_association.model_dump(
+                        mode="json"
+                    ),
+                    "repository_contribution": repository_contribution.model_dump(
+                        mode="json"
+                    ),
+                    "artifact_attribution": artifact_attribution.model_dump(
+                        mode="json"
+                    ),
+                    "evidence_family_basis": family_basis,
+                },
+            )
+        )
+    return records
+
+
 def get_artifact_attribution(fetcher, owner, repo, revision_sha, artifact_path, identity):
     """Reads bounded history for one path; repository-wide contribution is never a fallback."""
     if not identity:
@@ -239,7 +398,15 @@ def get_artifact_attribution(fetcher, owner, repo, revision_sha, artifact_path, 
     ), False
 
 
-def acquire_repository(fetcher, url, identity, association_basis, attribution_path_budget):
+def acquire_repository(
+    fetcher,
+    url,
+    identity,
+    association_basis,
+    attribution_path_budget,
+    analysis_run_id: UUID | None = None,
+):
+    analysis_run_id = analysis_run_id or uuid4()
     owner, repo = github_parts(url)
     metadata = fetcher.get(f'/repos/{owner}/{repo}')
     if not isinstance(metadata, dict):
@@ -351,42 +518,20 @@ def acquire_repository(fetcher, url, identity, association_basis, attribution_pa
             path_attributions[path] = unknown_artifact_attribution(
                 sha, path, 'Path history was outside the bounded request budget; repository contribution is not used as fallback.'
             )
-        records, seen, per_group = [], set(), Counter()
-        for observation in raw:
-            artifact = by_path.get(observation.artifact_path)
-            # Structural observations spanning paths use the actual snapshot hash.
-            content_hash = artifact.content_sha256 if artifact else snapshot.snapshot_fingerprint
-            group = (observation.artifact_path, observation.target_capability)
-            payload = {'artifact_sha256': content_hash, **observation.model_dump(mode='json', exclude={'observed_at'})}
-            fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-            if fingerprint in seen or per_group[group] >= 2 or len(records) >= 180:
-                continue
-            seen.add(fingerprint)
-            per_group[group] += 1
-            artifact_attribution = path_attributions.get(observation.artifact_path)
-            if artifact_attribution is None:
-                artifact_attribution = unknown_artifact_attribution(
-                    sha, observation.artifact_path,
-                    'No path-specific commit history was available for this observation; repository contribution is not used as fallback.',
-                )
-            factors = EvidenceConfidenceFactors(artifact_integrity=1.0, ownership_score=artifact_attribution.ownership_score,
-                recency_factor=compute_recency_factor(calculate_elapsed_years(observed_date), observation.target_capability),
-                verification_level=.55, depth_specificity=.5,
-                source_reliability=compute_source_reliability(observation.source_family).posterior_mean)
-            records.append(EvidenceRecord(evidence_id=uuid5(NAMESPACE_URL, fingerprint), fingerprint=fingerprint,
-                source_family=observation.source_family, source_locator=url, immutable_revision=sha,
-                artifact_id=artifact.artifact_id if artifact else None, target_capability=observation.target_capability,
-                support_score=observation.observed_score, is_positive_support=observation.is_positive_support,
-                confidence_factors=factors, confidence=factors.composite_confidence,
-                artifact_attribution=artifact_attribution, cluster_id=url,
-                provenance={'artifact_path': observation.artifact_path, 'artifact_sha256': content_hash,
-                    'symbol_or_line': observation.symbol_or_line, 'raw_support_text': observation.raw_support_text[:2000],
-                    'extractor_version': observation.extractor_version, 'verification_status': 'live_static_inspection',
-                    'observed_at': datetime.now(timezone.utc).isoformat(), 'commit_date': observed_date.isoformat(),
-                    'artifact_url': f'{url}/blob/{sha}/{quote(observation.artifact_path, safe="/")}' if artifact else url,
-                    'repository_association': association.model_dump(mode='json'),
-                    'repository_contribution': contribution.model_dump(mode='json'),
-                    'artifact_attribution': artifact_attribution.model_dump(mode='json')}))
+        cluster_id = normalized_repository_identity(url)
+        records = build_live_evidence_records(
+            raw,
+            analysis_run_id=analysis_run_id,
+            source_locator=url,
+            immutable_revision=sha,
+            cluster_id=cluster_id,
+            artifacts_by_path=by_path,
+            snapshot_fingerprint=snapshot.snapshot_fingerprint,
+            path_attributions=path_attributions,
+            commit_date=observed_date,
+            repository_association=association,
+            repository_contribution=contribution,
+        )
         receipt = {'url': url, 'status': 'observed', 'detail': 'Fetched public commit and statically inspected selected files.',
             'commit_sha': sha, 'fetched_at': datetime.now(timezone.utc).isoformat(), 'files_inspected': len(artifacts),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,
@@ -450,7 +595,8 @@ def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
     return len(files) - stored
 
 
-def acquire_sources(urls, identity):
+def acquire_sources(urls, identity, analysis_run_id: UUID | None = None):
+    analysis_run_id = analysis_run_id or uuid4()
     records, ownership, receipts, repos = [], [], [], []
     association_basis = {}
     fetcher = Fetcher()
@@ -516,6 +662,7 @@ def acquire_sources(urls, identity):
                     fetcher, url, identity,
                     association_basis=association_basis.get(url.lower(), 'selected_repository_url'),
                     attribution_path_budget=path_budget,
+                    analysis_run_id=analysis_run_id,
                 )
                 records.extend(evidence)
                 ownership.append(assessment)
@@ -528,6 +675,13 @@ def acquire_sources(urls, identity):
     for receipt in receipts:
         for repo in receipt.get('inventory', []):
             repo['inspection_status'] = scanned.get(repo['url'].lower(), 'inventory_only')
+    evidence_ids = evidence_ids_for_fingerprints(
+        analysis_run_id, [record.fingerprint for record in records]
+    )
+    records = [
+        record.model_copy(update={"evidence_id": evidence_id})
+        for record, evidence_id in zip(records, evidence_ids)
+    ]
     return records, ownership, receipts
 
 

@@ -21,6 +21,11 @@ from cci.domain.contracts import (
     ScoringConfig,
 )
 from cci.domain.enums import CanonicalRole
+from cci.domain.evidence_families import build_fallback_evidence_family_identity
+from cci.scoring.evidence_families import (
+    compute_evidence_family_weights,
+    family_weight_input_from_record,
+)
 
 
 def init_db(engine: Any) -> None:
@@ -218,6 +223,7 @@ def save_analysis_run(
     job_description_id: UUID | None = None,
     status: str = "completed",
     error_message: str | None = None,
+    scoring_config: ScoringConfig | None = None,
 ) -> models.AnalysisRun:
     """Creates or updates an analysis run record."""
     rid = run_id or uuid4()
@@ -236,7 +242,7 @@ def save_analysis_run(
         else str(target_role),
         status=status,
         error_message=error_message,
-        config_version=ScoringConfig().version,
+        config_version=(scoring_config or ScoringConfig()).version,
         started_at=now,
         completed_at=now,
     )
@@ -245,14 +251,62 @@ def save_analysis_run(
     return run
 
 
+def save_scoring_config(
+    session: Session,
+    config: ScoringConfig,
+) -> models.ScoringConfigEntity:
+    """Persists the active scoring parameter set, including family decay."""
+    config_rows = list(
+        session.execute(select(models.ScoringConfigEntity)).scalars().all()
+    )
+    entity = next((row for row in config_rows if row.version == config.version), None)
+    if entity is None:
+        entity = models.ScoringConfigEntity(version=config.version)
+        session.add(entity)
+
+    for row in config_rows:
+        row.is_active = row.version == config.version
+
+    entity.temperature = config.temperature
+    entity.epsilon = config.epsilon
+    entity.low_coverage_threshold = config.low_coverage_threshold
+    entity.cluster_artifact_decay = config.cluster_artifact_decay
+    entity.evidence_family_decay = config.evidence_family_decay
+    entity.probe_alpha = config.probe_alpha
+    entity.probe_beta = config.probe_beta
+    entity.probe_gamma = config.probe_gamma
+    entity.eta_parameters = {
+        "eta1_mandatory": config.eta1_mandatory,
+        "eta2_preferred": config.eta2_preferred,
+        "eta3_frequency": config.eta3_frequency,
+        "eta4_specificity": config.eta4_specificity,
+    }
+    entity.lambda_decay = {
+        capability.value: value for capability, value in config.lambda_decay.items()
+    }
+    entity.tau_saturation = {
+        capability.value: value for capability, value in config.tau_saturation.items()
+    }
+    entity.is_active = True
+    session.flush()
+    return entity
+
+
 def save_evidence_records(
     session: Session,
     analysis_run_id: UUID,
     evidence_records: list[EvidenceRecord],
+    scoring_config: ScoringConfig,
 ) -> list[models.Evidence]:
     """Persists immutable evidence records and their capability links."""
+    weight_inputs = [
+        family_weight_input_from_record(record) for record in evidence_records
+    ]
+    family_weights = compute_evidence_family_weights(
+        weight_inputs, decay=scoring_config.evidence_family_decay
+    )
     entities: list[models.Evidence] = []
-    for ev in evidence_records:
+    for ev, weight_input in zip(evidence_records, weight_inputs):
         cf = ev.confidence_factors
         cap_val = (
             ev.target_capability.value
@@ -264,12 +318,29 @@ def save_evidence_records(
             if hasattr(ev.source_family, "value")
             else str(ev.source_family)
         )
+        if ev.evidence_family_id is None:
+            family_identity = build_fallback_evidence_family_identity(
+                source_family=ev.source_family,
+                cluster_id=ev.cluster_id or ev.source_locator,
+                artifact_path=ev.provenance.get("artifact_path"),
+                capability=ev.target_capability,
+                observation_type=ev.observation_type,
+                fingerprint=ev.fingerprint,
+            )
+            family_basis = family_identity.basis
+        else:
+            family_basis = (
+                ev.evidence_family_basis
+                or ev.provenance.get("evidence_family_basis", {})
+            )
 
         entity = models.Evidence(
             id=ev.evidence_id,
             analysis_run_id=analysis_run_id,
             artifact_id=ev.artifact_id,
             fingerprint=ev.fingerprint,
+            evidence_family_id=weight_input.evidence_family_id,
+            observation_type=ev.observation_type,
             source_family=fam_val,
             source_locator=ev.source_locator,
             immutable_revision=ev.immutable_revision,
@@ -284,7 +355,10 @@ def save_evidence_records(
             factor_source_reliability=cf.source_reliability,
             computed_confidence=ev.confidence,
             cluster_id=ev.cluster_id,
-            provenance=ev.provenance,
+            provenance={
+                **ev.provenance,
+                "evidence_family_basis": family_basis,
+            },
             analyzer_version=ev.provenance.get("analyzer_version", "1.0.0"),
         )
         session.add(entity)
@@ -294,7 +368,7 @@ def save_evidence_records(
         link = models.EvidenceCapabilityLink(
             evidence_id=entity.id,
             capability_key=cap_val,
-            effective_weight=1.0,
+            effective_weight=family_weights[ev.evidence_id],
         )
         session.add(link)
         entities.append(entity)
@@ -308,8 +382,16 @@ def save_dossier(
     dossier: Dossier,
     organization_id: UUID,
     custom_evidence: list[EvidenceRecord] | None = None,
+    scoring_config: ScoringConfig | None = None,
 ) -> models.DossierSnapshot:
     """Persists a complete Dossier snapshot and its relational evaluation components."""
+    cfg = scoring_config or ScoringConfig(
+        version=dossier.versions.get(
+            "scoring_config_version", ScoringConfig().version
+        )
+    )
+    save_scoring_config(session, cfg)
+
     # Ensure Candidate exists or is attached
     cand = session.get(models.Candidate, dossier.candidate_id)
     if not cand:
@@ -334,7 +416,10 @@ def save_dossier(
             organization_id=organization_id,
             run_id=dossier.analysis_run_id,
             status="completed",
+            scoring_config=cfg,
         )
+    else:
+        run.config_version = cfg.version
 
     # 1. Overall Score Entity
     observed_count = sum(
@@ -438,7 +523,12 @@ def save_dossier(
 
     # 5. Optional Evidence Records persistence
     if custom_evidence:
-        save_evidence_records(session, dossier.analysis_run_id, custom_evidence)
+        save_evidence_records(
+            session,
+            dossier.analysis_run_id,
+            custom_evidence,
+            scoring_config=cfg,
+        )
 
     # 6. Dossier Snapshot and Items
     snapshot = models.DossierSnapshot(

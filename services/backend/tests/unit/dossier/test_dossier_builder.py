@@ -144,6 +144,34 @@ def test_generate_interview_questions():
     assert "coverage gap" in q2.rationale.lower()
 
 
+def test_dossier_builder_retains_family_metadata_with_evidence_records():
+    fixtures = _mock_dossier_fixtures()
+    record = fixtures["evidence"][0].model_copy(
+        update={
+            "evidence_family_id": "ef1:" + "d" * 64,
+            "observation_type": "route:python_decorator",
+            "cluster_id": "https://github.com/alice/app",
+            "artifact_id": uuid4(),
+        }
+    )
+
+    dossier = build_candidate_dossier(
+        candidate_id=fixtures["cand_id"],
+        analysis_run_id=fixtures["run_id"],
+        role=CanonicalRole.BACKEND,
+        capability_estimates=fixtures["estimates"],
+        capability_conflicts=fixtures["conflicts"],
+        role_requirements=fixtures["requirements"],
+        ownership_assessments=fixtures["ownership"],
+        claims_corroboration=fixtures["claims"],
+        interview_probes=fixtures["probes"],
+        evidence_records=[record],
+    )
+
+    assert dossier.evidence_records == [record]
+    assert dossier.evidence_records[0].evidence_family_id == "ef1:" + "d" * 64
+
+
 def test_build_candidate_dossier():
     fixtures = _mock_dossier_fixtures()
     dossier = build_candidate_dossier(

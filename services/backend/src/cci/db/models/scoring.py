@@ -26,6 +26,9 @@ class ScoringConfigEntity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     cluster_artifact_decay: Mapped[float] = mapped_column(
         Float, default=0.5, nullable=False, server_default="0.5"
     )
+    evidence_family_decay: Mapped[float] = mapped_column(
+        Float, default=0.5, nullable=False, server_default="0.5"
+    )
     probe_alpha: Mapped[float] = mapped_column(Float, default=0.40, nullable=False)
     probe_beta: Mapped[float] = mapped_column(Float, default=0.35, nullable=False)
     probe_gamma: Mapped[float] = mapped_column(Float, default=0.25, nullable=False)

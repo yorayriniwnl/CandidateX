@@ -165,4 +165,5 @@ def build_candidate_dossier(
         claims_corroboration=claims_dicts,
         interview_probes=interview_probes,
         interview_questions=interview_questions,
+        evidence_records=evidence_records or [],
     )

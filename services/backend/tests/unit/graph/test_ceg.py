@@ -2,8 +2,21 @@
 
 from uuid import uuid4
 import pytest
-from cci.domain.enums import CapabilityKey, GraphEdgeType, GraphNodeType
+from cci.domain.contracts import (
+    CapabilityEstimate,
+    Dossier,
+    EvidenceConfidenceFactors,
+    EvidenceRecord,
+)
+from cci.domain.enums import (
+    CanonicalRole,
+    CapabilityKey,
+    GraphEdgeType,
+    GraphNodeType,
+    SourceFamily,
+)
 from cci.graph.ceg import CandidateEvidenceGraph, CEGEdge, CEGNode
+from cci.graph.builder import build_dossier_graph
 
 
 def test_ceg_construction_and_querying():
@@ -100,3 +113,67 @@ def test_api_projection():
     assert len(api_resp.nodes) == 2
     assert len(api_resp.edges) == 1
     assert api_resp.nodes[0].label in ("Alice", "Repo")
+
+
+def test_dossier_graph_evidence_nodes_expose_family_and_scope_metadata():
+    evidence_id = uuid4()
+    artifact_id = uuid4()
+    record = EvidenceRecord(
+        evidence_id=evidence_id,
+        fingerprint="a" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="b" * 40,
+        artifact_id=artifact_id,
+        target_capability=CapabilityKey.BACKEND_ENGINEERING,
+        support_score=75.0,
+        confidence_factors=EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        confidence=0.8,
+        cluster_id="https://github.com/acme/api",
+        evidence_family_id="ef1:" + "e" * 64,
+        observation_type="route:python_decorator",
+        provenance={"artifact_path": "src/routes.py"},
+    )
+    dossier = Dossier(
+        candidate_id=uuid4(),
+        analysis_run_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        coverage=0.0,
+        is_insufficient_evidence=True,
+        capability_estimates={
+            CapabilityKey.BACKEND_ENGINEERING: CapabilityEstimate(
+                capability_key=CapabilityKey.BACKEND_ENGINEERING,
+                estimate=75.0,
+                is_observed=True,
+                effective_evidence_count=1.0,
+                raw_evidence_count=1,
+                cluster_count=1,
+                standard_error=0.0,
+                dispersion=0.0,
+                coverage_k=0.5,
+            )
+        },
+        capability_conflicts={},
+        role_requirements=[],
+        ownership_assessments=[],
+        claims_corroboration=[],
+        interview_probes=[],
+        interview_questions=[],
+        evidence_records=[record],
+    )
+
+    graph = build_dossier_graph(dossier)
+    node = graph.get_node(str(evidence_id))
+
+    assert node is not None
+    assert node.properties["evidence_family_id"] == record.evidence_family_id
+    assert node.properties["observation_type"] == "route:python_decorator"
+    assert node.properties["cluster_id"] == "https://github.com/acme/api"
+    assert node.properties["artifact_id"] == str(artifact_id)

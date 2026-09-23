@@ -14,6 +14,7 @@ from cci.domain.contracts import (
     Dossier,
     EvidenceConfidenceFactors,
     EvidenceRecord,
+    ScoringConfig,
 )
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.pipeline.orchestrator import execute_analysis_pipeline
@@ -181,7 +182,9 @@ def test_evidence_immutability_in_repository(memory_db):
         provenance={"test": "data"},
     )
 
-    ev_entities = repo.save_evidence_records(memory_db, run.id, [ev_record])
+    ev_entities = repo.save_evidence_records(
+        memory_db, run.id, [ev_record], ScoringConfig()
+    )
     memory_db.commit()
 
     assert len(ev_entities) == 1
@@ -191,6 +194,99 @@ def test_evidence_immutability_in_repository(memory_db):
     ev_entity.support_score = 99.9
     with pytest.raises(ValueError, match="Immutable entity 'Evidence'.*cannot be modified"):
         memory_db.commit()
+
+
+def test_repository_persists_family_metadata_weights_and_active_config(memory_db):
+    org = repo.save_organization(memory_db, "Family Org", "family-org")
+    candidate_id = uuid.uuid4()
+    repo.save_candidate(
+        memory_db,
+        org.id,
+        CandidateManifest(display_name="Family Candidate"),
+        candidate_id=candidate_id,
+    )
+    family_id = "ef1:" + "a" * 64
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    records = [
+        EvidenceRecord(
+            evidence_id=uuid.uuid4(),
+            fingerprint="a" * 64,
+            source_family=SourceFamily.GITHUB,
+            source_locator="https://github.com/acme/family",
+            immutable_revision="b" * 40,
+            target_capability=CapabilityKey.BACKEND_ENGINEERING,
+            support_score=80.0,
+            confidence_factors=factors,
+            confidence=0.8,
+            cluster_id="https://github.com/acme/family",
+            evidence_family_id=family_id,
+            observation_type="dependency:manifest",
+            evidence_family_basis={"schema": "ef1", "domain": "dependency"},
+            provenance={"artifact_path": "requirements.txt"},
+        ),
+        EvidenceRecord(
+            evidence_id=uuid.uuid4(),
+            fingerprint="c" * 64,
+            source_family=SourceFamily.GITHUB,
+            source_locator="https://github.com/acme/family",
+            immutable_revision="b" * 40,
+            target_capability=CapabilityKey.BACKEND_ENGINEERING,
+            support_score=70.0,
+            confidence_factors=factors,
+            confidence=0.4,
+            cluster_id="https://github.com/acme/family",
+            evidence_family_id=family_id,
+            observation_type="dependency:python_import",
+            evidence_family_basis={"schema": "ef1", "domain": "dependency"},
+            provenance={"artifact_path": "src/service.py"},
+        ),
+    ]
+    config = ScoringConfig(evidence_family_decay=0.25)
+
+    state = execute_analysis_pipeline(
+        candidate_id=candidate_id,
+        role=CanonicalRole.BACKEND,
+    )
+    assert state.dossier is not None
+    repo.save_dossier(
+        memory_db,
+        state.dossier,
+        org.id,
+        custom_evidence=records,
+        scoring_config=config,
+    )
+    memory_db.commit()
+
+    config_entity = memory_db.query(models.ScoringConfigEntity).one()
+    saved = memory_db.query(models.Evidence).order_by(models.Evidence.fingerprint).all()
+    assert config_entity.version == config.version
+    assert config_entity.evidence_family_decay == 0.25
+    assert config_entity.is_active is True
+    assert len(saved) == 2
+    assert {entity.analysis_run_id for entity in saved} == {
+        state.dossier.analysis_run_id
+    }
+    assert {entity.evidence_family_id for entity in saved} == {family_id}
+    assert {entity.observation_type for entity in saved} == {
+        "dependency:manifest",
+        "dependency:python_import",
+    }
+    assert all(
+        entity.provenance["evidence_family_basis"]["schema"] == "ef1"
+        for entity in saved
+    )
+    links = memory_db.query(models.EvidenceCapabilityLink).all()
+    assert {link.evidence_id: link.effective_weight for link in links} == {
+        records[0].evidence_id: 1.0,
+        records[1].evidence_id: 0.25,
+    }
 
 
 def test_database_seeder_script_execution():

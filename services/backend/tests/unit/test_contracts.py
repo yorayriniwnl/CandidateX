@@ -37,6 +37,7 @@ from cci.domain.contracts import (
     SourceReliabilitySnapshot,
 )
 from cci.api.contracts.analyses import AnalysisTriggerRequest
+from cci.api.contracts.evidence import EvidenceDetailResponse
 
 
 def test_canonical_roles_exact_six():
@@ -322,3 +323,37 @@ def test_evidence_family_contracts_reject_values_outside_storage_limits():
         EvidenceInput(**base, observation_type="x" * 101)
     with pytest.raises(ValidationError):
         EvidenceInput(**base, evidence_family_id="ef1:" + "a" * 65)
+
+
+def test_evidence_detail_response_serializes_family_and_scope_metadata():
+    record = EvidenceRecord(
+        fingerprint="a" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="b" * 40,
+        artifact_id=uuid4(),
+        target_capability=CapabilityKey.BACKEND_ENGINEERING,
+        support_score=75.0,
+        confidence_factors=EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        confidence=0.8,
+        cluster_id="https://github.com/acme/api",
+        evidence_family_id="ef1:" + "c" * 64,
+        observation_type="route:python_decorator",
+        evidence_family_basis={"schema": "ef1", "domain": "route"},
+    )
+
+    serialized = EvidenceDetailResponse(record=record).model_dump(mode="json")[
+        "record"
+    ]
+
+    assert serialized["evidence_family_id"] == record.evidence_family_id
+    assert serialized["observation_type"] == "route:python_decorator"
+    assert serialized["cluster_id"] == "https://github.com/acme/api"
+    assert serialized["artifact_id"] == str(record.artifact_id)

@@ -40,6 +40,8 @@ class Evidence(Base, UUIDPrimaryKeyMixin, ImmutableModelMixin, TimestampMixin):
     fingerprint: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True
     )  # SHA-256
+    evidence_family_id: Mapped[str] = mapped_column(String(68), nullable=False)
+    observation_type: Mapped[str] = mapped_column(String(100), nullable=False)
     source_family: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     source_locator: Mapped[str] = mapped_column(String(1024), nullable=False)
     immutable_revision: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -71,7 +73,7 @@ class Evidence(Base, UUIDPrimaryKeyMixin, ImmutableModelMixin, TimestampMixin):
     computed_confidence: Mapped[float] = mapped_column(Float, nullable=False)  # c_e,k
 
     cluster_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, index=True
+        String(255), nullable=True, index=True
     )
     provenance: Mapped[dict[str, Any]] = mapped_column(
         JSONType, default=dict, nullable=False
