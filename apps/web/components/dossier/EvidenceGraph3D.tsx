@@ -8,6 +8,18 @@ import styles from './evidence-graph.module.css';
 
 const MAX_3D_NODES = 180;
 const MAX_3D_EDGES = 420;
+const TYPE_ELEVATION: Record<string, number> = {
+  candidate: 0, identity: 1.65, source: -1.55, repository: -1.55,
+  artifact: 1.45, evidence: -0.35, capability: 1.9, rolerequirement: -1.8,
+  analysisrun: 0.25, dossieritem: 0.75,
+};
+const TYPE_DEPTH: Record<string, number> = {
+  candidate: 0, identity: -1.65, source: 1.6, repository: 1.6,
+  artifact: 2.35, evidence: -2.05, capability: 0.85, rolerequirement: -1.5,
+  analysisrun: 1.9, dossieritem: -1.2,
+};
+const FALLBACK_LANE_ELEVATION = [0, 0, 0, 0.15, 0, 0.25];
+const FALLBACK_LANE_DEPTH = [0, 0, 0, 0.2, 0, 0];
 
 type Tone = 'candidate' | 'source' | 'observed' | 'conflict' | 'unknown' | 'role' | 'neutral';
 
@@ -51,10 +63,10 @@ function stableUnit(value: string) {
 
 function relationshipColor(type: string) {
   const normalized = type.toLowerCase();
-  if (normalized.includes('contradict')) return '#ff5964';
-  if (normalized.includes('support')) return '#30d58a';
-  if (normalized.includes('question')) return '#f5b942';
-  return '#667487';
+  if (normalized.includes('contradict')) return '#ff6d7c';
+  if (normalized.includes('support')) return '#48e0a0';
+  if (normalized.includes('question')) return '#f5c35f';
+  return '#a5b4c6';
 }
 
 function typeLabel(type: string) {
@@ -99,18 +111,10 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
         const verticalSpacing = Math.min(0.82, 8 / Math.max(laneNodes.length, 1));
         const centeredIndex = index - ((laneNodes.length - 1) / 2);
         const normalized = normalizedType(node.type);
-        const typeElevation: Record<string, number> = {
-          candidate: 0, identity: 1.65, source: -1.55, repository: -1.55,
-          artifact: 1.45, evidence: -0.35, capability: 1.9, rolerequirement: -1.8,
-          analysisrun: 0.25, dossieritem: 0.75,
-        };
-        const typeDepth: Record<string, number> = {
-          candidate: 0, identity: -1.65, source: 1.6, repository: 1.6,
-          artifact: 2.35, evidence: -2.05, capability: 0.85, rolerequirement: -1.5,
-          analysisrun: 1.9, dossieritem: -1.2,
-        };
-        const y = typeElevation[normalized] + centeredIndex * verticalSpacing + (stableUnit(`${node.id}:y`) - 0.5) * 0.65;
-        const z = typeDepth[normalized] + (stableUnit(`${node.id}:z`) - 0.5) * 1.1;
+        const baseElevation = TYPE_ELEVATION[normalized] ?? FALLBACK_LANE_ELEVATION[lane] ?? 0;
+        const baseDepth = TYPE_DEPTH[normalized] ?? FALLBACK_LANE_DEPTH[lane] ?? 0;
+        const y = baseElevation + centeredIndex * verticalSpacing + (stableUnit(`${node.id}:y`) - 0.5) * 0.65;
+        const z = baseDepth + (stableUnit(`${node.id}:z`) - 0.5) * 1.1;
         positions.set(node.id, new THREE.Vector3(lane * 2.55 - 6.35, y, z));
       });
     }
@@ -123,6 +127,10 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
       return;
     }
 
+    let frame = 0;
+    let visible = true;
+    let disposed = false;
+    let contextLost = false;
     setWebglUnavailable(false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(Math.max(host.clientWidth, 320), Math.max(host.clientHeight, 360), false);
@@ -134,6 +142,20 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     renderer.domElement.setAttribute('aria-label', `3D evidence graph with ${graph.nodes.length} nodes and ${graph.edges.length} relationships`);
     renderer.domElement.setAttribute('aria-describedby', 'evidence-graph-text-alternative');
     renderer.domElement.tabIndex = 0;
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      contextLost = true;
+      visible = false;
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+      renderer.domElement.setAttribute('aria-hidden', 'true');
+      renderer.domElement.tabIndex = -1;
+      renderer.domElement.style.visibility = 'hidden';
+      setWebglUnavailable(true);
+    };
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost, false);
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -145,7 +167,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     const center = bounds.getCenter(new THREE.Vector3());
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const radius = Math.max(sphere.radius, 6);
-    const restingPosition = center.clone().add(new THREE.Vector3(radius * 1.05, radius * 0.9, radius * 1.6));
+    const restingPosition = center.clone().add(new THREE.Vector3(radius * 0.95, radius * 0.82, radius * 1.48));
     camera.position.copy(restingPosition);
     camera.lookAt(center);
 
@@ -174,75 +196,113 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
 
     const materialByTone = new Map<Tone, THREE.MeshStandardMaterial>();
     const colorByTone: Record<Tone, string> = {
-      candidate: '#eef3f8', source: '#8da5bd', observed: '#30d58a', conflict: '#ff5964',
-      unknown: '#738196', role: '#7d8cff', neutral: '#9aa5b1',
+      candidate: '#f5f7fb', source: '#9bb8d4', observed: '#48e0a0', conflict: '#ff6d7c',
+      unknown: '#9aa9bb', role: '#96a0ff', neutral: '#758396',
     };
-    const nodeGeometry = new THREE.SphereGeometry(0.13, 20, 20);
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 64;
+    glowCanvas.height = 64;
+    const glowContext = glowCanvas.getContext('2d');
+    if (glowContext) {
+      const gradient = glowContext.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.56)');
+      gradient.addColorStop(0.28, 'rgba(255, 255, 255, 0.22)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      glowContext.fillStyle = gradient;
+      glowContext.fillRect(0, 0, 64, 64);
+    }
+    const glowTexture = new THREE.CanvasTexture(glowCanvas);
+    glowTexture.colorSpace = THREE.SRGBColorSpace;
+    const glowMaterialByTone = new Map<Tone, THREE.SpriteMaterial>();
+    const nodeGeometry = new THREE.SphereGeometry(0.2, 28, 28);
     const nodeMeshes: THREE.Mesh[] = [];
     const nodeLabelMaterials: THREE.SpriteMaterial[] = [];
+    const candidateNode = nodes.find(node => normalizedType(node.type) === 'candidate');
     for (const node of nodes) {
       const tone = toneFor(node);
+      const type = normalizedType(node.type);
+      const position = positions.get(node.id);
       let material = materialByTone.get(tone);
       if (!material) {
         const color = new THREE.Color(colorByTone[tone]);
         material = new THREE.MeshStandardMaterial({
           color,
           emissive: color,
-          emissiveIntensity: tone === 'observed' || tone === 'conflict' ? 0.34 : 0.16,
-          metalness: 0.38,
-          roughness: 0.3,
+          emissiveIntensity: tone === 'observed' || tone === 'conflict' ? 0.62 : tone === 'candidate' ? 0.4 : 0.32,
+          metalness: 0.2,
+          roughness: 0.22,
         });
         materialByTone.set(tone, material);
       }
+      let glowMaterial = glowMaterialByTone.get(tone);
+      if (!glowMaterial) {
+        glowMaterial = new THREE.SpriteMaterial({
+          map: glowTexture,
+          color: colorByTone[tone],
+          transparent: true,
+          opacity: tone === 'observed' || tone === 'conflict' ? 0.52 : 0.34,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        glowMaterialByTone.set(tone, glowMaterial);
+      }
+      if (position) {
+        const glow = new THREE.Sprite(glowMaterial);
+        glow.position.copy(position);
+        glow.scale.setScalar(type === 'candidate' ? 1.25 : 0.9);
+        scene.add(glow);
+      }
       const mesh = new THREE.Mesh(nodeGeometry, material);
-      const position = positions.get(node.id);
       if (position) mesh.position.copy(position);
-      const type = normalizedType(node.type);
-      const scale = type === 'candidate' ? 1.85 : type === 'evidence' ? 1.18 : 0.92;
+      const scale = type === 'candidate' ? 1.9 : type === 'evidence' ? 1.32 : 1.12;
       mesh.scale.setScalar(scale);
       mesh.userData.node = node;
       nodeMeshes.push(mesh);
       scene.add(mesh);
 
-      if (nodes.length <= 32) {
+      if (node.id === candidateNode?.id) {
         const position = positions.get(node.id);
         const contextCanvas = document.createElement('canvas');
         contextCanvas.width = 512;
         contextCanvas.height = 112;
         const context = contextCanvas.getContext('2d');
         if (position && context) {
-          const text = node.label.length > 24 ? `${node.label.slice(0, 23)}…` : node.label;
+          const text = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
           context.clearRect(0, 0, contextCanvas.width, contextCanvas.height);
-          context.font = '600 30px system-ui, sans-serif';
+          context.fillStyle = 'rgba(7, 11, 16, 0.92)';
+          context.fillRect(34, 15, 444, 82);
+          context.lineWidth = 2;
+          context.strokeStyle = 'rgba(245, 247, 251, 0.24)';
+          context.strokeRect(34, 15, 444, 82);
+          context.font = '700 44px system-ui, sans-serif';
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           context.shadowColor = colorByTone[tone];
-          context.shadowBlur = 10;
+          context.shadowBlur = 5;
           context.fillStyle = colorByTone[tone];
-          context.fillText(text, contextCanvas.width / 2, 48, 480);
-          context.shadowBlur = 0;
-          context.font = '600 16px ui-monospace, monospace';
-          context.fillStyle = '#7f8c9d';
-          context.fillText(typeLabel(node.type).toUpperCase(), contextCanvas.width / 2, 87, 480);
+          context.fillText(text, contextCanvas.width / 2, 56, 410);
           const texture = new THREE.CanvasTexture(contextCanvas);
           texture.colorSpace = THREE.SRGBColorSpace;
-          const labelMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+          texture.generateMipmaps = false;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          const labelMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
           nodeLabelMaterials.push(labelMaterial);
           const sprite = new THREE.Sprite(labelMaterial);
-          sprite.position.copy(position).add(new THREE.Vector3(0, 0.56, 0));
-          sprite.scale.set(Math.min(3.15, Math.max(1.65, text.length * 0.11)), 0.7, 1);
+          sprite.position.copy(position).add(new THREE.Vector3(0, 0.92, 0));
+          sprite.scale.set(Math.min(3.8, Math.max(2.8, text.length * 0.28)), 1.16, 1);
+          sprite.renderOrder = 3;
           scene.add(sprite);
         }
       }
     }
 
-    const candidateNode = nodes.find(node => normalizedType(node.type) === 'candidate');
     const candidatePosition = candidateNode ? positions.get(candidateNode.id) : undefined;
     let candidateRing: THREE.Mesh | undefined;
     if (candidatePosition) {
       candidateRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.38, 0.008, 8, 64),
-        new THREE.MeshBasicMaterial({ color: '#dfe8f4', transparent: true, opacity: 0.64 }),
+        new THREE.TorusGeometry(0.44, 0.012, 8, 64),
+        new THREE.MeshBasicMaterial({ color: '#f5f7fb', transparent: true, opacity: 0.78 }),
       );
       candidateRing.position.copy(candidatePosition);
       candidateRing.rotation.x = Math.PI / 2;
@@ -263,14 +323,14 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
     edgeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(edgeColors, 3));
     const edgeMesh = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({
-      vertexColors: true, transparent: true, opacity: 0.48, depthWrite: false,
+      vertexColors: true, transparent: true, opacity: 0.78, depthWrite: false,
     }));
     scene.add(edgeMesh);
 
     let arrows: THREE.InstancedMesh | undefined;
     if (edges.length > 0) {
-      const arrowGeometry = new THREE.ConeGeometry(0.075, 0.24, 8);
-      const arrowMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', vertexColors: true, transparent: true, opacity: 0.68, depthWrite: false });
+      const arrowGeometry = new THREE.ConeGeometry(0.12, 0.36, 8);
+      const arrowMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', vertexColors: true, transparent: true, opacity: 0.82, depthWrite: false });
       arrows = new THREE.InstancedMesh(arrowGeometry, arrowMaterial, edges.length);
       const arrowTransform = new THREE.Object3D();
       const arrowUp = new THREE.Vector3(0, 1, 0);
@@ -281,7 +341,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
         const direction = to.clone().sub(from);
         arrowTransform.position.copy(from).addScaledVector(direction, 0.8);
         arrowTransform.quaternion.setFromUnitVectors(arrowUp, direction.normalize());
-        arrowTransform.scale.setScalar(0.78);
+        arrowTransform.scale.setScalar(0.9);
         arrowTransform.updateMatrix();
         arrows?.setMatrixAt(index, arrowTransform.matrix);
         arrows?.setColorAt(index, new THREE.Color(relationshipColor(edge.type)));
@@ -339,9 +399,6 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
       controls.update();
     };
 
-    let frame = 0;
-    let visible = true;
-    let disposed = false;
     const render = () => {
       if (disposed || !visible) return;
       controls.update();
@@ -352,7 +409,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     frame = window.requestAnimationFrame(render);
 
     const resizeObserver = new ResizeObserver(() => {
-      if (!host.clientWidth || !host.clientHeight) return;
+      if (!visible || !host.clientWidth || !host.clientHeight) return;
       renderer.setSize(host.clientWidth, host.clientHeight, false);
       camera.aspect = host.clientWidth / host.clientHeight;
       camera.updateProjectionMatrix();
@@ -360,7 +417,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     });
     resizeObserver.observe(host);
     const visibilityObserver = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
+      visible = entry.isIntersecting && !contextLost;
       if (visible && !frame) frame = window.requestAnimationFrame(render);
       if (!visible && frame) {
         window.cancelAnimationFrame(frame);
@@ -375,6 +432,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
       visibilityObserver.disconnect();
       resizeObserver.disconnect();
       controls.dispose();
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost, false);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
@@ -387,6 +445,8 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
       }
       edgeGeometry.dispose();
       (edgeMesh.material as THREE.Material).dispose();
+      for (const material of glowMaterialByTone.values()) material.dispose();
+      glowTexture.dispose();
       arrows?.geometry.dispose();
       (arrows?.material as THREE.Material | undefined)?.dispose();
       candidateRing?.geometry.dispose();
@@ -398,7 +458,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
     };
   }, [graph]);
 
-  const selectedNode = activeNode ?? hoveredNode;
+  const selectedNode = hoveredNode ?? activeNode;
 
   return (
     <div className={styles.viewer}>
@@ -416,7 +476,7 @@ export function EvidenceGraph3D({ graph, onSelectNode }: {
       </div>
       <div className={styles.viewerFooter}>
         <p>Node color follows returned semantics. Position separates node types; connecting lines are only returned graph relationships.</p>
-        <button type="button" className={styles.resetButton} onClick={() => resetViewRef.current?.()}>Reset view</button>
+        <button type="button" className={styles.resetButton} disabled={webglUnavailable} onClick={() => resetViewRef.current?.()}>Reset view</button>
       </div>
       {selectedNode && <aside className={styles.nodeInspector} aria-label="Selected graph node details">
         <div className={styles.nodeInspectorHeading}>

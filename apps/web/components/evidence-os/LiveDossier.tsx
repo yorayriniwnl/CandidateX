@@ -85,12 +85,16 @@ export function LiveDossier({ result, onNewEvaluation }: { result: LiveResult; o
               <div><dt>Conflicts</dt><dd>{conflicts}</dd></div>
             </dl>
           </div>
-          <nav aria-label="Dossier sections" className={styles.sectionNav}>
+          <nav aria-label="Dossier sections" aria-describedby="dossier-section-nav-description" className={styles.sectionNav}>
             {SECTIONS.map((section, index) => <a key={section.id} href={`#${section.id}`}>
               <span className={styles.navIndex}>{String(index + 1).padStart(2, '0')}</span>
               <span><strong>{section.label}</strong><small>{section.detail}</small></span>
             </a>)}
           </nav>
+          <p id="dossier-section-nav-description" className={styles.srOnly}>Use these links to navigate to dossier sections.</p>
+          <p className={styles.sectionNavHint}>
+            Swipe or scroll to see all dossier sections <span aria-hidden="true">→</span>
+          </p>
         </aside>
 
         <div className={styles.dossierContent}>

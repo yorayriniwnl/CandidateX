@@ -212,6 +212,7 @@
 .sectionNav a > span:last-child { display: flex; flex-direction: column; gap: 3px; }
 .sectionNav strong { font-size: 10px; font-weight: 560; }
 .sectionNav small { color: #64717d; font-size: 8px; }
+.sectionNavHint { display: none; }
 .dossierContent { min-width: 0; }
 .overviewSection, .contentSection { scroll-margin-top: 82px; }
 .overviewSection { padding: 5px 0 34px; }
@@ -460,9 +461,11 @@
   .stickySummary .sectionEyebrow { grid-column: 1 / -1; }
   .stickySummary dl { display: contents; }
   .stickySummary dl div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; border-top: 0; }
-  .sectionNav { flex-direction: row; gap: 0; overflow-x: auto; margin: 9px 0 18px; border-bottom: 1px solid var(--line); }
+  .sectionNav { flex-direction: row; gap: 0; overflow-x: auto; margin: 9px 0 8px; border-bottom: 1px solid var(--line); scrollbar-width: thin; scrollbar-color: #394756 transparent; }
   .sectionNav a { flex: none; padding: 9px 11px; }
   .sectionNav small { display: none; }
+  .sectionNavHint { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 18px; color: #82909b; font: 500 9px/1.4 var(--font-mono), monospace; }
+  .sectionNavHint span { color: #30d58a; font-size: 13px; }
 }
 
 @media (max-width: 760px) {
