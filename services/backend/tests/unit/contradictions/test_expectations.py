@@ -42,7 +42,7 @@ def test_reference_uses_versioned_normalized_payload_and_repository_scope():
 
 def test_coverage_claim_has_normalized_comparison_fields():
     result = build_observable_claim_expectations(intake(projects=[{
-        "title": "API acme/api", "description": "At least 95% line coverage",
+        "title": "API repo=acme/api", "description": "At least 95% line coverage",
     }]))
     assert len(result) == 1
     assert result[0].candidate_type == "candidatex.contradiction.coverage_below_claim"
@@ -132,7 +132,7 @@ def test_repository_scope_must_be_unique_and_in_same_project_claim():
         projects=projects, links=["https://github.com/acme/api"],
     )) == []
     assert build_observable_claim_expectations(intake(projects=[{
-        "title": "API acme/api acme/web", "description": "Used FastAPI",
+        "title": "API repo=acme/api repo=acme/web", "description": "Used FastAPI",
     }])) == []
     assert build_observable_claim_expectations(intake(
         projects=projects, skills=["Used FastAPI"], experience=["Used FastAPI"],
@@ -149,6 +149,34 @@ def test_sentence_punctuation_does_not_change_repository_identity():
     }]))
     assert len(result) == 1
     assert result[0].repository_scope == "acme/api"
+    labeled = build_observable_claim_expectations(intake(projects=[{
+        "title": "API", "description": "Used FastAPI in repo=acme/api.",
+    }]))
+    assert len(labeled) == 1
+    assert labeled[0].repository_scope == "acme/api"
+
+
+def test_generic_slash_phrase_cannot_supply_repository_scope():
+    assert build_observable_claim_expectations(intake(projects=[{
+        "title": "API", "description": "Used FastAPI with CI/CD",
+    }])) == []
+    assert build_observable_claim_expectations(intake(projects=[{
+        "title": "API acme/api", "description": "Used FastAPI",
+    }])) == []
+    scoped = build_observable_claim_expectations(intake(projects=[{
+        "title": "API repo=acme/api", "description": "Used FastAPI with CI/CD",
+    }]))
+    assert len(scoped) == 1
+    assert scoped[0].repository_scope == "acme/api"
+
+
+@pytest.mark.parametrize("claim", [
+    "We did not use FastAPI",
+    "Never used FastAPI",
+    "Not at least 95% coverage",
+])
+def test_negated_claims_do_not_make_affirmative_expectations(claim):
+    assert parse_observable_claim(claim, repository_scope="acme/api") == []
 
 
 def test_unscoped_or_ambiguous_claim_produces_no_expectation():
@@ -157,5 +185,5 @@ def test_unscoped_or_ambiguous_claim_produces_no_expectation():
 
 
 def test_live_claims_exposes_the_same_transient_builder():
-    sample = intake(projects=[{"title": "API acme/api", "description": "Used FastAPI"}])
+    sample = intake(projects=[{"title": "API repo=acme/api", "description": "Used FastAPI"}])
     assert build_from_live_claims(sample) == build_observable_claim_expectations(sample)
