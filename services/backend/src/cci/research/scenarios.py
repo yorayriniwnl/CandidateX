@@ -7,11 +7,12 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Literal
-from uuid import UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, Field
 from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
+from cci.domain.evidence_families import build_evidence_family_identity
 from cci.scoring.reliability import compute_source_reliability
 
 VERSION = "research-scenarios-1.0"
@@ -51,7 +52,20 @@ def make_scenario(request: DemoRequest):
             score = max(0, min(100, strengths[index] + (source_index % 3 - 1) * 5))
             if negative:
                 score = 25
-            locator = f"synthetic://project-{source_index % 3}/{family.value}/{cap.value}"
+            cluster_id = (
+                f"synthetic://scenario/{request.scenario}/project-"
+                f"{source_index % 3}/{family.value}"
+            )
+            locator = f"{cluster_id}/{cap.value}"
+            semantic_subject = f"{request.scenario}:{cap.value}:technical-signal"
+            observation_type = "simulation:scenario_capability_signal"
+            family_identity = build_evidence_family_identity(
+                source_family=family,
+                cluster_id=cluster_id,
+                capability=cap,
+                fact_domain="simulation",
+                subject=semantic_subject,
+            )
             raw = {"capability": cap.value, "support_score": score,
                    "positive": not negative, "source": family.value,
                    "description": "Simulated observation for method demonstration; no external artifact inspected."}
@@ -65,18 +79,40 @@ def make_scenario(request: DemoRequest):
             records.append(EvidenceRecord(
                 evidence_id=uuid5(request.candidate_id, fingerprint), fingerprint=fingerprint,
                 source_family=family, source_locator=locator, immutable_revision=revision,
+                artifact_id=uuid5(
+                    NAMESPACE_URL,
+                    f"cci-scenario:artifact:{request.scenario}:{family.value}:"
+                    f"{source_index % 3}:{index}",
+                ),
                 target_capability=cap, support_score=score, is_positive_support=not negative,
                 confidence_factors=factors, confidence=factors.composite_confidence,
-                cluster_id=f"project-{source_index % 3}", created_at=EPOCH,
+                cluster_id=cluster_id,
+                evidence_family_id=family_identity.evidence_family_id,
+                observation_type=observation_type,
+                evidence_family_basis=family_identity.basis,
+                created_at=EPOCH,
                 provenance={"synthetic": True, "candidate_id": str(request.candidate_id),
                             "source_locator": locator, "artifact_path": f"{family.value}/{cap.value}.json",
                             "raw_support_text": normalized, "extractor_version": VERSION,
+                            "semantic_subject": semantic_subject,
+                            "evidence_family_basis": family_identity.basis,
                             "observed_at": EPOCH.isoformat(), "verification_status": "simulated",
                             "review_counts": {"true_positive": 8, "false_positive": request.reliability_false_positives}}))
     return records, reliability
 
 
 def evidence_digest(records: list[EvidenceRecord]) -> str:
-    """Includes factor changes as well as immutable observation fingerprints."""
-    content = [{"fingerprint": r.fingerprint, "factors": r.confidence_factors.model_dump()} for r in records]
+    """Includes identity, scope, and factor changes in the synthetic evidence digest."""
+    content = [
+        {
+            "fingerprint": record.fingerprint,
+            "evidence_family_id": record.evidence_family_id,
+            "observation_type": record.observation_type,
+            "cluster_id": record.cluster_id,
+            "artifact_id": str(record.artifact_id) if record.artifact_id else None,
+            "evidence_family_basis": record.evidence_family_basis,
+            "factors": record.confidence_factors.model_dump(),
+        }
+        for record in records
+    ]
     return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()

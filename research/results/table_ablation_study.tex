@@ -1,19 +1,19 @@
 \begin{table}[t]
 \centering
-\caption{Ablation Study Results Across Canonical Engineering Roles ($N=4{,}800$).}
+\caption{Synthetic Prototype Ablation Results Across Canonical Engineering Roles ($N=4{,}800$).}
 \label{tab:ablation_study}
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-\textbf{Model Architecture} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\
+\textbf{Model Architecture} & \textbf{Paired $N$} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\
 \midrule
-FULL\_CCI & 1.256 & 1.620 & 0.979 & 0.876 \\
-NO\_RECENCY\_DECAY & 1.260 & 1.615 & 0.976 & 0.869 \\
-NO\_OWNERSHIP\_DISCOUNT & 2.313$^{***}$ & 2.954 & 0.940 & 0.791 \\
-UNIFORM\_WEIGHTS & 1.958$^{***}$ & 2.513 & 0.963 & 0.836 \\
-UNCALIBRATED\_SOURCES & 1.325$^{***}$ & 1.721 & 0.976 & 0.869 \\
-\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}\\
-\multicolumn{5}{l}{\footnotesize Scoring config 4.0.0; estimates require $\mathrm{Cov}_k \ge 0.35$; within-cluster artifact decay $\delta=0.50$; lower coverage is UNKNOWN.}
+FULL\_CCI & 4796 & 1.267 & 1.643 & 0.977 & 0.872 \\
+NO\_RECENCY\_DECAY & 4796 & 1.255 & 1.626 & 0.976 & 0.868 \\
+NO\_OWNERSHIP\_DISCOUNT & 4796 & 2.332$^{***}$ & 2.996 & 0.934 & 0.780 \\
+UNIFORM\_WEIGHTS & 4796 & 1.921$^{***}$ & 2.455 & 0.960 & 0.831 \\
+UNCALIBRATED\_SOURCES & 4796 & 1.335$^{***}$ & 1.734 & 0.975 & 0.867 \\
+\multicolumn{6}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}\\
+\multicolumn{6}{l}{\footnotesize Scoring config 5.0.0; estimates require $\mathrm{Cov}_k \ge 0.35$; within-cluster artifact decay $\delta=0.50$; evidence-family decay $\gamma=0.50$; lower coverage is UNKNOWN.}
 \bottomrule
 \end{tabular}
 \end{table}

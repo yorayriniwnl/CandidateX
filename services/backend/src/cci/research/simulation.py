@@ -6,12 +6,22 @@ and realistic noisy evidence emission across the 6 canonical engineering roles.
 Supports 16 deterministic pseudo-random seeds x 300 candidates (N=4,800 total).
 """
 
+import hashlib
+import json
 from dataclasses import dataclass
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import numpy as np
 
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
+from cci.domain.evidence_families import build_evidence_family_identity
+
+SIMULATION_VERSION = "cohort-simulation-1.0"
+SIMULATED_OBSERVATION_TYPES = (
+    "simulation:implementation_signal",
+    "simulation:verification_signal",
+    "simulation:operation_signal",
+)
 
 # Role capability emphasis profiles: mean latent capability (core vs. peripheral)
 ROLE_CAPABILITY_PROFILES: dict[
@@ -116,6 +126,12 @@ class SimulatedObservation:
     verification_level: float  # v_e
     depth_specificity: float  # x_e
     source_family: SourceFamily  # r_s
+    evidence_id: UUID
+    evidence_family_id: str
+    observation_type: str
+    fingerprint: str
+    semantic_subject: str
+    evidence_family_basis: dict[str, str]
     cluster_id: str | None = None
     source_locator: str | None = None
     artifact_id: str | None = None
@@ -146,7 +162,10 @@ def generate_synthetic_cohort(
     )
 
     for i in range(count):
-        cand_id = uuid4()
+        cand_id = uuid5(
+            NAMESPACE_URL,
+            f"cci-simulation:candidate:{role.value}:{seed}:{i}",
+        )
         ground_truth: dict[CapabilityKey, float] = {}
 
         # 1. Sample latent ground-truth capabilities q_k^* in [0, 100]
@@ -215,7 +234,50 @@ def generate_synthetic_cohort(
 
                 source_cluster_index = int(rng.randint(0, 3))
                 artifact_index = int(rng.randint(0, 4))
-                cluster_id = f"{sf.value}:project-{source_cluster_index}"
+                cluster_id = (
+                    f"{sf.value}:seed-{seed}:candidate-{i}:project-"
+                    f"{source_cluster_index}"
+                )
+                source_locator = f"synthetic://{cluster_id}"
+                artifact_id = f"{cluster_id}:artifact-{artifact_index}"
+                semantic_subject = f"{cap_key.value}:artifact-{artifact_index}"
+                observation_type = SIMULATED_OBSERVATION_TYPES[
+                    int(rng.randint(0, len(SIMULATED_OBSERVATION_TYPES)))
+                ]
+                observation_ordinal = len(observations)
+                evidence_id = uuid5(
+                    NAMESPACE_URL,
+                    f"cci-simulation:evidence:{role.value}:{seed}:{i}:"
+                    f"{observation_ordinal}",
+                )
+                family = build_evidence_family_identity(
+                    source_family=sf,
+                    cluster_id=cluster_id,
+                    capability=cap_key,
+                    fact_domain="simulation",
+                    subject=semantic_subject,
+                )
+                fingerprint_material = json.dumps(
+                    {
+                        "version": SIMULATION_VERSION,
+                        "role": role.value,
+                        "seed": seed,
+                        "candidate_ordinal": i,
+                        "observation_ordinal": observation_ordinal,
+                        "source_family": sf.value,
+                        "cluster_id": cluster_id,
+                        "artifact_id": artifact_id,
+                        "capability": cap_key.value,
+                        "score": obs_score,
+                        "observation_type": observation_type,
+                        "semantic_subject": semantic_subject,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                fingerprint = hashlib.sha256(
+                    fingerprint_material.encode("utf-8")
+                ).hexdigest()
 
                 observations.append(
                     SimulatedObservation(
@@ -227,9 +289,15 @@ def generate_synthetic_cohort(
                         verification_level=1.0 if sf != SourceFamily.RESUME else 0.50,
                         depth_specificity=float(rng.uniform(0.70, 0.95)),
                         source_family=sf,
+                        evidence_id=evidence_id,
+                        evidence_family_id=family.evidence_family_id,
+                        observation_type=observation_type,
+                        fingerprint=fingerprint,
+                        semantic_subject=semantic_subject,
+                        evidence_family_basis=family.basis,
                         cluster_id=cluster_id,
-                        source_locator=f"synthetic://{cluster_id}",
-                        artifact_id=f"{cluster_id}:artifact-{artifact_index}",
+                        source_locator=source_locator,
+                        artifact_id=artifact_id,
                     )
                 )
 

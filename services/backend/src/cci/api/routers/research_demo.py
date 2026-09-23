@@ -22,9 +22,11 @@ def rescore_demo(request: PipelineRescoreRequest):
 @router.post("/run")
 def run_demo(request: DemoRequest):
     records, reliability = make_scenario(request)
+    scoring_config = ScoringConfig()
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id, role=request.role, jd_text=request.jd_text,
-        custom_evidence=records, evidence_mode="synthetic", scenario=request.scenario)
+        custom_evidence=records, evidence_mode="synthetic", scenario=request.scenario,
+        scoring_config=scoring_config)
     if state.dossier is None or state.ceg_graph is None:
         raise HTTPException(500, "Demonstration failed; no result has been substituted.")
     return {
@@ -34,7 +36,7 @@ def run_demo(request: DemoRequest):
         "input": request.model_dump(mode="json"),
         "evidence_digest": evidence_digest(records),
         "scenario_version": VERSION,
-        "scoring_config": ScoringConfig(), "reliability": reliability,
+        "scoring_config": scoring_config, "reliability": reliability,
         "stages": [vars(stage) for stage in state.stages],
         "benchmark_scope": {
             "headline_reproduced": False,

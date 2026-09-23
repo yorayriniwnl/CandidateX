@@ -13,7 +13,7 @@ The demonstration runs through the backend's actual confidence, capability, cove
 | Capability, Eq. 3 | Confidence-weighted technical observations; candidate estimate is UNKNOWN until configured attribution-gated coverage reaches 0.35 |
 | Effective count and conflict, Eq. 4 | Kish effective count and positive/negative support diagnostic |
 | Role conditioning, Eq. 5 | Six canonical role priors plus parsed JD requirements; softmax normalization |
-| Coverage and RCI, Eqs. 6-7 | Coverage uses source-family clusters, unique artifacts, and 0.5 geometric within-cluster decay; RCI includes only estimates meeting the configured 0.35 minimum |
+| Coverage and RCI, Eqs. 6-7 | Coverage uses source-family clusters, unique artifacts, and 0.5 geometric within-cluster decay; scoring config 5.0.0 also applies 0.5 evidence-family decay before capability and coverage aggregation |
 | Interview priorities, Eq. 8 | Shared scorer: weight times the sum of coverage-gap, normalized interval-width and conflict terms |
 | Provenance graph | All nine node types, source/artifact/revision/fingerprint links, confidence-bearing attribution, requirements and evidence-linked questions |
 | Overrides | New dossier snapshots retaining evidence and an explicit justification/history; coverage, status, questions and graph update together |
@@ -77,10 +77,22 @@ Coverage saturates at the configured evidence threshold. Removing one source or 
 | Artifact | Meaning |
 | --- | --- |
 | Manuscript headline benchmark | 16 seeds x 300 candidates x 6 roles = 28,800 candidate-role pairs; reported rho 0.928 +/- 0.013. Each candidate is evaluated against all roles. |
-| Public executable prototype | 16 seeds x 6 roles x 50 distinct candidates per role = 4,800 candidates per ablation mode; scoring config 4.0.0 uses cluster-aware coverage, 0.5 within-cluster artifact decay, and a 0.35 minimum capability coverage. |
+| Public executable prototype | 16 seeds x 6 roles x 50 distinct candidates per role = 4,800 candidates per ablation mode; scoring config 5.0.0 uses cluster-aware coverage, 0.5 within-cluster artifact decay, 0.5 evidence-family decay, and a 0.35 minimum capability coverage. |
 | Interactive scenarios | Small, explicit teaching examples. They execute the core method and do not regenerate either benchmark. |
 
 The manuscript's Section 2.6 states that original per-seed/per-role outputs and exact calibration values for the headline benchmark are unavailable. The public runner is a separate experiment. Do not label its outputs a reproduction of the headline benchmark. Per-role ablation values absent from the archived artifact are displayed as unavailable.
+
+### Updated prototype results
+
+The regenerated 5.0.0 prototype artifacts report 0.5 within-cluster artifact decay and 0.5 evidence-family decay. Each paired comparison uses the 4,796 candidates with estimates in both modes.
+
+| Evaluation Model | Paired N | RCI MAE | RCI RMSE | Spearman rho | Kendall tau |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| FULL_CCI | 4,796 | 1.267 | 1.643 | 0.977 | 0.872 |
+| NO_RECENCY_DECAY | 4,796 | 1.255 | 1.626 | 0.976 | 0.868 |
+| NO_OWNERSHIP_DISCOUNT | 4,796 | 2.332 | 2.996 | 0.934 | 0.780 |
+| UNIFORM_WEIGHTS | 4,796 | 1.921 | 2.455 | 0.960 | 0.831 |
+| UNCALIBRATED_SOURCES | 4,796 | 1.335 | 1.734 | 0.975 | 0.867 |
 
 Run the separate experiment without replacing its committed artifacts:
 

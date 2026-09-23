@@ -24,6 +24,10 @@ from cci.scoring.capability import (
 from cci.scoring.recency import compute_recency_factor
 from cci.scoring.reliability import DEFAULT_PRIORS, calculate_beta_mean
 from cci.scoring.confidence import compute_evidence_confidence
+from cci.scoring.evidence_families import (
+    EvidenceFamilyWeightInput,
+    compute_evidence_family_weights,
+)
 from cci.scoring.weights import compute_softmax_weights
 
 
@@ -80,6 +84,25 @@ def evaluate_candidate_ablation(
 ) -> tuple[float | None, float, dict[CapabilityKey, float]]:
     """Evaluates a simulated candidate's capability scores and RCI under ablation."""
     cfg = config or ScoringConfig()
+    confidence_by_id = {
+        observation.evidence_id: _compute_ablation_confidence(observation, mode)
+        for observation in candidate.observations
+    }
+    family_weight_inputs = [
+        EvidenceFamilyWeightInput(
+            evidence_id=observation.evidence_id,
+            evidence_family_id=observation.evidence_family_id,
+            observation_type=observation.observation_type,
+            is_positive_support=True,
+            confidence=confidence_by_id[observation.evidence_id],
+            fingerprint=observation.fingerprint,
+        )
+        for observation in candidate.observations
+    ]
+    family_weights = compute_evidence_family_weights(
+        family_weight_inputs,
+        decay=cfg.evidence_family_decay,
+    )
     # Group observations by capability
     obs_by_cap: dict[CapabilityKey, list[SimulatedObservation]] = {}
     for obs in candidate.observations:
@@ -93,7 +116,11 @@ def evaluate_candidate_ablation(
             continue
 
         z_scores = [o.observed_score for o in cap_obs]
-        c_factors = [_compute_ablation_confidence(o, mode) for o in cap_obs]
+        c_factors = [
+            confidence_by_id[observation.evidence_id]
+            * family_weights[observation.evidence_id]
+            for observation in cap_obs
+        ]
 
         sum_c = sum(c_factors)
         tau_k = cfg.tau_saturation.get(cap_key, 5.0)

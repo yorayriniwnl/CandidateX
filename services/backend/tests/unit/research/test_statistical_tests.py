@@ -65,6 +65,8 @@ def test_paper_table_formatting():
     assert "Scoring config 5.0.0" in md_table
     assert "coverage >= 0.35" in md_table
     assert "within-cluster artifact decay is 0.50" in md_table
+    assert "evidence family decay is 0.50" in md_table
+    assert "| Paired N |" in md_table
     assert "candidates with estimates in both modes" in md_table
 
     latex_table = format_latex_ablation_table(sample_results, sample_stats)
@@ -75,6 +77,8 @@ def test_paper_table_formatting():
     assert "Scoring config 5.0.0" in latex_table
     assert r"\mathrm{Cov}_k \ge 0.35" in latex_table
     assert r"\delta=0.50" in latex_table
+    assert r"\gamma=0.50" in latex_table
+    assert r"Paired $N$" in latex_table
     latex_lines = latex_table.splitlines()
     footnote_line = next(
         line for line in latex_lines if "Wilcoxon signed-rank test)." in line

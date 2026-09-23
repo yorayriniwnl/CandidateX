@@ -37,6 +37,7 @@ class TheoremMetadata(BaseModel):
 class AblationRow(BaseModel):
     model_name: str
     display_name: str
+    paired_sample_count: int
     mae: float
     rmse: float
     spearman_rho: float
@@ -55,6 +56,12 @@ class RoleBreakdownRow(BaseModel):
 
 
 class AblationStudyResponse(BaseModel):
+    experiment_scope: str
+    headline_reproduced: bool
+    scoring_config_version: str
+    evidence_family_decay: float
+    cluster_artifact_decay: float
+    minimum_capability_coverage: float
     total_candidates: int
     total_seeds: int
     roles_count: int
@@ -254,7 +261,7 @@ def get_all_theorems() -> list[TheoremMetadata]:
     "/ablation-study",
     response_model=AblationStudyResponse,
     summary="Get archived executable prototype experiment results",
-    description="Returns the empirical benchmark results across N=4,800 candidates for Full CCI vs 4 ablated architectures.",
+    description="Returns the archived synthetic prototype results across N=4,800 candidates for Full CCI vs 4 ablated architectures.",
 )
 def get_ablation_study() -> AblationStudyResponse:
     artifact_dir = Path(__file__).resolve().parents[6] / "research" / "results"
@@ -269,6 +276,7 @@ def get_ablation_study() -> AblationStudyResponse:
         comparison = artifact["statistical_tests"].get(mode)
         significance = "Baseline" if comparison is None else f"One-sided p={comparison['p_value']:.3g}; two-sided p={comparison['two_sided_p_value']:.3g}"
         models.append(AblationRow(model_name=mode, display_name=mode.replace("_", " ").title(),
+            paired_sample_count=(comparison.get("paired_sample_count", 0) if comparison else values.get("sample_count", 0)),
             mae=round(values["rci_mae"], 3), rmse=round(values["rci_rmse"], 3),
             spearman_rho=round(values["spearman_rho"], 3), kendall_tau=round(values["kendall_tau"], 3),
             statistical_significance=significance, is_baseline=mode == "FULL_CCI"))
@@ -279,11 +287,20 @@ def get_ablation_study() -> AblationStudyResponse:
     confidence_formula = artifact["metadata"].get("confidence_formula", "not recorded")
     minimum_coverage = artifact["metadata"].get("minimum_capability_coverage", "not recorded")
     cluster_decay = artifact["metadata"].get("cluster_artifact_decay", "not recorded")
-    return AblationStudyResponse(total_candidates=artifact["metadata"]["total_candidates"],
+    family_decay = artifact["metadata"].get("evidence_family_decay", "not recorded")
+    return AblationStudyResponse(
+        experiment_scope=artifact["metadata"]["experiment_scope"],
+        headline_reproduced=artifact["metadata"]["headline_reproduced"],
+        scoring_config_version=method_version,
+        evidence_family_decay=family_decay,
+        cluster_artifact_decay=cluster_decay,
+        minimum_capability_coverage=minimum_coverage,
+        total_candidates=artifact["metadata"]["total_candidates"],
         total_seeds=len(artifact["metadata"]["seeds"]), roles_count=len(artifact["metadata"]["roles"]),
         models=models, role_breakdown=role_breakdown, latex_table=latex, markdown_table=markdown,
         notes=(f"Scoring config {method_version}; confidence formula {confidence_formula}; "
-               f"Minimum capability coverage {minimum_coverage}; within-cluster artifact decay {cluster_decay}. "
+               f"Minimum capability coverage {minimum_coverage}; within-cluster artifact decay {cluster_decay}; "
+               f"evidence family decay {family_decay}. "
                "Paired significance tests use candidates with estimates in both modes; paired counts are archived. "
                "Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. "
                "Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. "

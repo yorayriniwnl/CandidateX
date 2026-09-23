@@ -19,7 +19,7 @@ Open `/analyze` (also the default `/` route). `/research-demo` is explicitly syn
 1. [Core Product Invariants](#core-product-invariants)
 2. [System Architecture & Monorepo Structure](#system-architecture--monorepo-structure)
 3. [Formal Mathematical Framework](#formal-mathematical-framework)
-4. [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies)
+4. [Research Experiments & Ablation Studies](#research-experiments--ablation-studies)
 5. [Quickstart & Local Development](#quickstart--local-development)
 6. [Docker Deployment](#docker-deployment)
 7. [Verification & Test Matrix](#verification--test-matrix)
@@ -133,9 +133,9 @@ Clusters use source family plus normalized cluster ID (or source locator). Conte
 
 ---
 
-## Paper Reproducibility & Ablation Studies
+## Research Experiments & Ablation Studies
 
-The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. Scoring config 4.0.0 uses source-cluster coverage, a 0.5 within-cluster artifact decay, and requires candidate attribution-gated coverage of at least 0.35. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho is not a reproduction of that result.
+The public runner is a **separate synthetic prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. Scoring config 5.0.0 uses source-cluster coverage, 0.5 within-cluster artifact decay, 0.5 evidence-family decay, and requires candidate attribution-gated coverage of at least 0.35. Repeated observations of one family and type are retained but only the strongest contributes; distinct observation types receive geometric decay. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho is not a reproduction of that result.
 
 ```powershell
 python research/run_paper_experiments.py --output-dir reports/research-demo-verification
@@ -145,13 +145,13 @@ Use `--quick` for a smaller smoke experiment. Neither experiment establishes rea
 
 ### Recorded Prototype Results ($N = 4,800$)
 
-| Evaluation Model | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
-|:-----------------|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
-| **FULL_CCI** | **1.256** | **1.620** | **0.979** | **0.876** | Baseline |
-| **NO_RECENCY_DECAY** | 1.260 | 1.615 | 0.976 | 0.869 | p = 0.0015 |
-| **NO_OWNERSHIP_DISCOUNT** | 2.313 | 2.954 | 0.940 | 0.791 | Yes ($^{***}$) |
-| **UNIFORM_WEIGHTS** | 1.958 | 2.513 | 0.963 | 0.836 | Yes ($^{***}$) |
-| **UNCALIBRATED_SOURCES** | 1.325 | 1.721 | 0.976 | 0.869 | Yes ($^{***}$) |
+| Evaluation Model | Paired N | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
+|:-----------------|:--------:|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
+| **FULL_CCI** | 4,796 | **1.267** | **1.643** | **0.977** | **0.872** | Baseline |
+| **NO_RECENCY_DECAY** | 4,796 | 1.255 | 1.626 | 0.976 | 0.868 | p = 0.4733 |
+| **NO_OWNERSHIP_DISCOUNT** | 4,796 | 2.332 | 2.996 | 0.934 | 0.780 | Yes ($^{***}$) |
+| **UNIFORM_WEIGHTS** | 4,796 | 1.921 | 2.455 | 0.960 | 0.831 | Yes ($^{***}$) |
+| **UNCALIBRATED_SOURCES** | 4,796 | 1.335 | 1.734 | 0.975 | 0.867 | Yes ($^{***}$) |
 
 The committed prototype artifacts are:
 - [`research/results/table_ablation_study.md`](research/results/table_ablation_study.md)

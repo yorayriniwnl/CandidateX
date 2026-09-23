@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Candidate Capability Intelligence (CCI) - Paper Experiment Reproduction Engine.
+"""Candidate Capability Intelligence (CCI) - Synthetic Prototype Ablation Engine.
 
-FORMAL CONFERENCE PAPER REPRODUCIBILITY:
-Executes the comprehensive Monte Carlo candidate cohort simulation and ablation study
+SYNTHETIC PROTOTYPE EXPERIMENT:
+Executes a Monte Carlo candidate cohort simulation and ablation study
 across 16 deterministic pseudo-random seeds x 300 candidates across the 6 canonical
 engineering roles (N = 4,800 total candidates).
 
@@ -73,14 +73,16 @@ def run_full_simulation_study(
     seeds: List[int],
     candidates_per_role: int = 50,
     roles: Optional[List[CanonicalRole]] = None,
+    config: ScoringConfig | None = None,
 ) -> Dict[str, Any]:
     """Runs the complete paper simulation across all seeds, roles, and ablation modes."""
+    cfg = config or ScoringConfig()
     if roles is None:
         roles = list(CanonicalRole)
 
     total_candidates_planned = len(seeds) * len(roles) * candidates_per_role
     print(f"================================================================================")
-    print(f"CCI PAPER REPRODUCIBILITY ENGINE: MONTE CARLO EXPERIMENT SUITE")
+    print("CCI SYNTHETIC PROTOTYPE: MONTE CARLO ABLATION SUITE")
     print(f"Seeds: {len(seeds)} (values: {seeds[0]}..{seeds[-1]}) | Roles: {len(roles)} | Per-Role: {candidates_per_role}")
     print(f"Total Cohort Size: N = {total_candidates_planned:,} simulated candidates")
     print(f"================================================================================")
@@ -121,6 +123,7 @@ def run_full_simulation_study(
                         mode=mode,
                         role_weights=eval_w,
                         true_weights=target_weights,
+                        config=cfg,
                     )
 
                     if rci_est is not None:
@@ -204,10 +207,13 @@ def run_full_simulation_study(
     return {
         "metadata": {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-            "scoring_config_version": ScoringConfig().version,
+            "experiment_scope": "synthetic_prototype",
+            "headline_reproduced": False,
+            "scoring_config_version": cfg.version,
             "confidence_formula": "o * (a * t * v * x * r)^(1/5)",
-            "minimum_capability_coverage": ScoringConfig().low_coverage_threshold,
-            "cluster_artifact_decay": ScoringConfig().cluster_artifact_decay,
+            "minimum_capability_coverage": cfg.low_coverage_threshold,
+            "cluster_artifact_decay": cfg.cluster_artifact_decay,
+            "evidence_family_decay": cfg.evidence_family_decay,
             "total_candidates": candidates_processed,
             "seeds": seeds,
             "roles": [r.value for r in roles],
@@ -220,14 +226,19 @@ def run_full_simulation_study(
     }
 
 
-def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]) -> str:
+def format_role_breakdown_markdown(
+    per_role_summary: Dict[str, Dict[str, float]],
+    config: ScoringConfig | None = None,
+) -> str:
     """Formats a Markdown table detailing Full CCI performance per canonical role."""
+    cfg = config or ScoringConfig()
     lines = [
         "# Canonical Engineering Role Breakdown (Full CCI)",
         "",
         "Evaluation of Full CCI model accuracy across all six canonical engineering profiles.",
-        f"Scoring config {ScoringConfig().version}; candidate estimates require attribution-gated coverage >= "
-        f"{ScoringConfig().low_coverage_threshold:.2f}; artifact decay {ScoringConfig().cluster_artifact_decay:.1f}; "
+        f"Scoring config {cfg.version}; candidate estimates require attribution-gated coverage >= "
+        f"{cfg.low_coverage_threshold:.2f}; artifact decay {cfg.cluster_artifact_decay:.1f}; "
+        f"evidence-family decay {cfg.evidence_family_decay:.2f}; "
         "lower coverage is UNKNOWN.",
         "",
         "| Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ |",
@@ -242,6 +253,22 @@ def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]
     return "\n".join(lines)
 
 
+def _config_from_metadata(metadata: Dict[str, Any]) -> ScoringConfig:
+    defaults = ScoringConfig()
+    return ScoringConfig(
+        version=metadata.get("scoring_config_version", defaults.version),
+        low_coverage_threshold=metadata.get(
+            "minimum_capability_coverage", defaults.low_coverage_threshold
+        ),
+        cluster_artifact_decay=metadata.get(
+            "cluster_artifact_decay", defaults.cluster_artifact_decay
+        ),
+        evidence_family_decay=metadata.get(
+            "evidence_family_decay", defaults.evidence_family_decay
+        ),
+    )
+
+
 def save_publication_artifacts(results: Dict[str, Any], output_dir: Path) -> None:
     """Generates and writes Markdown, LaTeX, and JSON publication tables."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -249,19 +276,24 @@ def save_publication_artifacts(results: Dict[str, Any], output_dir: Path) -> Non
     ablation_summary = results["ablation_summary"]
     statistical_tests = results["statistical_tests"]
     per_role_summary = results["per_role_summary"]
+    config = _config_from_metadata(results["metadata"])
 
     # 1. table_ablation_study.md
-    md_table = format_markdown_ablation_table(ablation_summary, statistical_tests)
+    md_table = format_markdown_ablation_table(
+        ablation_summary, statistical_tests, config=config
+    )
     md_path = output_dir / "table_ablation_study.md"
     with open(md_path, "w", encoding="utf-8") as f:
-        f.write("# Paper Reproducibility: Table 1 - Model Architecture Ablation Study\n\n")
+        f.write("# Synthetic Prototype Ablation Study (Table 1-Style Comparison)\n\n")
         f.write(f"Total simulated candidates: $N = {results['metadata']['total_candidates']:,}$ across 6 canonical engineering roles.\n\n")
         f.write(md_table)
         f.write("\n\n*Note: Statistical significance tests ($p < 0.001$, marked ***) conducted via paired Wilcoxon signed-rank test against the Full CCI baseline.*\n")
     print(f"[+] Saved Markdown Table: {md_path}")
 
     # 2. table_ablation_study.tex
-    latex_table = format_latex_ablation_table(ablation_summary, statistical_tests)
+    latex_table = format_latex_ablation_table(
+        ablation_summary, statistical_tests, config=config
+    )
     tex_path = output_dir / "table_ablation_study.tex"
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(latex_table)
@@ -269,7 +301,7 @@ def save_publication_artifacts(results: Dict[str, Any], output_dir: Path) -> Non
     print(f"[+] Saved LaTeX Table:    {tex_path}")
 
     # 3. role_breakdown.md
-    role_md = format_role_breakdown_markdown(per_role_summary)
+    role_md = format_role_breakdown_markdown(per_role_summary, config=config)
     role_path = output_dir / "role_breakdown.md"
     with open(role_path, "w", encoding="utf-8") as f:
         f.write(role_md)
@@ -285,7 +317,7 @@ def save_publication_artifacts(results: Dict[str, Any], output_dir: Path) -> Non
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Candidate Capability Intelligence (CCI) Paper Reproducibility Engine"
+        description="Candidate Capability Intelligence (CCI) Synthetic Prototype Ablation Engine"
     )
     parser.add_argument(
         "--seeds",
@@ -329,7 +361,11 @@ def main() -> None:
 
     save_publication_artifacts(results, out_dir)
 
-    summary_table = format_markdown_ablation_table(results["ablation_summary"], results["statistical_tests"])
+    summary_table = format_markdown_ablation_table(
+        results["ablation_summary"],
+        results["statistical_tests"],
+        config=_config_from_metadata(results["metadata"]),
+    )
     try:
         print(summary_table)
     except UnicodeEncodeError:

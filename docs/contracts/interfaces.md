@@ -68,11 +68,12 @@ $$q_{e,k} = \left( a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1
 The result is bounded by attribution ($c_{e,k} \le o_e$). With five quality factors at $0.75$ and attribution at $0.03$, the old sixth-root formula gives $0.4386$, while the gated rule gives $0.0225$. No hard cutoff is applied because an empirically validated threshold is unavailable.
 
 ### 3.4. Capability Estimate & Effective Evidence Count
-$$q_k = \frac{\sum_{e} c_{e,k} \cdot z_{e,k}}{\sum_{e} c_{e,k}}$$
+Scoring config `5.0.0` first applies a semantic family multiplier $\alpha_e$ to confidence. Within each evidence family, the strongest observation for each observation type and support polarity contributes; those representatives are ranked by confidence and receive geometric weights $1, \gamma, \gamma^2, \ldots$ (`evidence_family_decay = 0.5` by default). Repeated observations of the same type remain in provenance with zero contribution. Aggregates use $\tilde c_{e,k} = c_{e,k}\alpha_e$:
+$$q_k = \frac{\sum_{e} \tilde c_{e,k} \cdot z_{e,k}}{\sum_{e} \tilde c_{e,k}}$$
 If no usable evidence exists for capability $k$: $q_k = \text{None}$ (`UNKNOWN`).
 
 Effective evidence count $n_{\text{eff},k}$ accounting for correlation:
-$$n_{\text{eff},k} = \frac{\left(\sum_e c_{e,k}\right)^2}{\sum_e c_{e,k}^2}$$
+$$n_{\text{eff},k} = \frac{\left(\sum_e \tilde c_{e,k}\right)^2}{\sum_e \tilde c_{e,k}^2}$$
 
 Standard Error:
 $$SE_k = \frac{s_k}{\sqrt{\max(1, n_{\text{eff},k})}}$$
@@ -80,8 +81,8 @@ where $s_k$ is the confidence-weighted sample standard deviation of $\{z_{e,k}\}
 
 ### 3.5. Contradiction Diagnostic
 $$D_k = \frac{P_k - N_k}{P_k + N_k + \epsilon}$$
-- $P_k = \sum_{e \in \text{pos}} c_{e,k}$: Total positive evidence support
-- $N_k = \sum_{e \in \text{neg}} c_{e,k}$: Total negative/contradictory evidence support
+- $P_k = \sum_{e \in \text{pos}} \tilde c_{e,k}$: Total positive evidence support after family weighting
+- $N_k = \sum_{e \in \text{neg}} \tilde c_{e,k}$: Total negative/contradictory evidence support after family weighting
 - $\epsilon = 10^{-5}$: Numerical stabilization factor
 - $D_k \in [-1, 1]$: $D_k \to 1$ indicates strong consensus; $D_k \to -1$ indicates severe contradiction.
 
@@ -99,7 +100,7 @@ $$w_k = \frac{\exp(u_k / T)}{\sum_j \exp(u_j / T)}, \quad \sum_k w_k = 1.0$$
 ### 3.7. Evidence Coverage & Role Capability Index (RCI)
 Within independent source cluster $g$, evidence is grouped by artifact. An artifact contributes its strongest attribution-gated confidence $q_{g,j}$ once; distinct artifacts are ordered from strongest to weakest and receive geometric diminishing returns with configured decay $\delta$ (default 0.5):
 $$M_{g,k} = \sum_{j=1}^{n_g} q_{g,j}\delta^{j-1}, \qquad \text{Cov}_k = \min\left(1, \frac{\sum_g M_{g,k}}{\tau_k}\right)$$
-The cluster identity combines source family and normalized cluster ID (falling back to source locator). Content-identical artifacts across clusters are credited once. This keeps evidence quality, artifact depth, and source independence distinct.
+The cluster identity combines source family and normalized cluster ID (falling back to source locator). Content-identical artifacts across clusters are credited once. Family multipliers adjust confidence before both capability estimation and coverage. This keeps semantic observation correlation, artifact depth, and source independence distinct.
 Overall Evidence Coverage across role:
 $$\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \text{Cov}_k$$
 

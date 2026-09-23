@@ -1,6 +1,9 @@
 """Tests for Monte Carlo candidate cohort simulation."""
 
+from uuid import NAMESPACE_URL, uuid5
+
 from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.research.scenarios import DemoRequest, evidence_digest, make_scenario
 from cci.research.simulation import generate_synthetic_cohort
 
 
@@ -21,6 +24,43 @@ def test_deterministic_seed_reproducibility():
             assert oa.observed_score == ob.observed_score
             assert oa.ownership_score == ob.ownership_score
             assert oa.elapsed_years == ob.elapsed_years
+            assert oa.evidence_id == ob.evidence_id
+            assert oa.evidence_family_id == ob.evidence_family_id
+            assert oa.observation_type == ob.observation_type
+            assert oa.fingerprint == ob.fingerprint
+            assert oa.semantic_subject == ob.semantic_subject
+            assert oa.cluster_id == ob.cluster_id
+            assert oa.artifact_id == ob.artifact_id
+
+
+def test_interactive_scenarios_emit_repeatable_family_metadata():
+    request = DemoRequest(
+        candidate_id=uuid5(NAMESPACE_URL, "scenario-candidate"),
+        scenario="consistent",
+    )
+
+    first, _ = make_scenario(request)
+    repeated, _ = make_scenario(request)
+
+    assert first
+    assert [record.evidence_id for record in first] == [
+        record.evidence_id for record in repeated
+    ]
+    assert [record.evidence_family_id for record in first] == [
+        record.evidence_family_id for record in repeated
+    ]
+    assert evidence_digest(first) == evidence_digest(repeated)
+    assert all(record.evidence_family_id.startswith("ef1:") for record in first)
+    assert all(record.observation_type.startswith("simulation:") for record in first)
+    assert all(record.cluster_id and record.artifact_id for record in first)
+    assert all(
+        record.provenance["evidence_family_basis"]["domain"] == "simulation"
+        for record in first
+    )
+    changed_identity = first[0].model_copy(
+        update={"evidence_family_id": "ef1:" + "b" * 64}
+    )
+    assert evidence_digest([changed_identity, *first[1:]]) != evidence_digest(first)
 
 
 def test_different_seeds_produce_different_cohorts():

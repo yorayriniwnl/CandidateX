@@ -53,11 +53,20 @@ def test_get_ablation_study():
     assert "UNCALIBRATED_SOURCES" in models
 
     assert models["FULL_CCI"]["is_baseline"] is True
-    assert models["FULL_CCI"]["mae"] == 1.256
-    assert models["FULL_CCI"]["spearman_rho"] == 0.979
-    assert "Scoring config 4.0.0" in data["notes"]
+    assert models["FULL_CCI"]["paired_sample_count"] == 4796
+    assert models["FULL_CCI"]["mae"] == 1.267
+    assert models["FULL_CCI"]["spearman_rho"] == 0.977
+    assert 0 < models["NO_RECENCY_DECAY"]["paired_sample_count"] <= 4800
+    assert "Scoring config 5.0.0" in data["notes"]
+    assert data["experiment_scope"] == "synthetic_prototype"
+    assert data["headline_reproduced"] is False
+    assert data["scoring_config_version"] == "5.0.0"
+    assert data["evidence_family_decay"] == 0.5
+    assert data["cluster_artifact_decay"] == 0.5
+    assert data["minimum_capability_coverage"] == 0.35
     assert "Minimum capability coverage 0.35" in data["notes"]
     assert "within-cluster artifact decay 0.5" in data["notes"]
+    assert "evidence family decay 0.5" in data["notes"]
     assert "candidates with estimates in both modes" in data["notes"]
     assert "o * (a * t * v * x * r)^(1/5)" in data["notes"]
 
@@ -67,6 +76,22 @@ def test_get_ablation_study():
 
     # Verify role breakdown
     assert len(data["role_breakdown"]) == 6
+
+
+def test_research_demo_returns_family_metadata_and_active_scoring_config():
+    response = client.post(
+        "/api/v1/research-demo/run",
+        json={"candidate_id": "018f50ae-d1ae-7f9a-a563-8ac540e70fbd", "scenario": "sparse"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["scoring_config"]["version"] == "5.0.0"
+    assert data["scoring_config"]["evidence_family_decay"] == 0.5
+    records = data["dossier"]["evidence_records"]
+    assert records
+    assert all(record["evidence_family_id"].startswith("ef1:") for record in records)
+    assert all(record["observation_type"].startswith("simulation:") for record in records)
 
 
 def test_calculate_theorem_1_recency_decay():

@@ -87,12 +87,13 @@ def compute_wilcoxon_comparison(
 def format_markdown_ablation_table(
     ablation_results: dict[str, dict[str, float]],
     statistical_tests: dict[str, dict[str, Any]] | None = None,
+    config: ScoringConfig | None = None,
 ) -> str:
     """Generates a formatted Markdown table suitable for documentation and reports."""
-    config = ScoringConfig()
+    config = config or ScoringConfig()
     lines = [
-        "| Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |",
-        "|:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|",
+        "| Evaluation Model | Paired N | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |",
+        "|:-----------------|:--------:|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|",
     ]
 
     for mode_name, metrics in ablation_results.items():
@@ -109,9 +110,17 @@ def format_markdown_ablation_table(
         rmse_str = f"{metrics.get('rci_rmse', 0.0):.3f}"
         rho_str = f"{metrics.get('spearman_rho', 0.0):.3f}"
         tau_str = f"{metrics.get('kendall_tau', 0.0):.3f}"
+        paired_count = (
+            statistical_tests.get(mode_name, {}).get(
+                "paired_sample_count", metrics.get("sample_count", 0)
+            )
+            if statistical_tests
+            else metrics.get("sample_count", 0)
+        )
 
         lines.append(
-            f"| **{mode_name}** | {mae_str} | {rmse_str} | {rho_str} | {tau_str} | {sig_str} |"
+            f"| **{mode_name}** | {paired_count:,} | {mae_str} | {rmse_str} | "
+            f"{rho_str} | {tau_str} | {sig_str} |"
         )
 
     lines.extend(
@@ -119,7 +128,8 @@ def format_markdown_ablation_table(
             "",
             f"*Scoring config {config.version}; candidate estimates require coverage >= "
             f"{config.low_coverage_threshold:.2f}; within-cluster artifact decay is "
-            f"{config.cluster_artifact_decay:.2f}; lower coverage is UNKNOWN.*",
+            f"{config.cluster_artifact_decay:.2f}; evidence family decay is "
+            f"{config.evidence_family_decay:.2f}; lower coverage is UNKNOWN.*",
             "*Paired significance tests use candidates with estimates in both modes; paired sample counts are in the JSON artifact.*",
         ]
     )
@@ -129,18 +139,19 @@ def format_markdown_ablation_table(
 def format_latex_ablation_table(
     ablation_results: dict[str, dict[str, float]],
     statistical_tests: dict[str, dict[str, Any]] | None = None,
+    config: ScoringConfig | None = None,
 ) -> str:
     """Generates a publication-quality LaTeX table for conference paper submission."""
-    config = ScoringConfig()
+    config = config or ScoringConfig()
     lines = [
         r"\begin{table}[t]",
         r"\centering",
-        r"\caption{Ablation Study Results Across Canonical Engineering Roles ($N=4{,}800$).}",
+        r"\caption{Synthetic Prototype Ablation Results Across Canonical Engineering Roles ($N=4{,}800$).}",
         r"\label{tab:ablation_study}",
         r"\small",
-        r"\begin{tabular}{lcccc}",
+        r"\begin{tabular}{lccccc}",
         r"\toprule",
-        r"\textbf{Model Architecture} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\",
+        r"\textbf{Model Architecture} & \textbf{Paired $N$} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\",
         r"\midrule",
     ]
 
@@ -154,16 +165,24 @@ def format_latex_ablation_table(
         rmse_str = f"{metrics.get('rci_rmse', 0.0):.3f}"
         rho_str = f"{metrics.get('spearman_rho', 0.0):.3f}"
         tau_str = f"{metrics.get('kendall_tau', 0.0):.3f}"
+        paired_count = (
+            statistical_tests.get(mode_name, {}).get(
+                "paired_sample_count", metrics.get("sample_count", 0)
+            )
+            if statistical_tests
+            else metrics.get("sample_count", 0)
+        )
 
         name_display = mode_name.replace("_", r"\_")
         lines.append(
-            f"{name_display} & {mae_str} & {rmse_str} & {rho_str} & {tau_str} \\\\"
+            f"{name_display} & {paired_count} & {mae_str} & {rmse_str} & "
+            f"{rho_str} & {tau_str} \\\\"
         )
 
     lines.extend(
         [
-            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}" + r"\\",
-            rf"\multicolumn{{5}}{{l}}{{\footnotesize Scoring config {config.version}; estimates require $\mathrm{{Cov}}_k \ge {config.low_coverage_threshold:.2f}$; within-cluster artifact decay $\delta={config.cluster_artifact_decay:.2f}$; lower coverage is UNKNOWN.}}",
+            r"\multicolumn{6}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}" + r"\\",
+            rf"\multicolumn{{6}}{{l}}{{\footnotesize Scoring config {config.version}; estimates require $\mathrm{{Cov}}_k \ge {config.low_coverage_threshold:.2f}$; within-cluster artifact decay $\delta={config.cluster_artifact_decay:.2f}$; evidence-family decay $\gamma={config.evidence_family_decay:.2f}$; lower coverage is UNKNOWN.}}",
             r"\bottomrule",
             r"\end{tabular}",
             r"\end{table}",

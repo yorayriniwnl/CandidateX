@@ -3,7 +3,7 @@
 from threading import Lock
 from uuid import UUID
 
-from cci.domain.contracts import Dossier, EvidenceRecord
+from cci.domain.contracts import Dossier, EvidenceRecord, ScoringConfig
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.graph.builder import build_dossier_graph
 from cci.pipeline.orchestrator import (
@@ -33,6 +33,7 @@ class PipelineService:
         expert_weight_overrides: dict[CapabilityKey, float] | None = None,
         evidence_mode: str = "provided",
         scenario: str | None = None,
+        scoring_config: ScoringConfig | None = None,
     ) -> PipelineExecutionState:
         """Executes the analysis pipeline and stores execution state."""
         state = execute_analysis_pipeline(
@@ -45,6 +46,7 @@ class PipelineService:
             custom_evidence=custom_evidence,
             expert_weight_overrides=expert_weight_overrides,
             evidence_mode=evidence_mode, scenario=scenario,
+            scoring_config=scoring_config,
         )
 
         with self._lock:
