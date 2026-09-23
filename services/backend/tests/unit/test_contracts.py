@@ -1,5 +1,7 @@
 """Unit tests validating frozen domain contracts, enums, and mathematical primitives."""
 
+import warnings
+
 import pytest
 from uuid import uuid4
 from pydantic import ValidationError
@@ -405,7 +407,14 @@ def test_evidence_record_score_aliases_and_legacy_provenance():
     }
     for score_key in ("technical_signal_strength", "support_score"):
         record = EvidenceRecord(**base, **{score_key: 55.0})
-        serialized = record.model_dump(mode="json")
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always", DeprecationWarning)
+            serialized = record.model_dump(mode="json")
+            assert record.support_score == 55.0
+        assert not [
+            warning for warning in emitted
+            if issubclass(warning.category, DeprecationWarning)
+        ]
         assert serialized["technical_signal_strength"] == 55.0
         assert serialized["support_score"] == 55.0
         assert serialized["provenance"] == {

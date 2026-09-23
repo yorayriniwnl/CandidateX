@@ -522,7 +522,7 @@ class EvidenceRecord(BaseModel):
                 }
         return data
 
-    @computed_field(deprecated=True)
+    @computed_field(json_schema_extra={"deprecated": True})
     @property
     def support_score(self) -> float:
         """Deprecated compatibility value for stored rows and API clients."""
