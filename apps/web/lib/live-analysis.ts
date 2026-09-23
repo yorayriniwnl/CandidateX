@@ -1,5 +1,5 @@
-import type { CEGGraph, Dossier } from '../types/cci';
-import type { Evidence } from './research-demo';
+import type { AnalysisConfidenceSummary, CEGGraph, Dossier, RoleFitSummary } from '../types/cci';
+import type { Evidence } from './evidence';
 
 export interface ResumeIntake {
   candidate_id: string;
@@ -32,9 +32,20 @@ export interface SourceReceipt {
   content_sha256?: string; verification?: string;
   acquisition_method?: string;
 }
+export interface SourceHealth {
+  supplied_sources: number;
+  observed_sources: number;
+  failed_sources: number;
+  not_selected_sources: number;
+  not_scanned_sources: number;
+  blocked_sources: number;
+  is_partial: boolean;
+  flags: string[];
+}
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
+  role_fit?: RoleFitSummary; analysis_confidence?: AnalysisConfidenceSummary; source_health?: SourceHealth;
   skills: { skill: string; learning: boolean; status: string; evidence: TechnologyEvidence[];
     evidence_count: number; public_mentions: string[]; explanation: string }[];
   credentials: { claim: string; status: string; explanation: string; matching_pages: {
@@ -47,8 +58,139 @@ export interface LiveResult {
   intake: ResumeIntake; dossier: Dossier & { evidence_records: (Evidence & { provenance: Evidence['provenance'] & {
     artifact_sha256?: string; artifact_url?: string; symbol_or_line?: string;
   } })[] };
-  sources: SourceReceipt[]; graph: CEGGraph; graph_snapshot: unknown; status: string;
+  sources: SourceReceipt[]; source_health?: SourceHealth; graph: CEGGraph; graph_snapshot: unknown; status: string;
   analysis: ComprehensiveAnalysis;
+}
+
+export const FALLBACK_ANALYSIS_CONFIDENCE: AnalysisConfidenceSummary = {
+  evidence_strength: 'insufficient',
+  explanation: 'The evidence-strength summary was not supplied; treat this analysis as insufficient until it is verified.',
+  uncertainty_flags: ['confidence_summary_unavailable'],
+  role_coverage: 0,
+  observed_capabilities: 0,
+  independent_clusters: 0,
+  capabilities_with_intervals: 0,
+  interval_coverage: 0,
+  maximum_interval_width: null,
+  meaningful_conflicts: 0,
+  mandatory_unknown: 0,
+  mandatory_unresolved: 0,
+  source_failures: 0,
+  source_unscanned: 0,
+  unusable_evidence_records: 0,
+};
+
+const EVIDENCE_STRENGTHS = new Set<AnalysisConfidenceSummary['evidence_strength']>([
+  'insufficient', 'limited', 'moderate', 'well_supported',
+]);
+
+export function getAnalysisConfidence(
+  dossier: Dossier,
+  analysis?: Pick<ComprehensiveAnalysis, 'analysis_confidence'>,
+  sourceHealth?: SourceHealth,
+): AnalysisConfidenceSummary {
+  const confidence = dossier.analysis_confidence ?? analysis?.analysis_confidence;
+  const summary = !confidence || !EVIDENCE_STRENGTHS.has(confidence.evidence_strength)
+    ? FALLBACK_ANALYSIS_CONFIDENCE
+    : confidence;
+  const observedEstimates = Object.values(dossier.capability_estimates ?? {}).filter(
+    estimate => estimate.is_observed && estimate.estimate != null,
+  );
+  const missingObservedIntervals = observedEstimates.some(
+    estimate => estimate.ci_lower == null || estimate.ci_upper == null,
+  );
+  if (!sourceHealth) {
+    if (summary.evidence_strength === 'insufficient') return summary;
+    if (observedEstimates.length === 0) {
+      return {
+        ...summary,
+        evidence_strength: 'insufficient',
+        explanation: 'Evidence strength is insufficient because no observed capability estimate is available to verify the summary.',
+        uncertainty_flags: [...new Set([...summary.uncertainty_flags, 'no_empirical_evidence'])],
+      };
+    }
+    if (missingObservedIntervals) {
+      return {
+        ...summary,
+        evidence_strength: 'limited',
+        explanation: 'Evidence strength is limited because one or more observed capability intervals are unavailable.',
+        uncertainty_flags: [...new Set([...summary.uncertainty_flags, 'interval_unavailable'])],
+      };
+    }
+    return summary;
+  }
+
+  const sourceFailures = Math.max(summary.source_failures, sourceHealth.failed_sources);
+  const sourceUnscanned = Math.max(
+    summary.source_unscanned,
+    sourceHealth.not_scanned_sources + sourceHealth.not_selected_sources,
+  );
+  const flags = new Set([
+    ...summary.uncertainty_flags,
+    ...sourceHealth.flags,
+    ...(sourceFailures > 0 ? ['source_failures'] : []),
+    ...(sourceUnscanned > 0 ? ['source_unscanned'] : []),
+  ]);
+  const noObservedSource = sourceHealth.supplied_sources === 0
+    || (sourceHealth.supplied_sources > 0 && sourceHealth.observed_sources === 0);
+  const partialSourceHealth = sourceHealth.is_partial
+    || sourceFailures > 0
+    || sourceUnscanned > 0
+    || sourceHealth.flags.includes('security_blocked');
+
+  let evidenceStrength = summary.evidence_strength;
+  let explanation = summary.explanation;
+  if (noObservedSource) {
+    evidenceStrength = 'insufficient';
+    explanation = 'Evidence strength is insufficient because no supplied source was observed; verify the source set before interpreting scores.';
+  } else if (observedEstimates.length === 0 && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'insufficient';
+    flags.add('no_empirical_evidence');
+    explanation = 'Evidence strength is insufficient because no observed capability estimate is available to verify the summary.';
+  } else if (missingObservedIntervals && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'limited';
+    flags.add('interval_unavailable');
+    explanation = 'Evidence strength is limited because one or more observed capability intervals are unavailable.';
+  } else if (partialSourceHealth && evidenceStrength !== 'insufficient') {
+    evidenceStrength = 'limited';
+    explanation = `Evidence strength is limited because source coverage is partial (${sourceFailures} failed, ${sourceUnscanned} not scanned or selected).`;
+  }
+
+  return {
+    ...summary,
+    evidence_strength: evidenceStrength,
+    explanation,
+    uncertainty_flags: [...flags],
+    source_failures: sourceFailures,
+    source_unscanned: sourceUnscanned,
+  };
+}
+
+export function getSourceHealth(result: Pick<LiveResult, 'sources' | 'source_health' | 'analysis'>): SourceHealth {
+  if (result.source_health) return result.source_health;
+  if (result.analysis.source_health) return result.analysis.source_health;
+  const statuses = result.sources.map(source => source.status);
+  const observed = statuses.filter(status => status === 'observed').length;
+  const notSelected = statuses.filter(status => status === 'not_selected').length;
+  const notScanned = statuses.filter(status => status === 'not_scanned').length;
+  const blocked = statuses.filter(status => status === 'security_blocked').length;
+  const failed = statuses.filter(status => !['observed', 'not_selected', 'not_scanned'].includes(status)).length;
+  const flags = [
+    ...(failed ? ['source_failures'] : []),
+    ...(notSelected || notScanned ? ['source_unscanned'] : []),
+    ...(blocked ? ['security_blocked'] : []),
+    ...(statuses.length === 0 ? ['no_sources_supplied'] : []),
+  ];
+  return {
+    supplied_sources: statuses.length,
+    observed_sources: observed,
+    failed_sources: failed,
+    not_selected_sources: notSelected,
+    not_scanned_sources: notScanned,
+    blocked_sources: blocked,
+    is_partial: Boolean(failed || notSelected || notScanned || !observed),
+    flags,
+  };
 }
 export async function liveRequest<T>(operation: string, body: BodyInit, filename?: string): Promise<T> {
   const response = await fetch(`/api/live/${operation}`, { method: 'POST', body,

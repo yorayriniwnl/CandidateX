@@ -6,11 +6,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
 
-> **CandidateX analyzes real resumes, GitHub profiles and repositories, and supplied public links live.** It extracts PDF/DOCX sections, skills, project claims, education and certificates; inspects commit-pinned source files and public page text; and produces a role-aware dossier with traceable skill matches and explicit verification gaps. Static observations and attribution remain heuristic decision support, not validated hiring accuracy.
+> **CandidateX is a research demonstration for synthetic candidate data only. Do not upload real candidate resumes.** It demonstrates PDF/DOCX extraction, public-source inspection, and role-aware evidence dossiers with explicit verification gaps. Results are not validated for employment decisions.
 
-**Start here: [Live resume analysis](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
+**Start here: [Live-analysis implementation guide](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
 
-Open `/analyze` (also the default `/` route). `/research-demo` is explicitly synthetic. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
+Open `/` for the CandidateX landing page and `/analyze` for the research demo. `/research-demo` presents simulated examples. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
 
 ---
 
@@ -21,7 +21,7 @@ Open `/analyze` (also the default `/` route). `/research-demo` is explicitly syn
 3. [Formal Mathematical Framework](#formal-mathematical-framework)
 4. [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies)
 5. [Quickstart & Local Development](#quickstart--local-development)
-6. [Docker Deployment](#docker-deployment)
+6. [Local Docker Integration Stack](#local-docker-integration-stack)
 7. [Verification & Test Matrix](#verification--test-matrix)
 
 ---
@@ -207,7 +207,7 @@ cd apps/web
 pnpm install
 pnpm dev
 ```
-Open `http://localhost:3000` for the paper demonstration. The earlier `/workspace` interface contains:
+Open `http://localhost:3000` for the landing page or `http://localhost:3000/research-demo` for the synthetic paper demonstration. The earlier `/workspace` interface contains:
 - **Candidate Directory**: Real-time search, role filtering, evidence status badges (`Robust`, `Sparse`, `Conflict Flagged`), and 1-click dossier navigation.
 - **Job Intake Form**: Role template presets with live backend requirement extraction (`POST /api/v1/jobs/parse`).
 - **Candidate Intake Form**: 1-click preset selector for the 7 canonical candidate cohorts mapped to seeded database UUIDs.
@@ -234,24 +234,26 @@ Open `http://localhost:3000` for the paper demonstration. The earlier `/workspac
 
 ---
 
-## Docker Deployment
+## Local Docker Integration Stack
 
-Legacy container configuration is provided in `docker-compose.yml`; it is not the verified research-demo startup path. Database drivers, migrations, service routing, and worker state require validation before deployment. The configuration includes security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
+The Compose stack is for local development and integration checks. It runs PostgreSQL 16, Redis 7, FastAPI, and the Next.js server. Host ports bind to 127.0.0.1; the database password must be supplied through the ignored .env file. The backend runs in development mode. This stack is not a production deployment: the full cci.main API does not enforce user authentication or organization membership, so do not expose it to a network or use it for live hiring data.
 
-```bash
-# Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
-docker-compose up --build -d
+```powershell
+# Copy the local template, then set POSTGRES_PASSWORD to a unique URL-safe value.
+Copy-Item .env.example .env
 
-# Verify all services are responsive
-python scripts/smoke_test.py
+# Start PostgreSQL 16, Redis 7, FastAPI, and the web app on localhost.
+docker compose up --build -d
+
+# Verify local services are responsive.
+& services/backend/.venv/Scripts/python.exe scripts/smoke_test.py
 ```
 
-- Web Dashboard: `http://localhost:3000`
-- FastAPI Documentation: `http://localhost:8000/docs`
-- Healthcheck Endpoint: `http://localhost:8000/health`
+- Web app: http://localhost:3000
+- FastAPI Documentation: http://localhost:8000/docs
+- Healthcheck Endpoint: http://localhost:8000/health
 
 ---
-
 ## Verification & Test Matrix
 
 Use the self-contained verification commands in the [demonstration guide](docs/research-demonstration.md#verification). Backend tests use a disposable database and explicit test fixtures. Browser tests exercise the production frontend against a real backend.
