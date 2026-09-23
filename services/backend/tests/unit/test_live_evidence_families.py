@@ -79,7 +79,11 @@ def test_live_conversion_retains_repeated_inputs_and_semantic_metadata():
         candidate_commit_count=4,
         candidate_commit_ratio=0.8,
     )
-    observations = [_input(), _input()]
+    versioned = _input().model_copy(update={
+        "signal_rule_id": "candidatex.dependencies.manifest_declaration",
+        "signal_rule_version": "1.0.0",
+    })
+    observations = [_input(), versioned]
 
     records = build_live_evidence_records(
         observations,
@@ -126,6 +130,11 @@ def test_live_conversion_retains_repeated_inputs_and_semantic_metadata():
 
     assert len(records) == 2
     assert records[0].fingerprint == records[1].fingerprint
+    assert records[0].fingerprint == "a5b26218d19de95406db7b0d186d4bab9debfc543f0a1a7069015c3085107bb0"
+    assert records[0].provenance["signal_rule_id"] == "legacy_unknown"
+    assert records[0].provenance["signal_rule_version"] == "legacy_unknown"
+    assert records[1].provenance["signal_rule_id"] == "candidatex.dependencies.manifest_declaration"
+    assert records[1].provenance["signal_rule_version"] == "1.0.0"
     assert records[0].evidence_id != records[1].evidence_id
     assert [record.evidence_id for record in records] == [
         record.evidence_id for record in rebuilt

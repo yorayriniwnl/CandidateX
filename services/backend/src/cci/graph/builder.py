@@ -66,7 +66,7 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
              revision=record.immutable_revision, fingerprint=record.fingerprint,
              raw_support_text=record.provenance.get("raw_support_text", ""), extractor_version=record.provenance.get("extractor_version"))
         node(ev, N.EVIDENCE, f"{record.source_family.value}: {record.target_capability.value}",
-             **record.model_dump(mode="json"), score=record.support_score)
+             **record.model_dump(mode="json"), score=record.technical_signal_strength)
         edge(artifact, source, E.CONTRIBUTES_TO)
         attribution = record.artifact_attribution
         if attribution and attribution.candidate_commit_count > 0:

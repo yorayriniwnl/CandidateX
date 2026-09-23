@@ -119,7 +119,7 @@ class SimulatedObservation:
     """An emitted evidence observation with simulated real-world factors."""
 
     capability_key: CapabilityKey
-    observed_score: float  # z_e,k with observation noise
+    technical_signal_strength: float  # z_e,k with observation noise
     ownership_score: float  # o_e
     elapsed_years: float  # delta_t
     artifact_integrity: float  # a_e
@@ -282,7 +282,7 @@ def generate_synthetic_cohort(
                 observations.append(
                     SimulatedObservation(
                         capability_key=cap_key,
-                        observed_score=obs_score,
+                        technical_signal_strength=obs_score,
                         ownership_score=ownership,
                         elapsed_years=elapsed,
                         artifact_integrity=float(rng.uniform(0.90, 1.0)),

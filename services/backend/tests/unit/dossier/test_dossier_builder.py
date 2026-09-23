@@ -154,6 +154,11 @@ def test_dossier_builder_retains_family_metadata_with_evidence_records():
             "observation_type": "route:python_decorator",
             "cluster_id": "https://github.com/alice/app",
             "artifact_id": uuid4(),
+            "provenance": {
+                **fixtures["evidence"][0].provenance,
+                "signal_rule_id": "candidatex.code.python.api_route",
+                "signal_rule_version": "1.0.0",
+            },
         }
     )
 
@@ -171,6 +176,10 @@ def test_dossier_builder_retains_family_metadata_with_evidence_records():
     )
 
     assert dossier.evidence_records == [record]
+    serialized = dossier.model_dump(mode="json")["evidence_records"][0]
+    assert serialized["technical_signal_strength"] == serialized["support_score"] == 85.0
+    assert serialized["provenance"]["signal_rule_id"] == "candidatex.code.python.api_route"
+    assert serialized["provenance"]["signal_rule_version"] == "1.0.0"
     assert dossier.evidence_records[0].evidence_family_id == "ef1:" + "d" * 64
     assert dossier.is_insufficient_evidence is True
     assert dossier.evidence_state.value == "INSUFFICIENT"

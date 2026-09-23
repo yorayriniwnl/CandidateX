@@ -354,7 +354,7 @@ def save_evidence_records(
             source_locator=ev.source_locator,
             immutable_revision=ev.immutable_revision,
             target_capability=cap_val,
-            support_score=ev.support_score,
+            support_score=ev.technical_signal_strength,
             is_positive_support=ev.is_positive_support,
             factor_artifact_integrity=cf.artifact_integrity,
             factor_ownership_score=cf.ownership_score,

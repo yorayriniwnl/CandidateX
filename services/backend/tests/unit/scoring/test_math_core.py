@@ -187,6 +187,17 @@ def test_missing_capability_is_unknown_not_zero():
     assert frontend_est.coverage_k == 0.0
 
 
+def test_capability_score_accepts_canonical_and_legacy_record_values():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    legacy = _make_dummy_evidence(capability, 85.0, 1.0)
+    canonical = EvidenceRecord.model_validate({
+        **legacy.model_dump(exclude={"technical_signal_strength", "support_score"}),
+        "technical_signal_strength": 85.0,
+    })
+    assert canonical.technical_signal_strength == legacy.support_score == 85.0
+    assert compute_capability_score([canonical], capability).estimate == compute_capability_score([legacy], capability).estimate
+
+
 def test_weak_attribution_does_not_emit_candidate_capability_estimate():
     capability = CapabilityKey.BACKEND_ENGINEERING
     strongly_attributed = [

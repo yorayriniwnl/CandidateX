@@ -203,8 +203,11 @@ def build_live_evidence_records(
         )
         payload = {
             "artifact_sha256": content_hash,
-            **observation.model_dump(mode="json", exclude={"observed_at"}),
+            **observation.model_dump(
+                mode="json", exclude={"observed_at", "signal_rule_id", "signal_rule_version"}
+            ),
         }
+        payload["observed_score"] = payload.pop("technical_signal_strength")
         fingerprint = hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode()
         ).hexdigest()
@@ -273,7 +276,7 @@ def build_live_evidence_records(
                 immutable_revision=immutable_revision,
                 artifact_id=artifact.artifact_id if artifact else None,
                 target_capability=observation.target_capability,
-                support_score=observation.observed_score,
+                technical_signal_strength=observation.technical_signal_strength,
                 is_positive_support=observation.is_positive_support,
                 confidence_factors=factors,
                 confidence=factors.composite_confidence,
@@ -289,6 +292,8 @@ def build_live_evidence_records(
                     "symbol_or_line": observation.symbol_or_line,
                     "raw_support_text": observation.raw_support_text[:2000],
                     "extractor_version": observation.extractor_version,
+                    "signal_rule_id": observation.signal_rule_id or "legacy_unknown",
+                    "signal_rule_version": observation.signal_rule_version or "legacy_unknown",
                     "verification_status": "live_static_inspection",
                     "observed_at": datetime.now(timezone.utc).isoformat(),
                     "artifact_recency": artifact_recency.model_dump(mode="json"),
@@ -669,7 +674,7 @@ def acquire_repository(
         for observation in raw:
             if observation.artifact_path in by_path:
                 path_scores[observation.artifact_path] = max(
-                    path_scores.get(observation.artifact_path, 0.0), observation.observed_score
+                    path_scores.get(observation.artifact_path, 0.0), observation.technical_signal_strength
                 )
         ordered_paths = sorted(path_scores, key=lambda path: (-path_scores[path], path))
         selected_paths = ordered_paths[:max(0, attribution_path_budget)]

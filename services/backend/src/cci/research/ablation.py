@@ -115,7 +115,7 @@ def evaluate_candidate_ablation(
         if not cap_obs:
             continue
 
-        z_scores = [o.observed_score for o in cap_obs]
+        z_scores = [o.technical_signal_strength for o in cap_obs]
         c_factors = [
             confidence_by_id[observation.evidence_id]
             * family_weights[observation.evidence_id]

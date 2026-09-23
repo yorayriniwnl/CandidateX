@@ -21,7 +21,7 @@ def test_deterministic_seed_reproducibility():
 
         assert len(ca.observations) == len(cb.observations)
         for oa, ob in zip(ca.observations, cb.observations):
-            assert oa.observed_score == ob.observed_score
+            assert oa.technical_signal_strength == ob.technical_signal_strength
             assert oa.ownership_score == ob.ownership_score
             assert oa.elapsed_years == ob.elapsed_years
             assert oa.evidence_id == ob.evidence_id

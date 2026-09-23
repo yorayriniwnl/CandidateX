@@ -56,6 +56,18 @@ def _coverage(records: list[EvidenceRecord], config: ScoringConfig | None = None
     return compute_capability_score(records, CAPABILITY, config=config)
 
 
+def test_bootstrap_accepts_canonical_and_legacy_record_values():
+    legacy = [_record("a", "repo-a", support_score=70.0), _record("b", "repo-b", support_score=90.0)]
+    canonical = [
+        EvidenceRecord.model_validate({
+            **record.model_dump(exclude={"technical_signal_strength", "support_score"}),
+            "technical_signal_strength": record.support_score,
+        })
+        for record in legacy
+    ]
+    assert cluster_bootstrap_ci(canonical, CAPABILITY, n_resamples=50) == cluster_bootstrap_ci(legacy, CAPABILITY, n_resamples=50)
+
+
 def test_twenty_observations_from_one_file_in_one_repository_count_once():
     records = [_record(str(i), "repo-a") for i in range(20)]
 

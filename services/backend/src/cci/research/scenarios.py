@@ -84,7 +84,7 @@ def make_scenario(request: DemoRequest):
                     f"cci-scenario:artifact:{request.scenario}:{family.value}:"
                     f"{source_index % 3}:{index}",
                 ),
-                target_capability=cap, support_score=score, is_positive_support=not negative,
+                target_capability=cap, technical_signal_strength=score, is_positive_support=not negative,
                 confidence_factors=factors, confidence=factors.composite_confidence,
                 cluster_id=cluster_id,
                 evidence_family_id=family_identity.evidence_family_id,

@@ -35,7 +35,7 @@ def _synthetic_observation(
     fingerprint = name.ljust(64, "0")[:64]
     return SimulatedObservation(
         capability_key=capability,
-        observed_score=score,
+        technical_signal_strength=score,
         ownership_score=ownership_score,
         elapsed_years=0.0,
         artifact_integrity=1.0,
@@ -215,7 +215,7 @@ def test_ablation_applies_the_same_family_weights_as_live_scoring():
         decay=config.evidence_family_decay,
     )
     expected = sum(
-        family_weights[observation.evidence_id] * observation.observed_score
+        family_weights[observation.evidence_id] * observation.technical_signal_strength
         for observation in observations
     ) / sum(family_weights.values())
     candidate = SimulatedCandidate(

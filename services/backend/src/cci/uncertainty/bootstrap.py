@@ -101,7 +101,7 @@ def cluster_bootstrap_ci(
         return None, None
 
     base_q = sum(
-        effective_confidence * record.support_score
+        effective_confidence * record.technical_signal_strength
         for record, effective_confidence, _ in weighted_records
     ) / total_c
 
@@ -122,7 +122,7 @@ def cluster_bootstrap_ci(
         for idx in sampled_cluster_indices:
             c_key = cluster_keys[idx]
             for rec, effective_confidence in clusters[c_key]:
-                sample_sum_cz += effective_confidence * rec.support_score
+                sample_sum_cz += effective_confidence * rec.technical_signal_strength
                 sample_sum_c += effective_confidence
 
         if sample_sum_c > 0.0:

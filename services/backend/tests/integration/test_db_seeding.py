@@ -290,7 +290,7 @@ def test_repository_persists_family_metadata_weights_and_active_config(memory_db
             source_locator="https://github.com/acme/family",
             immutable_revision="b" * 40,
             target_capability=CapabilityKey.BACKEND_ENGINEERING,
-            support_score=80.0,
+            technical_signal_strength=80.0,
             confidence_factors=factors,
             confidence=0.8,
             cluster_id="https://github.com/acme/family",
@@ -351,6 +351,12 @@ def test_repository_persists_family_metadata_weights_and_active_config(memory_db
     }
     assert config_entity.is_active is True
     assert len(saved) == 2
+    assert [entity.support_score for entity in saved] == [80.0, 70.0]
+    round_tripped = EvidenceRecord.model_validate({
+        **records[0].model_dump(exclude={"technical_signal_strength", "support_score"}),
+        "support_score": saved[0].support_score,
+    })
+    assert round_tripped.technical_signal_strength == round_tripped.support_score == 80.0
     assert {entity.analysis_run_id for entity in saved} == {
         state.dossier.analysis_run_id
     }

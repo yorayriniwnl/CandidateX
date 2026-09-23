@@ -222,7 +222,7 @@ def compute_capability_score(
     confidences = [
         e.confidence * family_weights[e.evidence_id] for e in relevant
     ]
-    scores = [e.support_score for e in relevant]
+    scores = [e.technical_signal_strength for e in relevant]
 
     sum_c = sum(confidences)
     if sum_c <= 0.0:
