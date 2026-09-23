@@ -294,7 +294,7 @@ def analyze_c_cpp_source(
         ):
             evidence.append(
                 EvidenceInput(
-                    **signal_rule_fields("candidatex.code.cpp.concurrency_construct"),
+                    **signal_rule_fields("candidatex.code.cpp.smart_pointer_raii"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
@@ -320,7 +320,7 @@ def analyze_c_cpp_source(
         ):
             evidence.append(
                 EvidenceInput(
-                    **signal_rule_fields("candidatex.code.cpp.class_declaration"),
+                    **signal_rule_fields("candidatex.code.cpp.stl_algorithm_structure"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,

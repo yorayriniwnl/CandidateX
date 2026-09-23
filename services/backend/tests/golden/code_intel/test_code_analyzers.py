@@ -237,8 +237,8 @@ void run() {
             "auto p = std::make_unique<int>(5);\nstd::vector<int> values;\n",
             "main.cpp",
             {
-                "candidatex.code.cpp.concurrency_construct": (85.0, "legacy_unknown"),
-                "candidatex.code.cpp.class_declaration": (78.0, "legacy_unknown"),
+                "candidatex.code.cpp.smart_pointer_raii": (85.0, "legacy_unknown"),
+                "candidatex.code.cpp.stl_algorithm_structure": (78.0, "legacy_unknown"),
             },
         ),
     ],
