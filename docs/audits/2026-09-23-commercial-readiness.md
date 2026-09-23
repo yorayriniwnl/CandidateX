@@ -1,8 +1,8 @@
 # CandidateX Commercial Readiness Audit
 
-**Audit date:** 2026-09-23  
-**Review tree:** `codex/candidatex-commercial-audit` in the isolated integration worktree  
-**Inputs:** completed backend branch `codex/backend-hardening` (`dd57b03`) and Evidence OS branch `codex/candidatex-evidence-os` (`16fc361`)  
+- **Audit date:** 2026-09-23
+- **Review tree:** `codex/candidatex-commercial-audit` in the isolated integration worktree
+- **Inputs:** completed backend branch `codex/backend-hardening` (`dd57b03`) and Evidence OS branch `codex/candidatex-evidence-os` (`16fc361`)
 **Decision:** **No-go for production hiring use or company sales as a multi-tenant SaaS.** The merged tree is a substantially improved technical demo, but it does not yet enforce account identity, organization isolation, or an auditable candidate-data lifecycle.
 
 ## Scope and limits
