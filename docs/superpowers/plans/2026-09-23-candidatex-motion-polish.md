@@ -92,7 +92,7 @@
 - [ ] Review the landing page and analysis wizard at desktop and mobile sizes with normal motion and reduced motion enabled. The local preview is live, but the browser-control service could not load its request-header policy during this review.
 - [ ] Confirm no new always-running animation, hidden content, layout shift, or horizontal overflow is introduced.
 - [x] Run `pnpm --filter web typecheck`, `pnpm --filter web build`, and `git diff --check`.
-- [ ] Commit the plan and implementation together with a scoped message, then push `codex/candidatex-evidence-os` to `origin` so the existing PR updates.
+- [x] Commit the plan and implementation together with a scoped message, then push `codex/candidatex-evidence-os` to `origin` so the existing PR updates.
 
 ## Research Notes
 
