@@ -6,7 +6,7 @@ import zipfile
 
 import pytest
 
-from cci.live.acquisition import inspect_archive, inspect_git_blobs
+from cci.live.acquisition import AcquisitionError, inspect_archive, inspect_git_blobs
 from cci.live.contracts import MAX_FILE_BYTES
 from cci.security.repository_workspace import SafeRepositoryWorkspace
 
@@ -83,7 +83,7 @@ def test_archive_counts_oversize_binary_and_symlink_as_uninspected():
 def test_archive_report_allowlist_overrides_ignored_coverage_component():
     files = {
         "coverage/cobertura.xml": b'<coverage line-rate="1"/>',
-        "coverage/lcov.info": b"LH:1\nLF:1\n",
+        "coverage/lcov.info": b"SF:src/app.py\nDA:1,1\nLF:1\nLH:1\nend_of_record\n",
         "coverage/ignored.py": b"pass\n",
         "reports/coverage.xml": b"ignored",
         "benchmarks/a.json": b'{"schema":"1.0.0"}',
@@ -144,6 +144,15 @@ def test_malformed_allowlisted_report_keeps_report_category_incomplete():
     assert benchmark.skipped_reasons["decode_parse_failure"] == 1
 
 
+def test_lcov_with_unrecognized_content_and_lone_counter_is_not_inspected():
+    data = archive_bytes({"coverage/lcov.info": b"garbage\nLH:1\n"})
+    with SafeRepositoryWorkspace() as workspace:
+        _, receipt = inspect_archive(data, workspace)
+    coverage = receipt.categories["coverage"]
+    assert (coverage.eligible, coverage.inspected) == (1, 0)
+    assert coverage.skipped_reasons["decode_parse_failure"] == 1
+
+
 def test_complete_git_tree_inspects_all_eligible_files():
     files = {"src/app.py": b"print(1)\n", "requirements.txt": b"fastapi\n", "coverage.xml": b'<coverage line-rate="1"/>'}
     fetcher = FakeFetcher(files)
@@ -156,6 +165,27 @@ def test_complete_git_tree_inspects_all_eligible_files():
     assert (receipt.categories["manifest"].eligible, receipt.categories["manifest"].inspected) == (1, 1)
     assert (receipt.categories["coverage"].eligible, receipt.categories["coverage"].inspected) == (1, 1)
     assert paths == set(files)
+
+
+def test_unreadable_git_report_is_skipped_and_sibling_is_inspected():
+    files = {
+        "cobertura.xml": b'<coverage line-rate="0.5"/>',
+        "coverage.xml": b'<coverage line-rate="0.8"/>',
+    }
+    failing_sha = git_blob(files["cobertura.xml"])
+
+    class UnreadableReportFetcher(FakeFetcher):
+        def get(self, path):
+            if path.endswith(f"/git/blobs/{failing_sha}"):
+                raise AcquisitionError("unavailable", "Selected report could not be fetched.")
+            return super().get(path)
+
+    with SafeRepositoryWorkspace() as workspace:
+        omitted, receipt = inspect_git_blobs(UnreadableReportFetcher(files), "acme", "api", SHA, workspace)
+    coverage = receipt.categories["coverage"]
+    assert omitted == 1
+    assert (coverage.eligible, coverage.inspected) == (2, 1)
+    assert coverage.skipped_reasons["unreadable"] == 1
 
 
 def test_git_blob_selector_cap_does_not_shrink_inventory():

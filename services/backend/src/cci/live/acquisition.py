@@ -884,11 +884,15 @@ def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
                 continue
             content = base64.b64decode(re.sub(r'\s', '', data.get('content', '')), validate=True)
         except AcquisitionError as exc:
-            if exc.status != 'timeout':
+            if exc.status == 'security_blocked':
                 raise
-            for _, remaining in selected[index:]:
-                inventory.skip(remaining, 'timeout')
-            break
+            if exc.status in {'timeout', 'rate_limited'}:
+                reason = 'timeout' if exc.status == 'timeout' else 'unreadable'
+                for _, remaining in selected[index:]:
+                    inventory.skip(remaining, reason)
+                break
+            inventory.skip(categories, 'byte_cap' if exc.status == 'too_large' else 'unreadable')
+            continue
         except (TypeError, ValueError, base64.binascii.Error):
             inventory.skip(categories, 'decode_parse_failure')
             continue
