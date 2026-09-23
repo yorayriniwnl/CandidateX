@@ -2,7 +2,7 @@
 
 FastAPI & SQLAlchemy 2.0 implementation of the paper-aligned CCI decision support system.
 
-The [technical signal rule catalog](../../docs/contracts/technical-signal-rules.md) lists all 52 static detectors, their exact current strengths, and their limits. These strengths are uncalibrated policy heuristics. The rules do not certify proficiency or predict job performance.
+The [technical signal rule catalog](../../docs/contracts/technical-signal-rules.md) lists all 52 rules (48 static artifact checks and four live deployment checks), their exact current strengths, and their limits. These strengths are uncalibrated policy heuristics. The rules do not certify proficiency or predict job performance.
 
 ## GitHub attribution boundaries
 

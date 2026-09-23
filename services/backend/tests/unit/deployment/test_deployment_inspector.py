@@ -31,6 +31,23 @@ def test_analyze_security_headers():
     assert res["score"] >= 88.0
 
 
+def test_security_header_policy_bonus_is_once_and_score_caps_at_95():
+    policy_only = analyze_security_headers(httpx.Headers({
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "camera=()",
+    }))
+    all_headers = analyze_security_headers(httpx.Headers({
+        "Strict-Transport-Security": "max-age=31536000",
+        "Content-Security-Policy": "default-src 'self'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "camera=()",
+    }))
+    assert (policy_only["header_count"], policy_only["score"]) == (2, 68.0)
+    assert (all_headers["header_count"], all_headers["score"]) == (6, 95.0)
+
+
 def test_analyze_html_structure():
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -53,6 +70,20 @@ def test_analyze_html_structure():
     assert res["has_og_tags"] is True
     assert res["score"] >= 85.0
     assert len(res["features"]) >= 3
+
+
+def test_html_title_does_not_add_strength_and_all_scored_markers_cap_at_90():
+    title_only = analyze_html_structure("<html><title>Portfolio</title></html>")
+    all_markers = analyze_html_structure(
+        '<meta name="viewport"><main>Content</main><meta property="og:title">'
+    )
+    assert (title_only["has_title"], title_only["score"], title_only["features"]) == (
+        True, 70.0, []
+    )
+    assert (all_markers["has_viewport"], all_markers["has_semantic_tags"],
+            all_markers["has_og_tags"], all_markers["score"]) == (
+        True, True, True, 90.0
+    )
 
 
 def test_inspect_live_deployment_with_mock():

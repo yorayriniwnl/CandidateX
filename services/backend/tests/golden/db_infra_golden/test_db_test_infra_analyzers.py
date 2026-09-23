@@ -127,6 +127,17 @@ def test_sql_index_rule_variants(sql, expected):
     )
 
 
+@pytest.mark.parametrize("sql", [
+    "FOREIGN KEY",
+    "REFERENCES users(id)",
+])
+def test_sql_foreign_key_rule_accepts_either_regex_alternative(sql):
+    evidence = analyze_sql_content(sql, "schema.sql", "https://github.com/test", "sha1")
+    assert [(ev.signal_rule_id, ev.technical_signal_strength) for ev in evidence] == [
+        ("candidatex.database.sql_foreign_key", 80.0)
+    ]
+
+
 @pytest.mark.parametrize("features, expected", [
     ("", 72.0),
     ("  user User @relation(fields: [userId], references: [id])", 78.0),
@@ -386,6 +397,36 @@ def test_testing_fallback_js_mock_and_go_score_branches():
         )
 
 
+def test_javascript_supertest_regex_requires_trailing_word_boundary():
+    ordinary_call = analyze_js_ts_test_file(
+        "request(app).get('/health')", "api.test.js", "https://github.com/test", "sha1"
+    )
+    named_library = analyze_js_ts_test_file(
+        "import supertest from 'supertest'", "api.test.js", "https://github.com/test", "sha1"
+    )
+    assert ordinary_call == []
+    assert [(ev.signal_rule_id, ev.technical_signal_strength) for ev in named_library] == [
+        ("candidatex.testing.javascript_supertest", 86.0)
+    ]
+
+
+@pytest.mark.parametrize("compose, expected", [
+    ("services: {}", 74.0),
+    (
+        "services:\n  api:\n    image: app\n    networks: [internal]\n"
+        "    volumes: [data:/data]\n    healthcheck:\n      test: [CMD, true]\n",
+        88.0,
+    ),
+])
+def test_docker_compose_rule_conditional_strength(compose, expected):
+    evidence = analyze_docker_compose(
+        compose, "compose.yml", "https://github.com/test", "sha1"
+    )
+    assert [(ev.signal_rule_id, ev.technical_signal_strength) for ev in evidence] == [
+        ("candidatex.infra.docker_compose", expected)
+    ]
+
+
 def test_ci_score_cap_keeps_rule_identity():
     ci = """jobs:
   test:
@@ -398,7 +439,7 @@ def test_ci_score_cap_keeps_rule_identity():
 """
     ev = analyze_ci_workflow(ci, "ci.yml", "https://github.com/test", "sha1")[0]
     assert (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength) == (
-        "candidatex.infra.ci_workflow", "1.0.0", min(75.0 + 6.0 + 7.0 + 4.0 + 5.0, 94.0)
+        "candidatex.infra.ci_workflow", "1.0.0", 94.0
     )
 
 
