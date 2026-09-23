@@ -71,10 +71,16 @@ test('mobile controls and evidence table fit within the viewport', async ({ page
   await page.screenshot({ path: 'test-results/research-demo-mobile.png' });
 });
 
-test('homepage opens live intake and the workspace has no fabricated initial dossier', async ({ page }) => {
+test('homepage shows the full attribution, opens live intake, and keeps the footer clear', async ({ page }) => {
   await page.goto('/');
+  await expect(page.getByText('Archi Srivastava & Ayush Roy', { exact: true })).toBeVisible();
+  await expect(page.getByText('Dr. Debachudamani Prusti', { exact: true })).toBeVisible();
+  await expect(page.locator('footer').getByText(/Archi Srivastava|Ayush Roy|Debachudamani/)).toHaveCount(0);
+
+  await page.getByRole('link', { name: /Start with live evidence/ }).click();
   await expect(page).toHaveURL(/\/analyze$/);
-  await page.getByRole('link', { name: 'Research demonstration' }).click();
+  await expect(page.locator('footer').getByText(/Archi Srivastava|Ayush Roy|Debachudamani/)).toHaveCount(0);
+  await page.goto('/research-demo');
   await page.getByRole('link', { name: 'Prototype workspace' }).click();
   await page.getByRole('button', { name: 'Dossier Deep analysis' }).click();
   await expect(page.getByText('No candidate dossier selected or available.')).toBeVisible();

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { publicUrl, type ComprehensiveAnalysis, type SourceReceipt, type ResumeIntake } from '../../lib/live-analysis';
-import { label } from '../../lib/research-demo';
+import type { RoleFitSummary } from '../../types/cci';
+import { label } from '../../lib/evidence';
 import styles from './shared.module.css';
 import live from './page.module.css';
 
@@ -55,11 +56,38 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
   </>;
 }
 
+function RoleFitPanel({ roleFit }: { roleFit: RoleFitSummary }) {
+  const mandatoryGaps = roleFit.mandatory_unknown + roleFit.mandatory_unresolved;
+  return <section className={styles.panel} aria-label="Role requirement fit">
+    <div className={styles.eyebrow}>Requirement fit</div>
+    <h2>What the job description is supported by</h2>
+    {roleFit.mandatory_total === 0 && roleFit.preferred_total === 0
+      ? <p className={styles.muted}>No structured job requirements were supplied. Capability evidence is still shown, but role-specific fit cannot be resolved.</p>
+      : <>
+        <div className={styles.metrics}>
+          <div className={styles.metric}><span>Mandatory observed</span><strong>{roleFit.mandatory_observed} / {roleFit.mandatory_total}</strong><span>Exact requirement evidence</span></div>
+          <div className={styles.metric}><span>Mandatory gaps</span><strong>{mandatoryGaps}</strong><span>Unknown or unmappable</span></div>
+          <div className={styles.metric}><span>Preferred observed</span><strong>{roleFit.preferred_observed} / {roleFit.preferred_total}</strong><span>Supporting role signals</span></div>
+        </div>
+        {roleFit.critical_gaps.length > 0 && <div className={styles.warning}>
+          <p>Mandatory requirements needing verification:</p>
+          <ul>{roleFit.critical_gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>
+        </div>}
+        {roleFit.requirement_matches.map(match => <details className={styles.evidence} key={match.requirement_id}>
+          <summary>{match.source_text} · <span className={`${styles.statusPill} ${match.status === 'observed' ? styles.statusGood : styles.statusNeedsReview}`}>{label(match.status)}</span></summary>
+          <p>{match.explanation}</p>
+          <p className={styles.muted}>{label(match.priority)} · {match.evidence_ids.length} evidence record{match.evidence_ids.length === 1 ? '' : 's'}{match.matching_technologies.length > 0 ? ` · ${match.matching_technologies.join(', ')}` : ''}</p>
+        </details>)}
+      </>}
+  </section>;
+}
+
 export function DetailedAnalysis({ analysis }: { analysis: ComprehensiveAnalysis }) {
   const [query, setQuery] = useState('');
   const [gapsOnly, setGapsOnly] = useState(false);
   const skills = analysis.skills.filter(skill => skill.skill.toLowerCase().includes(query.toLowerCase()) && (!gapsOnly || !skill.evidence.length));
   return <>
+    {analysis.role_fit && <RoleFitPanel roleFit={analysis.role_fit} />}
     <section className={styles.panel} aria-label="Detailed resume analysis"><div className={styles.eyebrow}>The full picture</div><h2>Skills and supporting evidence</h2>
       <p>{analysis.coverage.skills_with_repository_matches} of {analysis.coverage.skills_declared} declared skills have matching repository artifacts. Matches may be source files, dependencies, or configuration; they do not establish mastery.</p>
       <div className={live.filters}><label>Find a skill<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Python, React, Docker…" /></label>
