@@ -9,6 +9,7 @@ import hashlib
 import re
 from typing import Any
 
+from cci.contradictions.expectations import build_observable_claim_expectations
 from cci.live.contracts import ResumeIntake
 
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
