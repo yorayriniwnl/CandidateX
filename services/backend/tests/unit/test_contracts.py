@@ -236,3 +236,57 @@ def test_scoring_config_defaults():
 def test_cluster_artifact_decay_must_be_less_than_one():
     with pytest.raises(ValueError):
         ScoringConfig(cluster_artifact_decay=1.0)
+
+
+def test_evidence_family_fields_default_for_existing_constructors():
+    evidence_input = EvidenceInput(
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="a" * 40,
+        target_capability=CapabilityKey.BACKEND_ENGINEERING,
+        observed_score=55.0,
+        raw_support_text="dependency declared",
+        extractor_version="test-v1",
+    )
+    confidence_factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    evidence_record = EvidenceRecord(
+        fingerprint="a" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="a" * 40,
+        target_capability=CapabilityKey.BACKEND_ENGINEERING,
+        support_score=55.0,
+        confidence_factors=confidence_factors,
+        confidence=1.0,
+    )
+
+    assert evidence_input.evidence_family_id is None
+    assert evidence_input.observation_type == "legacy_unknown"
+    assert evidence_input.evidence_family_basis == {}
+    assert evidence_record.evidence_family_id is None
+    assert evidence_record.observation_type == "legacy_unknown"
+    assert evidence_record.evidence_family_basis == {}
+
+
+def test_evidence_family_contracts_reject_values_outside_storage_limits():
+    base = {
+        "source_family": SourceFamily.GITHUB,
+        "source_locator": "https://github.com/acme/api",
+        "immutable_revision": "a" * 40,
+        "target_capability": CapabilityKey.BACKEND_ENGINEERING,
+        "observed_score": 55.0,
+        "raw_support_text": "dependency declared",
+        "extractor_version": "test-v1",
+    }
+
+    with pytest.raises(ValidationError):
+        EvidenceInput(**base, observation_type="x" * 101)
+    with pytest.raises(ValidationError):
+        EvidenceInput(**base, evidence_family_id="ef1:" + "a" * 65)

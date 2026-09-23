@@ -3,9 +3,9 @@
 import math
 from dataclasses import dataclass
 from typing import Iterable
-from urllib.parse import urlsplit
 
 from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConfig
+from cci.domain.evidence_families import normalize_source_cluster
 from cci.domain.enums import CapabilityKey
 
 
@@ -16,38 +16,6 @@ class EvidenceCoverageItem:
     cluster_key: str
     artifact_key: str
     evidence_quality: float
-
-
-def _normalized_cluster_key(
-    source_family: object,
-    source_locator: str,
-    cluster_id: str | None,
-) -> str:
-    family = getattr(source_family, "value", source_family)
-    identity = (cluster_id or source_locator).strip()
-    try:
-        parsed = urlsplit(identity)
-        if parsed.scheme and parsed.netloc:
-            host = (parsed.hostname or parsed.netloc).casefold()
-            port = parsed.port
-            if port and not (
-                (parsed.scheme.casefold() == "https" and port == 443)
-                or (parsed.scheme.casefold() == "http" and port == 80)
-            ):
-                host = f"{host}:{port}"
-            path = parsed.path.rstrip("/")
-            if host.casefold().split(":", 1)[0] in {"github.com", "www.github.com"}:
-                host = "github.com"
-                path = path.casefold()
-                if path.endswith(".git"):
-                    path = path[:-4]
-            identity = f"{host}{path}"
-        else:
-            identity = identity.casefold()
-    except ValueError:
-        identity = identity.casefold()
-
-    return f"{family}:{identity}"
 
 
 def build_evidence_coverage_item(
@@ -62,7 +30,7 @@ def build_evidence_coverage_item(
     fingerprint: str | None = None,
 ) -> EvidenceCoverageItem:
     """Builds stable source and artifact identities for coverage calculations."""
-    cluster_key = _normalized_cluster_key(source_family, source_locator, cluster_id)
+    cluster_key = normalize_source_cluster(source_family, cluster_id or source_locator)
     content_hash = (artifact_hash or "").strip().casefold()
     if content_hash:
         artifact_key = f"content:{content_hash}"

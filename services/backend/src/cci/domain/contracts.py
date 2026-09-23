@@ -251,6 +251,23 @@ class EvidenceInput(BaseModel):
     extractor_version: str = Field(
         ..., description="Version of the analyzer producing this evidence"
     )
+    evidence_family_id: str | None = Field(
+        default=None,
+        min_length=68,
+        max_length=68,
+        pattern=r"^ef[01]:[0-9a-f]{64}$",
+        description="Versioned semantic family identity for correlated observations",
+    )
+    observation_type: str = Field(
+        default="legacy_unknown",
+        min_length=1,
+        max_length=100,
+        description="Stable analyzer modality name for this observation",
+    )
+    evidence_family_basis: dict[str, str] = Field(
+        default_factory=dict,
+        description="Semantic identity basis retained in evidence provenance",
+    )
     observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -324,6 +341,23 @@ class EvidenceRecord(BaseModel):
     artifact_attribution: ArtifactAttribution | None = None
     cluster_id: str | None = Field(
         None, description="Cluster grouping for effective count / bootstrap"
+    )
+    evidence_family_id: str | None = Field(
+        default=None,
+        min_length=68,
+        max_length=68,
+        pattern=r"^ef[01]:[0-9a-f]{64}$",
+        description="Versioned semantic family identity for correlated observations",
+    )
+    observation_type: str = Field(
+        default="legacy_unknown",
+        min_length=1,
+        max_length=100,
+        description="Stable analyzer modality name for this observation",
+    )
+    evidence_family_basis: dict[str, str] = Field(
+        default_factory=dict,
+        description="Semantic identity basis retained in evidence provenance",
     )
     provenance: dict[str, Any] = Field(
         default_factory=dict, description="File, line, commit, and inspection metadata"
