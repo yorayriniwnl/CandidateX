@@ -91,12 +91,12 @@ export default function ResearchDemonstration() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#030712] text-slate-100 pb-16 font-sans">
-      <nav className="border-b border-white/[0.06] backdrop-blur-md bg-white/[0.02] flex justify-between items-center gap-5 px-6 py-4 text-sm mb-12 shadow-sm" aria-label="Research navigation">
+      <nav className="border-b border-white/[0.06] backdrop-blur-md bg-white/[0.02] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 text-sm mb-12 shadow-sm" aria-label="Research navigation">
         <div>
           <span className="tracking-tighter text-2xl font-extrabold mr-2">CandidateX</span> 
           <span className="font-mono text-indigo-400 uppercase tracking-widest text-xs hidden sm:inline">/ Research demonstration</span>
         </div>
-        <div className="flex gap-5">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs sm:gap-5 sm:text-sm">
           <a href="#method" className="text-indigo-200 hover:text-indigo-100">The method</a>
           <a href="#benchmarks" className="text-indigo-200 hover:text-indigo-100">Experiments</a>
           <Link href="/workspace" className="text-indigo-200 hover:text-indigo-100">Prototype workspace</Link>
