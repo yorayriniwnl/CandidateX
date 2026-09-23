@@ -24,7 +24,7 @@ Node commands printed a warning that the configured Kaspersky root certificate f
 
 ### Critical: no authenticated user or server-verified tenant boundary
 
-The full FastAPI application has no authentication dependency or authorization middleware. Candidate and job listing endpoints accept organization IDs supplied by the caller; candidate listing leaves the organization filter optional. Candidate detail, dossier, graph, provenance, and audit endpoints take candidate IDs without a verified user-to-organization check. Recruiter override requests also accept a caller-supplied organization ID.
+The full FastAPI application has no authentication dependency or authorization middleware. Candidate and job listing endpoints accept organization IDs supplied by the caller; candidate listing leaves the organization filter optional. Candidate detail, dossier, graph, provenance, and audit endpoints take candidate IDs without a verified user-to-organization check. Recruiter override requests also accept a caller-supplied organization ID. The generated OpenAPI schema confirms the gap: it defines no security schemes or global security, and its operations have no security declarations.
 
 Relevant code: services/backend/src/cci/main.py, services/backend/src/cci/api/routers/candidates.py, services/backend/src/cci/api/routers/jobs.py, services/backend/src/cci/api/routers/dossier.py, and services/backend/src/cci/api/routers/overrides.py.
 
