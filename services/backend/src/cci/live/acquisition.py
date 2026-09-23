@@ -44,9 +44,11 @@ from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
 from cci.live.repository_review import review_repository
+from cci.live.scan_inventory import IGNORED_COMPONENTS, InventoryCounter, report_is_parseable
+from cci.security.repository_workspace import WorkspaceSecurityError
 
 HTTP_TRANSPORT = None  # Injectable only in tests; never configurable by request input.
-IGNORED = {'node_modules', 'vendor', 'dist', 'build', '.git', '.next', 'coverage', '__pycache__', '.venv', 'venv'}
+IGNORED = IGNORED_COMPONENTS
 CATEGORIES = {'manifests': 0, 'database': 1, 'tests': 2, 'ci': 3, 'infra': 4, 'openapi': 5, 'source': 6, 'docs': 7}
 
 
@@ -97,40 +99,92 @@ class Fetcher:
 
 
 def inspect_archive(data, workspace):
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+    inventory = InventoryCounter()
+    if data is None:
+        inventory.inventory_complete = False
+        return 0, inventory.receipt()
+    try:
+        archive_file = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        inventory.inventory_complete = False
+        return 0, inventory.receipt()
+    with archive_file as archive:
         infos = archive.infolist()
         if len(infos) > 20000 or sum(i.file_size for i in infos) > MAX_EXPANDED_BYTES:
             raise AcquisitionError('too_large', 'Repository exceeds the expanded archive/path limit.')
         selected, omitted = [], 0
         for info in infos:
             path = PurePosixPath(info.filename)
-            if path.is_absolute() or '..' in path.parts or '\\' in info.filename or ':' in info.filename:
-                raise AcquisitionError('security_blocked', 'Unsafe archive path rejected.')
-            if stat.S_ISLNK(info.external_attr >> 16):
-                omitted += 1
-                continue
             if info.is_dir() or len(path.parts) < 2:
                 continue
             rel = PurePosixPath(*path.parts[1:]).as_posix()
-            category = categorize_file(rel)
-            if any(p.lower() in IGNORED for p in path.parts) or category not in CATEGORIES or info.file_size > MAX_FILE_BYTES:
+            categories = inventory.add(rel)
+            if path.is_absolute() or '..' in path.parts or '\\' in info.filename or ':' in info.filename:
+                inventory.inventory_complete = False
+                inventory.skip(categories, 'unsafe_symlink')
+                raise AcquisitionError('security_blocked', 'Unsafe archive path rejected.')
+            if stat.S_ISLNK(info.external_attr >> 16):
+                inventory.skip(categories, 'unsafe_symlink')
                 omitted += 1
                 continue
-            selected.append((CATEGORIES[category], rel, info))
+            category = categorize_file(rel)
+            if any(p.lower() in IGNORED for p in path.parts) and not any(c in categories for c in ('coverage', 'benchmark')):
+                omitted += 1
+                continue
+            if info.file_size > MAX_FILE_BYTES:
+                inventory.skip(categories, 'byte_cap')
+                omitted += 1
+                continue
+            if category not in CATEGORIES and not categories:
+                omitted += 1
+                continue
+            priority = CATEGORIES.get(category, 0 if any(c in categories for c in ('coverage', 'benchmark')) else CATEGORIES['source'])
+            selected.append((priority, rel, info, categories))
         selected.sort(key=lambda item: (item[0], item[1]))
         omitted += max(0, len(selected) - MAX_FILES)
-        for _, rel, info in selected[:MAX_FILES]:
-            workspace.check_timeout()
-            content = archive.read(info)
+        for _, _, _, categories in selected[MAX_FILES:]:
+            inventory.skip(categories, 'file_cap')
+        for index, (_, rel, info, categories) in enumerate(selected[:MAX_FILES]):
+            try:
+                workspace.check_timeout()
+                content = archive.read(info)
+            except WorkspaceSecurityError:
+                for _, _, _, remaining in selected[index:MAX_FILES]:
+                    inventory.skip(remaining, 'timeout')
+                omitted += MAX_FILES - index
+                break
+            except (OSError, RuntimeError, zipfile.BadZipFile):
+                inventory.skip(categories, 'decode_parse_failure')
+                omitted += 1
+                continue
+            if len(content) > MAX_FILE_BYTES:
+                inventory.skip(categories, 'byte_cap')
+                omitted += 1
+                continue
+            try:
+                content.decode('utf-8')
+            except UnicodeDecodeError:
+                inventory.skip(categories, 'decode_parse_failure')
+                omitted += 1
+                continue
             if b'\x00' in content[:8192]:
+                inventory.skip(categories, 'decode_parse_failure')
+                omitted += 1
+                continue
+            if not report_is_parseable(rel, content):
+                inventory.skip(categories, 'decode_parse_failure')
                 omitted += 1
                 continue
             dest = Path(workspace.root, rel)
             if not dest.resolve().is_relative_to(Path(workspace.root).resolve()):
-                raise AcquisitionError('security_blocked', 'Archive containment check failed.')
+                inventory.inventory_complete = False
+                inventory.skip(categories, 'unsafe_symlink')
+                omitted += 1
+                continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(content)
-        return omitted
+            inventory.inspect(categories)
+        return omitted, inventory.receipt()
 
 
 def unknown_artifact_attribution(revision_sha, artifact_path, reason):
@@ -660,12 +714,14 @@ def acquire_repository(
     with SafeRepositoryWorkspace(max_worktree_bytes=MAX_EXPANDED_BYTES, max_file_bytes=MAX_FILE_BYTES,
                                  timeout_seconds=MAX_SECONDS) as workspace:
         try:
-            omitted = inspect_archive(archive, workspace) if archive else inspect_git_blobs(fetcher, owner, repo, sha, workspace)
+            omitted, completeness = inspect_archive(archive, workspace) if archive else inspect_git_blobs(fetcher, owner, repo, sha, workspace)
         except AcquisitionError as exc:
             if exc.status != 'too_large' or method != 'commit_archive':
                 raise
             method = 'bounded_git_blobs'
-            omitted = inspect_git_blobs(fetcher, owner, repo, sha, workspace)
+            omitted, completeness = inspect_git_blobs(fetcher, owner, repo, sha, workspace)
+        if not completeness.inventory_complete:
+            raise AcquisitionError('too_large', 'Repository inventory was missing or truncated; no reliable selection can be made.')
         snapshot, artifacts = index_repository_artifacts(workspace, url, sha)
         raw = run_code_intelligence(workspace.root, url, sha, artifacts)
         raw += run_db_test_infra_intelligence(workspace.root, url, sha, artifacts)
@@ -769,50 +825,100 @@ def acquire_repository(
 
 def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
     """For oversized archives, inspect a small selection of commit-pinned Git blobs."""
+    inventory = InventoryCounter()
     tree = fetcher.get(f'/repos/{owner}/{repo}/git/trees/{sha}?recursive=1')
-    if tree.get('truncated'):
-        raise AcquisitionError('too_large', 'GitHub truncated the repository tree; a reliable bounded selection could not be made.')
+    if not isinstance(tree, dict) or not isinstance(tree.get('tree'), list) or tree.get('truncated'):
+        inventory.inventory_complete = False
+        return 0, inventory.receipt()
     files = [item for item in tree.get('tree', []) if item.get('type') == 'blob']
     groups = {}
     for item in files:
         path = PurePosixPath(item.get('path', ''))
+        categories = inventory.add(str(path))
         if path.is_absolute() or '..' in path.parts or '\\' in str(path) or ':' in str(path):
-            raise AcquisitionError('security_blocked', 'Unsafe repository tree path rejected.')
-        category = categorize_file(str(path))
-        if (item.get('mode') not in {'100644', '100755'} or category not in CATEGORIES
-                or item.get('size', MAX_FILE_BYTES + 1) > MAX_FILE_BYTES
-                or any(part.lower() in IGNORED for part in path.parts)):
+            inventory.inventory_complete = False
+            inventory.skip(categories, 'unsafe_symlink')
             continue
-        groups.setdefault(category, []).append(item)
+        category = categorize_file(str(path))
+        if item.get('mode') not in {'100644', '100755'}:
+            inventory.skip(categories, 'unsafe_symlink')
+            continue
+        if (any(part.lower() in IGNORED for part in path.parts)
+                and not any(c in categories for c in ('coverage', 'benchmark'))):
+            continue
+        size = item.get('size')
+        if not isinstance(size, int) or size > MAX_FILE_BYTES:
+            inventory.skip(categories, 'byte_cap')
+            continue
+        if category not in CATEGORIES and not categories:
+            continue
+        group = category if category in CATEGORIES else 'reports' if any(c in categories for c in ('coverage', 'benchmark')) else 'source'
+        groups.setdefault(group, []).append((item, categories))
     # Rotate file categories so manifests cannot crowd out source and test code.
     selected = []
     for items in groups.values():
-        items.sort(key=lambda item: item['path'])
+        items.sort(key=lambda entry: entry[0]['path'])
     while len(selected) < 12 and any(groups.values()):
-        for category in CATEGORIES:
+        for category in (*CATEGORIES, 'reports'):
             if groups.get(category) and len(selected) < 12:
                 selected.append(groups[category].pop(0))
+    for remaining in groups.values():
+        for _, categories in remaining:
+            inventory.skip(categories, 'file_cap')
     stored = 0
-    for item in selected:
+    for index, (item, categories) in enumerate(selected):
+        try:
+            workspace.check_timeout()
+        except WorkspaceSecurityError:
+            for _, remaining in selected[index:]:
+                inventory.skip(remaining, 'timeout')
+            break
         reference = item.get('sha', '')
         if not re.fullmatch('[a-fA-F0-9]{40}', reference):
-            raise AcquisitionError('parse_failed', 'Invalid Git blob reference.')
-        data = fetcher.get(f'/repos/{owner}/{repo}/git/blobs/{reference}')
-        if data.get('encoding') != 'base64':
+            inventory.skip(categories, 'decode_parse_failure')
             continue
-        content = base64.b64decode(re.sub(r'\s', '', data.get('content', '')), validate=True)
-        if len(content) > MAX_FILE_BYTES or b'\x00' in content[:8192]:
+        try:
+            data = fetcher.get(f'/repos/{owner}/{repo}/git/blobs/{reference}')
+            if not isinstance(data, dict) or data.get('encoding') != 'base64':
+                inventory.skip(categories, 'unsupported_format')
+                continue
+            content = base64.b64decode(re.sub(r'\s', '', data.get('content', '')), validate=True)
+        except AcquisitionError as exc:
+            if exc.status != 'timeout':
+                raise
+            for _, remaining in selected[index:]:
+                inventory.skip(remaining, 'timeout')
+            break
+        except (TypeError, ValueError, base64.binascii.Error):
+            inventory.skip(categories, 'decode_parse_failure')
+            continue
+        if len(content) > MAX_FILE_BYTES:
+            inventory.skip(categories, 'byte_cap')
+            continue
+        try:
+            content.decode('utf-8')
+        except UnicodeDecodeError:
+            inventory.skip(categories, 'decode_parse_failure')
+            continue
+        if b'\x00' in content[:8192]:
+            inventory.skip(categories, 'decode_parse_failure')
+            continue
+        if not report_is_parseable(item['path'], content):
+            inventory.skip(categories, 'decode_parse_failure')
             continue
         actual = hashlib.sha1(f'blob {len(content)}\0'.encode() + content).hexdigest()
         if actual != reference.lower():
             raise AcquisitionError('parse_failed', 'Git blob content does not match its immutable reference.')
         destination = Path(workspace.root, item['path'])
         if not destination.resolve().is_relative_to(Path(workspace.root).resolve()):
-            raise AcquisitionError('security_blocked', 'Repository tree containment check failed.')
+            inventory.inventory_complete = False
+            inventory.skip(categories, 'unsafe_symlink')
+            continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(content)
+        inventory.inspect(categories)
         stored += 1
-    return len(files) - stored
+    return len(files) - stored, inventory.receipt()
 
 
 def acquire_sources(urls, identity, analysis_run_id: UUID | None = None):
