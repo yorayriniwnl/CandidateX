@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 import json
 from pathlib import PurePosixPath
+import re
 from types import MappingProxyType
 import xml.etree.ElementTree as ET
 
@@ -98,7 +99,7 @@ def _lcov_is_parseable(text: str) -> bool:
     """Require complete source-file records before treating LCOV as inspected."""
     allowed_fields = {"TN", "SF", "FN", "FNDA", "FNF", "FNH", "BRDA",
                       "BRF", "BRH", "DA", "LF", "LH"}
-    count_fields = {"LF", "LH", "BRF", "BRH"}
+    count_fields = {"LF", "LH", "BRF", "BRH", "FNF", "FNH"}
     in_record = False
     completed = 0
     counters = set()
@@ -131,10 +132,28 @@ def _lcov_is_parseable(text: str) -> bool:
                     or int(parts[0]) == 0 or not parts[1].isdecimal()
                     or (len(parts) == 3 and not parts[2])):
                 return False
+        if field == "FNDA":
+            count, separator, name = value.partition(",")
+            if not separator or not count.isdecimal() or not name:
+                return False
+        if field == "FN":
+            start, separator, remainder = value.partition(",")
+            if not separator or not start.isdecimal() or int(start) == 0 or not remainder:
+                return False
+            end, separator, name = remainder.partition(",")
+            if separator and end.isdecimal() and (int(end) == 0 or not name):
+                return False
+        if field == "BRDA":
+            parts = value.split(",", 3)
+            if (len(parts) != 4 or not parts[0].isdecimal() or int(parts[0]) == 0
+                    or re.fullmatch(r"[eEfFuU]*[0-9]+", parts[1]) is None or not parts[2]
+                    or (parts[3] != "-" and not parts[3].isdecimal())):
+                return False
         if field in count_fields:
             if not value.isdecimal():
                 return False
-            counters.add(field)
+            if field in {"LF", "LH", "BRF", "BRH"}:
+                counters.add(field)
     return completed > 0 and not in_record
 
 

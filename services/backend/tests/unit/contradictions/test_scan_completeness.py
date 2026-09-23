@@ -164,6 +164,41 @@ def test_lcov_with_malformed_da_record_is_not_inspected():
     assert coverage.skipped_reasons["decode_parse_failure"] == 1
 
 
+@pytest.mark.parametrize("malformed_record", [
+    b"FNDA:garbage",
+    b"FNDA:bad,work",
+    b"FN:garbage",
+    b"FN:0,work",
+    b"FNF:garbage",
+    b"FNH:garbage",
+    b"BRDA:garbage",
+    b"BRDA:1,0,0,bad",
+    b"BRDA:1,bad,0,1",
+])
+def test_lcov_with_malformed_recognized_record_is_not_inspected(malformed_record):
+    data = archive_bytes({
+        "coverage/lcov.info": b"SF:x\n" + malformed_record + b"\nLF:1\nLH:1\nend_of_record\n",
+    })
+    with SafeRepositoryWorkspace() as workspace:
+        _, receipt = inspect_archive(data, workspace)
+    coverage = receipt.categories["coverage"]
+    assert (coverage.eligible, coverage.inspected) == (1, 0)
+    assert coverage.skipped_reasons["decode_parse_failure"] == 1
+
+
+def test_lcov_with_valid_function_branch_and_line_records_is_inspected():
+    data = archive_bytes({
+        "coverage/lcov.info": (
+            b"TN:unit\nSF:x\nFN:1,work\nFNDA:1,work\nFNF:1\nFNH:1\n"
+            b"BRDA:1,0,0,1\nBRF:1\nBRH:1\nDA:1,1\nLF:1\nLH:1\nend_of_record\n"
+        ),
+    })
+    with SafeRepositoryWorkspace() as workspace:
+        _, receipt = inspect_archive(data, workspace)
+    coverage = receipt.categories["coverage"]
+    assert (coverage.eligible, coverage.inspected) == (1, 1)
+
+
 def test_complete_git_tree_inspects_all_eligible_files():
     files = {"src/app.py": b"print(1)\n", "requirements.txt": b"fastapi\n", "coverage.xml": b'<coverage line-rate="1"/>'}
     fetcher = FakeFetcher(files)
