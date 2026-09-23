@@ -6,6 +6,7 @@ import re
 import yaml
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 
 def analyze_readme(
@@ -27,13 +28,14 @@ def analyze_readme(
     if setup_match:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.docs.readme_setup"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path} (Setup Section)",
                 target_capability=CapabilityKey.DOCUMENTATION_COMMUNICATION,
-                observed_score=78.0,
+                technical_signal_strength=78.0,
                 is_positive_support=True,
                 raw_support_text=f"Explicit environment setup / installation documentation found in {file_path}",
                 extractor_version=extractor_version,
@@ -55,13 +57,14 @@ def analyze_readme(
         )
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.docs.readme_architecture_diagram"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path} ({diag_type})",
                 target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                observed_score=85.0,
+                technical_signal_strength=85.0,
                 is_positive_support=True,
                 raw_support_text=f"Visual architecture diagram ({diag_type}) documented in {file_path}",
                 extractor_version=extractor_version,
@@ -92,13 +95,14 @@ def analyze_adr(
     if has_context and has_decision:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.docs.adr_structure"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=file_path,
                 target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                observed_score=90.0,
+                technical_signal_strength=90.0,
                 is_positive_support=True,
                 raw_support_text=f"Structured Architecture Decision Record (ADR) adhering to standard decision framework in {file_path}",
                 extractor_version=extractor_version,
@@ -130,13 +134,14 @@ def analyze_openapi_spec(
 
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.docs.openapi_spec"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"{file_path} ({path_count} endpoints)",
                     target_capability=CapabilityKey.DOCUMENTATION_COMMUNICATION,
-                    observed_score=85.0,
+                    technical_signal_strength=85.0,
                     is_positive_support=True,
                     raw_support_text=f"Formal OpenAPI specification defining {path_count} API routes in {file_path}",
                     extractor_version=extractor_version,
@@ -176,13 +181,14 @@ def analyze_layer_boundaries(
     if len(detected_layers) >= 3:
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.docs.repository_layer_boundaries"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path="repository_structure",
                 symbol_or_line="Layer Boundaries",
                 target_capability=CapabilityKey.SOFTWARE_ARCHITECTURE,
-                observed_score=82.0,
+                technical_signal_strength=82.0,
                 is_positive_support=True,
                 raw_support_text=f"Distinct layered architectural boundaries identified: {', '.join(sorted(detected_layers))}",
                 extractor_version=extractor_version,

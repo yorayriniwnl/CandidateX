@@ -8,6 +8,7 @@ import re
 
 from cci.domain.contracts import EvidenceInput
 from cci.domain.enums import CapabilityKey, SourceFamily
+from cci.domain.signal_rules import signal_rule_fields
 
 EXTRACTOR_VERSION = "1.0.0"
 
@@ -36,13 +37,14 @@ def analyze_sql_content(
             tbl_name = tbl_match.group(2)
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.database.sql_table"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: CREATE TABLE {tbl_name}",
                     target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    observed_score=72.0,
+                    technical_signal_strength=72.0,
                     is_positive_support=True,
                     raw_support_text=f"SQL table definition in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -65,13 +67,14 @@ def analyze_sql_content(
 
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.database.sql_index"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: CREATE INDEX {idx_name}",
                     target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    observed_score=score,
+                    technical_signal_strength=score,
                     is_positive_support=True,
                     raw_support_text=f"SQL indexing strategy ({'Composite' if is_composite else 'Single-column'}) on table '{tbl_target}':\n{trimmed}",
                     extractor_version=extractor_version,
@@ -86,13 +89,14 @@ def analyze_sql_content(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.database.sql_foreign_key"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: FOREIGN KEY",
                     target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    observed_score=80.0,
+                    technical_signal_strength=80.0,
                     is_positive_support=True,
                     raw_support_text=f"Relational foreign key integrity constraint in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -107,13 +111,14 @@ def analyze_sql_content(
         ):
             evidence.append(
                 EvidenceInput(
+                    **signal_rule_fields("candidatex.database.sql_advanced_feature"),
                     source_family=SourceFamily.GITHUB,
                     source_locator=repo_url,
                     immutable_revision=commit_sha,
                     artifact_path=file_path,
                     symbol_or_line=f"Line {idx}: Advanced Database Feature",
                     target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                    observed_score=88.0,
+                    technical_signal_strength=88.0,
                     is_positive_support=True,
                     raw_support_text=f"Advanced SQL database architecture feature in {file_path}:\n{trimmed}",
                     extractor_version=extractor_version,
@@ -159,13 +164,14 @@ def analyze_alembic_migration(
         )
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.database.alembic_migration"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: upgrade()",
                 target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                observed_score=score,
+                technical_signal_strength=score,
                 is_positive_support=True,
                 raw_support_text=f"Alembic migration ({downgrade_desc}) performing operations: {', '.join(unique_ops)}",
                 extractor_version=extractor_version,
@@ -203,13 +209,14 @@ def analyze_prisma_schema(
 
         evidence.append(
             EvidenceInput(
+                **signal_rule_fields("candidatex.database.prisma_schema"),
                 source_family=SourceFamily.GITHUB,
                 source_locator=repo_url,
                 immutable_revision=commit_sha,
                 artifact_path=file_path,
                 symbol_or_line=f"{file_path}: {len(models)} models",
                 target_capability=CapabilityKey.DATABASE_ENGINEERING,
-                observed_score=min(score, 90.0),
+                technical_signal_strength=min(score, 90.0),
                 is_positive_support=True,
                 raw_support_text=f"Prisma ORM schema definition featuring: {'; '.join(features)}",
                 extractor_version=extractor_version,

@@ -49,11 +49,26 @@ CREATE TABLE metrics (recorded_at TIMESTAMP) PARTITION BY RANGE (recorded_at);
         assert ev.target_capability == CapabilityKey.DATABASE_ENGINEERING
         assert ev.source_family == SourceFamily.GITHUB
         assert 0.0 <= ev.observed_score <= 100.0
+        expected_id, expected_score = {
+            "CREATE TABLE": ("candidatex.database.sql_table", 72.0),
+            "CREATE INDEX": ("candidatex.database.sql_index", None),
+            "FOREIGN KEY": ("candidatex.database.sql_foreign_key", 80.0),
+            "Advanced Database Feature": ("candidatex.database.sql_advanced_feature", 88.0),
+        }[next(
+            label for label in ("CREATE TABLE", "CREATE INDEX", "FOREIGN KEY", "Advanced Database Feature")
+            if label in ev.symbol_or_line
+        )]
+        assert (ev.signal_rule_id, ev.signal_rule_version) == (expected_id, "1.0.0")
+        if expected_score is not None:
+            assert ev.technical_signal_strength == expected_score
 
     # Verify composite index received elevated score
     composite_ev = [e for e in evidence if "idx_orders_composite" in (e.symbol_or_line or "")]
     assert len(composite_ev) > 0
     assert composite_ev[0].observed_score >= 85.0
+    assert composite_ev[0].technical_signal_strength == 86.0
+    unique_ev = [e for e in evidence if "idx_users_email" in (e.symbol_or_line or "")]
+    assert unique_ev[0].technical_signal_strength == 82.0
 
     # Verify partitioning detected
     partition_ev = [e for e in evidence if "Advanced Database Feature" in (e.symbol_or_line or "")]
@@ -76,6 +91,9 @@ def downgrade():
     assert len(alembic_ev) == 1
     assert alembic_ev[0].target_capability == CapabilityKey.DATABASE_ENGINEERING
     assert alembic_ev[0].observed_score == 85.0  # Reversible migration bonus
+    assert (alembic_ev[0].signal_rule_id, alembic_ev[0].signal_rule_version, alembic_ev[0].technical_signal_strength) == (
+        "candidatex.database.alembic_migration", "1.0.0", 85.0
+    )
 
     # Prisma schema
     prisma_code = """
@@ -92,6 +110,38 @@ model Account {
     assert len(prisma_ev) == 1
     assert prisma_ev[0].target_capability == CapabilityKey.DATABASE_ENGINEERING
     assert prisma_ev[0].observed_score >= 80.0
+    assert (prisma_ev[0].signal_rule_id, prisma_ev[0].signal_rule_version, prisma_ev[0].technical_signal_strength) == (
+        "candidatex.database.prisma_schema", "1.0.0", 86.0
+    )
+
+
+@pytest.mark.parametrize("sql, expected", [
+    ("CREATE INDEX ix_a ON users (email);", 78.0),
+    ("CREATE UNIQUE INDEX ix_a ON users (email);", 82.0),
+    ("CREATE INDEX ix_a ON users (email, id);", 86.0),
+])
+def test_sql_index_rule_variants(sql, expected):
+    ev = analyze_sql_content(sql, "schema.sql", "https://github.com/test", "sha1")[0]
+    assert (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength) == (
+        "candidatex.database.sql_index", "1.0.0", expected
+    )
+
+
+@pytest.mark.parametrize("features, expected", [
+    ("", 72.0),
+    ("  user User @relation(fields: [userId], references: [id])", 78.0),
+    ("  @@index([userId])", 80.0),
+    ("  @@unique([userId])", 80.0),
+    ("  user User @relation(fields: [userId], references: [id])\n  @@index([userId])", 86.0),
+])
+def test_prisma_rule_feature_variants(features, expected):
+    ev = analyze_prisma_schema(
+        f"model Account {{\n id String @id\n{features}\n}}",
+        "schema.prisma", "https://github.com/test", "sha1"
+    )[0]
+    assert (ev.signal_rule_id, ev.signal_rule_version, ev.technical_signal_strength) == (
+        "candidatex.database.prisma_schema", "1.0.0", expected
+    )
 
 
 def test_python_testing_analyzer():
