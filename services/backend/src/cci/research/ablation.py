@@ -16,7 +16,11 @@ from scipy import stats
 from cci.domain.contracts import ScoringConfig
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.research.simulation import SimulatedCandidate, SimulatedObservation
-from cci.scoring.capability import has_sufficient_candidate_evidence
+from cci.scoring.capability import (
+    build_evidence_coverage_item,
+    compute_cluster_aware_coverage,
+    has_sufficient_candidate_evidence,
+)
 from cci.scoring.recency import compute_recency_factor
 from cci.scoring.reliability import DEFAULT_PRIORS, calculate_beta_mean
 from cci.scoring.confidence import compute_evidence_confidence
@@ -93,7 +97,22 @@ def evaluate_candidate_ablation(
 
         sum_c = sum(c_factors)
         tau_k = cfg.tau_saturation.get(cap_key, 5.0)
-        coverage_k = min(1.0, max(0.0, sum_c / tau_k)) if tau_k > 0 else 0.0
+        coverage_k, _ = compute_cluster_aware_coverage(
+            (
+                build_evidence_coverage_item(
+                    source_family=observation.source_family,
+                    source_locator=observation.source_locator
+                    or f"synthetic://{observation.source_family.value}",
+                    confidence=confidence,
+                    cluster_id=observation.cluster_id,
+                    artifact_id=observation.artifact_id,
+                    artifact_hash=observation.artifact_hash,
+                )
+                for observation, confidence in zip(cap_obs, c_factors)
+            ),
+            tau_k,
+            cfg.cluster_artifact_decay,
+        )
         if sum_c > 0.0 and has_sufficient_candidate_evidence(coverage_k, cfg):
             q_hat = sum(c * z for c, z in zip(c_factors, z_scores)) / sum_c
             estimated_q[cap_key] = float(np.clip(q_hat, 0.0, 100.0))

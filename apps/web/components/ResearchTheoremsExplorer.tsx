@@ -63,13 +63,13 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
     name: 'Point Estimate Convexity & Range Preservation',
     category: 'Scoring & Calibration',
     latex_formula: 'q_k = \\frac{\\sum_{e} c_{e,k} z_{e,k}}{\\sum_{e} c_{e,k}}',
-    description: 'The candidate estimate is a confidence-weighted convex combination after attribution-gated coverage meets the configured minimum (0.35 by default); otherwise it remains UNKNOWN.',
+    description: 'The candidate estimate is a confidence-weighted convex combination gated by cluster-aware attribution-gated coverage (0.35 minimum by default); unique artifacts count once per source-family cluster with geometric diminishing returns.',
     bound_statement: 'q_k \\in [\\min z_e, \\max z_e] \\subseteq [0, 100]',
     physical_intuition: 'Point estimate is strictly bounded within the support of concrete empirical evidence scores.',
     key_properties: [
       'Convex combination ensures stability against extreme outlier amplification',
       'Constant inputs z_e = z_0 produce q_k = z_0',
-      'Missing or insufficiently attributed evidence produces UNKNOWN, never 0.0',
+      'Missing or undercovered evidence produces UNKNOWN, never 0.0',
     ],
   },
   {
@@ -177,47 +177,47 @@ const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   {
     model_name: 'FULL_CCI',
     display_name: 'Full CCI (Proposed Architecture)',
-    mae: 1.210,
-    rmse: 1.543,
-    spearman_rho: 0.978,
-    kendall_tau: 0.875,
+    mae: 1.256,
+    rmse: 1.620,
+    spearman_rho: 0.979,
+    kendall_tau: 0.876,
     statistical_significance: 'Baseline',
     is_baseline: true,
   },
   {
     model_name: 'NO_RECENCY_DECAY',
     display_name: 'Ablation A: Without Recency Decay',
-    mae: 1.219,
-    rmse: 1.550,
-    spearman_rho: 0.978,
-    kendall_tau: 0.872,
-    statistical_significance: 'p < 0.001 (***)',
+    mae: 1.260,
+    rmse: 1.615,
+    spearman_rho: 0.976,
+    kendall_tau: 0.869,
+    statistical_significance: 'p = 0.0015',
   },
   {
     model_name: 'NO_OWNERSHIP_DISCOUNT',
     display_name: 'Ablation B: Without Ownership Discount',
-    mae: 2.319,
-    rmse: 2.949,
+    mae: 2.313,
+    rmse: 2.954,
     spearman_rho: 0.940,
-    kendall_tau: 0.790,
+    kendall_tau: 0.791,
     statistical_significance: 'p < 0.001 (***)',
   },
   {
     model_name: 'UNIFORM_WEIGHTS',
     display_name: 'Ablation C: Uniform Role Weights (1/12)',
-    mae: 1.967,
-    rmse: 2.491,
+    mae: 1.958,
+    rmse: 2.513,
     spearman_rho: 0.963,
-    kendall_tau: 0.837,
+    kendall_tau: 0.836,
     statistical_significance: 'p < 0.001 (***)',
   },
   {
     model_name: 'UNCALIBRATED_SOURCES',
     display_name: 'Ablation D: Uncalibrated Sources',
-    mae: 1.282,
-    rmse: 1.635,
+    mae: 1.325,
+    rmse: 1.721,
     spearman_rho: 0.977,
-    kendall_tau: 0.870,
+    kendall_tau: 0.869,
     statistical_significance: 'p < 0.001 (***)',
   },
 ];
@@ -292,13 +292,13 @@ export const ResearchTheoremsExplorer: React.FC<{
 \\toprule
 \\textbf{Evaluation Model} & \\textbf{MAE} $\\downarrow$ & \\textbf{RMSE} $\\downarrow$ & \\textbf{Spearman $\\rho$} $\\uparrow$ & \\textbf{Kendall $\\tau$} $\\uparrow$ \\\\
 \\midrule
-Full CCI (Proposed) & \\textbf{1.210} & \\textbf{1.543} & \\textbf{0.978} & \\textbf{0.875} \\\\
-w/o Recency Decay & 1.219$^{\\ast\\ast\\ast}$ & 1.550 & 0.978 & 0.872 \\\\
-w/o Ownership Discount & 2.319$^{\\ast\\ast\\ast}$ & 2.949 & 0.940 & 0.790 \\\\
-Uniform Role Weights (1/12) & 1.967$^{\\ast\\ast\\ast}$ & 2.491 & 0.963 & 0.837 \\\\
-Uncalibrated Sources & 1.282$^{\\ast\\ast\\ast}$ & 1.635 & 0.977 & 0.870 \\\\
-\\multicolumn{5}{l}{\\footnotesize $^{\\ast\\ast\\ast}p < 0.001$ via paired Wilcoxon signed-rank test against Full CCI.}\\\\
-\\multicolumn{5}{l}{\\footnotesize Scoring config 3.0.0; candidate estimates require $\\mathrm{Cov}_k \\ge 0.35$; lower coverage is UNKNOWN.}
+Full CCI (Proposed) & \\textbf{1.256} & \\textbf{1.620} & \\textbf{0.979} & \\textbf{0.876} \\\\
+w/o Recency Decay & 1.260 & 1.615 & 0.976 & 0.869 \\\\
+w/o Ownership Discount & 2.313$^{\\ast\\ast\\ast}$ & 2.954 & 0.940 & 0.791 \\\\
+Uniform Role Weights (1/12) & 1.958$^{\\ast\\ast\\ast}$ & 2.513 & 0.963 & 0.836 \\\\
+Uncalibrated Sources & 1.325$^{\\ast\\ast\\ast}$ & 1.721 & 0.976 & 0.869 \\\\
+\\multicolumn{5}{l}{\\footnotesize $^{\\ast\\ast\\ast}p < 0.001$ via candidate-paired Wilcoxon signed-rank test against Full CCI.}\\\\
+\\multicolumn{5}{l}{\\footnotesize Scoring config 4.0.0; candidate estimates require $\\mathrm{Cov}_k \\ge 0.35$; within-cluster artifact decay $\\delta=0.50$; lower coverage is UNKNOWN.}
 \\bottomrule
 \\end{tabular}
 \\end{table}`;
@@ -322,13 +322,13 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
 
 | Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |
 |:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|
-| **FULL_CCI** | 1.210 | 1.543 | 0.978 | 0.875 | Baseline |
-| **NO_RECENCY_DECAY** | 1.219 | 1.550 | 0.978 | 0.872 | Yes (***) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.319 | 2.949 | 0.940 | 0.790 | Yes (***) |
-| **UNIFORM_WEIGHTS** | 1.967 | 2.491 | 0.963 | 0.837 | Yes (***) |
-| **UNCALIBRATED_SOURCES** | 1.282 | 1.635 | 0.977 | 0.870 | Yes (***) |
+| **FULL_CCI** | 1.256 | 1.620 | 0.979 | 0.876 | Baseline |
+| **NO_RECENCY_DECAY** | 1.260 | 1.615 | 0.976 | 0.869 | p=1.482e-03 |
+| **NO_OWNERSHIP_DISCOUNT** | 2.313 | 2.954 | 0.940 | 0.791 | Yes (***) |
+| **UNIFORM_WEIGHTS** | 1.958 | 2.513 | 0.963 | 0.836 | Yes (***) |
+| **UNCALIBRATED_SOURCES** | 1.325 | 1.721 | 0.976 | 0.869 | Yes (***) |
 
-*Note: Scoring config 3.0.0; candidate estimates require coverage >= 0.35, otherwise they are UNKNOWN. Statistical significance tests ($p < 0.001$, marked ***) use paired Wilcoxon signed-rank tests against the Full CCI baseline.*
+*Note: Scoring config 4.0.0; candidate estimates require cluster-aware coverage >= 0.35, otherwise they are UNKNOWN. Within-cluster artifact decay is 0.50. Significance tests use candidate-paired Wilcoxon signed-rank tests; paired sample counts are archived with the JSON results.*
 `;
 
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
@@ -896,7 +896,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
             </div>
 
             <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-800/80">
-              <span>* Paired Wilcoxon signed-rank test against Full CCI baseline. Statistically significant differences marked ***.</span>
+              <span>* Candidate-paired Wilcoxon test against Full CCI. Only candidates with estimates in both modes are included; significant differences are marked ***.</span>
               <span>N = 4,800 candidates simulated across 16 deterministic seeds.</span>
             </div>
           </div>

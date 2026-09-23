@@ -127,13 +127,15 @@ $$I_k = w_k [0.40(1-\mathrm{Cov}_k) + 0.35\,\mathrm{CIwidth}_k + 0.25\,\mathrm{C
 Here interval width is normalized to [0, 1]. An unavailable interval uses a conservative maximal uncertainty term for probe prioritization.
 
 ### 7. Role Capability Index (RCI) & Evidence Coverage
-$$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{observed}} w_k}, \quad \text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \min\left(1.0, \frac{\sum_e c_{e,k}}{\tau_k}\right)$$
+For each source cluster $g$, unique artifacts contribute their strongest attribution-gated quality $q_{g,j}$ once, sorted from strongest to weakest. Further artifacts in the same cluster receive geometrically diminishing weight $\delta^{j-1}$:
+$$M_{g,k} = \sum_{j=1}^{n_g} q_{g,j}\,\delta^{j-1}, \quad \mathrm{Cov}_k = \min\left(1, \frac{\sum_g M_{g,k}}{\tau_k}\right), \quad \delta=0.5$$
+Clusters use source family plus normalized cluster ID (or source locator). Content-identical artifacts across repositories are credited once. Overall role coverage remains $\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \mathrm{Cov}_k$, and RCI uses only capabilities meeting the 0.35 default minimum.
 
 ---
 
 ## Paper Reproducibility & Ablation Studies
 
-The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. Capability estimates require attribution-gated coverage of at least 0.35. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho approximately 0.978 is not a reproduction of that result.
+The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. Scoring config 4.0.0 uses source-cluster coverage, a 0.5 within-cluster artifact decay, and requires candidate attribution-gated coverage of at least 0.35. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho is not a reproduction of that result.
 
 ```powershell
 python research/run_paper_experiments.py --output-dir reports/research-demo-verification
@@ -145,11 +147,11 @@ Use `--quick` for a smaller smoke experiment. Neither experiment establishes rea
 
 | Evaluation Model | RCI MAE $\downarrow$ | RCI RMSE $\downarrow$ | Spearman's $\rho$ $\uparrow$ | Kendall's $\tau$ $\uparrow$ | Stat. Sig. ($p < 0.001$) |
 |:-----------------|:--------------------:|:---------------------:|:----------------------------:|:---------------------------:|:------------------------:|
-| **FULL_CCI** | **1.210** | **1.543** | **0.978** | **0.875** | Baseline |
-| **NO_RECENCY_DECAY** | 1.219 | 1.550 | 0.978 | 0.872 | Yes ($^{***}$) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.319 | 2.949 | 0.940 | 0.790 | Yes ($^{***}$) |
-| **UNIFORM_WEIGHTS** | 1.967 | 2.491 | 0.963 | 0.837 | Yes ($^{***}$) |
-| **UNCALIBRATED_SOURCES** | 1.282 | 1.635 | 0.977 | 0.870 | Yes ($^{***}$) |
+| **FULL_CCI** | **1.256** | **1.620** | **0.979** | **0.876** | Baseline |
+| **NO_RECENCY_DECAY** | 1.260 | 1.615 | 0.976 | 0.869 | p = 0.0015 |
+| **NO_OWNERSHIP_DISCOUNT** | 2.313 | 2.954 | 0.940 | 0.791 | Yes ($^{***}$) |
+| **UNIFORM_WEIGHTS** | 1.958 | 2.513 | 0.963 | 0.836 | Yes ($^{***}$) |
+| **UNCALIBRATED_SOURCES** | 1.325 | 1.721 | 0.976 | 0.869 | Yes ($^{***}$) |
 
 The committed prototype artifacts are:
 - [`research/results/table_ablation_study.md`](research/results/table_ablation_study.md)

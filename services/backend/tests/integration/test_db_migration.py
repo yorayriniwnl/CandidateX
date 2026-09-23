@@ -74,6 +74,11 @@ def test_all_paper_aligned_tables_exist(test_engine):
     assert EXPECTED_TABLES.issubset(existing_tables)
 
 
+def test_scoring_config_persists_cluster_artifact_decay(test_engine):
+    columns = {column["name"] for column in inspect(test_engine).get_columns("scoring_configs")}
+    assert "cluster_artifact_decay" in columns
+
+
 def test_evidence_immutability_enforcement(test_engine):
     """Verify that Evidence rows cannot be updated once inserted."""
     Session = sessionmaker(bind=test_engine)

@@ -7,6 +7,7 @@ from cci.research.statistics import (
     compute_wilcoxon_comparison,
     format_latex_ablation_table,
     format_markdown_ablation_table,
+    pair_candidate_errors,
 )
 
 
@@ -37,6 +38,16 @@ def test_wilcoxon_signed_rank_comparison():
     assert comp["mean_difference"] > 2.0
 
 
+def test_paired_errors_align_by_candidate_and_exclude_unmatched_candidates():
+    reference = {"candidate-a": 1.0, "candidate-b": 2.0, "candidate-c": 3.0}
+    ablation = {"candidate-b": 8.0, "candidate-c": 6.0, "candidate-d": 9.0}
+
+    paired_reference, paired_ablation = pair_candidate_errors(reference, ablation)
+
+    assert paired_reference == [2.0, 3.0]
+    assert paired_ablation == [8.0, 6.0]
+
+
 def test_paper_table_formatting():
     """Verify Markdown and LaTeX table generators produce valid outputs."""
     sample_results = {
@@ -51,16 +62,19 @@ def test_paper_table_formatting():
     assert "| Evaluation Model |" in md_table
     assert "**FULL_CCI**" in md_table
     assert "Yes (***)" in md_table
-    assert "Scoring config 3.0.0" in md_table
+    assert "Scoring config 4.0.0" in md_table
     assert "coverage >= 0.35" in md_table
+    assert "within-cluster artifact decay is 0.50" in md_table
+    assert "candidates with estimates in both modes" in md_table
 
     latex_table = format_latex_ablation_table(sample_results, sample_stats)
     assert r"\begin{table}" in latex_table
     assert r"\caption" in latex_table
     assert r"\end{table}" in latex_table
     assert "FULL\\_CCI" in latex_table
-    assert "Scoring config 3.0.0" in latex_table
+    assert "Scoring config 4.0.0" in latex_table
     assert r"\mathrm{Cov}_k \ge 0.35" in latex_table
+    assert r"\delta=0.50" in latex_table
     latex_lines = latex_table.splitlines()
     footnote_line = next(
         line for line in latex_lines if "Wilcoxon signed-rank test)." in line

@@ -23,6 +23,9 @@ class ScoringConfigEntity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     low_coverage_threshold: Mapped[float] = mapped_column(
         Float, default=0.35, nullable=False
     )
+    cluster_artifact_decay: Mapped[float] = mapped_column(
+        Float, default=0.5, nullable=False, server_default="0.5"
+    )
     probe_alpha: Mapped[float] = mapped_column(Float, default=0.40, nullable=False)
     probe_beta: Mapped[float] = mapped_column(Float, default=0.35, nullable=False)
     probe_gamma: Mapped[float] = mapped_column(Float, default=0.25, nullable=False)
@@ -61,7 +64,7 @@ class CapabilityEstimateEntity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     ci_upper: Mapped[float | None] = mapped_column(Float, nullable=True)
     coverage_k: Mapped[float] = mapped_column(
         Float, nullable=False
-    )  # min(1, sum(c)/tau_k)
+    )  # Cluster-aware attribution-gated coverage
 
 
 class CapabilityUncertaintyEntity(Base, UUIDPrimaryKeyMixin, TimestampMixin):

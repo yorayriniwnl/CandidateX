@@ -8,8 +8,8 @@ engineering roles (N = 4,800 total candidates).
 
 EVALUATION MODES:
 1. FULL_CCI: Attribution-gated confidence c_{e,k} = o * (a * t * v * x * r)^{1/5},
-   recency decay exp(-lambda_k * delta_t), path contribution gate o_e,
-   calibrated Beta-Binomial source reliability r_s, and softmax role weights w_k.
+   source-cluster coverage with unique artifacts and geometric within-cluster decay,
+   recency decay exp(-lambda_k * delta_t), calibrated reliability, and role weights.
 2. NO_RECENCY_DECAY: lambda_k = 0 -> t_{e,k} = 1.0 (ignores staleness & skill progression).
 3. NO_OWNERSHIP_DISCOUNT: o_e = 1.0 (ignores forks and multi-author team code).
 4. UNIFORM_WEIGHTS: w_k = 1/12 (ignores job-specific role capability requirements).
@@ -55,6 +55,7 @@ from cci.research.statistics import (
     compute_wilcoxon_comparison,
     format_latex_ablation_table,
     format_markdown_ablation_table,
+    pair_candidate_errors,
 )
 from cci.scoring.weights import compute_softmax_weights
 
@@ -92,6 +93,9 @@ def run_full_simulation_study(
     mode_estimates: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
     mode_true_rcis: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
     mode_errors: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
+    mode_errors_by_candidate: Dict[AblationMode, Dict[Any, float]] = {
+        m: {} for m in AblationMode
+    }
     mode_cap_errors: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
 
     # Per-role tracking for Full CCI
@@ -124,6 +128,7 @@ def run_full_simulation_study(
                         mode_estimates[mode].append(rci_est)
                         mode_true_rcis[mode].append(rci_true)
                         mode_errors[mode].append(err)
+                        mode_errors_by_candidate[mode][cand.candidate_id] = err
 
                         # Track capability-level errors
                         for cap_key, q_val in q_hats.items():
@@ -165,13 +170,19 @@ def run_full_simulation_study(
 
     # Statistical tests: Wilcoxon signed-rank & Cliff's delta vs Full CCI
     statistical_tests: Dict[str, Dict[str, Any]] = {}
-    full_errors = mode_errors[AblationMode.FULL_CCI]
+    full_error_map = mode_errors_by_candidate[AblationMode.FULL_CCI]
 
     for mode in AblationMode:
         if mode == AblationMode.FULL_CCI:
             continue
-        ablated_errs = mode_errors[mode]
-        comp = compute_wilcoxon_comparison(full_errors, ablated_errs)
+        ablated_error_map = mode_errors_by_candidate[mode]
+        paired_full, paired_ablated = pair_candidate_errors(
+            full_error_map, ablated_error_map
+        )
+        comp = compute_wilcoxon_comparison(paired_full, paired_ablated)
+        comp["paired_sample_count"] = len(paired_full)
+        comp["full_eligible_candidate_count"] = len(full_error_map)
+        comp["ablation_eligible_candidate_count"] = len(ablated_error_map)
         statistical_tests[mode.value] = comp
 
     # Per-role summary for Full CCI
@@ -196,7 +207,8 @@ def run_full_simulation_study(
             "scoring_config_version": ScoringConfig().version,
             "confidence_formula": "o * (a * t * v * x * r)^(1/5)",
             "minimum_capability_coverage": ScoringConfig().low_coverage_threshold,
-            "total_candidates": len(full_errors),
+            "cluster_artifact_decay": ScoringConfig().cluster_artifact_decay,
+            "total_candidates": candidates_processed,
             "seeds": seeds,
             "roles": [r.value for r in roles],
             "candidates_per_role": candidates_per_role,
@@ -215,7 +227,8 @@ def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]
         "",
         "Evaluation of Full CCI model accuracy across all six canonical engineering profiles.",
         f"Scoring config {ScoringConfig().version}; candidate estimates require attribution-gated coverage >= "
-        f"{ScoringConfig().low_coverage_threshold:.2f}; lower coverage is UNKNOWN.",
+        f"{ScoringConfig().low_coverage_threshold:.2f}; artifact decay {ScoringConfig().cluster_artifact_decay:.1f}; "
+        "lower coverage is UNKNOWN.",
         "",
         "| Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ |",
         "|:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|",

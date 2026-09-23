@@ -6,6 +6,10 @@ import numpy as np
 
 from cci.domain.contracts import EvidenceRecord
 from cci.domain.enums import CapabilityKey
+from cci.scoring.capability import (
+    deduplicate_records_by_artifact,
+    evidence_coverage_item,
+)
 
 
 def cluster_bootstrap_ci(
@@ -29,14 +33,14 @@ def cluster_bootstrap_ci(
         for e in evidence_records
         if e.target_capability == capability and e.confidence > 0.0
     ]
+    relevant = deduplicate_records_by_artifact(relevant)
     if not relevant:
         return None, None
 
-    # Group records by cluster_id (defaulting to evidence_id if cluster_id is missing)
+    # Use the same source-family and cluster identity as capability coverage.
     clusters = defaultdict(list)
     for e in relevant:
-        c_id = e.cluster_id or e.source_locator
-        clusters[c_id].append(e)
+        clusters[evidence_coverage_item(e).cluster_key].append(e)
 
     cluster_keys = list(clusters.keys())
     k_clusters = len(cluster_keys)

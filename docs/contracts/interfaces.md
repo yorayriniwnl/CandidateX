@@ -97,8 +97,9 @@ Normalized role weights:
 $$w_k = \frac{\exp(u_k / T)}{\sum_j \exp(u_j / T)}, \quad \sum_k w_k = 1.0$$
 
 ### 3.7. Evidence Coverage & Role Capability Index (RCI)
-Capability-specific coverage:
-$$\text{Cov}_k = \min\left(1, \frac{\sum_e c_{e,k}}{\tau_k}\right)$$
+Within independent source cluster $g$, evidence is grouped by artifact. An artifact contributes its strongest attribution-gated confidence $q_{g,j}$ once; distinct artifacts are ordered from strongest to weakest and receive geometric diminishing returns with configured decay $\delta$ (default 0.5):
+$$M_{g,k} = \sum_{j=1}^{n_g} q_{g,j}\delta^{j-1}, \qquad \text{Cov}_k = \min\left(1, \frac{\sum_g M_{g,k}}{\tau_k}\right)$$
+The cluster identity combines source family and normalized cluster ID (falling back to source locator). Content-identical artifacts across clusters are credited once. This keeps evidence quality, artifact depth, and source independence distinct.
 Overall Evidence Coverage across role:
 $$\text{Coverage}(C, J) = \sum_{k=1}^{12} w_k \cdot \text{Cov}_k$$
 

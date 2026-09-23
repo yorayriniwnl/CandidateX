@@ -1,9 +1,171 @@
 """Capability estimate, effective evidence count, dispersion, and coverage."""
 
 import math
+from dataclasses import dataclass
+from typing import Iterable
+from urllib.parse import urlsplit
 
 from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey
+
+
+@dataclass(frozen=True)
+class EvidenceCoverageItem:
+    """One artifact's strongest evidence quality inside an independence cluster."""
+
+    cluster_key: str
+    artifact_key: str
+    evidence_quality: float
+
+
+def _normalized_cluster_key(
+    source_family: object,
+    source_locator: str,
+    cluster_id: str | None,
+) -> str:
+    family = getattr(source_family, "value", source_family)
+    identity = (cluster_id or source_locator).strip()
+    try:
+        parsed = urlsplit(identity)
+        if parsed.scheme and parsed.netloc:
+            host = (parsed.hostname or parsed.netloc).casefold()
+            port = parsed.port
+            if port and not (
+                (parsed.scheme.casefold() == "https" and port == 443)
+                or (parsed.scheme.casefold() == "http" and port == 80)
+            ):
+                host = f"{host}:{port}"
+            path = parsed.path.rstrip("/")
+            if host.casefold().split(":", 1)[0] in {"github.com", "www.github.com"}:
+                host = "github.com"
+                path = path.casefold()
+                if path.endswith(".git"):
+                    path = path[:-4]
+            identity = f"{host}{path}"
+        else:
+            identity = identity.casefold()
+    except ValueError:
+        identity = identity.casefold()
+
+    return f"{family}:{identity}"
+
+
+def build_evidence_coverage_item(
+    *,
+    source_family: object,
+    source_locator: str,
+    confidence: float,
+    cluster_id: str | None = None,
+    artifact_id: object | None = None,
+    artifact_hash: str | None = None,
+    artifact_path: str | None = None,
+    fingerprint: str | None = None,
+) -> EvidenceCoverageItem:
+    """Builds stable source and artifact identities for coverage calculations."""
+    cluster_key = _normalized_cluster_key(source_family, source_locator, cluster_id)
+    content_hash = (artifact_hash or "").strip().casefold()
+    if content_hash:
+        artifact_key = f"content:{content_hash}"
+    elif artifact_path:
+        normalized_path = artifact_path.replace("\\", "/").strip("/")
+        artifact_key = f"path:{cluster_key}:{normalized_path}"
+    elif artifact_id is not None:
+        artifact_key = f"id:{cluster_key}:{artifact_id}"
+    elif fingerprint:
+        artifact_key = f"evidence:{cluster_key}:{fingerprint}"
+    else:
+        artifact_key = f"source:{cluster_key}"
+
+    return EvidenceCoverageItem(
+        cluster_key=cluster_key,
+        artifact_key=artifact_key,
+        evidence_quality=max(0.0, min(1.0, float(confidence))),
+    )
+
+
+def evidence_coverage_item(record: EvidenceRecord) -> EvidenceCoverageItem:
+    """Extracts a coverage identity from a persisted evidence record."""
+    provenance = record.provenance
+    return build_evidence_coverage_item(
+        source_family=record.source_family,
+        source_locator=record.source_locator,
+        confidence=record.confidence,
+        cluster_id=record.cluster_id,
+        artifact_id=record.artifact_id,
+        artifact_hash=provenance.get("artifact_sha256")
+        or provenance.get("content_sha256"),
+        artifact_path=provenance.get("artifact_path"),
+        fingerprint=record.fingerprint,
+    )
+
+
+def _deduplicate_coverage_items(
+    items: Iterable[EvidenceCoverageItem],
+) -> list[EvidenceCoverageItem]:
+    """Keeps the strongest instance of each artifact across all source clusters."""
+    strongest: dict[str, EvidenceCoverageItem] = {}
+    for item in items:
+        if item.evidence_quality <= 0.0:
+            continue
+        current = strongest.get(item.artifact_key)
+        if current is None or (item.evidence_quality, item.cluster_key) > (
+            current.evidence_quality,
+            current.cluster_key,
+        ):
+            strongest[item.artifact_key] = item
+    return [strongest[key] for key in sorted(strongest)]
+
+
+def deduplicate_records_by_artifact(
+    records: Iterable[EvidenceRecord],
+) -> list[EvidenceRecord]:
+    """Returns deterministic strongest representatives for independent artifacts."""
+    by_artifact: dict[str, tuple[EvidenceCoverageItem, EvidenceRecord]] = {}
+    for record in records:
+        item = evidence_coverage_item(record)
+        if item.evidence_quality <= 0.0:
+            continue
+        current = by_artifact.get(item.artifact_key)
+        rank = (item.evidence_quality, item.cluster_key, record.fingerprint)
+        if current is None or rank > (
+            current[0].evidence_quality,
+            current[0].cluster_key,
+            current[1].fingerprint,
+        ):
+            by_artifact[item.artifact_key] = (item, record)
+    return [by_artifact[key][1] for key in sorted(by_artifact)]
+
+
+def compute_cluster_aware_coverage(
+    items: Iterable[EvidenceCoverageItem],
+    tau_saturation: float,
+    artifact_decay: float = 0.5,
+) -> tuple[float, int]:
+    """Computes coverage from independent clusters and unique artifacts.
+
+    Within each cluster, each artifact contributes its strongest attribution-gated
+    evidence quality once. Distinct artifacts are sorted by quality and receive
+    geometrically diminishing weight, so one cluster contributes less than
+    ``1 / (1 - artifact_decay)`` units. Content-identical artifacts across
+    clusters are credited only to the strongest deterministic representative.
+    """
+    unique_items = _deduplicate_coverage_items(items)
+    qualities_by_cluster: dict[str, list[float]] = {}
+    for item in unique_items:
+        qualities_by_cluster.setdefault(item.cluster_key, []).append(
+            item.evidence_quality
+        )
+
+    total_cluster_mass = 0.0
+    for qualities in qualities_by_cluster.values():
+        for rank, quality in enumerate(sorted(qualities, reverse=True)):
+            total_cluster_mass += quality * (artifact_decay**rank)
+
+    if tau_saturation <= 0.0:
+        return 0.0, len(qualities_by_cluster)
+
+    coverage = min(1.0, max(0.0, total_cluster_mass / tau_saturation))
+    return coverage, len(qualities_by_cluster)
 
 
 def has_sufficient_candidate_evidence(
@@ -113,13 +275,12 @@ def compute_capability_score(
     # Standard Error: SE_k = s_k / sqrt(max(1, n_eff))
     standard_error = dispersion / math.sqrt(max(1.0, n_eff))
 
-    # Capability Coverage: Cov_k = min(1.0, sum(c) / tau_k)
-    coverage_k = min(1.0, max(0.0, sum_c / tau_k))
+    coverage_k, cluster_count = compute_cluster_aware_coverage(
+        (evidence_coverage_item(record) for record in relevant),
+        tau_k,
+        cfg.cluster_artifact_decay,
+    )
     has_sufficient_evidence = has_sufficient_candidate_evidence(coverage_k, cfg)
-
-    # Distinct clusters
-    clusters = {e.cluster_id or e.source_locator for e in relevant}
-    cluster_count = len(clusters)
 
     ci_lower = None
     ci_upper = None

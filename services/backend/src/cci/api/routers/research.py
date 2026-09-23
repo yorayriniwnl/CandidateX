@@ -123,13 +123,14 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         name="Point Estimate Convexity & Range Preservation",
         category="Scoring & Calibration",
         latex_formula=r"q_k = \frac{\sum_{e} c_{e,k} z_{e,k}}{\sum_{e} c_{e,k}}",
-        description="Capability point estimation formulated as a normalized confidence-weighted convex combination.",
+        description="Candidate point estimation is a normalized confidence-weighted convex combination gated by cluster-aware attributed coverage.",
         bound_statement=r"q_k \in [\min z_e, \max z_e] \subseteq [0, 100]",
         physical_intuition="Point estimate is strictly bounded within the support of concrete empirical evidence scores.",
         key_properties=[
             "Convex combination ensures stability against extreme outlier amplification",
             "Constant inputs z_e = z_0 produce q_k = z_0",
-            "Missing evidence produces UNKNOWN / unobserved, never 0.0",
+            "Unique artifacts count once per source-family cluster, with geometric diminishing returns",
+            "Missing or undercovered evidence produces UNKNOWN, never 0.0",
         ],
     ),
     TheoremMetadata(
@@ -277,11 +278,13 @@ def get_ablation_study() -> AblationStudyResponse:
     method_version = artifact["metadata"].get("scoring_config_version", "unknown")
     confidence_formula = artifact["metadata"].get("confidence_formula", "not recorded")
     minimum_coverage = artifact["metadata"].get("minimum_capability_coverage", "not recorded")
+    cluster_decay = artifact["metadata"].get("cluster_artifact_decay", "not recorded")
     return AblationStudyResponse(total_candidates=artifact["metadata"]["total_candidates"],
         total_seeds=len(artifact["metadata"]["seeds"]), roles_count=len(artifact["metadata"]["roles"]),
         models=models, role_breakdown=role_breakdown, latex_table=latex, markdown_table=markdown,
         notes=(f"Scoring config {method_version}; confidence formula {confidence_formula}; "
-               f"Minimum capability coverage {minimum_coverage}. "
+               f"Minimum capability coverage {minimum_coverage}; within-cluster artifact decay {cluster_decay}. "
+               "Paired significance tests use candidates with estimates in both modes; paired counts are archived. "
                "Separate executable prototype experiment: 16 seeds, six roles, 50 distinct candidates per role per seed. "
                "Not a reproduction of the manuscript's 28,800-pair headline benchmark. Per-role ablation metrics were not archived and are unavailable. "
                "Source reliability uses configured priors. These synthetic results do not establish real-world hiring accuracy."))

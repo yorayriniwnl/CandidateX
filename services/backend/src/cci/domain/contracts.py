@@ -29,7 +29,7 @@ class ScoringConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(
-        default="3.0.0", description="Semver identifier for scoring parameter set"
+        default="4.0.0", description="Semver identifier for scoring parameter set"
     )
     temperature: float = Field(
         default=1.0, gt=0.0, description="Softmax temperature T for role weights"
@@ -44,6 +44,12 @@ class ScoringConfig(BaseModel):
         ge=0.0,
         le=1.0,
         description="Minimum coverage to emit candidate estimates; lower coverage also marks the analysis insufficient",
+    )
+    cluster_artifact_decay: float = Field(
+        default=0.5,
+        ge=0.0,
+        lt=1.0,
+        description="Geometric diminishing-return factor for distinct artifacts within one independent source cluster",
     )
 
     # Probe priority weights: I_k = w_k * [alpha*(1-Cov_k) + beta*CIwidth_k + gamma*Conf_k]
@@ -76,7 +82,7 @@ class ScoringConfig(BaseModel):
     # Capability-specific evidence saturation threshold tau_k
     tau_saturation: dict[CapabilityKey, float] = Field(
         default_factory=lambda: {cap: 5.0 for cap in CapabilityKey},
-        description="Evidence saturation capacity tau_k for Coverage_k = min(1, sum(c_e,k)/tau_k)",
+        description="Evidence saturation capacity tau_k for cluster-aware capability coverage",
     )
 
 
@@ -397,7 +403,7 @@ class CapabilityEstimate(BaseModel):
     )
     raw_evidence_count: int = Field(..., ge=0, description="Total raw evidence records")
     cluster_count: int = Field(
-        default=0, ge=0, description="Distinct project/source clusters"
+        default=0, ge=0, description="Distinct independent source clusters after artifact deduplication"
     )
     standard_error: float = Field(
         default=0.0, ge=0.0, description="SE_k = s_k / sqrt(max(1, n_eff,k))"
@@ -413,7 +419,7 @@ class CapabilityEstimate(BaseModel):
     )
     coverage_k: float = Field(
         ..., ge=0.0, le=1.0,
-        description="Attribution-gated capability coverage min(1, sum(c)/tau_k)",
+        description="Attribution-gated coverage from unique artifacts with within-cluster diminishing returns",
     )
 
 
@@ -587,7 +593,7 @@ class Dossier(BaseModel):
     versions: dict[str, str] = Field(
         default_factory=lambda: {
             "platform_version": "0.1.0",
-            "scoring_config_version": "3.0.0",
+            "scoring_config_version": "4.0.0",
             "ontology_version": "1.0.0",
         }
     )

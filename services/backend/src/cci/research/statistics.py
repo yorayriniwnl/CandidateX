@@ -5,6 +5,7 @@ Implements Wilcoxon signed-rank paired tests, effect size estimation (Cliff's de
 and paper-ready LaTeX / Markdown reporting.
 """
 
+from collections.abc import Hashable, Mapping
 from typing import Any
 
 import numpy as np
@@ -12,6 +13,18 @@ from scipy import stats
 
 from cci.domain.contracts import ScoringConfig
 from cci.research.ablation import AblationMode
+
+
+def pair_candidate_errors(
+    reference_errors: Mapping[Hashable, float],
+    ablation_errors: Mapping[Hashable, float],
+) -> tuple[list[float], list[float]]:
+    """Align errors by candidate identity and omit candidates missing either estimate."""
+    candidate_ids = sorted(reference_errors.keys() & ablation_errors.keys(), key=str)
+    return (
+        [reference_errors[candidate_id] for candidate_id in candidate_ids],
+        [ablation_errors[candidate_id] for candidate_id in candidate_ids],
+    )
 
 
 def calculate_cliffs_delta(x: list[float], y: list[float]) -> float:
@@ -105,7 +118,9 @@ def format_markdown_ablation_table(
         [
             "",
             f"*Scoring config {config.version}; candidate estimates require coverage >= "
-            f"{config.low_coverage_threshold:.2f}; lower coverage is UNKNOWN.*",
+            f"{config.low_coverage_threshold:.2f}; within-cluster artifact decay is "
+            f"{config.cluster_artifact_decay:.2f}; lower coverage is UNKNOWN.*",
+            "*Paired significance tests use candidates with estimates in both modes; paired sample counts are in the JSON artifact.*",
         ]
     )
     return "\n".join(lines)
@@ -147,8 +162,8 @@ def format_latex_ablation_table(
 
     lines.extend(
         [
-            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}" + r"\\",
-            rf"\multicolumn{{5}}{{l}}{{\footnotesize Scoring config {config.version}; candidate estimates require $\mathrm{{Cov}}_k \ge {config.low_coverage_threshold:.2f}$; lower coverage is UNKNOWN.}}",
+            r"\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}" + r"\\",
+            rf"\multicolumn{{5}}{{l}}{{\footnotesize Scoring config {config.version}; estimates require $\mathrm{{Cov}}_k \ge {config.low_coverage_threshold:.2f}$; within-cluster artifact decay $\delta={config.cluster_artifact_decay:.2f}$; lower coverage is UNKNOWN.}}",
             r"\bottomrule",
             r"\end{tabular}",
             r"\end{table}",

@@ -511,7 +511,7 @@ export default function ResearchDemonstration() {
             <GlassCard variant="strong">
               <GlowBadge variant="brand" size="sm" className="mb-6">Executable prototype experiment</GlowBadge>
               <h3 className="text-lg font-bold mb-3">4,800 simulated candidates per mode</h3>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">16 seeds × 6 roles × 50 distinct candidates per role, evaluated under five ablation modes. Under scoring config 3.0.0, capability estimates require the configured attribution-gated coverage threshold (0.35); recorded full-CCI Spearman ρ ≈ 0.978.</p>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">16 seeds × 6 roles × 50 distinct candidates per role, evaluated under five ablation modes. Scoring config 4.0.0 uses cluster-aware coverage with 0.5 within-cluster artifact decay and a 0.35 estimate threshold; recorded full-CCI Spearman ρ ≈ 0.979.</p>
               <div className="bg-[#050810] border border-white/[0.05] p-3 rounded-lg font-mono text-xs text-indigo-300 mb-4 inline-block">
                 python research/run_paper_experiments.py
               </div>

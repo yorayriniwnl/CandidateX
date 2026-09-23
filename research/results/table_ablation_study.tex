@@ -7,13 +7,13 @@
 \toprule
 \textbf{Model Architecture} & \textbf{MAE $\downarrow$} & \textbf{RMSE $\downarrow$} & \textbf{Spearman $\rho$ $\uparrow$} & \textbf{Kendall $\tau$ $\uparrow$} \\
 \midrule
-FULL\_CCI & 1.210 & 1.543 & 0.978 & 0.875 \\
-NO\_RECENCY\_DECAY & 1.219$^{***}$ & 1.550 & 0.978 & 0.872 \\
-NO\_OWNERSHIP\_DISCOUNT & 2.319$^{***}$ & 2.949 & 0.940 & 0.790 \\
-UNIFORM\_WEIGHTS & 1.967$^{***}$ & 2.491 & 0.963 & 0.837 \\
-UNCALIBRATED\_SOURCES & 1.282$^{***}$ & 1.635 & 0.977 & 0.870 \\
-\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, Wilcoxon signed-rank test).}\\
-\multicolumn{5}{l}{\footnotesize Scoring config 3.0.0; candidate estimates require $\mathrm{Cov}_k \ge 0.35$; lower coverage is UNKNOWN.}
+FULL\_CCI & 1.256 & 1.620 & 0.979 & 0.876 \\
+NO\_RECENCY\_DECAY & 1.260 & 1.615 & 0.976 & 0.869 \\
+NO\_OWNERSHIP\_DISCOUNT & 2.313$^{***}$ & 2.954 & 0.940 & 0.791 \\
+UNIFORM\_WEIGHTS & 1.958$^{***}$ & 2.513 & 0.963 & 0.836 \\
+UNCALIBRATED\_SOURCES & 1.325$^{***}$ & 1.721 & 0.976 & 0.869 \\
+\multicolumn{5}{l}{\footnotesize $^{***}$Statistically significant degradation vs.\ Full CCI ($p < 0.001$, candidate-paired Wilcoxon signed-rank test).}\\
+\multicolumn{5}{l}{\footnotesize Scoring config 4.0.0; estimates require $\mathrm{Cov}_k \ge 0.35$; within-cluster artifact decay $\delta=0.50$; lower coverage is UNKNOWN.}
 \bottomrule
 \end{tabular}
 \end{table}

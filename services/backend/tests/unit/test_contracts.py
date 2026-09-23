@@ -224,9 +224,15 @@ def test_capability_estimate_observed_vs_missing():
 def test_scoring_config_defaults():
     """Validate versioned scoring configuration parameters."""
     config = ScoringConfig()
-    assert config.version == "3.0.0"
+    assert config.version == "4.0.0"
     assert config.temperature == 1.0
     assert config.low_coverage_threshold == 0.35
+    assert config.cluster_artifact_decay == 0.5
     assert config.probe_alpha + config.probe_beta + config.probe_gamma == 1.0
     assert len(config.lambda_decay) == 12
     assert len(config.tau_saturation) == 12
+
+
+def test_cluster_artifact_decay_must_be_less_than_one():
+    with pytest.raises(ValueError):
+        ScoringConfig(cluster_artifact_decay=1.0)

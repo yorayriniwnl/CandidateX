@@ -29,8 +29,11 @@ def test_ablation_does_not_score_weakly_attributed_capability():
                 verification_level=1.0,
                 depth_specificity=1.0,
                 source_family=SourceFamily.GITHUB,
+                cluster_id=f"repo-{index}",
+                source_locator=f"https://github.com/example/repo-{index}",
+                artifact_id=f"repo-{index}:src/service.py",
             )
-            for _ in range(3)
+            for index in range(3)
         ]
         return SimulatedCandidate(
             candidate_id=uuid4(),
@@ -56,6 +59,74 @@ def test_ablation_does_not_score_weakly_attributed_capability():
     assert strong_estimates[capability] == 90.0
     assert weak_rci is None
     assert weak_estimates == {}
+
+
+def test_ablation_does_not_count_duplicate_hits_in_one_artifact_as_coverage():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    observations = [
+        SimulatedObservation(
+            capability_key=capability,
+            observed_score=90.0,
+            ownership_score=1.0,
+            elapsed_years=0.0,
+            artifact_integrity=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_family=SourceFamily.GITHUB,
+            cluster_id="repo-a",
+            source_locator="https://github.com/example/repo-a",
+            artifact_id="repo-a:src/service.py",
+        )
+        for _ in range(20)
+    ]
+    candidate = SimulatedCandidate(
+        candidate_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        ground_truth_capabilities={capability: 90.0},
+        observations=observations,
+        seed=1,
+    )
+
+    rci, _, estimates = evaluate_candidate_ablation(
+        candidate, AblationMode.FULL_CCI, {capability: 1.0}
+    )
+
+    assert rci is None
+    assert estimates == {}
+
+
+def test_ablation_does_not_count_identical_artifact_copies_as_independent():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    observations = [
+        SimulatedObservation(
+            capability_key=capability,
+            observed_score=90.0,
+            ownership_score=1.0,
+            elapsed_years=0.0,
+            artifact_integrity=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_family=SourceFamily.GITHUB,
+            cluster_id=f"repo-{index}",
+            source_locator=f"https://github.com/example/repo-{index}",
+            artifact_hash="same-content-hash",
+        )
+        for index in range(2)
+    ]
+    candidate = SimulatedCandidate(
+        candidate_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        ground_truth_capabilities={capability: 90.0},
+        observations=observations,
+        seed=1,
+    )
+
+    rci, _, estimates = evaluate_candidate_ablation(
+        candidate, AblationMode.FULL_CCI, {capability: 1.0}
+    )
+
+    assert rci is None
+    assert estimates == {}
 
 
 def test_ablation_evaluations_run_cleanly():

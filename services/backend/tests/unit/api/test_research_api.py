@@ -53,10 +53,12 @@ def test_get_ablation_study():
     assert "UNCALIBRATED_SOURCES" in models
 
     assert models["FULL_CCI"]["is_baseline"] is True
-    assert models["FULL_CCI"]["mae"] == 1.210
-    assert models["FULL_CCI"]["spearman_rho"] == 0.978
-    assert "Scoring config 3.0.0" in data["notes"]
+    assert models["FULL_CCI"]["mae"] == 1.256
+    assert models["FULL_CCI"]["spearman_rho"] == 0.979
+    assert "Scoring config 4.0.0" in data["notes"]
     assert "Minimum capability coverage 0.35" in data["notes"]
+    assert "within-cluster artifact decay 0.5" in data["notes"]
+    assert "candidates with estimates in both modes" in data["notes"]
     assert "o * (a * t * v * x * r)^(1/5)" in data["notes"]
 
     # Verify LaTeX and Markdown tables

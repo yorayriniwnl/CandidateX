@@ -116,6 +116,10 @@ class SimulatedObservation:
     verification_level: float  # v_e
     depth_specificity: float  # x_e
     source_family: SourceFamily  # r_s
+    cluster_id: str | None = None
+    source_locator: str | None = None
+    artifact_id: str | None = None
+    artifact_hash: str | None = None
 
 
 @dataclass
@@ -209,6 +213,10 @@ def generate_synthetic_cohort(
                         np.clip(true_q + career_progression + stale_noise, 0.0, 100.0)
                     )
 
+                source_cluster_index = int(rng.randint(0, 3))
+                artifact_index = int(rng.randint(0, 4))
+                cluster_id = f"{sf.value}:project-{source_cluster_index}"
+
                 observations.append(
                     SimulatedObservation(
                         capability_key=cap_key,
@@ -219,6 +227,9 @@ def generate_synthetic_cohort(
                         verification_level=1.0 if sf != SourceFamily.RESUME else 0.50,
                         depth_specificity=float(rng.uniform(0.70, 0.95)),
                         source_family=sf,
+                        cluster_id=cluster_id,
+                        source_locator=f"synthetic://{cluster_id}",
+                        artifact_id=f"{cluster_id}:artifact-{artifact_index}",
                     )
                 )
 

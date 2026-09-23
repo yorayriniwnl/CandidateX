@@ -40,7 +40,7 @@ def run_demo(request: DemoRequest):
             "headline_reproduced": False,
             "paper": {"candidate_role_evaluations": 28800, "spearman_rho": 0.928,
                       "status": "Manuscript aggregate; original per-seed outputs and exact calibration unavailable"},
-            "prototype": {"candidate_role_evaluations": 4800, "spearman_rho_rounded": 0.978,
+            "prototype": {"candidate_role_evaluations": 4800, "spearman_rho_rounded": 0.979,
                           "command": "python research/run_paper_experiments.py",
                           "status": "Separate executable experiment; not the headline benchmark"},
         },
