@@ -29,10 +29,12 @@ class ScoringConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(
-        default="5.0.0", description="Semver identifier for scoring parameter set"
+        default="5.1.0", description="Semver identifier for scoring parameter set"
     )
     temperature: float = Field(
-        default=1.0, gt=0.0, description="Softmax temperature T for role weights"
+        default=1.0,
+        ge=0.5,
+        description="Softmax temperature T for role weights; values below 0.5 are rejected",
     )
     epsilon: float = Field(
         default=1e-5,
@@ -65,18 +67,35 @@ class ScoringConfig(BaseModel):
     )
     probe_gamma: float = Field(default=0.25, ge=0.0, description="Contradiction weight")
 
-    # Importance parameters: u_k = eta1*m_k + eta2*p_k + eta3*ln(1+f_k) + eta4*s_k
-    eta1_mandatory: float = Field(
-        default=3.0, ge=0.0, description="Weight for mandatory requirements"
+    # Bounded JD adjustments are added to role-prior logits before a capped softmax.
+    jd_max_logit_adjustment: float = Field(
+        default=1.5,
+        ge=0.0,
+        le=2.0,
+        description="Maximum JD logit adjustment for any one capability",
     )
-    eta2_preferred: float = Field(
-        default=1.5, ge=0.0, description="Weight for preferred requirements"
+    jd_adjustment_saturation: float = Field(
+        default=2.0,
+        gt=0.0,
+        description="Support level at which bounded JD adjustment begins to saturate",
     )
-    eta3_frequency: float = Field(
-        default=0.8, ge=0.0, description="Weight for log-frequency of mentions"
+    jd_requirement_group_decay: float = Field(
+        default=0.5,
+        ge=0.0,
+        lt=1.0,
+        description="Geometric marginal contribution for distinct JD requirement groups mapped to one capability",
     )
-    eta4_specificity: float = Field(
-        default=1.0, ge=0.0, description="Weight for semantic specificity"
+    min_role_weight: float = Field(
+        default=0.01,
+        ge=0.0,
+        le=1.0,
+        description="Lower bound for each capability's normalized role weight",
+    )
+    max_role_weight: float = Field(
+        default=0.40,
+        gt=0.0,
+        le=1.0,
+        description="Upper bound for each capability's normalized role weight",
     )
 
     # Capability-specific recency half-life lambda_k (in year^-1)
@@ -90,6 +109,17 @@ class ScoringConfig(BaseModel):
         default_factory=lambda: {cap: 5.0 for cap in CapabilityKey},
         description="Evidence saturation capacity tau_k for cluster-aware capability coverage",
     )
+
+    @model_validator(mode="after")
+    def validate_role_weight_bounds(self):
+        capability_count = len(CapabilityKey)
+        if self.min_role_weight > self.max_role_weight:
+            raise ValueError("Minimum role weight cannot exceed maximum role weight")
+        if self.min_role_weight * capability_count > 1.0:
+            raise ValueError("Minimum role weight bounds cannot sum above 1.0")
+        if self.max_role_weight * capability_count < 1.0:
+            raise ValueError("Maximum role weight bounds cannot sum below 1.0")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -543,10 +573,15 @@ class RoleProfile(BaseModel):
 
     canonical_role: CanonicalRole
     raw_importances: dict[CapabilityKey, float] = Field(
-        ..., description="u_k = eta1*m_k + eta2*p_k + eta3*ln(1+f_k) + eta4*s_k"
+        ..., description="Canonical role-prior logits plus bounded, diminishing JD adjustments"
     )
     softmax_weights: dict[CapabilityKey, float] = Field(
-        ..., description="w_k = exp(u_k / T) / sum_j exp(u_j / T) summing to 1.0"
+        ..., description="Normalized role weights; automatically generated profiles apply configured minimum and maximum bounds"
+    )
+    temperature_used: float = Field(
+        default=1.0,
+        ge=0.5,
+        description="Softmax temperature used to generate this role profile",
     )
     is_overridden: bool = Field(
         default=False, description="True if manual expert weights applied"
@@ -673,7 +708,7 @@ class Dossier(BaseModel):
     versions: dict[str, str] = Field(
         default_factory=lambda: {
             "platform_version": "0.1.0",
-            "scoring_config_version": "5.0.0",
+            "scoring_config_version": "5.1.0",
             "ontology_version": "1.0.0",
         }
     )

@@ -62,7 +62,7 @@ def test_paper_table_formatting():
     assert "| Evaluation Model |" in md_table
     assert "**FULL_CCI**" in md_table
     assert "Yes (***)" in md_table
-    assert "Scoring config 5.0.0" in md_table
+    assert "Scoring config 5.1.0" in md_table
     assert "coverage >= 0.35" in md_table
     assert "within-cluster artifact decay is 0.50" in md_table
     assert "evidence family decay is 0.50" in md_table
@@ -74,7 +74,7 @@ def test_paper_table_formatting():
     assert r"\caption" in latex_table
     assert r"\end{table}" in latex_table
     assert "FULL\\_CCI" in latex_table
-    assert "Scoring config 5.0.0" in latex_table
+    assert "Scoring config 5.1.0" in latex_table
     assert r"\mathrm{Cov}_k \ge 0.35" in latex_table
     assert r"\delta=0.50" in latex_table
     assert r"\gamma=0.50" in latex_table

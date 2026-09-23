@@ -24,7 +24,7 @@ def test_quick_simulation_study(tmp_path: Path):
 
     assert "metadata" in results
     assert results["metadata"]["total_candidates"] == 2 * 2 * 5  # 20 candidates
-    assert results["metadata"]["scoring_config_version"] == "5.0.0"
+    assert results["metadata"]["scoring_config_version"] == "5.1.0"
     assert results["metadata"]["experiment_scope"] == "synthetic_prototype"
     assert results["metadata"]["headline_reproduced"] is False
     assert results["metadata"]["minimum_capability_coverage"] == 0.35
@@ -54,13 +54,13 @@ def test_quick_simulation_study(tmp_path: Path):
     assert tex_file.exists()
     assert role_file.exists()
     assert json_file.exists()
-    assert "Scoring config 5.0.0" in md_file.read_text(encoding="utf-8")
+    assert "Scoring config 5.1.0" in md_file.read_text(encoding="utf-8")
     assert "Synthetic Prototype Ablation Study" in md_file.read_text(encoding="utf-8")
     assert "coverage >= 0.35" in md_file.read_text(encoding="utf-8")
     assert "within-cluster artifact decay is 0.50" in md_file.read_text(encoding="utf-8")
     assert "evidence family decay is 0.25" in md_file.read_text(encoding="utf-8")
     assert "UNKNOWN" in tex_file.read_text(encoding="utf-8")
-    assert "Scoring config 5.0.0" in role_file.read_text(encoding="utf-8")
+    assert "Scoring config 5.1.0" in role_file.read_text(encoding="utf-8")
     assert "artifact decay 0.5" in role_file.read_text(encoding="utf-8")
     assert "evidence-family decay 0.25" in role_file.read_text(encoding="utf-8")
 
@@ -68,7 +68,7 @@ def test_quick_simulation_study(tmp_path: Path):
     with open(json_file, "r", encoding="utf-8") as f:
         loaded = json.load(f)
     assert loaded["metadata"]["total_candidates"] == 20
-    assert loaded["metadata"]["scoring_config_version"] == "5.0.0"
+    assert loaded["metadata"]["scoring_config_version"] == "5.1.0"
     assert loaded["metadata"]["headline_reproduced"] is False
     assert loaded["metadata"]["evidence_family_decay"] == 0.25
     assert loaded["statistical_tests"]

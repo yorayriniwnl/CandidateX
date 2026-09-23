@@ -1,7 +1,7 @@
 # Canonical Engineering Role Breakdown (Full CCI)
 
 Evaluation of Full CCI model accuracy across all six canonical engineering profiles.
-Scoring config 5.0.0; candidate estimates require attribution-gated coverage >= 0.35; artifact decay 0.5; evidence-family decay 0.50; lower coverage is UNKNOWN.
+Scoring config 5.1.0; candidate estimates require attribution-gated coverage >= 0.35; artifact decay 0.5; evidence-family decay 0.50; lower coverage is UNKNOWN.
 
 | Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\rho$ ↑ |
 |:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|

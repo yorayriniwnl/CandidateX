@@ -125,7 +125,7 @@ def save_job_description(
                 k.value if hasattr(k, "value") else str(k): v
                 for k, v in role_profile.softmax_weights.items()
             },
-            temperature_used=1.0,
+            temperature_used=role_profile.temperature_used,
             is_overridden=role_profile.is_overridden,
         )
         session.add(rp_entity)
@@ -276,10 +276,11 @@ def save_scoring_config(
     entity.probe_beta = config.probe_beta
     entity.probe_gamma = config.probe_gamma
     entity.eta_parameters = {
-        "eta1_mandatory": config.eta1_mandatory,
-        "eta2_preferred": config.eta2_preferred,
-        "eta3_frequency": config.eta3_frequency,
-        "eta4_specificity": config.eta4_specificity,
+        "jd_max_logit_adjustment": config.jd_max_logit_adjustment,
+        "jd_adjustment_saturation": config.jd_adjustment_saturation,
+        "jd_requirement_group_decay": config.jd_requirement_group_decay,
+        "min_role_weight": config.min_role_weight,
+        "max_role_weight": config.max_role_weight,
     }
     entity.lambda_decay = {
         capability.value: value for capability, value in config.lambda_decay.items()

@@ -226,8 +226,13 @@ def test_capability_estimate_observed_vs_missing():
 def test_scoring_config_defaults():
     """Validate versioned scoring configuration parameters."""
     config = ScoringConfig()
-    assert config.version == "5.0.0"
+    assert config.version == "5.1.0"
     assert config.temperature == 1.0
+    assert config.jd_max_logit_adjustment == 1.5
+    assert config.jd_adjustment_saturation == 2.0
+    assert config.jd_requirement_group_decay == 0.5
+    assert config.min_role_weight == 0.01
+    assert config.max_role_weight == 0.40
     assert config.low_coverage_threshold == 0.35
     assert config.cluster_artifact_decay == 0.5
     assert config.evidence_family_decay == 0.5
@@ -247,7 +252,16 @@ def test_evidence_family_decay_accepts_zero_but_rejects_one():
         ScoringConfig(evidence_family_decay=1.0)
 
 
-def test_analysis_and_dossier_versions_default_to_scoring_v5():
+def test_role_weight_bounds_and_temperature_are_validated():
+    with pytest.raises(ValidationError):
+        ScoringConfig(temperature=0.49)
+    with pytest.raises(ValidationError):
+        ScoringConfig(min_role_weight=0.10)
+    with pytest.raises(ValidationError):
+        ScoringConfig(max_role_weight=0.08)
+
+
+def test_analysis_and_dossier_versions_default_to_scoring_v5_1():
     request = AnalysisTriggerRequest(
         candidate_id=uuid4(),
         target_role=CanonicalRole.BACKEND,
@@ -267,8 +281,8 @@ def test_analysis_and_dossier_versions_default_to_scoring_v5():
         interview_questions=[],
     )
 
-    assert request.scoring_config_version == "5.0.0"
-    assert dossier.versions["scoring_config_version"] == "5.0.0"
+    assert request.scoring_config_version == "5.1.0"
+    assert dossier.versions["scoring_config_version"] == "5.1.0"
 
 
 def test_evidence_family_fields_default_for_existing_constructors():

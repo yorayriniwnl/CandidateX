@@ -70,7 +70,7 @@ $$q_{e,k} = \left( a_e \cdot t_{e,k} \cdot v_e \cdot x_e \cdot r_s(e) \right)^{1
 The result is bounded by attribution ($c_{e,k} \le o_e$). With five quality factors at $0.75$ and attribution at $0.03$, the old sixth-root formula gives $0.4386$, while the gated rule gives $0.0225$. No hard cutoff is applied because an empirically validated threshold is unavailable.
 
 ### 3.4. Capability Estimate & Effective Evidence Count
-Scoring config `5.0.0` first applies a semantic family multiplier $\alpha_e$ to confidence. Within each evidence family, the strongest observation for each observation type and support polarity contributes; those representatives are ranked by confidence and receive geometric weights $1, \gamma, \gamma^2, \ldots$ (`evidence_family_decay = 0.5` by default). Repeated observations of the same type remain in provenance with zero contribution. Aggregates use $\tilde c_{e,k} = c_{e,k}\alpha_e$:
+Scoring config `5.1.0` first applies a semantic family multiplier $\alpha_e$ to confidence. Within each evidence family, the strongest observation for each observation type and support polarity contributes; those representatives are ranked by confidence and receive geometric weights $1, \gamma, \gamma^2, \ldots$ (`evidence_family_decay = 0.5` by default). Repeated observations of the same type remain in provenance with zero contribution. Aggregates use $\tilde c_{e,k} = c_{e,k}\alpha_e$:
 $$q_k = \frac{\sum_{e} \tilde c_{e,k} \cdot z_{e,k}}{\sum_{e} \tilde c_{e,k}}$$
 If no usable evidence exists for capability $k$: $q_k = \text{None}$ (`UNKNOWN`).
 
@@ -89,15 +89,24 @@ $$D_k = \frac{P_k - N_k}{P_k + N_k + \epsilon}$$
 - $D_k \in [-1, 1]$: $D_k \to 1$ indicates strong consensus; $D_k \to -1$ indicates severe contradiction.
 
 ### 3.6. JD Role Importance & Softmax Role Weights
-Unnormalized role importance for capability $k$:
-$$u_k = \eta_1 m_k + \eta_2 p_k + \eta_3 \ln(1 + f_k) + \eta_4 s_k$$
-- $m_k$: Count of mandatory requirements
-- $p_k$: Count of preferred requirements
-- $f_k$: Mention frequency in JD
-- $s_k$: Semantic specificity rating
+Scoring config `5.1.0` starts with the canonical role-prior logit $b_{r,k}$ and adds a bounded JD adjustment. Requirement groups are keyed by case- and punctuation-normalized requirement text; capability mappings still come from the controlled technology ontology. Exact repeated requirements contribute once, using the stronger priority. Distinct requirements that share a technology keyword remain distinct groups. For each group $g$ mapped to capability $k$, $h_{g,k}$ is mapping confidence times semantic specificity times a priority multiplier (1.0 mandatory, 0.5 preferred, 0.25 nice to have, 0.0 optional). Raw keyword mention frequency is not an input.
 
-Normalized role weights:
-$$w_k = \frac{\exp(u_k / T)}{\sum_j \exp(u_j / T)}, \quad \sum_k w_k = 1.0$$
+Distinct requirement groups mapped to one capability are ordered by group strength and receive geometric diminishing returns:
+$$S_k = \sum_{g=1}^{n_k} h_{g,k}\,\delta_{JD}^{g-1}, \qquad A_k = A_{max}\left(1 - e^{-S_k / \kappa}\right), \qquad u_k = b_{r,k} + A_k$$
+The defaults are $\delta_{JD}=0.5$, $A_{max}=1.5$, and $\kappa=2.0$. Thus, no number of requirements can add more than 1.5 logit units to one capability. The max-adjustment setting is a policy bound, not an empirically calibrated parameter.
+
+The automatic role profile applies temperature-scaled softmax to $u_k$, then projects the result onto a bounded probability simplex: each capability weight is at least 0.01 and at most 0.40, and the weights sum to 1.0. The temperature must be at least 0.5. Empty or unmapped JDs leave the canonical role-prior profile unchanged. The pure softmax function remains available for the mathematical invariance check; production role profiles additionally apply the explicit bounds. A separately audited expert override remains an explicit manual exception and may exceed these automatic-profile bounds.
+
+| Adversarial JD | Role | Highest weights | Lowest weight |
+| --- | --- | --- | ---: |
+| One mandatory Python requirement | Backend | Backend 36.35%, database 14.16% | 1.92% |
+| Python mentioned 20 times | Backend | Same as one mention: backend 36.35%, database 14.16% | 1.92% |
+| Balanced backend requirements | Backend | Backend 33.03%, database 16.77%, architecture 10.17% | 1.35% |
+| Security-heavy backend requirements | Backend | Database 22.96%, backend 22.52%, security 11.79% | 1.85% |
+| Full-stack requirements | Full stack | Frontend 23.00%, backend 17.40%, testing 11.39% | 1.51% |
+| Generic, empty, or unmapped marketing JD | Backend | Canonical backend prior: backend 26.83%, database 16.28%, algorithms 9.87% | 2.20% |
+
+These are deterministic outputs under the default policy settings, not empirically calibrated hiring weights. The machine-readable matrix includes all 12 capability weights per scenario at `docs/audits/jd-weighting-adversarial-matrix.json`.
 
 ### 3.7. Evidence Coverage & Role Capability Index (RCI)
 Within independent source cluster $g$, evidence is grouped by artifact. An artifact contributes its strongest attribution-gated confidence $q_{g,j}$ once; distinct artifacts are ordered from strongest to weakest and receive geometric diminishing returns with configured decay $\delta$ (default 0.5):
@@ -134,7 +143,7 @@ All models are defined with Pydantic V2 and `model_config = ConfigDict(frozen=Tr
 - `CapabilityEstimate`: $q_k, n_{\text{eff},k}, SE_k$, and bootstrap CI.
 - `CapabilityUncertainty`: Epistemic uncertainty and CI bounds.
 - `CapabilityConflict`: Contradiction diagnostic $D_k$.
-- `RoleProfile`: Softmax weights $w_k$ summing to 1.0.
+- `RoleProfile`: Bounded automatic weights $w_k$ summing to 1.0, including the temperature used; explicit expert overrides remain separately identified.
 - `AnalysisScore`: RCI, Coverage, and sufficiency status.
 - `ProbePriority`: Ranked inquiry targets $I_k$.
 - `InterviewQuestion`: Evidence-grounded probe questions.

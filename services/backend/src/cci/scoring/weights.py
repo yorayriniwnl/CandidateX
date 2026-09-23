@@ -1,6 +1,7 @@
 """Role importance, temperature softmax weighting, and expert weight overrides."""
 
 import math
+import re
 from datetime import datetime, timezone
 
 from cci.domain.contracts import NormalizedRequirement, RoleProfile, ScoringConfig
@@ -94,53 +95,69 @@ ROLE_BASELINE_PRIORS: dict[CanonicalRole, dict[CapabilityKey, float]] = {
     },
 }
 
+_JD_PRIORITY_WEIGHT: dict[RequirementPriority, float] = {
+    RequirementPriority.MANDATORY: 1.0,
+    RequirementPriority.PREFERRED: 0.5,
+    RequirementPriority.NICE_TO_HAVE: 0.25,
+    RequirementPriority.OPTIONAL: 0.0,
+}
+
 
 def compute_role_importances(
     requirements: list[NormalizedRequirement],
     role: CanonicalRole,
     config: ScoringConfig | None = None,
 ) -> dict[CapabilityKey, float]:
-    """Computes unnormalized importance u_k for each of the 12 capabilities:
+    """Adds a bounded, diminishing JD adjustment to canonical role-prior logits.
 
-    u_k = u_baseline,k + eta1*m_k + eta2*p_k + eta3*ln(1 + f_k) + eta4*s_k
+    Repeated mentions in one normalized requirement group are counted once. Distinct
+    groups mapped to the same capability receive geometric marginal returns, and
+    the total adjustment for each capability is capped by the active config.
     """
     cfg = config or ScoringConfig()
     baselines = ROLE_BASELINE_PRIORS.get(role, {cap: 1.0 for cap in CapabilityKey})
-
-    m_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    p_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    freq_sums: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
-    spec_sums: dict[CapabilityKey, float] = {cap: 0.0 for cap in CapabilityKey}
-    req_counts: dict[CapabilityKey, int] = {cap: 0 for cap in CapabilityKey}
+    groups_by_capability: dict[
+        CapabilityKey, dict[tuple[str, ...], float]
+    ] = {cap: {} for cap in CapabilityKey}
 
     for req in requirements:
+        group_key = _normalized_requirement_group(req)
+        group_strength = (
+            _JD_PRIORITY_WEIGHT[req.priority]
+            * req.mapping_confidence
+            * req.semantic_specificity
+        )
         for cap in req.capability_mappings:
-            if req.priority == RequirementPriority.MANDATORY:
-                m_counts[cap] += 1
-            elif req.priority == RequirementPriority.PREFERRED:
-                p_counts[cap] += 1
-            freq_sums[cap] += req.mention_frequency
-            spec_sums[cap] += req.semantic_specificity
-            req_counts[cap] += 1
+            existing = groups_by_capability[cap].get(group_key, 0.0)
+            groups_by_capability[cap][group_key] = max(existing, group_strength)
 
     importances: dict[CapabilityKey, float] = {}
     for cap in CapabilityKey:
-        base = baselines.get(cap, 1.0)
-        m_k = m_counts[cap]
-        p_k = p_counts[cap]
-        f_k = freq_sums[cap]
-        avg_s_k = (spec_sums[cap] / req_counts[cap]) if req_counts[cap] > 0 else 0.0
-
-        u_k = (
-            base
-            + cfg.eta1_mandatory * m_k
-            + cfg.eta2_preferred * p_k
-            + cfg.eta3_frequency * math.log(1.0 + f_k)
-            + cfg.eta4_specificity * avg_s_k
+        groups = sorted(
+            groups_by_capability[cap].items(),
+            key=lambda item: (-item[1], item[0]),
         )
-        importances[cap] = max(0.0, float(u_k))
+        marginal_support = sum(
+            strength * cfg.jd_requirement_group_decay**index
+            for index, (_, strength) in enumerate(groups)
+        )
+        adjustment = cfg.jd_max_logit_adjustment * (
+            1.0 - math.exp(-marginal_support / cfg.jd_adjustment_saturation)
+        )
+        importances[cap] = max(
+            0.0, float(baselines.get(cap, 1.0) + adjustment)
+        )
 
     return importances
+
+
+def _normalized_requirement_group(req: NormalizedRequirement) -> tuple[str, ...]:
+    """Returns a case- and punctuation-normalized identity for one requirement."""
+    normalized_text = re.sub(r"[^a-z0-9+#]+", " ", req.source_text.casefold())
+    normalized_text = " ".join(normalized_text.split())
+    if normalized_text:
+        return (normalized_text,)
+    return (" ".join(req.normalized_name.casefold().split()),)
 
 
 def compute_softmax_weights(
@@ -176,6 +193,80 @@ def compute_softmax_weights(
     return weights
 
 
+def _bound_role_weights(
+    weights: dict[CapabilityKey, float],
+    min_weight: float,
+    max_weight: float,
+) -> dict[CapabilityKey, float]:
+    """Proportionally project weights onto a bounded probability simplex."""
+    count = len(weights)
+    if count == 0:
+        return {}
+    if min_weight > max_weight:
+        raise ValueError("Minimum role weight cannot exceed maximum role weight")
+    if min_weight * count > 1.0 or max_weight * count < 1.0:
+        raise ValueError("Role weight bounds cannot form a normalized distribution")
+    if min_weight * count >= 1.0 - 1e-12:
+        return {cap: 1.0 / count for cap in weights}
+
+    capabilities = list(weights)
+    values = {cap: max(0.0, float(weights[cap])) for cap in capabilities}
+    total_input = sum(values.values())
+    if total_input <= 0.0:
+        values = {cap: 1.0 / count for cap in capabilities}
+    else:
+        values = {cap: value / total_input for cap, value in values.items()}
+        # Keep underflowed softmax dimensions eligible when a valid config uses
+        # a zero lower bound; otherwise multiplicative projection cannot add
+        # probability mass to them.
+        smallest_positive_support = max(values.values()) * 1e-15
+        values = {
+            cap: max(value, smallest_positive_support)
+            for cap, value in values.items()
+        }
+        total_input = sum(values.values())
+        values = {cap: value / total_input for cap, value in values.items()}
+
+    def scaled_total(scale: float) -> float:
+        return sum(
+            min(max_weight, max(min_weight, scale * values[cap]))
+            for cap in capabilities
+        )
+
+    # The sum of clamp(scale * p_k, min, max) is monotone in scale. Bisection
+    # finds a normalized point, including cases where several values hit a
+    # bound at once.
+    lower = 0.0
+    upper = 1.0
+    while scaled_total(upper) < 1.0:
+        upper *= 2.0
+    for _ in range(96):
+        scale = (lower + upper) / 2.0
+        if scaled_total(scale) < 1.0:
+            lower = scale
+        else:
+            upper = scale
+    bounded = {
+        cap: min(max_weight, max(min_weight, upper * values[cap]))
+        for cap in capabilities
+    }
+
+    # Distribute the final floating-point residue over available headroom.
+    correction = 1.0 - sum(bounded.values())
+    for cap in capabilities:
+        if abs(correction) <= 1e-15:
+            break
+        room = (
+            max_weight - bounded[cap]
+            if correction > 0.0
+            else bounded[cap] - min_weight
+        )
+        adjustment = math.copysign(min(abs(correction), max(0.0, room)), correction)
+        bounded[cap] += adjustment
+        correction -= adjustment
+    return {cap: bounded[cap] for cap in weights}
+
+
 def build_role_profile(
     requirements: list[NormalizedRequirement],
     role: CanonicalRole,
@@ -184,12 +275,17 @@ def build_role_profile(
     """Builds a verified RoleProfile model."""
     cfg = config or ScoringConfig()
     importances = compute_role_importances(requirements, role, cfg)
-    weights = compute_softmax_weights(importances, cfg.temperature)
+    weights = _bound_role_weights(
+        compute_softmax_weights(importances, cfg.temperature),
+        cfg.min_role_weight,
+        cfg.max_role_weight,
+    )
 
     return RoleProfile(
         canonical_role=role,
         raw_importances=importances,
         softmax_weights=weights,
+        temperature_used=cfg.temperature,
         is_overridden=False,
         override_audit=None,
     )
@@ -231,6 +327,7 @@ def apply_expert_overrides(
         canonical_role=original_profile.canonical_role,
         raw_importances=original_profile.raw_importances,
         softmax_weights=normalized_weights,
+        temperature_used=original_profile.temperature_used,
         is_overridden=True,
         override_audit=audit,
     )

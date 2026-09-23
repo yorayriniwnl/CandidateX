@@ -32,6 +32,7 @@ class ScoringConfigEntity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     probe_alpha: Mapped[float] = mapped_column(Float, default=0.40, nullable=False)
     probe_beta: Mapped[float] = mapped_column(Float, default=0.35, nullable=False)
     probe_gamma: Mapped[float] = mapped_column(Float, default=0.25, nullable=False)
+    # Legacy column name retained for compatibility; stores versioned role-weight parameters.
     eta_parameters: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)
     lambda_decay: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)
     tau_saturation: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)

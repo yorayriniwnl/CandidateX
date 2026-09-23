@@ -101,16 +101,31 @@ def test_repository_candidate_and_job_description(memory_db):
     assert len(candidates_list) == 1
     assert candidates_list[0].id == candidate.id
 
-    # Save job description
+    from cci.jobs.parser import extract_requirements_from_jd
+    from cci.scoring.weights import build_role_profile
+
+    jd_text = "Requires Python, PostgreSQL, and distributed architectures."
+    requirements = extract_requirements_from_jd(jd_text)
+    role_profile = build_role_profile(
+        requirements,
+        CanonicalRole.BACKEND,
+        ScoringConfig(temperature=0.5),
+    )
+
+    # Save job description and verify the exact profile temperature is retained.
     jd = repo.save_job_description(
         session=memory_db,
         organization_id=org.id,
         title="Senior Backend Engineer",
         canonical_role=CanonicalRole.BACKEND,
-        raw_text="Requires Python, PostgreSQL, and distributed architectures.",
+        raw_text=jd_text,
+        role_profile=role_profile,
+        requirements=requirements,
     )
     assert jd.id is not None
     assert jd.canonical_role == "backend"
+    saved_profile = memory_db.query(models.RoleProfileEntity).one()
+    assert saved_profile.temperature_used == 0.5
 
     jobs = repo.list_jobs(memory_db, org.id)
     assert len(jobs) == 1
@@ -276,6 +291,13 @@ def test_repository_persists_family_metadata_weights_and_active_config(memory_db
     saved = memory_db.query(models.Evidence).order_by(models.Evidence.fingerprint).all()
     assert config_entity.version == config.version
     assert config_entity.evidence_family_decay == 0.25
+    assert config_entity.eta_parameters == {
+        "jd_max_logit_adjustment": config.jd_max_logit_adjustment,
+        "jd_adjustment_saturation": config.jd_adjustment_saturation,
+        "jd_requirement_group_decay": config.jd_requirement_group_decay,
+        "min_role_weight": config.min_role_weight,
+        "max_role_weight": config.max_role_weight,
+    }
     assert config_entity.is_active is True
     assert len(saved) == 2
     assert {entity.analysis_run_id for entity in saved} == {

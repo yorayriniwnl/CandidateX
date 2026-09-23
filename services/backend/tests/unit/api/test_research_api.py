@@ -57,10 +57,10 @@ def test_get_ablation_study():
     assert models["FULL_CCI"]["mae"] == 1.267
     assert models["FULL_CCI"]["spearman_rho"] == 0.977
     assert 0 < models["NO_RECENCY_DECAY"]["paired_sample_count"] <= 4800
-    assert "Scoring config 5.0.0" in data["notes"]
+    assert "Scoring config 5.1.0" in data["notes"]
     assert data["experiment_scope"] == "synthetic_prototype"
     assert data["headline_reproduced"] is False
-    assert data["scoring_config_version"] == "5.0.0"
+    assert data["scoring_config_version"] == "5.1.0"
     assert data["evidence_family_decay"] == 0.5
     assert data["cluster_artifact_decay"] == 0.5
     assert data["minimum_capability_coverage"] == 0.35
@@ -86,7 +86,7 @@ def test_research_demo_returns_family_metadata_and_active_scoring_config():
 
     assert response.status_code == 200
     data = response.json()
-    assert data["scoring_config"]["version"] == "5.0.0"
+    assert data["scoring_config"]["version"] == "5.1.0"
     assert data["scoring_config"]["evidence_family_decay"] == 0.5
     records = data["dossier"]["evidence_records"]
     assert records

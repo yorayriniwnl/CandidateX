@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "timestamp": "2026-09-23 02:18:56 UTC",
+    "timestamp": "2026-09-23 03:48:55 UTC",
     "experiment_scope": "synthetic_prototype",
     "headline_reproduced": false,
-    "scoring_config_version": "5.0.0",
+    "scoring_config_version": "5.1.0",
     "confidence_formula": "o * (a * t * v * x * r)^(1/5)",
     "minimum_capability_coverage": 0.35,
     "cluster_artifact_decay": 0.5,
@@ -36,7 +36,7 @@
       "data_engineer"
     ],
     "candidates_per_role": 50,
-    "execution_time_seconds": 33.89
+    "execution_time_seconds": 33.01
   },
   "ablation_summary": {
     "FULL_CCI": {

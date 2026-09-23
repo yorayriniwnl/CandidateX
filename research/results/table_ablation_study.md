@@ -10,7 +10,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
 | **UNIFORM_WEIGHTS** | 4,796 | 1.921 | 2.455 | 0.960 | 0.831 | Yes (***) |
 | **UNCALIBRATED_SOURCES** | 4,796 | 1.335 | 1.734 | 0.975 | 0.867 | Yes (***) |
 
-*Scoring config 5.0.0; candidate estimates require coverage >= 0.35; within-cluster artifact decay is 0.50; evidence family decay is 0.50; lower coverage is UNKNOWN.*
+*Scoring config 5.1.0; candidate estimates require coverage >= 0.35; within-cluster artifact decay is 0.50; evidence family decay is 0.50; lower coverage is UNKNOWN.*
 *Paired significance tests use candidates with estimates in both modes; paired sample counts are in the JSON artifact.*
 
 *Note: Statistical significance tests ($p < 0.001$, marked ***) conducted via paired Wilcoxon signed-rank test against the Full CCI baseline.*

@@ -159,13 +159,13 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         name="Softmax Role Weights Invariance & Normalization",
         category="Role Calibration",
         latex_formula=r"w_k = \frac{\exp(u_k / T)}{\sum_{j=1}^{12} \exp(u_j / T)}",
-        description="Normalizes raw requirement importance vectors into a convex role weight distribution.",
+        description="The pure softmax transform normalizes any finite importance vector; automatic production role profiles first add bounded JD adjustments and then enforce configured probability bounds.",
         bound_statement=r"\sum_{k=1}^{12} w_k = 1.0, \quad w_k > 0, \quad w_k(u + C) = w_k(u)",
         physical_intuition="Translates hiring committee priorities smoothly without numerical instability or arbitrary scaling bias.",
         key_properties=[
             "Shift-invariance under uniform utility shifts (u_k + C)",
             "Temperature parameter T controls peakiness vs uniformity",
-            "Guarantees positive weight for all 12 canonical capabilities",
+            "The pure transform gives positive weight to all 12 capabilities; production profiles apply explicit minimum and maximum bounds after softmax",
         ],
     ),
     TheoremMetadata(

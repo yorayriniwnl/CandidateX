@@ -12,8 +12,8 @@ The demonstration runs through the backend's actual confidence, capability, cove
 | Confidence, Eq. 2 | Five-factor evidence-quality geometric mean multiplied by a direct path-attribution gate; inspectable, with no arbitrary attribution threshold |
 | Capability, Eq. 3 | Confidence-weighted technical observations; candidate estimate is UNKNOWN until configured attribution-gated coverage reaches 0.35 |
 | Effective count and conflict, Eq. 4 | Kish effective count and positive/negative support diagnostic |
-| Role conditioning, Eq. 5 | Six canonical role priors plus parsed JD requirements; softmax normalization |
-| Coverage and RCI, Eqs. 6-7 | Coverage uses source-family clusters, unique artifacts, and 0.5 geometric within-cluster decay; scoring config 5.0.0 also applies 0.5 evidence-family decay before capability and coverage aggregation |
+| Role conditioning, Eq. 5 | Six canonical role priors plus parsed JD requirements; normalized requirement groups get bounded logit influence, geometric diminishing returns, and a 0.01-0.40 weight bound |
+| Coverage and RCI, Eqs. 6-7 | Coverage uses source-family clusters, unique artifacts, and 0.5 geometric within-cluster decay; scoring config 5.1.0 also applies 0.5 evidence-family decay before capability and coverage aggregation |
 | Interview priorities, Eq. 8 | Shared scorer: weight times the sum of coverage-gap, normalized interval-width and conflict terms |
 | Provenance graph | All nine node types, source/artifact/revision/fingerprint links, confidence-bearing attribution, requirements and evidence-linked questions |
 | Overrides | New dossier snapshots retaining evidence and an explicit justification/history; coverage, status, questions and graph update together |
@@ -22,7 +22,7 @@ The demonstration runs through the backend's actual confidence, capability, cove
 
 - Evidence support, capability estimates, and RCI are on a 0-100 scale. RCI therefore does not multiply these estimates by 100 again. Probe interval width is divided by 100.
 - JD parsing uses the controlled synonym ontology. Unrecognized requirements remain unresolved and do not add capability weights. An embedding-based parser is not implemented in this demonstration.
-- The prototype adds canonical-role priors to the JD importance function. Temperature, saturation, confidence weights, and threshold are exported with each run. These are prototype settings, not a reconstruction of the manuscript's unavailable calibration.
+- Scoring config 5.1.0 adds a bounded (maximum 1.5 logit units) JD adjustment to canonical-role prior logits. Duplicate normalized requirement groups count once; distinct groups mapped to one capability receive 0.5 geometric decay. Softmax output is bounded to 0.01-0.40 per capability. These fixed policy settings are not empirically calibrated and do not reconstruct the manuscript's unavailable calibration.
 - Confidence intervals resample project clusters. Fewer than two independent clusters produces an unavailable interval. Missing cluster IDs conservatively group records by source locator. The probe scorer uses maximal normalized interval uncertainty when an interval cannot be estimated.
 - Scenarios use three simulated project clusters. Artifact fingerprints hash normalized observation content, source locator, immutable content revision, and extractor version. A separate digest includes all observations and confidence factors, so changing ownership or reliability changes the exported digest.
 - Authorship and review outcomes in these scenarios are simulated inputs, not independently verified facts about a person.
@@ -77,14 +77,14 @@ Coverage saturates at the configured evidence threshold. Removing one source or 
 | Artifact | Meaning |
 | --- | --- |
 | Manuscript headline benchmark | 16 seeds x 300 candidates x 6 roles = 28,800 candidate-role pairs; reported rho 0.928 +/- 0.013. Each candidate is evaluated against all roles. |
-| Public executable prototype | 16 seeds x 6 roles x 50 distinct candidates per role = 4,800 candidates per ablation mode; scoring config 5.0.0 uses cluster-aware coverage, 0.5 within-cluster artifact decay, 0.5 evidence-family decay, and a 0.35 minimum capability coverage. |
+| Public executable prototype | 16 seeds x 6 roles x 50 distinct candidates per role = 4,800 candidates per ablation mode; scoring config 5.1.0 uses cluster-aware coverage, 0.5 within-cluster artifact decay, 0.5 evidence-family decay, and a 0.35 minimum capability coverage. The synthetic ablation uses fixed role archetypes and does not validate JD-derived weights. |
 | Interactive scenarios | Small, explicit teaching examples. They execute the core method and do not regenerate either benchmark. |
 
 The manuscript's Section 2.6 states that original per-seed/per-role outputs and exact calibration values for the headline benchmark are unavailable. The public runner is a separate experiment. Do not label its outputs a reproduction of the headline benchmark. Per-role ablation values absent from the archived artifact are displayed as unavailable.
 
 ### Updated prototype results
 
-The regenerated 5.0.0 prototype artifacts report 0.5 within-cluster artifact decay and 0.5 evidence-family decay. Each paired comparison uses the 4,796 candidates with estimates in both modes.
+The regenerated 5.1.0 prototype artifacts report 0.5 within-cluster artifact decay and 0.5 evidence-family decay. Each paired comparison uses the 4,796 candidates with estimates in both modes. The version records the current scoring configuration; the synthetic ablation does not test the bounded JD-weighting policy.
 
 | Evaluation Model | Paired N | RCI MAE | RCI RMSE | Spearman rho | Kendall tau |
 | --- | ---: | ---: | ---: | ---: | ---: |
