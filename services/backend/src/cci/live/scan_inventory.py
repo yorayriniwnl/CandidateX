@@ -125,6 +125,12 @@ def _lcov_is_parseable(text: str) -> bool:
             continue
         if not in_record:
             return False
+        if field == "DA":
+            parts = value.split(",")
+            if (len(parts) not in {2, 3} or not parts[0].isdecimal()
+                    or int(parts[0]) == 0 or not parts[1].isdecimal()
+                    or (len(parts) == 3 and not parts[2])):
+                return False
         if field in count_fields:
             if not value.isdecimal():
                 return False
