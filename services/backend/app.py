@@ -1,6 +1,6 @@
-"""Vercel FastAPI entrypoint; deploy this backend directory as a separate project."""
+"""Vercel FastAPI entrypoint; public deployments are synthetic-only."""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
-from cci.live_app import app  # noqa: E402,F401
+from cci.synthetic_demo_app import app  # noqa: E402,F401
