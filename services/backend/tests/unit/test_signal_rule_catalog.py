@@ -115,26 +115,66 @@ def test_contradiction_rules_are_registered_with_catalog_strengths():
         assert rows[rule_id][4] == strength
 
 
+CONTRADICTION_EVALUATOR_RULES = {
+    "evaluate_coverage_below_claim": "candidatex.contradiction.coverage_below_claim",
+    "evaluate_framework_usage_absent": "candidatex.contradiction.framework_usage_absent",
+    "evaluate_deployment_project_mismatch": "candidatex.contradiction.deployment_project_mismatch",
+    "evaluate_performance_claim_mismatch": "candidatex.contradiction.performance_claim_mismatch",
+}
+
+
+def _assert_contradiction_evaluator_rule_helpers(tree):
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for function_name, rule_id in CONTRADICTION_EVALUATOR_RULES.items():
+        assert function_name in functions, f"Missing contradiction evaluator: {function_name}"
+        calls = [
+            node
+            for node in ast.walk(functions[function_name])
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "signal_rule_fields"
+        ]
+        assert len(calls) == 1, f"{function_name} must call signal_rule_fields once"
+        call = calls[0]
+        assert (
+            len(call.args) == 1
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == rule_id
+        ), f"{function_name} must use {rule_id}"
+
+
 def test_each_contradiction_evaluator_uses_registered_rule_helper():
     candidate_module = BACKEND_ROOT / "src/cci/contradictions/candidates.py"
     if not candidate_module.exists():
         pytest.skip("Contradiction evaluators are introduced in Task 4")
     tree = ast.parse(candidate_module.read_text(encoding="utf-8"), filename=str(candidate_module))
-    helper_rule_ids = {
-        node.args[0].value
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "signal_rule_fields"
-        and len(node.args) == 1
-        and isinstance(node.args[0], ast.Constant)
-    }
-    assert helper_rule_ids == {
-        "candidatex.contradiction.coverage_below_claim",
-        "candidatex.contradiction.framework_usage_absent",
-        "candidatex.contradiction.deployment_project_mismatch",
-        "candidatex.contradiction.performance_claim_mismatch",
-    }
+    _assert_contradiction_evaluator_rule_helpers(tree)
+
+
+def test_contradiction_evaluator_rule_check_rejects_missing_and_mismatched_calls():
+    source = "\n".join(
+        f'def {function_name}():\n    return signal_rule_fields("{rule_id}")'
+        for function_name, rule_id in CONTRADICTION_EVALUATOR_RULES.items()
+    )
+    _assert_contradiction_evaluator_rule_helpers(ast.parse(source))
+    with pytest.raises(AssertionError, match="evaluate_framework_usage_absent"):
+        _assert_contradiction_evaluator_rule_helpers(
+            ast.parse(source.replace(
+                'return signal_rule_fields("candidatex.contradiction.framework_usage_absent")',
+                "return None",
+            ))
+        )
+    with pytest.raises(AssertionError, match="evaluate_coverage_below_claim"):
+        _assert_contradiction_evaluator_rule_helpers(
+            ast.parse(source.replace(
+                'return signal_rule_fields("candidatex.contradiction.coverage_below_claim")',
+                'return signal_rule_fields("candidatex.contradiction.performance_claim_mismatch")',
+            ))
+        )
 
 
 def test_contract_describes_observed_index_as_evidence_summary():
