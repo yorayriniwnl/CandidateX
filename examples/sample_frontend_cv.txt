@@ -1,7 +1,8 @@
-# Elena Rostova
+# Example Candidate Two
+**SYNTHETIC SAMPLE: Profile details, organizations, repositories, and claims are fictional.**
 Staff Frontend Platform & Web Applications Engineer
-Email: elena.rostova@example.com | GitHub: https://github.com/erostova-web
-Portfolio: https://erostova.design | Location: New York, NY
+Email: candidate-two@example.invalid | GitHub: https://example.invalid/synthetic
+Portfolio: https://example.invalid/profile-two | Location: New York, NY
 
 ## Summary
 Frontend Architect with 8+ years specializing in modern web performance, scalable design systems,
@@ -19,18 +20,18 @@ and type-safe web architectures.
 
 ## Open Source & Key Projects
 1. Headless Accessible UI Library (A11yKit)
-   Repository: https://github.com/erostova-web/a11y-kit-react
+   Repository: https://example.invalid/synthetic/a11y-kit-react
    - Designed unstyled, fully accessible React primitive components adhering to WAI-ARIA 1.2 patterns.
    - 100% test coverage with Playwright cross-browser visual regression and automated axe-core checks.
    - Adopted by over 450+ production web applications.
 
 2. Next.js Core Web Vitals Optimizer
-   Repository: https://github.com/erostova-web/next-vitals-booster
+   Repository: https://example.invalid/synthetic/next-vitals-booster
    - Developed Next.js plugin automating font subsetting, speculative prefetching, and critical CSS extraction.
    - Reduced client 75th-percentile INP by 38ms and LCP by 1.2s across enterprise dashboards.
 
 3. Type-Safe Client State Machine
-   Repository: https://github.com/erostova-web/type-state-engine
+   Repository: https://example.invalid/synthetic/type-state-engine
    - Lightweight finite state machine for complex multi-step checkout and onboarding user journeys.
    - Enforces strict TypeScript compile-time transitions with zero runtime bundle overhead.
 

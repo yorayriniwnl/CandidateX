@@ -27,98 +27,98 @@ interface CandidatePreset {
 const CANONICAL_PRESETS: CandidatePreset[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    name: 'Ayush Roy',
-    email: '2329027@kiit.ac.in',
+    name: 'Example Candidate One',
+    email: 'candidate-one@example.invalid',
     role: 'Backend (Senior)',
     badge: 'High Coverage',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     badgeVariant: 'success',
     repos: [
-      'https://github.com/ayush-dev/distributed-payment-engine',
-      'https://github.com/ayush-dev/pg-partition-manager',
+      'https://example.invalid/synthetic/distributed-payment-engine',
+      'https://example.invalid/synthetic/pg-partition-manager',
     ],
-    deployments: ['https://yorayriniwnl.in'],
+    deployments: ['https://example.invalid/profile-one'],
     skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
-    file: 'Ayush_Roy_Backend_CV.pdf',
+    file: 'example-candidate-one-resume.pdf',
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    name: 'Archi Srivastava',
-    email: '2329100@kiit.ac.in',
+    name: 'Example Candidate Two',
+    email: 'candidate-two@example.invalid',
     role: 'Frontend (Staff)',
     badge: 'Design Systems',
     badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
     badgeVariant: 'brand',
     repos: [
-      'https://github.com/erostova-web/a11y-kit-react',
-      'https://github.com/erostova-web/next-vitals-booster',
+      'https://example.invalid/synthetic/a11y-kit-react',
+      'https://example.invalid/synthetic/next-vitals-booster',
     ],
-    deployments: ['https://erostova.design'],
+    deployments: ['https://example.invalid/profile-two'],
     skills: ['TypeScript', 'React', 'Next.js', 'Web Vitals', 'WAI-ARIA', 'Tailwind CSS'],
-    file: 'Archi_Srivastava_Frontend_CV.pdf',
+    file: 'example-candidate-two-resume.pdf',
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
-    name: 'Atmaja Tripathy',
-    email: '2329179@kiit.ac.in',
+    name: 'Example Candidate Three',
+    email: 'candidate-three@example.invalid',
     role: 'ML Engineer (Senior)',
     badge: 'PyTorch / LLMs',
     badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
     badgeVariant: 'brand',
     repos: [
-      'https://github.com/mthorne-ai/fast-alignment',
-      'https://github.com/mthorne-ai/vector-gateway-service',
+      'https://example.invalid/synthetic/fast-alignment',
+      'https://example.invalid/synthetic/vector-gateway-service',
     ],
-    deployments: ['https://mthorne.ai'],
+    deployments: ['https://example.invalid/profile-three'],
     skills: ['Python', 'PyTorch', 'Transformers', 'vLLM', 'Qdrant', 'Model Evaluation'],
-    file: 'Atmaja_Tripathy_ML_CV.pdf',
+    file: 'example-candidate-three-resume.pdf',
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
-    name: 'Shreya',
-    email: '2329065@kiit.ac.in',
+    name: 'Example Candidate Four',
+    email: 'candidate-four@example.invalid',
     role: 'DevOps / SRE (Staff)',
     badge: 'K8s / Terraform',
     badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
     badgeVariant: 'info',
     repos: [
-      'https://github.com/tmansour-infra/tf-blast-guard',
-      'https://github.com/tmansour-infra/k8s-region-failover',
+      'https://example.invalid/synthetic/tf-blast-guard',
+      'https://example.invalid/synthetic/k8s-region-failover',
     ],
-    deployments: ['https://tmansour.cloud'],
+    deployments: ['https://example.invalid/profile-four'],
     skills: ['Kubernetes', 'Terraform', 'Prometheus', 'ArgoCD', 'eBPF', 'AWS'],
-    file: 'Shreya_SRE_CV.pdf',
+    file: 'example-candidate-four-resume.pdf',
   },
   {
     id: '55555555-5555-5555-5555-555555555555',
-    name: 'Shreshth Nigam',
-    email: '2329064@kiit.ac.in',
+    name: 'Example Candidate Five',
+    email: 'candidate-five@example.invalid',
     role: 'Fullstack (Principal)',
     badge: 'Type-Safe Stack',
     badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
     badgeVariant: 'info',
     repos: [
-      'https://github.com/soconnor-fullstack/type-safe-stack',
-      'https://github.com/soconnor-fullstack/collab-canvas',
+      'https://example.invalid/synthetic/type-safe-stack',
+      'https://example.invalid/synthetic/collab-canvas',
     ],
-    deployments: ['https://soconnor.tech'],
+    deployments: ['https://example.invalid/profile-five'],
     skills: ['React', 'Next.js', 'Node.js', 'PostgreSQL', 'Redis', 'tRPC'],
-    file: 'Shreshth_Nigam_Fullstack_CV.pdf',
+    file: 'example-candidate-five-resume.pdf',
   },
   {
     id: '77777777-7777-7777-7777-777777777777',
-    name: 'P Ajay Kumar',
-    email: '2329195@kiit.ac.in',
+    name: 'Example Candidate Six',
+    email: 'candidate-six@example.invalid',
     role: 'Backend (Conflict Test)',
     badge: 'Contradiction Flag',
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     badgeVariant: 'danger',
     repos: [
-      'https://github.com/pajaykumar-dev/distributed-order-service',
+      'https://example.invalid/synthetic/distributed-order-service',
     ],
     deployments: [],
     skills: ['Python', 'Unindexed Database Claims', 'Microservices'],
-    file: 'P_Ajay_Kumar_CV.pdf',
+    file: 'example-candidate-six-resume.pdf',
   },
 ];
 
@@ -134,7 +134,7 @@ export const CandidateIntakeForm: React.FC<{
   const [deploymentUrls, setDeploymentUrls] = useState<string[]>(CANONICAL_PRESETS[0].deployments);
   const [newDeployUrl, setNewDeployUrl] = useState('');
   const [deployError, setDeployError] = useState('');
-  const [hasConsent, setHasConsent] = useState(true);
+  const [hasConsent, setHasConsent] = useState(false);
   const [fileName, setFileName] = useState(CANONICAL_PRESETS[0].file);
   const [declaredSkills, setDeclaredSkills] = useState<string[]>(CANONICAL_PRESETS[0].skills);
 
@@ -422,8 +422,8 @@ export const CandidateIntakeForm: React.FC<{
             className="mt-0.5 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500"
           />
           <label htmlFor="consent-check" className="text-xs text-slate-300 cursor-pointer">
-            <span className="font-semibold text-slate-200">Candidate Explicit Consent Acknowledged:</span>{' '}
-            Candidate has provided authorization to inspect their declared repository artifacts, documentation, and live deployments for decision support. No unauthorized internet crawling will occur.
+            <span className="font-semibold text-slate-200">Submission authorization confirmed:</span>{' '}
+            I have confirmed that this submission is permitted and that any required candidate notices or authorizations are in place. CandidateX does not verify consent or legal basis.
           </label>
         </div>
 

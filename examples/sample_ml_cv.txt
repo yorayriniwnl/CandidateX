@@ -1,7 +1,8 @@
-# Dr. Marcus Thorne
+# Example Candidate Three
+**SYNTHETIC SAMPLE: Profile details, organizations, repositories, and claims are fictional.**
 Senior Machine Learning & Applied AI Systems Engineer
-Email: marcus.thorne@example.com | GitHub: https://github.com/mthorne-ai
-Portfolio: https://mthorne.ai | Location: Seattle, WA
+Email: candidate-three@example.invalid | GitHub: https://example.invalid/synthetic
+Portfolio: https://example.invalid/profile-three | Location: Seattle, WA
 
 ## Summary
 Applied Machine Learning Engineer and Researcher with 6+ years deploying scalable deep learning models,
@@ -19,19 +20,19 @@ and rigorous offline/online model evaluation. Author of open-source LLM alignmen
 
 ## Open Source & Key Projects
 1. Fast-Alignment: Deterministic LLM Preference Calibration Engine
-   Repository: https://github.com/mthorne-ai/fast-alignment
+   Repository: https://example.invalid/synthetic/fast-alignment
    - Built an open-source evaluation suite for direct preference optimization (DPO) and RLHF loss functions.
    - Designed statistical calibration checks measuring uncertainty and reward gaming with zero data leakage.
    - Comprehensive test coverage with unit tests on synthetic tensors and gradient descent checks.
 
 2. Distributed High-Throughput Vector Retrieval Gateway
-   Repository: https://github.com/mthorne-ai/vector-gateway-service
+   Repository: https://example.invalid/synthetic/vector-gateway-service
    - Developed a gRPC inference and embedding pipeline handling 4,000 queries/sec under 15ms latency.
    - Implemented dynamic batching and INT8 quantization with Triton Inference Server and Qdrant.
    - Enforced automated regression benchmarks in CI tracking cosine similarity divergence.
 
 3. Low-Rank Transformer Adaptor Toolkit
-   Repository: https://github.com/mthorne-ai/lora-tune-kit
+   Repository: https://example.invalid/synthetic/lora-tune-kit
    - Engineered modular fine-tuning toolkit supporting LoRA, QLoRA, and prefix-tuning across 7B-70B models.
    - Integrated automated GPU memory tracking and gradient checkpointing with DeepSpeed ZeRO-3.
 

@@ -1,7 +1,8 @@
-# Samuel O'Connor
+# Example Candidate Five
+**SYNTHETIC SAMPLE: Profile details, organizations, repositories, and claims are fictional.**
 Principal Fullstack Engineer & Technical Lead
-Email: samuel.oconnor@example.com | GitHub: https://github.com/soconnor-fullstack
-Portfolio: https://soconnor.tech | Location: Chicago, IL
+Email: candidate-five@example.invalid | GitHub: https://example.invalid/synthetic
+Portfolio: https://example.invalid/profile-five | Location: Chicago, IL
 
 ## Summary
 Versatile Fullstack Architect with 9+ years delivering end-to-end web products from database schemas
@@ -18,18 +19,18 @@ type safety (tRPC, Prisma, GraphQL), distributed caching, and zero-defect delive
 
 ## Open Source & Key Projects
 1. End-to-End Type-Safe Fullstack Starter Kit
-   Repository: https://github.com/soconnor-fullstack/type-safe-stack
+   Repository: https://example.invalid/synthetic/type-safe-stack
    - Production-ready monorepo template with Next.js, tRPC, Fastify backend, and PostgreSQL with Prisma.
    - Enforces end-to-end compile-time contract validation between frontend mutations and database schemas.
    - Over 1,200 stars on GitHub and automated CI test matrices.
 
 2. Real-Time Collaborative Whiteboard
-   Repository: https://github.com/soconnor-fullstack/collab-canvas
+   Repository: https://example.invalid/synthetic/collab-canvas
    - High-concurrency collaborative drawing canvas using React, WebSockets, Redis Pub/Sub, and Go backend.
    - Implemented Conflict-free Replicated Data Types (CRDTs) to resolve concurrent cursor and shape edits.
 
 3. Distributed Cache-Aside Library for Node/TypeScript
-   Repository: https://github.com/soconnor-fullstack/cache-sentinel
+   Repository: https://example.invalid/synthetic/cache-sentinel
    - Multi-tier in-memory and Redis caching library preventing cache stampedes with probabilistic early expiration.
 
 ## Professional Experience

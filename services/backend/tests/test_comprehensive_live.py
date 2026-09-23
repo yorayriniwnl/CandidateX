@@ -8,7 +8,7 @@ from cci.live.report import build_report
 
 def test_docx_identity_tables_sections_and_skill_groups():
     document = docx.Document()
-    document.add_table(rows=1, cols=1).cell(0, 0).text = 'AYUSH ROY\nayush@example.com'
+    document.add_table(rows=1, cols=1).cell(0, 0).text = 'EXAMPLE CANDIDATE ONE\ncandidate-one@example.invalid'
     for line in ['Professional Summary', 'Software developer building public applications.',
                  'Technical Skills', 'DevOps & Tools: Docker, CI/CD, Git',
                  'Currently Learning: AWS (S3, Lambda), RAG',
@@ -21,7 +21,7 @@ def test_docx_identity_tables_sections_and_skill_groups():
     data = io.BytesIO()
     document.save(data)
     result = parse_resume(data.getvalue(), 'resume.docx')
-    assert result.manifest.display_name == 'AYUSH ROY'
+    assert result.manifest.display_name == 'EXAMPLE CANDIDATE ONE'
     assert 'CI/CD' in result.manifest.claimed_skills
     assert 'DevOps & Tools: Docker' not in result.manifest.claimed_skills
     assert 'AWS (S3, Lambda)' in result.manifest.claimed_skills
