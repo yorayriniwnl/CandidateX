@@ -1,6 +1,6 @@
 # CandidateX // Evidence OS
 
-**Status:** Design proposal for review
+**Status:** Approved implementation reference
 **Date:** 2026-09-23
 **Branch audited:** `origin/main` at `baa559f130fcb1bc5706ce55765bd7cb6cffa0ba`
 
@@ -31,7 +31,7 @@ Every display field must be one of:
 
 Do not fill missing live fields from demos, browser defaults, static examples, or product copy. `null` estimates render as **UNKNOWN**, never zero. Do not turn unknown into a negative claim about a candidate.
 
-Status colors have fixed meanings: green means observed/supporting evidence; yellow means incomplete or needs investigation; red means an actual conflict or failure; gray means unknown or not observed; the restrained violet/blue accent marks role context only. Labels and icons must carry status meaning without color. Use human-readable sans typography; reserve monospace for IDs, revisions, paths, and timestamps. Use near-black surfaces, thin borders, modest corner radii, and no general-purpose glass cards, fake terminal decoration, unsupported benchmark, or decorative 3D visualization.
+Status colors have fixed meanings: green means observed/supporting evidence; yellow means incomplete or needs investigation; red means an actual conflict or failure; gray means unknown or not observed; the restrained violet/blue accent marks role context only. Labels and icons must carry status meaning without color. Use human-readable sans typography; reserve monospace for IDs, revisions, paths, and timestamps. Use near-black surfaces, thin borders, modest corner radii, and no general-purpose glass cards, fake terminal decoration, unsupported benchmark, or decorative visualizations. The approved evidence graph is a restrained, on-demand 3D view of the returned CEG only; it is not a decorative scene or chart.
 
 ## Current-main data contract boundaries
 
@@ -43,7 +43,7 @@ Status colors have fixed meanings: green means observed/supporting evidence; yel
 | Evidence | Live dossier `evidence_records` use evidence fields and provenance with optional artifact hash/URL/line; fields include source family/locator, revision, capability, support, confidence, and observation metadata | Render only fields that exist for the selected evidence. Do not describe repository-file presence as skill mastery. |
 | Sources | Receipt status/detail/URL; optional fetch time, commit, files inspected/omitted, evidence count, ownership; GitHub profile/inventory and repository review; public-page title/excerpt/hash/fetch metadata | Preserve backend receipt states. Distinguish not selected, inaccessible, unsupported, and observed where receipts do. State repository signals apply only to inspected files. |
 | Claim corroboration | Current branch has capability-oriented `claims_corroboration` rows; resume declared skills and report-level skill explanations; quantified claims to verify | A limited skill-corroboration view may use returned rows. Do not imply a complete resume claim ledger or structured academic records. Keep experience/education self-reported. |
-| Graph | Actual CEG candidate/run IDs, nodes, edges, and properties | Visualize only returned graph structure. Provide a text/table equivalent. Do not promise unsupported node categories or raw source details. |
+| Graph | Actual CEG candidate/run IDs, nodes, edges, and properties | Render only returned graph structure in the on-demand 3D view. Provide a searchable text equivalent and retain it when WebGL is unavailable. Do not promise unsupported node categories or raw source details. |
 | Run state | One synchronous request; frontend proxy timeout is 55 seconds under a 60-second function ceiling. Backend returns dossier only after bounded source acquisition and scoring finish. | Show request sent, waiting, result received, or error. Do not show fictional acquisition stages, percentages, completion checkmarks, or streaming progress. |
 | Persistence | Live resume/result is request-scoped; refresh clears it | Do not imply server persistence. Any added interviewer notes are local to the active browser run and are labeled as not uploaded/saved. |
 
@@ -90,7 +90,7 @@ The first viewport should answer: who is being assessed, for which role, what wa
 7. **Repository intelligence:** show technologies, dependencies, languages, file categories, engineering signals, metadata, and limitations returned by `repository_review`. Every section says it describes inspected files/metadata and does not prove candidate mastery or ownership. Clearly scope inspected/omitted counts to the receipt.
 8. **Conflicts and unknowns:** surface `has_meaningful_conflict` and actual conflict diagnostics with the evidence IDs/rows behind both support directions. Unknown capability rows explain that no evidence was observed within supplied sources and scan limits, and offer the returned interview probe where present. Unknown is not a red flag or a zero score.
 9. **Interview plan:** order existing returned probes/questions and show question text, rationale, verification guidance, follow-ups, and grounding evidence IDs. Optional notes live only in browser memory for the current run; label them local-only and clear them on run change/refresh. Do not call persistence endpoints or claim notes are saved. Keep any existing scorecard only where the live response and current supported flow make it truthful.
-10. **Evidence graph:** load on demand from `LiveResult.graph`. Use a restrained 2D/SVG or equivalent lightweight rendering, map only actual nodes and edges, expose source/evidence/capability properties on selection, and link evidence to the inspector. A keyboard-accessible node/edge list and description remains available without the visualization.
+10. **Evidence graph:** load the restrained 3D view on demand from `LiveResult.graph`. Render only actual returned CEG nodes and edges, expose returned properties on selection, and link evidence and capability nodes to their dossier inspectors. Keep a searchable, keyboard-accessible node/relationship equivalent available without WebGL and when the 3D view cannot initialize.
 11. **Audit and limitations:** expose generated time, analysis run ID, versions, system limitations, and source receipts. Keep deep provenance collapsed by default while making every major metric auditable.
 
 Use a sticky desktop section rail for Overview, Capabilities, Evidence, Claims (only when returned), Sources, Interview, Graph, and Audit. The rail navigates to sections rather than hiding important content behind a tab. A compact sticky summary can show name, role, RCI/null, coverage, observed count, and meaningful conflict count while scrolling. No invented “complete” badges.
@@ -100,7 +100,7 @@ Use a sticky desktop section rail for Overview, Capabilities, Evidence, Claims (
 - On narrow screens prioritize executive summary, capabilities, unknowns, and interview probes. Convert evidence rows to expandable records/drawers; allow horizontal scrolling only for genuinely tabular comparison with an announced scroll affordance.
 - Use correct heading structure, semantic tables, explicit labels, visible keyboard focus, keyboard-operable sorting/filtering/row inspection, accessible dialogs and disclosures, and text alternatives for every chart/graph.
 - Honor reduced-motion preferences. Motion supports state changes and focus, with short restrained transitions; no perpetual decoration.
-- Lazy-load the graph and other optional heavy views. Bound DOM size, memoize derived views, and progressively reveal deep provenance. Do not add a chart or visualization library if native HTML/SVG is sufficient.
+- Lazy-load the 3D graph and other optional heavy views. Bound DOM size, memoize derived views, and progressively reveal deep provenance. Limit WebGL rendering to a bounded number of actual nodes and edges; keep the text equivalent available and honor reduced-motion preferences.
 - Loading skeletons follow actual summary/table geometry; empty, partial, unsupported, inaccessible, timeout, and unknown states have distinct explanatory copy and keyboard-readable status announcements.
 
 ## Implementation scope and sequencing
@@ -112,7 +112,7 @@ This is one integrated product experience delivered in reviewable layers:
 3. **Dossier core:** executive hierarchy, capability matrix/inspector, evidence ledger/provenance, source receipts, claims boundaries, repository intelligence, conflicts, unknowns, and interview plan.
 4. **Graph, audit, and polish:** lazy real CEG view, limitations/audit surface, mobile behavior, accessibility, performance and visual/data-integrity audit.
 
-No backend/scoring/acquisition change is in scope. No unmerged PR dependency, database persistence for live resumes/notes, benchmark claim, model claim, 3D chart, or fabricated seed data is in scope. If a UI requirement needs an unavailable field, omit it or label it unavailable instead of modifying the backend silently.
+No backend/scoring/acquisition change is in scope. No unmerged PR dependency, database persistence for live resumes/notes, benchmark claim, model claim, decorative 3D scene/chart, or fabricated seed data is in scope. The approved 3D view visualizes only the returned CEG. If a UI requirement needs an unavailable field, omit it or label it unavailable instead of modifying the backend silently.
 
 ## Acceptance criteria
 
@@ -138,8 +138,8 @@ No backend/scoring/acquisition change is in scope. No unmerged PR dependency, da
 - **Dense design can harm mobile/accessibility:** review narrow screenshots and keyboard/semantic behavior alongside the desktop visual audit.
 - **Frontend redesign may exceed one implementation turn:** retain the four reviewable layers above while carrying the entire accepted scope through completion.
 
-## Review decisions requested
+## Approved implementation decisions
 
-1. Approve or revise the proposed route boundary: `/` as product landing, `/analyze` as the live evaluator/dossier, `/research-demo` as the labeled synthetic research surface, with legacy `/workspace` and `/hr` outside primary navigation.
-2. Confirm browser-local, run-scoped interviewer notes as the truthful option under the current request-only live storage contract.
-3. Confirm the no-backend-change and no-3D-visualization boundaries. The requested visual signature is an evidence-flow treatment grounded in the actual graph and provenance.
+1. `/` is the product landing page, `/analyze` is the live evaluator and dossier, and `/research-demo` remains the labeled synthetic research surface. Legacy `/workspace` and `/hr` stay outside primary navigation.
+2. Interviewer notes remain browser-local and run-scoped under the request-only live storage contract.
+3. Backend, scoring, and acquisition semantics remain unchanged. The 3D visualization is approved only for the actual returned CEG, with a searchable text equivalent and a WebGL-unavailable fallback.

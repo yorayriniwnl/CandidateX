@@ -59,17 +59,17 @@ Implement the complete approved Evidence OS frontend across `/`, `/analyze`, and
 ### 5. Real graph, audit, accessibility, and performance
 
 1. Add failing tests that graph nodes/edges are from the active `LiveResult.graph`, selecting a real evidence node opens its inspector, and a textual equivalent is present without relying on hover.
-2. Replace or bypass the prototype graph layout that assumes fixed node types. Lazy-load a light 2D/SVG view from actual nodes/edges and provide keyboard-accessible search/list/detail interaction. Empty or unknown node types must remain visible and readable.
+2. Replace the prototype graph with the approved lazy-loaded 3D view of actual `LiveResult.graph` nodes and edges. Keep a searchable, keyboard-accessible node/relationship equivalent available when WebGL is unavailable; unknown node types remain visible and readable.
 3. Add an audit/limitations view for the returned run ID, generated time, versions, system limitations, and source-level receipts.
 4. Test the full dossier at narrow mobile widths, keyboard-only, reduced motion, and accessible names/focus/dialog behavior. Fix horizontal overflow and dense table interactions, not merely hide content.
-5. Bound rendering for large evidence lists; lazy-load graph, progressively disclose raw provenance, and memoize only meaningful transforms. Avoid adding visualization dependencies unless native SVG cannot meet the actual graph needs.
+5. Bound rendering for large evidence lists; lazy-load the actual CEG graph, progressively disclose raw provenance, and memoize only meaningful transforms. Bound the 3D node/edge count and preserve the text equivalent as the WebGL fallback.
 
 ### 6. End-to-end validation, visual audit, and screenshots
 
 1. Keep at least one real local backend upload-to-analysis run using a synthetic software-engineer resume fixture, with no personal resume submitted to production. Exercise a normal populated intake, sparse/no GitHub, inaccessible LinkedIn, several repository receipts, unsupported public page, partial acquisition, no JD, and a large JD using controlled fixtures where an external service would make a test unstable.
 2. Extend Playwright for upload/extraction, source selection, run success/partial/timeout/error, retained prior result, capability navigation, evidence inspection, claim inspection, source receipt, interview plan, graph, keyboard flow, and mobile result. Assertions must check data provenance and truth labels as well as visible controls.
 3. Run `pnpm --filter web typecheck`, `pnpm --filter web build`, and `pnpm --filter web test`; run relevant backend/API contract tests without changing backend behavior.
-4. Inspect screenshots for intake, running state, result overview, capability inspector, evidence ledger, source receipt, interview plan, graph, and mobile result. Review browser console/page errors and HTTP failures, desktop hierarchy, actual unknown/partial result, color semantics, keyboard focus, text alternative, reduced motion, and scroll width. Fix issues and capture the final set.
+4. Inspect screenshots for intake, running state, result overview, capability inspector, evidence ledger, source receipt, interview plan, 3D graph, and mobile result. Review browser console/page errors and HTTP failures, desktop hierarchy, actual unknown/partial result, color semantics, keyboard focus, graph text alternative and WebGL fallback, reduced motion, and scroll width. Fix issues and capture the final set.
 5. Review the final diff against the spec and ensure legacy sample routes remain identified as such, research demo remains isolated, and the original checkout remains unchanged.
 
 ## Completion evidence
