@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     computed_field,
     field_validator,
+    model_serializer,
     model_validator,
 )
 
@@ -287,6 +288,59 @@ class EvidenceConfidenceFactors(BaseModel):
         return float(self.ownership_score * self.evidence_quality)
 
 
+class NegativeEvidenceScanScope(BaseModel):
+    """Pinned boundary within which a contradiction observation was made."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scope_kind: Literal["artifact", "repository", "deployment", "synthetic"]
+    repository_scope: str | None = None
+    pinned_revision: str | None = None
+    artifact_paths: list[str] = Field(default_factory=list)
+    category: str | None = None
+    scope_version: str | None = None
+    deployment_url: str | None = None
+    verifier_identity: str | None = None
+
+    @model_validator(mode="after")
+    def validate_scope(self):
+        if self.scope_kind in {"artifact", "repository"}:
+            if not all(
+                (self.repository_scope, self.pinned_revision, self.category, self.scope_version)
+            ):
+                raise ValueError(
+                    "Repository negative evidence scope requires repository, revision, category, and scope version"
+                )
+            if self.scope_kind == "artifact" and not self.artifact_paths:
+                raise ValueError("Artifact negative evidence scope requires artifact paths")
+        elif self.scope_kind == "deployment":
+            if not (self.deployment_url and self.verifier_identity):
+                raise ValueError(
+                    "Deployment negative evidence scope requires URL and verifier identity"
+                )
+        return self
+
+
+class NegativeEvidenceDetails(BaseModel):
+    """Explicit expectation, observation, and completeness of a contradiction."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    claim_reference: str = Field(pattern=r"^cr1:[0-9a-f]{64}$")
+    candidate_type: Literal[
+        "candidatex.contradiction.coverage_below_claim",
+        "candidatex.contradiction.framework_usage_absent",
+        "candidatex.contradiction.deployment_project_mismatch",
+        "candidatex.contradiction.performance_claim_mismatch",
+    ]
+    expected_observation: str = Field(min_length=1)
+    actual_observation: str = Field(min_length=1)
+    scan_scope: NegativeEvidenceScanScope
+    required_scan_completeness: float = Field(ge=0.0, le=1.0)
+    observed_scan_completeness: float = Field(ge=0.0, le=1.0)
+    explanation: str = Field(min_length=1)
+
+
 class EvidenceInput(BaseModel):
     """Raw observation candidate emitted by static/operational analyzers."""
 
@@ -321,6 +375,7 @@ class EvidenceInput(BaseModel):
     extractor_version: str = Field(
         ..., description="Version of the analyzer producing this evidence"
     )
+    negative_evidence_details: NegativeEvidenceDetails | None = None
     evidence_family_id: str | None = Field(
         default=None,
         min_length=68,
@@ -348,12 +403,42 @@ class EvidenceInput(BaseModel):
     @model_validator(mode="after")
     def validate_signal_rule(self):
         if self.signal_rule_id is None and self.signal_rule_version is None:
-            return self
-        if self.signal_rule_id is None or self.signal_rule_version is None:
+            if not self.is_positive_support:
+                raise ValueError(
+                    "Production negative evidence requires a registered signal rule"
+                )
+        elif self.signal_rule_id is None or self.signal_rule_version is None:
             raise ValueError("Signal rule ID and version must be supplied together")
-        if SIGNAL_RULE_VERSIONS.get(self.signal_rule_id) != self.signal_rule_version:
+        elif SIGNAL_RULE_VERSIONS.get(self.signal_rule_id) != self.signal_rule_version:
             raise ValueError("Signal rule ID and version must match the registry")
+        if self.is_positive_support:
+            if self.negative_evidence_details is not None:
+                raise ValueError(
+                    "Positive evidence cannot carry negative evidence details"
+                )
+        elif self.negative_evidence_details is None:
+            raise ValueError("Production negative evidence requires negative evidence details")
+        elif self.negative_evidence_details.scan_scope.scope_kind == "synthetic":
+            raise ValueError(
+                "Production negative evidence cannot use synthetic scan scope"
+            )
+        elif self.signal_rule_id != self.negative_evidence_details.candidate_type:
+            raise ValueError("Negative evidence signal rule must match candidate type")
         return self
+
+    @computed_field
+    @property
+    def negative_evidence_qualification(self) -> Literal["qualified"] | None:
+        return "qualified" if not self.is_positive_support else None
+
+    @model_serializer(mode="wrap")
+    def serialize_evidence_input(self, handler):
+        data = handler(self)
+        if self.is_positive_support:
+            # Existing positive observation hashes include the serialized input.
+            data.pop("negative_evidence_details", None)
+            data.pop("negative_evidence_qualification", None)
+        return data
 
     @property
     def observed_score(self) -> float:
@@ -471,6 +556,7 @@ class EvidenceRecord(BaseModel):
         description="Heuristic technical signal strength in [0, 100]",
     )
     is_positive_support: bool = True
+    negative_evidence_details: NegativeEvidenceDetails | None = None
     confidence_factors: EvidenceConfidenceFactors
     confidence: float = Field(..., ge=0.0, le=1.0, description="Computed c_e,k")
     artifact_attribution: ArtifactAttribution | None = None
@@ -521,6 +607,50 @@ class EvidenceRecord(BaseModel):
                     },
                 }
         return data
+
+    @model_validator(mode="after")
+    def validate_negative_evidence(self):
+        details = self.negative_evidence_details
+        if self.is_positive_support:
+            if details is not None:
+                raise ValueError(
+                    "Positive evidence cannot carry negative evidence details"
+                )
+            return self
+        if details is None:
+            return self
+        synthetic = self.provenance.get("synthetic") is True
+        if details.scan_scope.scope_kind == "synthetic" and not synthetic:
+            raise ValueError("Synthetic negative evidence requires synthetic provenance")
+        rule_id = self.provenance.get("signal_rule_id")
+        rule_version = self.provenance.get("signal_rule_version")
+        if (
+            synthetic
+            and details.scan_scope.scope_kind == "synthetic"
+            and rule_id == "legacy_unknown"
+        ):
+            return self
+        if (
+            rule_id != details.candidate_type
+            or SIGNAL_RULE_VERSIONS.get(rule_id) != rule_version
+        ):
+            raise ValueError(
+                "Qualified negative evidence requires a matching registered signal rule"
+            )
+        return self
+
+    @computed_field
+    @property
+    def negative_evidence_qualification(
+        self,
+    ) -> Literal["qualified", "legacy_unqualified"] | None:
+        if self.is_positive_support:
+            return None
+        return (
+            "qualified"
+            if self.negative_evidence_details is not None
+            else "legacy_unqualified"
+        )
 
     @computed_field(json_schema_extra={"deprecated": True})
     @property
