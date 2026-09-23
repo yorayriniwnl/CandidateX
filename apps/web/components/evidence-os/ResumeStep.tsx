@@ -39,6 +39,11 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
       <h2 id="resume-step-title">Start with the candidate’s document.</h2>
       <p className={styles.sectionIntro}>Extract declarations and public source links. Nothing on this screen is independently verified.</p>
 
+      <div className={styles.demoNotice} role="note" aria-label="Research demo data notice">
+        <strong>Research demo · synthetic data only</strong>
+        <span>Do not upload real candidate resumes. Results are not validated for employment decisions.</span>
+      </div>
+
       <label
         className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''} ${busy ? styles.dropzoneDisabled : ''}`}
         htmlFor="resume-upload"

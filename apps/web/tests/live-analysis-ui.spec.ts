@@ -252,6 +252,8 @@ async function uploadAndAnalyze(page: Page) {
 test('first-run view makes the next action obvious without extra interpretation', async ({ page }) => {
   await page.setViewportSize({ width: 880, height: 900 });
   await page.goto('/analyze');
+  await expect(page.getByText('Do not upload real candidate resumes. Results are not validated for employment decisions.'))
+    .toBeVisible();
   await expect(page.getByRole('heading', { name: 'Build a candidate dossier.' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Start with the candidate’s document.' })).toBeVisible();
   await expect(page.getByText('Drop a resume here or browse', { exact: true })).toBeVisible();

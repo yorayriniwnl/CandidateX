@@ -77,6 +77,9 @@
 .dropTitle { color: var(--ink); font-size: 14px; font-weight: 590; }
 .dropNote, .privacyNote, .inputLimit { color: var(--muted-text); font-size: 11px; }
 .privacyNote { margin: 10px 0 24px; line-height: 1.5; }
+.demoNotice { display: flex; flex-direction: column; gap: 5px; margin: 0 0 16px; padding: 12px 14px; border-left: 2px solid #d8b66e; background: #15130c; }
+.demoNotice strong { color: #ead6a9; font: 9px var(--font-mono), monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.demoNotice span { color: #b8ad8d; font-size: 11px; line-height: 1.5; }
 .inputLimit { margin: 12px 0 0; }
 
 .intakeSummary { margin-top: 24px; border-top: 1px solid var(--line-strong); }
