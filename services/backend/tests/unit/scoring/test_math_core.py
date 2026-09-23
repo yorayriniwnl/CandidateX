@@ -130,6 +130,10 @@ def _make_dummy_evidence(
     cluster: str = "cluster-1",
     is_pos: bool = True,
     ownership: float = 1.0,
+    fingerprint: str | None = None,
+    evidence_family_id: str | None = None,
+    observation_type: str = "legacy_unknown",
+    artifact_path: str | None = None,
 ) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=conf,
@@ -140,7 +144,7 @@ def _make_dummy_evidence(
         source_reliability=conf,
     )
     return EvidenceRecord(
-        fingerprint=str(uuid4()),
+        fingerprint=fingerprint or str(uuid4()),
         source_family=SourceFamily.GITHUB,
         source_locator="https://github.com/test/repo",
         immutable_revision="main@12345",
@@ -150,6 +154,9 @@ def _make_dummy_evidence(
         confidence_factors=factors,
         confidence=conf * ownership,
         cluster_id=cluster,
+        evidence_family_id=evidence_family_id,
+        observation_type=observation_type,
+        provenance={"artifact_path": artifact_path} if artifact_path else {},
         analyzer_version="1.0.0",
     )
 
@@ -246,6 +253,78 @@ def test_capability_estimate_weighted_average():
     assert pytest.approx(est.estimate, rel=1e-4) == (104.0 / 1.2)
 
 
+def test_repeated_family_observation_does_not_change_capability_estimate():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    family_id = "ef1:" + "a" * 64
+    manifest = _make_dummy_evidence(
+        capability,
+        90.0,
+        0.8,
+        cluster="repo-a",
+        fingerprint="a" * 64,
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        artifact_path="requirements.txt",
+    )
+    repeated_manifest = _make_dummy_evidence(
+        capability,
+        10.0,
+        0.7,
+        cluster="repo-a",
+        fingerprint="b" * 64,
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        artifact_path="src/service.py",
+    )
+    config = ScoringConfig(
+        tau_saturation={capability: 0.1}, low_coverage_threshold=0.0
+    )
+
+    base = compute_capability_score([manifest], capability, config)
+    repeated = compute_capability_score(
+        [manifest, repeated_manifest], capability, config
+    )
+
+    assert base.estimate == repeated.estimate == 90.0
+    assert base.coverage_k == repeated.coverage_k
+    assert base.effective_evidence_count == repeated.effective_evidence_count == 1.0
+    assert base.raw_evidence_count == 1
+    assert repeated.raw_evidence_count == 2
+
+
+def test_distinct_family_observation_type_contributes_at_configured_decay():
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    family_id = "ef1:" + "b" * 64
+    manifest = _make_dummy_evidence(
+        capability,
+        90.0,
+        0.8,
+        cluster="repo-a",
+        fingerprint="a" * 64,
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        artifact_path="requirements.txt",
+    )
+    import_use = _make_dummy_evidence(
+        capability,
+        10.0,
+        0.4,
+        cluster="repo-a",
+        fingerprint="b" * 64,
+        evidence_family_id=family_id,
+        observation_type="dependency:python_import",
+        artifact_path="src/service.py",
+    )
+    config = ScoringConfig(
+        tau_saturation={capability: 0.1}, low_coverage_threshold=0.0
+    )
+
+    estimate = compute_capability_score([manifest, import_use], capability, config)
+
+    assert estimate.estimate == pytest.approx(74.0)
+    assert estimate.effective_evidence_count == pytest.approx(1.0 / 0.68)
+
+
 # ---------------------------------------------------------------------------
 # Equation 7: Contradiction Diagnostic D_k = (P - N) / (P + N + eps)
 # ---------------------------------------------------------------------------
@@ -275,6 +354,59 @@ def test_contradiction_diagnostic_sign_and_bounds():
     assert pytest.approx(conflict_balanced.contradiction_diagnostic, abs=1e-4) == 0.0
     assert conflict_balanced.has_meaningful_conflict
     assert len(conflict_balanced.triggering_evidence_ids) == 2
+
+
+def test_correlated_conflict_uses_family_weights_and_preserves_all_ids():
+    capability = CapabilityKey.SECURITY
+    family_id = "ef1:" + "c" * 64
+    positive = _make_dummy_evidence(
+        capability,
+        85.0,
+        0.8,
+        is_pos=True,
+        fingerprint="a" * 64,
+        evidence_family_id=family_id,
+        observation_type="route:python_decorator",
+    )
+    repeated_positive = _make_dummy_evidence(
+        capability,
+        85.0,
+        0.7,
+        is_pos=True,
+        fingerprint="b" * 64,
+        evidence_family_id=family_id,
+        observation_type="route:python_decorator",
+    )
+    negative = _make_dummy_evidence(
+        capability,
+        20.0,
+        0.8,
+        is_pos=False,
+        fingerprint="c" * 64,
+        evidence_family_id=family_id,
+        observation_type="route:python_decorator",
+    )
+    config = ScoringConfig(evidence_family_decay=0.5)
+
+    base = compute_contradiction_diagnostic(
+        [positive, negative], capability, config
+    )
+    repeated = compute_contradiction_diagnostic(
+        [positive, repeated_positive, negative], capability, config
+    )
+
+    assert repeated.positive_support_sum == base.positive_support_sum == pytest.approx(
+        0.4
+    )
+    assert repeated.negative_support_sum == base.negative_support_sum == pytest.approx(
+        0.8
+    )
+    assert repeated.contradiction_diagnostic == base.contradiction_diagnostic
+    assert set(repeated.triggering_evidence_ids) == {
+        positive.evidence_id,
+        repeated_positive.evidence_id,
+        negative.evidence_id,
+    }
 
 
 # ---------------------------------------------------------------------------

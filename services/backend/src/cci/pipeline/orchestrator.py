@@ -53,6 +53,7 @@ from cci.probes.priority import compute_probe_priorities
 from cci.scoring.capability import (
     compute_capability_score,
 )
+from cci.scoring.evidence_families import compute_record_family_weights
 from cci.scoring.ownership import (
     estimate_repository_ownership,
 )
@@ -129,8 +130,10 @@ def execute_analysis_pipeline(
     expert_weight_overrides: dict[CapabilityKey, float] | None = None,
     evidence_mode: str = "provided",
     scenario: str | None = None,
+    scoring_config: ScoringConfig | None = None,
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
+    cfg = scoring_config or ScoringConfig()
     run_id = uuid4()
     state = PipelineExecutionState(
         analysis_run_id=run_id,
@@ -196,6 +199,9 @@ def execute_analysis_pipeline(
         )
         # No source adapter is implied by a URL. Only supplied observations are scored.
         raw_evidence = list(custom_evidence or [])
+        family_weights = compute_record_family_weights(
+            raw_evidence, decay=cfg.evidence_family_decay
+        )
         if not raw_evidence:
             state.stages[2].details = "No registered observations supplied; capabilities remain unknown."
         else:
@@ -249,13 +255,20 @@ def execute_analysis_pipeline(
         capability_estimates: dict[CapabilityKey, CapabilityEstimate] = {}
         for cap in CapabilityKey:
             ci_bounds = cluster_bootstrap_ci(
-                raw_evidence, cap, n_resamples=200, seed=42
+                raw_evidence,
+                cap,
+                n_resamples=200,
+                seed=42,
+                config=cfg,
+                family_weights=family_weights,
             )
 
             estimate = compute_capability_score(
                 evidence_records=raw_evidence,
                 capability=cap,
+                config=cfg,
                 ci_bounds=ci_bounds,
+                family_weights=family_weights,
             )
             capability_estimates[cap] = estimate
 
@@ -289,7 +302,7 @@ def execute_analysis_pipeline(
         capability_conflicts: dict[CapabilityKey, CapabilityConflict] = {}
         for cap in CapabilityKey:
             capability_conflicts[cap] = compute_contradiction_diagnostic(
-                raw_evidence, cap
+                raw_evidence, cap, config=cfg, family_weights=family_weights
             )
 
         uncertainties = {
@@ -315,7 +328,12 @@ def execute_analysis_pipeline(
                         claim_id=uuid4(), claim_text=claim, target_capability=cap,
                         technology_keywords=requirement.technology_mentions if evidence_mode == "live" else []))
         corroborated_claims = corroborate_candidate_claims(
-            claim_inputs, raw_evidence, strict_technology_match=evidence_mode == "live")
+            claim_inputs,
+            raw_evidence,
+            strict_technology_match=evidence_mode == "live",
+            config=cfg,
+            family_weights=family_weights,
+        )
         advance_stage(AnalysisStage.GENERATING_DOSSIER, "Link evidence, sources, artifacts, requirements, and interview questions")
 
         dossier = build_candidate_dossier(
@@ -331,12 +349,15 @@ def execute_analysis_pipeline(
             evidence_records=raw_evidence,
             rci=rci_score,
             coverage=coverage_score,
-            is_insufficient_evidence=(coverage_score < ScoringConfig().low_coverage_threshold),
+            is_insufficient_evidence=(coverage_score < cfg.low_coverage_threshold),
         )
 
+        dossier_versions = dict(dossier.versions)
+        dossier_versions["scoring_config_version"] = cfg.version
         dossier = dossier.model_copy(update={
             "evidence_records": raw_evidence, "evidence_mode": evidence_mode,
             "scenario": scenario, "role_weights": role_weights,
+            "versions": dossier_versions,
             "system_limitations": dossier.system_limitations + [
                 "Synthetic observations for method demonstration; no real candidate assessment." if evidence_mode == "synthetic"
                 else "Only registered observations are scored; URL and CV text alone do not establish technical capability.",

@@ -6,13 +6,15 @@ INVARIANTS:
 3. Every corroborated or contradicted claim preserves explicit grounding evidence IDs.
 """
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
-import re
 
-from cci.domain.contracts import EvidenceRecord
+from cci.domain.contracts import EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey, ClaimStatus
+from cci.scoring.evidence_families import compute_record_family_weights
 
 
 @dataclass
@@ -55,8 +57,11 @@ def corroborate_candidate_claims(
     claims: list[ExtractedClaimInput],
     evidence_records: list[EvidenceRecord],
     strict_technology_match: bool = False,
+    config: ScoringConfig | None = None,
+    family_weights: Mapping[UUID, float] | None = None,
 ) -> list[ClaimCorroborationResult]:
     """Evaluates each candidate self-claim against registered technical evidence."""
+    cfg = config or ScoringConfig()
     results: list[ClaimCorroborationResult] = []
 
     # Index evidence by capability for fast lookups
@@ -65,6 +70,12 @@ def corroborate_candidate_claims(
         if ev.confidence <= 0:
             continue
         evidence_by_cap.setdefault(ev.target_capability, []).append(ev)
+
+    if family_weights is None:
+        family_weights = compute_record_family_weights(
+            (record for records in evidence_by_cap.values() for record in records),
+            decay=cfg.evidence_family_decay,
+        )
 
     for claim in claims:
         matching_ev = evidence_by_cap.get(claim.target_capability, [])
@@ -122,8 +133,14 @@ def corroborate_candidate_claims(
             matched_neg_evidence = [e for e in matching_ev if not e.is_positive_support]
 
         # Calculate corroboration metrics
-        pos_confidence_sum = sum(e.confidence for e in matched_pos_evidence)
-        neg_confidence_sum = sum(e.confidence for e in matched_neg_evidence)
+        pos_confidence_sum = sum(
+            e.confidence * family_weights[e.evidence_id]
+            for e in matched_pos_evidence
+        )
+        neg_confidence_sum = sum(
+            e.confidence * family_weights[e.evidence_id]
+            for e in matched_neg_evidence
+        )
         grounding_ids = [
             e.evidence_id for e in matched_pos_evidence + matched_neg_evidence
         ]

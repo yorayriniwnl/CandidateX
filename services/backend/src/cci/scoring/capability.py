@@ -1,12 +1,15 @@
 """Capability estimate, effective evidence count, dispersion, and coverage."""
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Iterable
+from uuid import UUID
 
 from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConfig
 from cci.domain.evidence_families import normalize_source_cluster
 from cci.domain.enums import CapabilityKey
+from cci.scoring.evidence_families import compute_record_family_weights
 
 
 @dataclass(frozen=True)
@@ -51,13 +54,16 @@ def build_evidence_coverage_item(
     )
 
 
-def evidence_coverage_item(record: EvidenceRecord) -> EvidenceCoverageItem:
+def evidence_coverage_item(
+    record: EvidenceRecord,
+    confidence: float | None = None,
+) -> EvidenceCoverageItem:
     """Extracts a coverage identity from a persisted evidence record."""
     provenance = record.provenance
     return build_evidence_coverage_item(
         source_family=record.source_family,
         source_locator=record.source_locator,
-        confidence=record.confidence,
+        confidence=record.confidence if confidence is None else confidence,
         cluster_id=record.cluster_id,
         artifact_id=record.artifact_id,
         artifact_hash=provenance.get("artifact_sha256")
@@ -171,6 +177,7 @@ def compute_capability_score(
     capability: CapabilityKey,
     config: ScoringConfig | None = None,
     ci_bounds: tuple[float | None, float | None] | None = None,
+    family_weights: Mapping[UUID, float] | None = None,
 ) -> CapabilityEstimate:
     """Computes capability estimate q_k, effective count, standard error, and coverage.
 
@@ -205,7 +212,13 @@ def compute_capability_score(
             coverage_k=0.0,
         )
 
-    confidences = [e.confidence for e in relevant]
+    if family_weights is None:
+        family_weights = compute_record_family_weights(
+            relevant, decay=cfg.evidence_family_decay
+        )
+    confidences = [
+        e.confidence * family_weights[e.evidence_id] for e in relevant
+    ]
     scores = [e.support_score for e in relevant]
 
     sum_c = sum(confidences)
@@ -244,7 +257,10 @@ def compute_capability_score(
     standard_error = dispersion / math.sqrt(max(1.0, n_eff))
 
     coverage_k, cluster_count = compute_cluster_aware_coverage(
-        (evidence_coverage_item(record) for record in relevant),
+        (
+            evidence_coverage_item(record, confidence)
+            for record, confidence in zip(relevant, confidences)
+        ),
         tau_k,
         cfg.cluster_artifact_decay,
     )

@@ -1,13 +1,18 @@
 """Contradiction diagnostic D_k between positive and negative evidence."""
 
+from collections.abc import Mapping
+from uuid import UUID
+
 from cci.domain.contracts import CapabilityConflict, EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey
+from cci.scoring.evidence_families import compute_record_family_weights
 
 
 def compute_contradiction_diagnostic(
     evidence_records: list[EvidenceRecord],
     capability: CapabilityKey,
     config: ScoringConfig | None = None,
+    family_weights: Mapping[UUID, float] | None = None,
 ) -> CapabilityConflict:
     """Computes contradiction diagnostic:
 
@@ -25,11 +30,20 @@ def compute_contradiction_diagnostic(
         if e.target_capability == capability and e.confidence > 0.0
     ]
 
+    if family_weights is None:
+        family_weights = compute_record_family_weights(
+            relevant, decay=cfg.evidence_family_decay
+        )
+
     pos_records = [e for e in relevant if e.is_positive_support]
     neg_records = [e for e in relevant if not e.is_positive_support]
 
-    P_k = sum(e.confidence for e in pos_records)
-    N_k = sum(e.confidence for e in neg_records)
+    P_k = sum(
+        e.confidence * family_weights[e.evidence_id] for e in pos_records
+    )
+    N_k = sum(
+        e.confidence * family_weights[e.evidence_id] for e in neg_records
+    )
 
     denominator = P_k + N_k + eps
     D_k = float((P_k - N_k) / denominator)

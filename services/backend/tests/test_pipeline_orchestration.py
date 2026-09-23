@@ -11,7 +11,12 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from cci.domain.enums import CanonicalRole, CapabilityKey
+from cci.domain.contracts import (
+    EvidenceConfidenceFactors,
+    EvidenceRecord,
+    ScoringConfig,
+)
+from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.main import app
 from cci.pipeline.orchestrator import (
     AnalysisStage,
@@ -79,6 +84,72 @@ def test_pipeline_10_stages_execution():
     # Evidence graph must be constructed
     assert state.ceg_graph is not None
     assert len(state.ceg_graph.nodes) > 0
+
+
+def test_pipeline_uses_active_family_decay_and_retains_repeated_evidence():
+    candidate_id = uuid4()
+    capability = CapabilityKey.BACKEND_ENGINEERING
+    family_id = "ef1:" + "a" * 64
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    evidence = [
+        EvidenceRecord(
+            fingerprint="a" * 64,
+            source_family=SourceFamily.GITHUB,
+            source_locator="https://github.com/candidate/repo",
+            immutable_revision="b" * 40,
+            target_capability=capability,
+            support_score=90.0,
+            confidence_factors=factors,
+            confidence=0.8,
+            cluster_id="https://github.com/candidate/repo",
+            evidence_family_id=family_id,
+            observation_type="dependency:manifest",
+            provenance={"artifact_path": "requirements.txt"},
+        ),
+        EvidenceRecord(
+            fingerprint="c" * 64,
+            source_family=SourceFamily.GITHUB,
+            source_locator="https://github.com/candidate/repo",
+            immutable_revision="b" * 40,
+            target_capability=capability,
+            support_score=10.0,
+            confidence_factors=factors,
+            confidence=0.4,
+            cluster_id="https://github.com/candidate/repo",
+            evidence_family_id=family_id,
+            observation_type="dependency:python_import",
+            provenance={"artifact_path": "src/service.py"},
+        ),
+    ]
+    config = ScoringConfig(
+        version="5.1.0",
+        evidence_family_decay=0.0,
+        low_coverage_threshold=0.0,
+        tau_saturation={capability: 0.1},
+    )
+
+    state = execute_analysis_pipeline(
+        candidate_id=candidate_id,
+        role=CanonicalRole.BACKEND,
+        custom_evidence=evidence,
+        scoring_config=config,
+    )
+
+    assert state.status == PipelineStatus.COMPLETED
+    assert state.dossier is not None
+    estimate = state.dossier.capability_estimates[capability]
+    assert estimate.estimate == 90.0
+    assert estimate.effective_evidence_count == 1.0
+    assert estimate.raw_evidence_count == 2
+    assert len(state.dossier.evidence_records) == 2
+    assert state.dossier.versions["scoring_config_version"] == "5.1.0"
 
 
 def test_sparse_evidence_keeps_candidate_capabilities_unknown():

@@ -1,8 +1,8 @@
 """Diminishing weights for correlated observations within evidence families."""
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 from uuid import UUID
 
 from cci.domain.contracts import EvidenceRecord
@@ -99,3 +99,15 @@ def compute_evidence_family_weights(
             weights[item.evidence_id] = decay**rank
 
     return weights
+
+
+def compute_record_family_weights(
+    records: Iterable[EvidenceRecord],
+    *,
+    decay: float,
+) -> dict[UUID, float]:
+    """Computes the shared weight map for persisted evidence records."""
+    return compute_evidence_family_weights(
+        [family_weight_input_from_record(record) for record in records],
+        decay=decay,
+    )

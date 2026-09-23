@@ -17,6 +17,9 @@ def _create_mock_evidence(
     confidence: float = 0.85,
     is_pos: bool = True,
     text: str = "Evidence text",
+    evidence_family_id: str | None = None,
+    observation_type: str = "legacy_unknown",
+    fingerprint: str | None = None,
 ) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=1.0,
@@ -26,9 +29,10 @@ def _create_mock_evidence(
         depth_specificity=1.0,
         source_reliability=1.0,
     )
+    evidence_id = uuid4()
     return EvidenceRecord(
-        evidence_id=uuid4(),
-        fingerprint="sha256-mock-fingerprint",
+        evidence_id=evidence_id,
+        fingerprint=fingerprint or f"sha256-mock-{evidence_id.hex}",
         source_family=SourceFamily.GITHUB,
         source_locator="https://github.com/alice/project",
         immutable_revision="sha1234",
@@ -37,6 +41,8 @@ def _create_mock_evidence(
         is_positive_support=is_pos,
         confidence_factors=factors,
         confidence=confidence,
+        evidence_family_id=evidence_family_id,
+        observation_type=observation_type,
         provenance={"raw_support_text": text},
     )
 
@@ -106,3 +112,71 @@ def test_contradicted_claim():
     assert len(results) == 1
     assert results[0].status == ClaimStatus.CONTRADICTED
     assert any("contradict" in results[0].explanation.lower() for _ in [1])
+
+
+def test_repeated_family_observation_does_not_corroborate_claim_twice():
+    family_id = "ef1:" + "a" * 64
+    claim = ExtractedClaimInput(
+        claim_text="Built PostgreSQL data services",
+        target_capability=CapabilityKey.DATABASE_ENGINEERING,
+    )
+    manifest = _create_mock_evidence(
+        CapabilityKey.DATABASE_ENGINEERING,
+        confidence=0.7,
+        text="PostgreSQL manifest support",
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        fingerprint="a" * 64,
+    )
+    repeated = _create_mock_evidence(
+        CapabilityKey.DATABASE_ENGINEERING,
+        confidence=0.6,
+        text="PostgreSQL manifest support repeated",
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        fingerprint="b" * 64,
+    )
+
+    base = corroborate_candidate_claims([claim], [manifest])[0]
+    with_repeat = corroborate_candidate_claims([claim], [manifest, repeated])[0]
+
+    assert base.status == with_repeat.status == ClaimStatus.PARTIAL
+    assert base.confidence == with_repeat.confidence == 0.7
+    assert with_repeat.grounding_evidence_ids == [
+        manifest.evidence_id,
+        repeated.evidence_id,
+    ]
+
+
+def test_distinct_family_observation_type_contributes_decayed_claim_confidence():
+    family_id = "ef1:" + "b" * 64
+    claim = ExtractedClaimInput(
+        claim_text="Built PostgreSQL data services",
+        target_capability=CapabilityKey.DATABASE_ENGINEERING,
+    )
+    manifest = _create_mock_evidence(
+        CapabilityKey.DATABASE_ENGINEERING,
+        confidence=0.7,
+        text="PostgreSQL manifest support",
+        evidence_family_id=family_id,
+        observation_type="dependency:manifest",
+        fingerprint="a" * 64,
+    )
+    import_use = _create_mock_evidence(
+        CapabilityKey.DATABASE_ENGINEERING,
+        confidence=0.7,
+        text="PostgreSQL import support",
+        evidence_family_id=family_id,
+        observation_type="dependency:python_import",
+        fingerprint="b" * 64,
+    )
+
+    result = corroborate_candidate_claims([claim], [manifest, import_use])[0]
+
+    # python_import sorts first for the tied representative rank; manifest gets 0.5.
+    assert result.status == ClaimStatus.CORROBORATED
+    assert result.confidence == 0.525
+    assert set(result.grounding_evidence_ids) == {
+        manifest.evidence_id,
+        import_use.evidence_id,
+    }
