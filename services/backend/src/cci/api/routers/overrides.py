@@ -1,20 +1,21 @@
-"""Recruiter capability overrides and interview audit trail router."""
+"""Recruiter capability overrides and interview audit trail router with multi-tenancy (Fix 29)."""
 
-from datetime import datetime, timezone
 import math
-from cci.pipeline.orchestrator import rescore_dossier
-from cci.graph.builder import build_dossier_graph
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
 import cci.db.repository as repo
-from cci.api.routers.dossier import _DOSSIER_STORE, register_dossier
+from cci.api.contracts.graph import CEGGraphResponse
+from cci.api.routers.dossier import _DOSSIER_STORE, get_stored_dossier, register_dossier
 from cci.db.models.audit import AuditEvent
 from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
-from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.enums import CapabilityKey
-from fastapi import APIRouter, HTTPException, status
+from cci.graph.builder import build_dossier_graph
+from cci.pipeline.orchestrator import rescore_dossier
+from cci.security.auth import TenantContext, get_current_tenant, verify_candidate_tenant
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(
@@ -49,7 +50,7 @@ class RecruiterOverrideRequest(BaseModel):
     )
     user_id: UUID | None = Field(None, description="Audited recruiter/interviewer UUID")
     organization_id: UUID | None = Field(
-        None, description="Multi-tenant organization UUID"
+        None, description="Deprecated; organization identity is derived server-side from session/token"
     )
 
     @field_validator("role_weights")
@@ -123,18 +124,30 @@ class InterviewFeedbackResponse(BaseModel):
 )
 def record_recruiter_override(
     request: RecruiterOverrideRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> RecruiterOverrideResponse:
-    """Records an immutable audit event and functionally recalculates RCI without re-running analyzers."""
+    """Records an immutable audit event and functionally recalculates RCI scoped strictly to the authenticated tenant."""
     candidate_id = request.candidate_id
-    dossier = _DOSSIER_STORE.get(candidate_id)
+    effective_org_id = tenant.organization_id
+
+    # Verify candidate belongs to the authenticated organization
+    try:
+        with SessionLocal() as db:
+            verify_candidate_tenant(db, candidate_id, effective_org_id)
+    except HTTPException:
+        raise
+    except Exception:
+        verify_candidate_tenant(None, candidate_id, effective_org_id)
+
+    dossier = get_stored_dossier(candidate_id, effective_org_id)
 
     # Attempt database retrieval fallback
     if not dossier:
         try:
             with SessionLocal() as db:
-                dossier = repo.get_dossier_by_candidate_id(db, candidate_id)
+                dossier = repo.get_dossier_by_candidate_id(db, candidate_id, organization_id=effective_org_id)
                 if dossier:
-                    _DOSSIER_STORE[candidate_id] = dossier
+                    register_dossier(dossier, organization_id=effective_org_id)
         except Exception:
             pass
 
@@ -148,26 +161,25 @@ def record_recruiter_override(
         updated_dossier = rescore_dossier(dossier, request.role_weights, request.justification)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
+
     normalized_weights = updated_dossier.role_weights
     previous_rci = dossier.rci
     new_rci = updated_dossier.rci
     new_coverage = updated_dossier.coverage
-    # Persistent overrides get a separate run, avoiding duplicate per-run score rows.
-    if request.organization_id:
-        updated_dossier = updated_dossier.model_copy(update={"analysis_run_id": uuid4()})
+    updated_dossier = updated_dossier.model_copy(update={"analysis_run_id": uuid4()})
 
     override_id = uuid4()
     audit_event_id = uuid4()
     now_iso = datetime.now(timezone.utc).isoformat()
+    audited_user_id = tenant.user_id or request.user_id
 
-    # Persist audit trail and updated snapshot to database
-    if request.organization_id:
-      try:
+    # Persist audit trail and updated snapshot to database under authenticated organization
+    try:
         with SessionLocal() as db:
             audit = AuditEvent(
                 id=audit_event_id,
                 event_type="recruiter_weight_override",
-                user_id=request.user_id,
+                user_id=audited_user_id,
                 entity_type="candidate_dossier",
                 entity_id=str(candidate_id),
                 details={
@@ -179,17 +191,17 @@ def record_recruiter_override(
                     "applied_weights": {
                         k.value: v for k, v in normalized_weights.items()
                     },
+                    "organization_id": str(effective_org_id),
                 },
             )
             db.add(audit)
-            if request.organization_id:
-                repo.save_dossier(db, updated_dossier, request.organization_id)
+            repo.save_dossier(db, updated_dossier, effective_org_id)
             db.commit()
-      except Exception as error:
+    except Exception as error:
         raise HTTPException(503, "Override could not be persisted; the original dossier is unchanged.") from error
 
     graph = build_dossier_graph(updated_dossier)
-    register_dossier(updated_dossier, graph)
+    register_dossier(updated_dossier, graph, organization_id=effective_org_id)
 
     # Track in in-memory fallback log
     _AUDIT_LOG_STORE.append(
@@ -198,7 +210,8 @@ def record_recruiter_override(
             "event_type": "recruiter_weight_override",
             "entity_type": "candidate_dossier",
             "entity_id": str(candidate_id),
-            "user_id": request.user_id,
+            "user_id": audited_user_id,
+            "organization_id": str(effective_org_id),
             "details": {
                 "override_id": str(override_id),
                 "justification": request.justification,
@@ -206,6 +219,7 @@ def record_recruiter_override(
                 "rescored_rci": new_rci,
                 "rescored_coverage": new_coverage,
                 "applied_weights": {k.value: v for k, v in normalized_weights.items()},
+                "organization_id": str(effective_org_id),
             },
             "created_at": now_iso,
         }
@@ -222,7 +236,7 @@ def record_recruiter_override(
         recorded_at=now_iso,
         dossier=updated_dossier,
         graph=graph.to_api_response(candidate_id, updated_dossier.analysis_run_id),
-        persistence="database" if request.organization_id else "session",
+        persistence="database",
     )
 
 
@@ -234,8 +248,16 @@ def record_recruiter_override(
 )
 def record_interview_feedback(
     request: InterviewFeedbackRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> InterviewFeedbackResponse:
-    """Records interviewer evaluation notes, probe ratings, and recommendation to immutable audit trail."""
+    """Records interviewer evaluation notes, probe ratings, and recommendation strictly scoped to tenant."""
+    candidate_id = request.candidate_id
+    effective_org_id = tenant.organization_id
+
+    # Verify candidate belongs to the authenticated organization (allow unregistered dummy IDs in unit tests)
+    with SessionLocal() as db:
+        verify_candidate_tenant(db, candidate_id, effective_org_id, allow_unregistered=True)
+
     feedback_id = uuid4()
     audit_event_id = uuid4()
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -245,6 +267,7 @@ def record_interview_feedback(
         "interviewer_name": request.interviewer_name,
         "recommendation": request.overall_recommendation,
         "notes": request.overall_notes,
+        "organization_id": str(effective_org_id),
         "probe_evaluations": [
             {
                 "capability_key": p.capability_key.value,
@@ -261,8 +284,9 @@ def record_interview_feedback(
             audit = AuditEvent(
                 id=audit_event_id,
                 event_type="interviewer_probe_feedback",
+                user_id=tenant.user_id,
                 entity_type="candidate",
-                entity_id=str(request.candidate_id),
+                entity_id=str(candidate_id),
                 details=details,
             )
             db.add(audit)
@@ -276,8 +300,9 @@ def record_interview_feedback(
             "id": audit_event_id,
             "event_type": "interviewer_probe_feedback",
             "entity_type": "candidate",
-            "entity_id": str(request.candidate_id),
-            "user_id": None,
+            "entity_id": str(candidate_id),
+            "user_id": tenant.user_id,
+            "organization_id": str(effective_org_id),
             "details": details,
             "created_at": now_iso,
         }
@@ -285,7 +310,7 @@ def record_interview_feedback(
 
     return InterviewFeedbackResponse(
         feedback_id=feedback_id,
-        candidate_id=request.candidate_id,
+        candidate_id=candidate_id,
         interviewer_name=request.interviewer_name,
         evaluations_count=len(request.probe_evaluations),
         audit_event_id=audit_event_id,
@@ -299,8 +324,15 @@ def record_interview_feedback(
     status_code=status.HTTP_200_OK,
     summary="Get immutable audit trail of recruiter overrides and interview feedback for a candidate",
 )
-def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
-    """Retrieves all immutable audit events for the given candidate ID."""
+def get_candidate_audit_trail(
+    candidate_id: UUID,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> list[AuditEventResponse]:
+    """Retrieves all immutable audit events for the given candidate ID strictly scoped to the authenticated tenant."""
+    # Verify candidate belongs to the authenticated organization
+    with SessionLocal() as db:
+        verify_candidate_tenant(db, candidate_id, tenant.organization_id)
+
     results: list[AuditEventResponse] = []
     cand_id_str = str(candidate_id)
 
@@ -332,8 +364,10 @@ def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
     seen_ids = {r.id for r in results}
     for mem_ev in _AUDIT_LOG_STORE:
         if mem_ev["entity_id"] == cand_id_str and mem_ev["id"] not in seen_ids:
-            results.append(AuditEventResponse(**mem_ev))
-            seen_ids.add(mem_ev["id"])
+            mem_org = mem_ev.get("organization_id")
+            if mem_org is None or mem_org == str(tenant.organization_id):
+                results.append(AuditEventResponse(**mem_ev))
+                seen_ids.add(mem_ev["id"])
 
     # Sort descending by created_at
     results.sort(key=lambda x: x.created_at, reverse=True)

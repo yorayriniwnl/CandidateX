@@ -623,10 +623,26 @@ def save_dossier(
 
 
 def get_candidate_by_id(
-    session: Session, candidate_id: UUID
+    session: Session, candidate_id: UUID, organization_id: UUID | None = None
 ) -> models.Candidate | None:
-    """Retrieves a candidate by UUID."""
+    """Retrieves a candidate by UUID, optionally enforcing organization boundary."""
+    if organization_id is not None:
+        stmt = select(models.Candidate).where(
+            models.Candidate.id == candidate_id,
+            models.Candidate.organization_id == organization_id,
+        )
+        return session.execute(stmt).scalar_one_or_none()
     return session.get(models.Candidate, candidate_id)
+
+
+def get_analysis_run_by_id(
+    session: Session, run_id: UUID, organization_id: UUID | None = None
+) -> models.AnalysisRun | None:
+    """Retrieves an analysis run by UUID, optionally enforcing organization boundary."""
+    stmt = select(models.AnalysisRun).where(models.AnalysisRun.id == run_id)
+    if organization_id is not None:
+        stmt = stmt.where(models.AnalysisRun.organization_id == organization_id)
+    return session.execute(stmt).scalar_one_or_none()
 
 
 def list_candidates(
@@ -651,14 +667,18 @@ def list_jobs(
     return list(session.execute(stmt).scalars().all())
 
 
-def get_dossier_by_candidate_id(session: Session, candidate_id: UUID) -> Dossier | None:
+def get_dossier_by_candidate_id(
+    session: Session, candidate_id: UUID, organization_id: UUID | None = None
+) -> Dossier | None:
     """Retrieves and reconstructs the latest complete Dossier for a candidate from DB."""
     stmt = (
         select(models.AnalysisRun)
         .where(models.AnalysisRun.candidate_id == candidate_id)
         .where(models.AnalysisRun.status == "completed")
-        .order_by(desc(models.AnalysisRun.completed_at))
     )
+    if organization_id is not None:
+        stmt = stmt.where(models.AnalysisRun.organization_id == organization_id)
+    stmt = stmt.order_by(desc(models.AnalysisRun.completed_at))
     run = session.execute(stmt).scalars().first()
     if not run:
         return None

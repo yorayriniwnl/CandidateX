@@ -1,15 +1,22 @@
+"""Pipeline orchestration and lifecycle management API router with multi-tenancy (Fix 29)."""
+
+import math
 from typing import Any
-
-"""Pipeline orchestration and lifecycle management API router."""
-
 from uuid import UUID
 
+import cci.db.repository as repo
+from cci.db import models
+from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey, EvidenceState
 from cci.pipeline.service import pipeline_service
-from fastapi import APIRouter, HTTPException, status
+from cci.security.auth import (
+    TenantContext,
+    get_current_tenant,
+    verify_analysis_run_tenant,
+)
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
-import math
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
 
@@ -51,12 +58,18 @@ class PipelineStatusResponse(BaseModel):
 class PipelineRescoreRequest(BaseModel):
     run_id: UUID
     weights: dict[CapabilityKey, float]
-    justification: str = Field(default="Research demonstration weight override", min_length=3, max_length=2000)
+    justification: str = Field(
+        default="Research demonstration weight override", min_length=3, max_length=2000
+    )
 
     @field_validator("weights")
     @classmethod
     def validate_weights(cls, weights):
-        if not weights or any(not math.isfinite(v) or v < 0 for v in weights.values()) or sum(weights.values()) <= 0:
+        if (
+            not weights
+            or any(not math.isfinite(v) or v < 0 for v in weights.values())
+            or sum(weights.values()) <= 0
+        ):
             raise ValueError("Supply finite non-negative weights with a positive total")
         return weights
 
@@ -67,8 +80,30 @@ class PipelineRescoreRequest(BaseModel):
     status_code=status.HTTP_200_OK,
     summary="Trigger end-to-end Candidate Capability Intelligence pipeline",
 )
-def run_pipeline(request: PipelineRunRequest) -> Any:
-    """Executes the full 10-stage analysis pipeline and returns execution state."""
+def run_pipeline(
+    request: PipelineRunRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> Any:
+    """Executes the full 10-stage analysis pipeline scoped strictly to the authenticated tenant."""
+    with SessionLocal() as db:
+        cand = repo.get_candidate_by_id(db, request.candidate_id)
+        if cand is not None:
+            if cand.organization_id != tenant.organization_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Candidate {request.candidate_id} not found",
+                )
+        else:
+            cand = models.Candidate(
+                id=request.candidate_id,
+                organization_id=tenant.organization_id,
+                display_name="Candidate",
+                manifest_data={"cv_text": request.cv_text},
+                is_active=True,
+            )
+            db.add(cand)
+            db.commit()
+
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id,
         role=request.role,
@@ -77,6 +112,7 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
         repo_urls=request.repo_urls,
         declared_claims=request.declared_claims,
         expert_weight_overrides=request.expert_weight_overrides,
+        organization_id=tenant.organization_id,
     )
 
     stage_responses = [
@@ -116,9 +152,15 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
     response_model=PipelineStatusResponse,
     summary="Get pipeline execution progress and result summary",
 )
-def get_pipeline_status(run_id: UUID) -> Any:
-    """Retrieves current stage and progress for an active or completed analysis run."""
-    state = pipeline_service.get_pipeline_state(run_id)
+def get_pipeline_status(
+    run_id: UUID,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> Any:
+    """Retrieves current stage and progress for an active or completed analysis run scoped to tenant."""
+    with SessionLocal() as db:
+        verify_analysis_run_tenant(db, run_id, tenant.organization_id)
+
+    state = pipeline_service.get_pipeline_state(run_id, organization_id=tenant.organization_id)
     if not state:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -162,12 +204,19 @@ def get_pipeline_status(run_id: UUID) -> Any:
     response_model=Dossier,
     summary="Pure functional rescore of candidate dossier with expert weights",
 )
-def rescore_pipeline(request: PipelineRescoreRequest) -> Any:
-    """Pure functional recalculation of RCI without re-running analyzers or re-crawling."""
+def rescore_pipeline(
+    request: PipelineRescoreRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> Any:
+    """Pure functional recalculation of RCI without re-running analyzers or re-crawling, scoped to tenant."""
+    with SessionLocal() as db:
+        verify_analysis_run_tenant(db, request.run_id, tenant.organization_id)
+
     rescored = pipeline_service.rescore_run(
         run_id=request.run_id,
         new_weights=request.weights,
         justification=request.justification,
+        organization_id=tenant.organization_id,
     )
     if not rescored:
         raise HTTPException(

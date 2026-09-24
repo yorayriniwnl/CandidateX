@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     CIRCUIT_BREAKER_COOLDOWN_SECONDS: float = 30.0
     REQUIRE_SIGNED_ANALYSIS_TOKEN: bool = False
 
+    # Authentication & Multi-Tenancy (Fix 29)
+    AUTH_REQUIRED: bool = False
+    DEFAULT_DEV_ORG_ID: str = "00000000-0000-0000-0000-000000000001"
+    JWT_SECRET_KEY: str = "cci_jwt_secret_key_change_in_production_min_32_bytes_safe"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+
     # Formal Scoring Parameters (Paper-aligned default v1)
     SCORING_CONFIG_VERSION: str = "1.0.0"
     DEFAULT_TEMPERATURE: float = 1.0

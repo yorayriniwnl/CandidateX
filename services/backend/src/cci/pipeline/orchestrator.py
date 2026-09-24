@@ -100,6 +100,7 @@ class PipelineExecutionState:
     dossier: Dossier | None = None
     ceg_graph: CandidateEvidenceGraph | None = None
     error: str | None = None
+    organization_id: UUID | None = None
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -138,6 +139,7 @@ def execute_analysis_pipeline(
     scoring_config: ScoringConfig | None = None,
     analysis_run_id: UUID | None = None,
     observable_expectations: Sequence[ObservableClaimExpectation] = (),
+    organization_id: UUID | None = None,
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
     mode = EvidenceMode(evidence_mode)
@@ -157,6 +159,7 @@ def execute_analysis_pipeline(
         role=role,
         status=PipelineStatus.RUNNING,
         stages=_init_stage_progress(),
+        organization_id=organization_id,
     )
 
     def advance_stage(stage: AnalysisStage, _description: str) -> None:

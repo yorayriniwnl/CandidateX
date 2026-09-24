@@ -1,4 +1,4 @@
-"""Pipeline Service for executing and tracking CCI analysis runs."""
+"""Pipeline Service for executing and tracking CCI analysis runs with multi-tenancy (Fix 29)."""
 
 from threading import Lock
 from uuid import UUID
@@ -34,8 +34,9 @@ class PipelineService:
         evidence_mode: str = "provided",
         scenario: str | None = None,
         scoring_config: ScoringConfig | None = None,
+        organization_id: UUID | None = None,
     ) -> PipelineExecutionState:
-        """Executes the analysis pipeline and stores execution state."""
+        """Executes the analysis pipeline and stores execution state bound to tenant."""
         state = execute_analysis_pipeline(
             candidate_id=candidate_id,
             role=role,
@@ -45,8 +46,10 @@ class PipelineService:
             declared_claims=declared_claims,
             custom_evidence=custom_evidence,
             expert_weight_overrides=expert_weight_overrides,
-            evidence_mode=evidence_mode, scenario=scenario,
+            evidence_mode=evidence_mode,
+            scenario=scenario,
             scoring_config=scoring_config,
+            organization_id=organization_id,
         )
 
         with self._lock:
@@ -56,18 +59,26 @@ class PipelineService:
                 try:
                     from cci.api.routers.dossier import register_dossier
 
-                    register_dossier(state.dossier, state.ceg_graph)
+                    register_dossier(state.dossier, state.ceg_graph, organization_id=organization_id)
                 except ImportError:
                     pass
 
         return state
 
-    def get_pipeline_state(self, run_id: UUID) -> PipelineExecutionState | None:
-        """Retrieves pipeline state by run ID."""
+    def get_pipeline_state(
+        self, run_id: UUID, organization_id: UUID | None = None
+    ) -> PipelineExecutionState | None:
+        """Retrieves pipeline state by run ID, enforcing organization scoping if provided."""
         with self._lock:
-            return self._runs.get(run_id)
+            state = self._runs.get(run_id)
+            if state and organization_id is not None:
+                if getattr(state, "organization_id", None) is not None and state.organization_id != organization_id:
+                    return None
+            return state
 
-    def get_dossier(self, dossier_id: UUID) -> Dossier | None:
+    def get_dossier(
+        self, dossier_id: UUID, organization_id: UUID | None = None
+    ) -> Dossier | None:
         """Retrieves Dossier by dossier ID."""
         with self._lock:
             return self._dossiers_by_id.get(dossier_id)
@@ -77,12 +88,17 @@ class PipelineService:
         run_id: UUID,
         new_weights: dict[CapabilityKey, float],
         justification: str = "Research demonstration weight override",
+        organization_id: UUID | None = None,
     ) -> Dossier | None:
         """Functional rescore of an existing pipeline run's dossier."""
         with self._lock:
             state = self._runs.get(run_id)
             if not state or not state.dossier:
                 return None
+
+            if organization_id is not None:
+                if getattr(state, "organization_id", None) is not None and state.organization_id != organization_id:
+                    return None
 
             rescored = rescore_dossier(state.dossier, new_weights, justification)
             state.ceg_graph = build_dossier_graph(rescored)
@@ -91,7 +107,7 @@ class PipelineService:
             try:
                 from cci.api.routers.dossier import register_dossier
 
-                register_dossier(rescored, state.ceg_graph)
+                register_dossier(rescored, state.ceg_graph, organization_id=getattr(state, "organization_id", None))
             except ImportError:
                 pass
             return rescored

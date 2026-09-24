@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from cci import __version__
 from cci.api.routers import (
+    auth_router,
     candidates_router,
     dossier_router,
     jobs_router,
@@ -16,9 +17,9 @@ from cci.api.routers import (
     pipeline_router,
     research_router,
 )
-from cci.config import settings
-from cci.api.routers.research_demo import router as research_demo_router
 from cci.api.routers.live import router as live_router
+from cci.api.routers.research_demo import router as research_demo_router
+from cci.config import settings
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -38,6 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(dossier_router)
 app.include_router(pipeline_router)
 app.include_router(jobs_router)

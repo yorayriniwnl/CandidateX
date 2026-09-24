@@ -1,17 +1,25 @@
-"""Candidate directory and manifest API router."""
+"""Candidate directory and manifest API router with strict multi-tenancy (Fix 29)."""
 
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import cci.db.repository as repo
+from cci.db import models
 from cci.db.session import SessionLocal
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
-
 from cci.domain.contracts import ObservedIndexContext
 from cci.domain.enums import EvidenceState
+from cci.security.auth import TenantContext, get_current_tenant
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
+
+
+class CandidateCreateRequest(BaseModel):
+    display_name: str
+    primary_email: str | None = None
+    manifest_data: dict[str, Any] = Field(default_factory=dict)
+    candidate_id: UUID | None = None
 
 
 class CandidateSummaryResponse(BaseModel):
@@ -43,6 +51,50 @@ class CandidateDetailResponse(BaseModel):
     created_at: str
 
 
+@router.post(
+    "",
+    response_model=CandidateDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a candidate record scoped to the authenticated tenant",
+)
+def create_candidate(
+    request: CandidateCreateRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> CandidateDetailResponse:
+    """Creates a candidate entity strictly bound to the authenticated organization."""
+    with SessionLocal() as db:
+        cid = request.candidate_id or uuid4()
+        existing = repo.get_candidate_by_id(db, cid)
+        if existing:
+            if existing.organization_id != tenant.organization_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Candidate ID conflict.",
+                )
+            cand = existing
+        else:
+            cand = models.Candidate(
+                id=cid,
+                organization_id=tenant.organization_id,
+                display_name=request.display_name,
+                primary_email=request.primary_email,
+                manifest_data=request.manifest_data,
+                is_active=True,
+            )
+            db.add(cand)
+            db.commit()
+            db.refresh(cand)
+
+        return CandidateDetailResponse(
+            id=cand.id,
+            display_name=cand.display_name,
+            primary_email=cand.primary_email,
+            manifest_data=cand.manifest_data,
+            is_active=cand.is_active,
+            created_at=cand.created_at.isoformat() if hasattr(cand, "created_at") and cand.created_at else "",
+        )
+
+
 @router.get(
     "",
     response_model=list[CandidateSummaryResponse],
@@ -50,15 +102,21 @@ class CandidateDetailResponse(BaseModel):
     summary="List all candidates with evaluation and dossier summary",
 )
 def list_candidates(
-    organization_id: UUID | None = None,
+    organization_id: UUID | None = Query(None, description="Deprecated; organization identity is derived from session/token"),
+    tenant: TenantContext = Depends(get_current_tenant),
 ) -> list[CandidateSummaryResponse]:
-    """Lists candidates along with their latest evaluation score summary."""
+    """Lists candidates along with their latest evaluation score summary scoped server-side to the authenticated tenant."""
+    # Organization identity must come from authenticated session/token, not a caller-supplied query parameter.
+    effective_org_id = tenant.organization_id
     try:
         with SessionLocal() as db:
-            cands = repo.list_candidates(db, organization_id=organization_id)
+            cands = repo.list_candidates(db, organization_id=effective_org_id)
             summaries = []
             for c in cands:
-                dossier = repo.get_dossier_by_candidate_id(db, c.id)
+                try:
+                    dossier = repo.get_dossier_by_candidate_id(db, c.id, organization_id=effective_org_id)
+                except TypeError:
+                    dossier = repo.get_dossier_by_candidate_id(db, c.id)
                 has_dossier = dossier is not None
                 rci = dossier.rci if dossier else None
                 coverage = dossier.coverage if dossier else None
@@ -108,11 +166,14 @@ def list_candidates(
     status_code=status.HTTP_200_OK,
     summary="Get detailed candidate manifest and intake records",
 )
-def get_candidate(candidate_id: UUID) -> CandidateDetailResponse:
-    """Retrieves candidate manifest details."""
+def get_candidate(
+    candidate_id: UUID,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> CandidateDetailResponse:
+    """Retrieves candidate manifest details strictly scoped to the authenticated organization."""
     try:
         with SessionLocal() as db:
-            cand = repo.get_candidate_by_id(db, candidate_id)
+            cand = repo.get_candidate_by_id(db, candidate_id, organization_id=tenant.organization_id)
             if not cand:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
