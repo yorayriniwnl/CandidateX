@@ -27,6 +27,7 @@ import {
   Search,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Layers,
   ArrowRight,
   CheckCircle2,
@@ -51,6 +52,9 @@ import {
   TimelineInconsistency,
   AcademicRecord,
   TraceLink,
+  SourceNode,
+  SourceDiscoveryTree,
+  CrawlSourceLifecycleState,
 } from '../../types/cci';
 import { RadialGauge } from '../ui/RadialGauge';
 import { GlowBadge } from '../ui/GlowBadge';
@@ -58,6 +62,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassModal } from '../ui/GlassModal';
 import { GraphViewer } from './GraphViewer';
+import { SourceExplorerPanel } from './SourceExplorerPanel';
 
 export type EvidenceExplorerSection =
   | 'overview'
@@ -1018,22 +1023,10 @@ export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({
 
               {/* 17. Source Explorer */}
               {activeSection === 'source_explorer' && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Network className="w-5 h-5 text-indigo-400" />
-                      Source & Crawl Explorer
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Terminal state tracking for supplied and discovered external links.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs text-slate-400 leading-relaxed">
-                    Source Lifecycle States: supplied · resume extracted · discovered · queued · fetched · failed · blocked · deferred · not scanned.
-                    Every source has a terminal state; no missing links are hidden.
-                  </div>
-                </div>
+                <SourceExplorerPanel
+                  dossier={dossier}
+                  onInspectEvidence={onInspectEvidence}
+                />
               )}
 
               {/* 18. Evidence Graph */}

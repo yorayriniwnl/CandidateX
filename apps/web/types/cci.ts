@@ -169,6 +169,7 @@ export interface Dossier {
   coding_profiles?: CodingProfileEntity[];
   quantified_claims?: QuantifiedClaim[];
   timeline?: CandidateTimeline;
+  source_discovery_tree?: SourceDiscoveryTree;
   source_inventory?: SourceInventoryItem[];
   system_limitations: string[];
   versions: Record<string, string>;
@@ -293,11 +294,48 @@ export interface EvidenceRecordItem {
   provenance?: Record<string, any>;
 }
 
+export type CrawlSourceLifecycleState =
+  | 'supplied'
+  | 'resume extracted'
+  | 'discovered'
+  | 'queued'
+  | 'fetched'
+  | 'failed'
+  | 'blocked'
+  | 'deferred'
+  | 'not scanned';
+
+export interface SourceNode {
+  source_id: string;
+  url: string;
+  normalized_url: string;
+  kind: string;
+  state: CrawlSourceLifecycleState;
+  origin: string;
+  parent_url?: string;
+  discovery_reason?: string;
+  discovery_depth: number;
+  status_detail?: string;
+  files_inspected?: number;
+  evidence_count?: number;
+  commit_sha?: string;
+  fetched_at?: string;
+  children?: SourceNode[];
+}
+
+export interface SourceDiscoveryTree {
+  root_nodes: SourceNode[];
+  total_sources: number;
+  counts_by_state: Record<string, number>;
+  max_depth: number;
+  missing_links_count: number;
+}
+
 export interface SourceInventoryItem {
   source_id: string;
   url: string;
   kind: string;
-  status: 'supplied' | 'discovered' | 'queued' | 'fetched' | 'failed' | 'blocked' | 'deferred' | 'not_scanned' | 'observed';
+  status: CrawlSourceLifecycleState | 'not_scanned' | 'observed';
   discovered_by?: string;
   discovery_depth?: number;
 }

@@ -1654,6 +1654,8 @@ class Dossier(BaseModel):
     project_entities: list[ProjectEntity] = Field(default_factory=list)
     quantified_claims: list[QuantifiedClaim] = Field(default_factory=list)
     timeline: CandidateTimeline | None = None
+    source_discovery_tree: dict[str, Any] | None = None
+    source_inventory: list[dict[str, Any]] = Field(default_factory=list)
     evidence_mode: str = "provided"
     scenario: str | None = None
     role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)
