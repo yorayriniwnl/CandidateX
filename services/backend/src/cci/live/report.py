@@ -61,12 +61,14 @@ def build_report(intake, sources):
     )
     credentials = [r.to_dict() for r in verified_results]
 
-    projects = []
-    for project in intake.manifest.project_claims:
-        text = f"{project.get('title', '')} {project.get('description', '')}"
-        refs = [s['url'] for s in sources if s['url'].removeprefix('https://').removeprefix('http://').lower() in text.lower()]
-        projects.append({**project, 'source_urls': refs, 'status': 'linked_sources' if refs else 'declaration_only',
-                         'explanation': 'Links connect this project to acquisition receipts; impact, performance and contribution claims still require separate verification.'})
+    from cci.projects.dossier import build_project_entities
+    project_entities = build_project_entities(
+        project_claims=intake.manifest.project_claims,
+        sources=sources,
+        credentials=credentials,
+        candidate_identifier=intake.manifest.display_name,
+    )
+    projects = [p.to_dict() for p in project_entities]
     sections = intake.resume_review.sections
     numeric_claims = [line for lines in sections.values() for line in lines if re.search(r'\d+(?:\.\d+)?\s*%|\b\d+[+-]?\s+(?:users|tests|projects|applications|points)\b', line, re.I)]
     actions = []

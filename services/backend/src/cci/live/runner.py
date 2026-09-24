@@ -655,10 +655,19 @@ class AnalysisRunManager:
                 "Durable Analysis Run: each stage is persistent, idempotent, and resumable.",
             ]
 
+            from cci.projects.dossier import build_project_entities
+            project_entities = build_project_entities(
+                project_claims=manifest.project_claims,
+                sources=sources,
+                evidence_records=evidence,
+                candidate_identifier=manifest.display_name,
+            )
+
             dossier = pipeline_state.dossier.model_copy(update={
                 "ownership_assessments": ownership,
                 "repository_associations": associations,
                 "repository_contributions": contributions,
+                "project_entities": project_entities,
                 "system_limitations": [*pipeline_state.dossier.system_limitations, *limitations],
             })
             if run.telemetry:

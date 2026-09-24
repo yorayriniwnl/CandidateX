@@ -422,6 +422,143 @@ class AcademicRecord(BaseModel):
         }
 
 
+# ---------------------------------------------------------------------------
+# Project Entity Contracts (Fix 40)
+# ---------------------------------------------------------------------------
+
+
+class ProjectTraceLink(BaseModel):
+    """Traceability link connecting claim -> source -> artifact -> observation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    link_type: str = Field(
+        default="trace_hop",
+        description="Type of hop: claim_to_source, source_to_artifact, artifact_to_observation",
+    )
+    claim_id: str | None = None
+    source_url: str | None = None
+    artifact_path: str | None = None
+    evidence_id: str | None = None
+    observation_type: str | None = None
+    summary: str = ""
+
+
+class ProjectEntity(BaseModel):
+    """First-class traceable representation of a candidate-claimed project (Fix 40)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    project_id: str = Field(description="Deterministic identity for this project entity")
+    name: str = Field(description="Project name / title as claimed on resume")
+    resume_claim: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Resume claim details (title, description, source location)",
+    )
+    repository: dict[str, Any] | None = Field(
+        default=None,
+        description="Matched repository information (URL, name, is_fork, branch/commit)",
+    )
+    deployment: dict[str, Any] | None = Field(
+        default=None,
+        description="Matched live deployment information (URL, status, reachable, protocol)",
+    )
+    documentation: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Documentation traces (README presence, architecture docs, license)",
+    )
+    technologies: list[str] = Field(
+        default_factory=list,
+        description="Consolidated technologies claimed or detected",
+    )
+    db: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Database technologies, schemas, ORMs, and migration files detected",
+    )
+    backend: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Backend frameworks, APIs, routing files detected",
+    )
+    frontend: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Frontend frameworks, components, UI templates detected",
+    )
+    tests: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Testing framework, test file paths, test assertions count",
+    )
+    infrastructure: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Infrastructure and DevOps configs (Dockerfile, CI/CD, k8s, docker-compose)",
+    )
+    candidate_attribution: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Attribution metrics (ownership score, commit count, author login match)",
+    )
+    recency: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Modification timestamps, last active date, recency factor",
+    )
+    credentials_or_publication_relationship: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Associated credentials, papers, arXiv preprints, or research links",
+    )
+    quantitative_claims: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Quantified metrics extracted from project claim (users, latency, accuracy, etc.)",
+    )
+    contradictions: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Contradictions, negative evidence, or framework absences related to this project",
+    )
+    limitations: list[str] = Field(
+        default_factory=list,
+        description="Conservative caveats and boundaries on project evaluation",
+    )
+    trace: list[ProjectTraceLink] = Field(
+        default_factory=list,
+        description="Traceable links from claim to source to artifact to observation",
+    )
+
+    @property
+    def title(self) -> str:
+        return self.name
+
+    @property
+    def description(self) -> str:
+        return self.resume_claim.get("description", "")
+
+    @property
+    def source_urls(self) -> list[str]:
+        urls = []
+        if self.repository and self.repository.get("url"):
+            urls.append(self.repository["url"])
+        if self.deployment and self.deployment.get("url"):
+            urls.append(self.deployment["url"])
+        return urls
+
+    @property
+    def status(self) -> str:
+        if self.repository or self.deployment:
+            return "linked_sources"
+        return "declaration_only"
+
+    @property
+    def explanation(self) -> str:
+        if self.repository or self.deployment:
+            return "Links connect this project to acquisition receipts; impact, performance and contribution claims still require separate verification."
+        return "Project is declared on resume without verified repository or deployment sources."
+
+    def to_dict(self) -> dict[str, Any]:
+        data = self.model_dump()
+        data["title"] = self.title
+        data["description"] = self.description
+        data["source_urls"] = self.source_urls
+        data["status"] = self.status
+        data["explanation"] = self.explanation
+        return data
+
+
 class NormalizedRequirement(BaseModel):
     """Structured requirement produced by JD intake parser."""
 
@@ -1372,6 +1509,7 @@ class Dossier(BaseModel):
     interview_probes: list[ProbePriority]
     interview_questions: list[InterviewQuestion]
     evidence_records: list[EvidenceRecord] = Field(default_factory=list)
+    project_entities: list[ProjectEntity] = Field(default_factory=list)
     evidence_mode: str = "provided"
     scenario: str | None = None
     role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)

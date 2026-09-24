@@ -18,6 +18,7 @@ from cci.domain.contracts import (
     NormalizedRequirement,
     OwnershipAssessment,
     ProbePriority,
+    ProjectEntity,
 )
 from cci.domain.coverage_policy import (
     DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
@@ -137,6 +138,7 @@ def build_candidate_dossier(
     interview_probes: list[ProbePriority],
     interview_questions: list[InterviewQuestion] | None = None,
     evidence_records: list[EvidenceRecord] | None = None,
+    project_entities: list[ProjectEntity] | None = None,
     rci: float | None = None,
     coverage: float = 0.0,
     is_insufficient_evidence: bool | None = None,
@@ -183,4 +185,5 @@ def build_candidate_dossier(
         interview_probes=interview_probes,
         interview_questions=interview_questions,
         evidence_records=evidence_records or [],
+        project_entities=project_entities or [],
     )
