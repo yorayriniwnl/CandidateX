@@ -92,6 +92,22 @@ class Fetcher:
             if not self.budget_tracker.record_github_call():
                 raise AcquisitionError('budget_exhausted', 'GitHub API call budget exceeded for this analysis run.')
 
+        from cci.cache import get_content_cache
+        content_cache = get_content_cache()
+
+        # Check content-addressable cache for commit archive or git blob
+        m_archive = re.match(r"^/([^/]+)/([^/]+)/zip/([a-fA-F0-9]{40})$", path)
+        if archive and m_archive:
+            cached_archive = content_cache.get_github(f"{m_archive.group(1)}/{m_archive.group(2)}", m_archive.group(3))
+            if cached_archive is not None:
+                return cached_archive.content_bytes
+
+        m_blob = re.match(r"^/repos/([^/]+)/([^/]+)/git/blobs/([a-fA-F0-9]{40})$", path)
+        if not archive and m_blob:
+            cached_blob = content_cache.get_artifact(m_blob.group(3))
+            if cached_blob is not None:
+                return cached_blob.data
+
         # Deduplication cache check (non-archive API calls within this fetcher)
         cache_key = f'gh:{path}'
         if not archive and cache_key in self.cache:
@@ -133,6 +149,10 @@ class Fetcher:
         result = content if archive else json.loads(content)
         if not archive:
             self.cache[cache_key] = result
+            if m_blob:
+                content_cache.put_artifact(m_blob.group(3), result, content_type="application/vnd.github.blob+json")
+        elif m_archive:
+            content_cache.put_github(f"{m_archive.group(1)}/{m_archive.group(2)}", m_archive.group(3), content)
         return result
 
 

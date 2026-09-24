@@ -94,6 +94,12 @@ def inspect_link(url, deadline, transport=None):
     if parsed.scheme not in ('http', 'https') or not parsed.netloc:
         return {**receipt, 'status': 'invalid_url', 'detail': 'Invalid URL scheme or format; only HTTP and HTTPS are permitted.'}
 
+    from cci.cache import get_content_cache
+    content_cache = get_content_cache()
+    cached = content_cache.get_public_page(url)
+    if cached is not None:
+        return {**cached.receipt, 'cached': True}
+
     max_retries = 2
     for attempt in range(max_retries + 1):
         remaining = deadline - time.monotonic()
@@ -199,8 +205,19 @@ def inspect_link(url, deadline, transport=None):
                             return {**receipt, 'status': 'access_restricted', 'detail': 'The public response is a login or anti-bot gate; its content is not verification evidence.'}
                         if len(excerpt) < 40:
                             return {**receipt, 'status': 'limited_content', 'detail': 'Page is reachable but has insufficient readable text without browser scripts.'}
-                        return {**receipt, 'status': 'observed', 'verification': 'public_page_observed',
+                        final_receipt = {**receipt, 'status': 'observed', 'verification': 'public_page_observed',
                                 'detail': 'Retrieved public page text. Page claims are self-published unless independently confirmed by an issuer; no ownership or skill credit is inferred.'}
+                        content_cache.put_public_page(
+                            canonical_url=url,
+                            content_bytes=bytes(content),
+                            receipt=final_receipt,
+                            etag=response.headers.get('etag'),
+                            last_modified=response.headers.get('last-modified'),
+                            content_type=content_type,
+                            discovered_links=[d['url'] for d in discovered_links if isinstance(d, dict) and 'url' in d],
+                            fetched_at=receipt.get('fetched_at'),
+                        )
+                        return final_receipt
 
                 if retry_needed:
                     continue

@@ -93,14 +93,22 @@ class TestFailureClassification:
 
 
 class TestPublicLinksResilience:
+    def setup_method(self):
+        from cci.cache import get_content_cache
+        get_content_cache().clear()
+
+    def teardown_method(self):
+        from cci.cache import get_content_cache
+        get_content_cache().clear()
+
     def test_rate_limited_429_retries_and_recovers(self):
         transport = MockTransport([
-            httpx.Response(429, headers={"retry-after": "0"}, request=httpx.Request("GET", "http://example.com")),
-            httpx.Response(200, headers={"content-type": "text/html"}, text="<html><head><title>Success</title></head><body>This is valid and long enough public text content.</body></html>", request=httpx.Request("GET", "http://example.com")),
+            httpx.Response(429, headers={"retry-after": "0"}, request=httpx.Request("GET", "http://example.com/ok")),
+            httpx.Response(200, headers={"content-type": "text/html"}, text="<html><head><title>Success</title></head><body>This is valid and long enough public text content.</body></html>", request=httpx.Request("GET", "http://example.com/ok")),
         ])
 
         deadline = time.monotonic() + 10.0
-        res = inspect_link("http://example.com", deadline, transport=transport)
+        res = inspect_link("http://example.com/ok", deadline, transport=transport)
         assert res["status"] == "observed"
         assert transport.call_count == 2
 
@@ -165,6 +173,14 @@ class TestPublicLinksResilience:
 
 
 class TestWebDiscoveryResilience:
+    def setup_method(self):
+        from cci.cache import get_content_cache
+        get_content_cache().clear()
+
+    def teardown_method(self):
+        from cci.cache import get_content_cache
+        get_content_cache().clear()
+
     def test_web_discovery_429_retry_and_terminal(self):
         transport = MockTransport([
             httpx.Response(429, headers={"retry-after": "0"}, request=httpx.Request("GET", "https://example.com/page")),

@@ -506,6 +506,14 @@ class EvidenceDiscoveryFrontier:
         if time.monotonic() >= deadline:
             return "not_scanned", "Time budget reached before fetch started.", receipt, []
 
+        from cci.cache import get_content_cache
+        content_cache = get_content_cache()
+        cached = content_cache.get_public_page(item.canonical_url)
+        if cached is not None:
+            cached_receipt = dict(cached.receipt)
+            cached_receipt["cached"] = True
+            return "fetched", "Retrieved from immutable content cache.", cached_receipt, list(cached.discovered_links)
+
         max_retries = 2
         for attempt in range(max_retries + 1):
             if time.monotonic() >= deadline:
@@ -660,6 +668,16 @@ class EvidenceDiscoveryFrontier:
                                 )
 
                             # Terminal state: fetched
+                            content_cache.put_public_page(
+                                canonical_url=item.canonical_url,
+                                content_bytes=raw_bytes,
+                                receipt=receipt,
+                                etag=response.headers.get("etag"),
+                                last_modified=response.headers.get("last-modified"),
+                                content_type=content_type,
+                                discovered_links=discovered_links,
+                                fetched_at=receipt.get("fetched_at"),
+                            )
                             return "fetched", "Successfully inspected public page.", receipt, discovered_links
 
                     if retry_needed:
