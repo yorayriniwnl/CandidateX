@@ -10,19 +10,30 @@
 
 **Start here: [Live-analysis implementation guide](docs/live-resume-analysis.md)** — supported sources, local setup, hosting, acquisition limits, ownership interpretation, privacy, and verification. The [research demonstration guide](docs/research-demonstration.md) covers synthetic teaching scenarios and experiment boundaries.
 
-Open `/` for the CandidateX landing page and `/analyze` for the research demo. `/research-demo` presents simulated examples. The earlier interface is available at `/workspace`; `/hr` remains a separate sample interface. Public portfolios, deployments, coding profiles and credential pages are inspected when accessible. Login restrictions, missing pages and scan limits are visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
+Open `/` for the CandidateX landing page, `/research-demo` for the synthetic teaching sandbox, and `/analyze` for a separate bounded live-acquisition prototype. **Do not upload real candidate resumes to either demo path.** `/workspace` is the earlier interface; `/hr` is a separate sample surface. The live path reads only candidate-supplied documents and selected public sources. Login restrictions, missing pages and scan limits remain visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
+
+## Visual Evidence
+
+![CandidateX research demo showing the synthetic-only disclosure and simulated evidence controls](docs/readme/research-demo.png)
+
+*The capture shows the actual `/research-demo` interface in its initial state. Its candidate observations and source-review counts are simulated; that route does not fetch external repositories.*
+
+![CandidateX data flow separating the synthetic research demo from bounded live analysis and showing human review](docs/readme/evidence-flow.svg)
+
+*The diagram separates fixed synthetic research scenarios from the `/analyze` prototype, which accepts candidate-supplied files and selected public URLs. Candidate code is inspected statically and never executed. Both paths produce review material for a human interviewer; results are not validated for employment decisions.*
 
 ---
 
 ## Table of Contents
 
-1. [Core Product Invariants](#core-product-invariants)
-2. [System Architecture & Monorepo Structure](#system-architecture--monorepo-structure)
-3. [Formal Mathematical Framework](#formal-mathematical-framework)
-4. [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies)
-5. [Quickstart & Local Development](#quickstart--local-development)
-6. [Local Docker Integration Stack](#local-docker-integration-stack)
-7. [Verification & Test Matrix](#verification--test-matrix)
+1. [Visual Evidence](#visual-evidence)
+2. [Core Product Invariants](#core-product-invariants)
+3. [System Architecture & Monorepo Structure](#system-architecture--monorepo-structure)
+4. [Formal Mathematical Framework](#formal-mathematical-framework)
+5. [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies)
+6. [Quickstart & Local Development](#quickstart--local-development)
+7. [Local Docker Integration Stack](#local-docker-integration-stack)
+8. [Verification & Test Matrix](#verification--test-matrix)
 
 ---
 
