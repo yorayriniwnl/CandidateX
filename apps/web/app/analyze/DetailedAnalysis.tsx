@@ -9,7 +9,7 @@ export function ResumeSections({ intake }: { intake: ResumeIntake }) {
     {Object.entries(intake.resume_review?.sections ?? {}).filter(([key]) => !['header', 'skills', 'other'].includes(key)).map(([key, lines]) =>
       <details className={styles.evidence} key={key}><summary>{label(key)} · {lines.length} extracted lines</summary>
         {lines.map((line, i) => <p className={live.claim} key={i}>{line}</p>)}
-        <p className={styles.muted}>Résumé declaration · not independently verified</p>
+        <p className={styles.muted}>Résumé declaration · not independently corroborated</p>
       </details>)}
     {intake.resume_review?.observations.map(text => <p className={styles.warning} key={text}>{text}</p>)}
   </div>;
@@ -50,7 +50,7 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
     {source.final_url && source.final_url !== source.url && <p className={live.sourceUrl}>Final destination: <a href={publicUrl(source.final_url)} target="_blank" rel="noreferrer">{source.final_url}</a></p>}
     {source.discovered_links && source.discovered_links.length > 0 && <details className={styles.evidence}><summary>Links discovered on this page · {source.discovered_links.length}</summary>
       {source.discovered_links.map(link => <p className={live.sourceUrl} key={link.url}><a href={publicUrl(link.url)} target="_blank" rel="noreferrer">{link.url}</a> · {label(link.kind)}</p>)}
-      <p className={styles.muted}>Discovery does not imply that a linked page was fetched or verified in this run.</p>
+      <p className={styles.muted}>Discovery does not imply that a linked page was fetched or corroborated in this run.</p>
     </details>}
     {source.excerpt && <details className={styles.evidence}><summary>Inspect retrieved page text · {label(source.verification || 'not_verified')}</summary>
       <pre className={live.extracted}>{source.excerpt}</pre><p className={styles.hash}>Content SHA-256: {source.content_sha256}</p>

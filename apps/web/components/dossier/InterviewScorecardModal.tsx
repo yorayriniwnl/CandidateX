@@ -58,7 +58,7 @@ const RECOMMENDATION_CONFIG: Record<
 > = {
   strong_hire: {
     label: 'Strong Hire',
-    desc: 'Clear technical mastery across core capabilities',
+    desc: 'Clear technical depth across core capabilities',
     variant: 'primary',
     activeClassOverride: '!bg-emerald-500/20 !border-emerald-500 !text-emerald-300 ring-1 ring-emerald-500/40',
   },
@@ -76,7 +76,7 @@ const RECOMMENDATION_CONFIG: Record<
   },
   no_hire: {
     label: 'No Hire',
-    desc: 'Significant contradictions or severe lack of verified competence',
+    desc: 'Significant discrepancies or severe lack of demonstrated competence',
     variant: 'danger',
     activeClassOverride: '!bg-rose-500/20 !border-rose-500 !text-rose-300 ring-1 ring-rose-500/40',
   },
@@ -491,7 +491,7 @@ export const InterviewScorecardModal: React.FC<InterviewScorecardModalProps> = (
                                   Capability Gap / Contradiction Resolved
                                 </span>
                                 <span className="text-slate-400 block text-[11px]">
-                                  Check if the candidate successfully defended this area and demonstrated verified competence.
+                                  Check if the candidate successfully defended this area and demonstrated concrete competence.
                                 </span>
                               </div>
                             </label>

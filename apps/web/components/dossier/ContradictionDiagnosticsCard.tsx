@@ -48,7 +48,7 @@ export const ContradictionDiagnosticsCard: React.FC<{
         {meaningfulConflicts.length > 0 ? (
           <GlowBadge variant="warning" className="gap-1.5 font-semibold">
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>{meaningfulConflicts.length} meaningful conflict(s) detected</span>
+            <span>{meaningfulConflicts.length} meaningful discrepancy(ies) detected</span>
           </GlowBadge>
         ) : (
           <GlowBadge variant="success" className="gap-1.5 font-semibold">
@@ -96,7 +96,7 @@ export const ContradictionDiagnosticsCard: React.FC<{
                   {conflict.has_meaningful_conflict ? (
                     <GlowBadge variant="danger" size="sm" className="font-bold uppercase tracking-wider flex items-center gap-1">
                       <Flame className="w-2.5 h-2.5" />
-                      Conflict
+                      Discrepancy
                     </GlowBadge>
                   ) : totalMass > 0 ? (
                     <GlowBadge variant="success" size="sm" className="font-medium">

@@ -92,7 +92,7 @@ export const CANONICAL_REAL_STAGES: RealAnalysisStage[] = [
     id: 'credentials',
     stageName: 'Credential Confirmation',
     defaultMetricLabel: '6 credentials reviewed',
-    description: 'Third-party authorized issuer records (Credly, AWS, Coursera) validated.',
+    description: 'Third-party authorized issuer records (Credly, AWS, Coursera) inspected.',
     icon: <Award className="w-4 h-4 text-yellow-400" />,
   },
   {
@@ -179,14 +179,14 @@ export const PipelineTracker: React.FC<PipelineTrackerProps> = ({
           <div>
             <h2 className="text-base font-bold text-white">Analysis Pipeline Progression</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Backend-derived execution stages · Discrete verified checkpoints (No fake progress bar)
+              Backend-derived execution stages · Discrete completed checkpoints (No fake progress bar)
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs px-3 py-1 bg-slate-800/80 text-slate-300 border border-slate-700/60 rounded-full font-medium">
-            {completedCount} / {stages.length} Checkpoints Verified
+            {completedCount} / {stages.length} Checkpoints Completed
           </span>
           {isComplete && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold">
@@ -282,7 +282,7 @@ export const PipelineTracker: React.FC<PipelineTrackerProps> = ({
           <div className="text-xs text-slate-400 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>
-              All 11 discrete pipeline checkpoints verified. Technical dossier and Candidate Evidence Graph synthesized.
+              All 11 discrete pipeline checkpoints completed. Technical dossier and Candidate Evidence Graph synthesized.
             </span>
           </div>
 

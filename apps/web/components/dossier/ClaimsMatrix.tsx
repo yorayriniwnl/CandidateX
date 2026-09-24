@@ -231,8 +231,8 @@ export const ClaimsMatrix: React.FC<{
       </motion.div>
 
       <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-white/[0.06]">
-        <span>* Claims extracted strictly from CV and verified against concrete repository manifests.</span>
-        <span>Unknown indicates absence of evidence in declared links, not proven falsehood.</span>
+        <span>* Claims extracted strictly from CV and checked against concrete repository manifests.</span>
+        <span>Unknown indicates absence of evidence in declared links, not demonstrated falsehood or lack of skill.</span>
       </div>
     </GlassCard>
   );

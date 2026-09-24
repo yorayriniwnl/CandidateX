@@ -163,7 +163,7 @@ export const HowItWorksModal: React.FC<{
                         <span className="text-sm font-semibold text-slate-200">Technical Readiness Score</span>
                       </div>
                       <p className="text-slate-400 text-sm leading-relaxed">
-                        A 0–100 composite score measuring demonstrated technical competence weighted specifically for the target role. Calculated strictly over verified evidence (unobserved capabilities never drag the score down to zero).
+                        A 0–100 composite score measuring demonstrated technical competence weighted specifically for the target role. Calculated strictly over observed evidence (unobserved capabilities never drag the score down to zero).
                       </p>
                     </GlassCard>
                   </motion.div>
@@ -176,7 +176,7 @@ export const HowItWorksModal: React.FC<{
                         <span className="text-sm font-semibold text-slate-200">Observation Breadth</span>
                       </div>
                       <p className="text-slate-400 text-sm leading-relaxed">
-                        The proportion of role requirements that have verifiable repository or work artifact evidence. A coverage of 25% means 3 out of 12 skills have public code proof; the remaining 9 are flagged for in-person interview verification.
+                        The proportion of role requirements that have observable repository or work artifact evidence. A coverage of 25% means 3 out of 12 skills have public code observations; the remaining 9 are flagged for in-person interview exploration.
                       </p>
                     </GlassCard>
                   </motion.div>
@@ -214,7 +214,7 @@ export const HowItWorksModal: React.FC<{
 
         <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-800/50">
           <span className="text-xs text-slate-500">
-            Powered by 10 Verified Formal Theorems • Pure Functional Rescoring
+            Powered by 10 Formal Theorems • Pure Functional Rescoring
           </span>
           <GlassButton variant="primary" onClick={onClose}>
             Got It, Let's Explore

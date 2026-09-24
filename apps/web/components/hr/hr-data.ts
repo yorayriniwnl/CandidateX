@@ -107,7 +107,7 @@ export function summarizeDossier(dossier: Dossier): HRDecisionSupportSummary {
   // 1. Evidence Available
   const evidenceAvailable = [
     `Evidence coverage: ${(dossier.coverage * 100).toFixed(1)}% across ${Object.keys(dossier.capability_estimates || {}).length} technical dimensions.`,
-    `${dossier.evidence_records?.length || 0} immutable evidence records indexed from verified sources.`,
+    `${dossier.evidence_records?.length || 0} immutable evidence records indexed from inspected sources.`,
     `${dossier.project_entities?.length || 0} project entities and ${dossier.ownership_assessments?.length || 0} repository ownership records attributed.`,
   ];
 

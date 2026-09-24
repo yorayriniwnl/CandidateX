@@ -240,7 +240,7 @@ export const CandidateDirectory: React.FC<{
       const itemIndex = idx + 1;
       const rciStr = c.rci !== null && c.rci !== undefined ? `${c.rci.toFixed(1)} / 100` : 'UNKNOWN';
       const covStr = c.coverage !== null && c.coverage !== undefined ? `${(c.coverage * 100).toFixed(1)}%` : '0.0%';
-      const conflictStr = c.has_meaningful_conflict ? '⚠️ Conflict Detected' : 'Aligned';
+      const conflictStr = c.has_meaningful_conflict ? '⚠️ Discrepancy Detected' : 'Aligned';
       const roleStr = c.role || 'Unspecified';
       lines.push(`| ${itemIndex} | ${c.display_name} | ${roleStr} | ${rciStr} | ${covStr} | ${conflictStr} |`);
     });
@@ -279,7 +279,7 @@ export const CandidateDirectory: React.FC<{
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">Candidate Directory</h2>
             <p className="text-xs text-slate-400">
-              Evaluated technical cohorts with verified dossiers, RCI ratings, and contradiction alerts
+              Evaluated technical cohorts with evidence dossiers, RCI indicators, and contradiction diagnostics
             </p>
           </div>
         </div>
@@ -289,7 +289,7 @@ export const CandidateDirectory: React.FC<{
             type="button"
             onClick={handleExportCohortMarkdown}
             className="px-3 py-1.5 glass hover:bg-white/[0.08] text-slate-300 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5"
-            title="Download complete cohort rankings as Markdown"
+            title="Download complete cohort decision support summary as Markdown"
           >
             <Download className="w-3.5 h-3.5 text-brand-400" />
             <span>Export (.md)</span>
@@ -333,7 +333,7 @@ export const CandidateDirectory: React.FC<{
           <div>
             <span className="font-semibold text-white">How to explore:</span>
             <span className="text-slate-400 ml-1.5">
-              Click &ldquo;View Dossier&rdquo; on any candidate to inspect verified code capabilities, or select up to 3 candidates with &ldquo;Compare&rdquo; for side-by-side analysis.
+              Click &ldquo;View Dossier&rdquo; on any candidate to inspect observed code capabilities, or select up to 3 candidates with &ldquo;Compare&rdquo; for side-by-side analysis.
             </span>
           </div>
         </div>
@@ -425,9 +425,9 @@ export const CandidateDirectory: React.FC<{
               className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500/50 transition-colors"
             >
               <option value="all" className="bg-slate-900">All States</option>
-              <option value="robust" className="bg-slate-900">Robust Evidence</option>
+              <option value="robust" className="bg-slate-900">Substantial Evidence</option>
               <option value="sparse" className="bg-slate-900">Sparse Warning</option>
-              <option value="conflict" className="bg-slate-900">Conflict Flagged</option>
+              <option value="conflict" className="bg-slate-900">Discrepancy Flagged</option>
             </select>
 
             <select
@@ -439,7 +439,7 @@ export const CandidateDirectory: React.FC<{
               <option value="rci_asc" className="bg-slate-900">Sort: RCI (Low &rarr; High)</option>
               <option value="coverage_desc" className="bg-slate-900">Sort: Coverage (High &rarr; Low)</option>
               <option value="name_asc" className="bg-slate-900">Sort: Name (A &rarr; Z)</option>
-              <option value="conflict_first" className="bg-slate-900">Sort: Conflicts First</option>
+              <option value="conflict_first" className="bg-slate-900">Sort: Discrepancies First</option>
             </select>
 
             <div className="flex items-center glass rounded-xl p-0.5 text-xs">
@@ -649,7 +649,7 @@ export const CandidateDirectory: React.FC<{
 
                       <td className="py-3 px-4 text-center">
                         {candidate.has_meaningful_conflict ? (
-                          <GlowBadge variant="danger" size="sm">Conflict Flagged</GlowBadge>
+                          <GlowBadge variant="danger" size="sm">Discrepancy Flagged</GlowBadge>
                         ) : (
                           <GlowBadge variant="success" size="sm">Aligned</GlowBadge>
                         )}

@@ -322,7 +322,7 @@ export const CandidateComparison: React.FC<{
                           </span>
                         </div>
                         <GlowBadge variant={hasConflict ? 'danger' : isLowCov ? 'warning' : 'success'} size="sm">
-                          {hasConflict ? 'Conflict Flag' : isLowCov ? 'Sparse Evidence' : 'Robust Evidence'}
+                          {hasConflict ? 'Discrepancy Flag' : isLowCov ? 'Sparse Evidence' : 'Substantial Evidence'}
                         </GlowBadge>
                       </div>
 
@@ -515,7 +515,7 @@ export const CandidateComparison: React.FC<{
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                       <span className="font-bold text-sm text-slate-200">{sub.name}</span>
                       <GlowBadge variant={flagged.length > 0 ? 'danger' : 'success'} size="sm">
-                        {flagged.length > 0 ? `${flagged.length} Conflict(s)` : 'All Consistent'}
+                        {flagged.length > 0 ? `${flagged.length} Discrepancy(ies)` : 'All Consistent'}
                       </GlowBadge>
                     </div>
 

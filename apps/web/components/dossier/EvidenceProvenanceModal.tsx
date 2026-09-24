@@ -141,7 +141,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
         name: 'Source Authority',
         symbol: 'a',
         value: a,
-        description: 'Verified repository host, official enterprise organization, or authenticated source.',
+        description: 'Inspected repository host, official enterprise organization, or authenticated source.',
         tooltipText: 'Parser and artifact integrity score',
       },
       {
@@ -249,7 +249,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
             </span>
             <div className="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Full Chain Verified</span>
+              <span>Complete Provenance Chain</span>
             </div>
           </GlassCard>
 
@@ -507,7 +507,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                     <div>&bull; `AsyncIOEventLoop.create_server` (Non-blocking TCP socket reactor)</div>
                     <div>&bull; `HashRingPartitioner.get_node` (Consistent hashing ring)</div>
                     <div>&bull; `async with Lock()` (Concurrency synchronization primitive)</div>
-                    <div>&bull; Zero dynamic code execution (Invariant verified)</div>
+                    <div>&bull; Zero dynamic code execution (Static-only enforcement)</div>
                   </div>
                 </div>
               </GlassCard>

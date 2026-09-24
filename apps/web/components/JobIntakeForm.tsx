@@ -25,23 +25,23 @@ const CANONICAL_ROLES: { id: CanonicalRole; title: string; description: string }
 const ROLE_JD_TEMPLATES: Record<CanonicalRole, { title: string; text: string }> = {
   backend: {
     title: 'Senior Backend Distributed Infrastructure Engineer',
-    text: `We are seeking a Senior Backend Engineer to architect high-throughput microservices.\n\nMandatory Requirements:\n- 5+ years of experience with Python (FastAPI/SQLAlchemy) or Go.\n- Proven expertise in relational schema design and PostgreSQL optimization.\n- Strong unit and integration testing habits (pytest/mocks).\n\nPreferred:\n- Experience with Docker, Kubernetes, and automated CI/CD.\n- Knowledge of Kafka and distributed event streaming.`,
+    text: `We are seeking a Senior Backend Engineer to architect high-throughput microservices.\n\nMandatory Requirements:\n- 5+ years of experience with Python (FastAPI/SQLAlchemy) or Go.\n- Demonstrated expertise in relational schema design and PostgreSQL optimization.\n- Strong unit and integration testing habits (pytest/mocks).\n\nPreferred:\n- Experience with Docker, Kubernetes, and automated CI/CD.\n- Knowledge of Kafka and distributed event streaming.`,
   },
   frontend: {
     title: 'Staff Frontend Platform & Web Applications Engineer',
-    text: `We are looking for a Staff Frontend Platform Engineer to drive web experience.\n\nMandatory Requirements:\n- 5+ years of extensive experience building production web applications in modern TypeScript and React / Next.js.\n- Deep understanding of browser architecture and Core Web Vitals performance profiling.\n- Rigorous commitment to web accessibility (WCAG 2.1 AA/AAA, WAI-ARIA authoring practices).\n- Proven expertise writing automated frontend tests with Jest/Vitest and Playwright.\n\nPreferred:\n- Micro-frontends, module federation, or Turborepo.\n- Client-side state machines, GraphQL, or WebSockets.`,
+    text: `We are looking for a Staff Frontend Platform Engineer to drive web experience.\n\nMandatory Requirements:\n- 5+ years of extensive experience building production web applications in modern TypeScript and React / Next.js.\n- Deep understanding of browser architecture and Core Web Vitals performance profiling.\n- Rigorous commitment to web accessibility (WCAG 2.1 AA/AAA, WAI-ARIA authoring practices).\n- Demonstrated expertise writing automated frontend tests with Jest/Vitest and Playwright.\n\nPreferred:\n- Micro-frontends, module federation, or Turborepo.\n- Client-side state machines, GraphQL, or WebSockets.`,
   },
   fullstack: {
     title: 'Lead Fullstack Product Engineer',
-    text: `We are looking for an experienced Fullstack Engineer to drive core product features.\n\nMandatory Requirements:\n- 5+ years of fullstack web engineering experience delivering production applications.\n- Strong proficiency in modern TypeScript, React, and server-side frameworks (Node.js or Python).\n- Deep hands-on experience with relational databases (PostgreSQL) and caching systems (Redis).\n- Proven track record building and testing end-to-end applications (unit, integration, and E2E tests).\n\nPreferred:\n- Experience with GraphQL, tRPC, or schema-driven API generation.\n- Hands-on deployment experience with Docker and AWS.`,
+    text: `We are looking for an experienced Fullstack Engineer to drive core product features.\n\nMandatory Requirements:\n- 5+ years of fullstack web engineering experience delivering production applications.\n- Strong proficiency in modern TypeScript, React, and server-side frameworks (Node.js or Python).\n- Deep hands-on experience with relational databases (PostgreSQL) and caching systems (Redis).\n- Demonstrated track record building and testing end-to-end applications (unit, integration, and E2E tests).\n\nPreferred:\n- Experience with GraphQL, tRPC, or schema-driven API generation.\n- Hands-on deployment experience with Docker and AWS.`,
   },
   ml_engineer: {
     title: 'Senior Machine Learning & Applied AI Systems Engineer',
-    text: `We are seeking a Senior Machine Learning Engineer to design and deploy foundation models.\n\nMandatory Requirements:\n- 4+ years of hands-on production experience training and serving machine learning models in Python and PyTorch.\n- Strong practical knowledge of modern transformer architectures, fine-tuning (LoRA, PEFT), and embedding models.\n- Experience deploying real-time model inference at scale (vLLM, Triton, TensorRT, or ONNX Runtime).\n- Demonstrated mastery of model evaluation methodologies, calibration metrics, and regression testing in CI.\n\nPreferred:\n- Distributed training frameworks (DeepSpeed, FSDP, Ray).\n- Hands-on deployment of vector search engines (Qdrant, Milvus, FAISS).`,
+    text: `We are seeking a Senior Machine Learning Engineer to design and deploy foundation models.\n\nMandatory Requirements:\n- 4+ years of hands-on production experience training and serving machine learning models in Python and PyTorch.\n- Strong practical knowledge of modern transformer architectures, fine-tuning (LoRA, PEFT), and embedding models.\n- Experience deploying real-time model inference at scale (vLLM, Triton, TensorRT, or ONNX Runtime).\n- Demonstrated depth in model evaluation methodologies, calibration metrics, and regression testing in CI.\n\nPreferred:\n- Distributed training frameworks (DeepSpeed, FSDP, Ray).\n- Hands-on deployment of vector search engines (Qdrant, Milvus, FAISS).`,
   },
   devops_cloud: {
     title: 'Staff Site Reliability & Cloud Infrastructure Engineer',
-    text: `We are looking for a Staff Site Reliability Engineer to design, scale, and automate infrastructure.\n\nMandatory Requirements:\n- 5+ years in production Site Reliability Engineering, DevOps, or Cloud Infrastructure roles.\n- Expert-level proficiency with Kubernetes administration, networking, security policies, and debugging.\n- Advanced mastery of Terraform / Infrastructure as Code and cloud architecture (AWS or GCP).\n- Strong experience with production observability stacks (Prometheus, Grafana, OpenTelemetry, Datadog).\n\nPreferred:\n- Modern eBPF networking, service mesh (Cilium, Istio), or zero-trust network policies.\n- Hands-on experience with chaos engineering tools (Chaos Mesh, Gremlin).`,
+    text: `We are looking for a Staff Site Reliability Engineer to design, scale, and automate infrastructure.\n\nMandatory Requirements:\n- 5+ years in production Site Reliability Engineering, DevOps, or Cloud Infrastructure roles.\n- Expert-level proficiency with Kubernetes administration, networking, security policies, and debugging.\n- Advanced capability in Terraform / Infrastructure as Code and cloud architecture (AWS or GCP).\n- Strong experience with production observability stacks (Prometheus, Grafana, OpenTelemetry, Datadog).\n\nPreferred:\n- Modern eBPF networking, service mesh (Cilium, Istio), or zero-trust network policies.\n- Hands-on experience with chaos engineering tools (Chaos Mesh, Gremlin).`,
   },
   data_engineer: {
     title: 'Senior Data Platform Engineer',
@@ -70,7 +70,7 @@ export const JobIntakeForm: React.FC<{
     },
     {
       requirement_id: 'req-2',
-      source_text: 'Proven expertise in relational schema design and PostgreSQL optimization',
+      source_text: 'Demonstrated expertise in relational schema design and PostgreSQL optimization',
       normalized_name: 'PostgreSQL Relational Schema Design',
       priority: 'mandatory',
       capability_mappings: ['database_engineering'],

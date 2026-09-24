@@ -75,7 +75,7 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
     id: '77777777-7777-7777-7777-777777777777',
     name: 'Quinn Avery (SYNTHETIC DEMONSTRATION DATA)',
     role: 'backend',
-    label: 'Backend Conflict Demo',
+    label: 'Backend Discrepancy Demo',
     badge: 'Contradiction Alert (D_k < 0)',
     variant: 'danger',
     manifest: {

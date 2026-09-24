@@ -162,7 +162,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                     Discrepancy Detected ({conflictEntries.length}):
                   </span>
                   <p className="text-rose-200/80 mt-0.5 leading-normal">
-                    Claims vs. code conflict in{' '}
+                    Claims vs. code discrepancy in{' '}
                     <span className="font-semibold text-white">
                       {conflictEntries.map(([k]) => CAPABILITY_NAMES[k as CapabilityKey] || k).join(', ')}
                     </span>
@@ -245,7 +245,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                           {CAPABILITY_NAMES[capKey] || key}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5 mb-1.5">
-                          {est.effective_evidence_count.toFixed(1)} code proofs
+                          {est.effective_evidence_count.toFixed(1)} observations
                         </div>
                         <ProgressBar value={score / 100} color={barColor} size="sm" showValue={false} />
                       </div>
@@ -253,7 +253,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                         <div className="text-sm font-bold text-emerald-400 font-[family-name:var(--font-mono)]">
                           {score.toFixed(1)}
                         </div>
-                        <div className="text-[9px] text-slate-500 uppercase">Verified</div>
+                        <div className="text-[9px] text-slate-500 uppercase">Observed</div>
                       </div>
                     </button>
                   );
@@ -263,7 +263,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
                     <TrendingUp className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <div className="text-sm text-slate-300 font-medium">No verified evidence observed yet</div>
+                  <div className="text-sm text-slate-300 font-medium">No empirical evidence observed yet</div>
                   <div className="text-xs text-slate-500">Candidate's repositories are being analyzed.</div>
                 </div>
               )}
@@ -325,8 +325,8 @@ export const DossierOverviewTab: React.FC<Props> = ({
                   <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
                     <Search className="w-5 h-5 text-amber-400" />
                   </div>
-                  <div className="text-sm text-slate-300 font-medium">All capabilities verified</div>
-                  <div className="text-xs text-slate-500">Direct evidence found for all 12 core dimensions.</div>
+                  <div className="text-sm text-slate-300 font-medium">All evaluated capabilities observed</div>
+                  <div className="text-xs text-slate-500">Direct evidence found for all evaluated dimensions.</div>
                 </div>
               )}
             </div>

@@ -712,7 +712,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                 <div className="text-xs text-slate-300 font-sans">
                   {t7Positive > 1.0 && t7Negative > 1.0 ? (
                     <span className="inline-flex items-center gap-1 text-amber-400 font-semibold">
-                      <Flame className="w-3.5 h-3.5" /> High Conflict: Triggers Prioritized Interview Probe
+                      <Flame className="w-3.5 h-3.5" /> High Discrepancy: Triggers Prioritized Interview Probe
                     </span>
                   ) : t7Dk > 0.3 ? (
                     <span className="text-emerald-400 font-medium">Strong positive evidence dominance</span>

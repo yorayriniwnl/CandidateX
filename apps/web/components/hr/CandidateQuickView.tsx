@@ -168,7 +168,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
                 title="2. Role-Relevant Strengths Observed"
                 tone="strength"
                 items={summary?.roleStrengths || []}
-                empty="No independently verified strengths observed in public artifacts. This is not a negative assessment."
+                empty="No independently corroborated strengths observed in public artifacts. This is not a negative assessment."
               />
             </div>
 

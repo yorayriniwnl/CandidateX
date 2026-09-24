@@ -109,7 +109,7 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     id: '77777777-7777-7777-7777-777777777777',
     name: 'Quinn Avery (SYNTHETIC DEMONSTRATION DATA)',
     email: 'quinn@example.test',
-    role: 'Backend (Conflict Test)',
+    role: 'Backend (Discrepancy Test)',
     badge: 'Contradiction Flag',
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     badgeVariant: 'danger',

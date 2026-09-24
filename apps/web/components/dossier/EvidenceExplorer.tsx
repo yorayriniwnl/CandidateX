@@ -683,13 +683,13 @@ export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({
                       Credentials & Certifications
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
-                      Third-party verified credentials from authorized issuers (Credly, Coursera, AWS, etc.).
+                      Third-party issuer credentials from authorized authorities (Credly, Coursera, AWS, etc.).
                     </p>
                   </div>
 
                   {credentials.length === 0 ? (
                     <div className="p-8 text-center text-xs text-slate-500">
-                      No third-party verified credentials or certification claims registered.
+                      No third-party issuer credentials or certification claims registered.
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1305,7 +1305,7 @@ export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({
 
             {/* Hop 4: Artifact */}
             <div className="space-y-1.5 border-l-2 border-emerald-500 pl-3">
-              <div className="text-[10px] font-bold uppercase text-emerald-400">Hop 4: Verified Artifact</div>
+              <div className="text-[10px] font-bold uppercase text-emerald-400">Hop 4: Inspected Artifact</div>
               <div className="p-2.5 bg-slate-900/60 rounded border border-slate-800 text-[11px] text-slate-300 space-y-1">
                 <div>Artifact Path: <span className="font-mono text-emerald-300">Controlled Code / Schema Observation</span></div>
                 <div>Attribution: <span className="font-mono text-slate-400">Attributed to Declared Identity</span></div>
@@ -1317,7 +1317,7 @@ export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({
               <div className="text-[10px] font-bold uppercase text-amber-400">Hop 5: Immutable Revision & Hash</div>
               <div className="p-2.5 bg-slate-900/60 rounded border border-slate-800 text-[11px] text-slate-300 space-y-1">
                 <div>Commit SHA / Hash: <span className="font-mono text-amber-300">Pinned Git Revision</span></div>
-                <div>Integrity Fingerprint: <span className="font-mono text-slate-400">SHA-256 Verified Static Record</span></div>
+                <div>Integrity Fingerprint: <span className="font-mono text-slate-400">SHA-256 Hash-Validated Record</span></div>
               </div>
             </div>
           </div>

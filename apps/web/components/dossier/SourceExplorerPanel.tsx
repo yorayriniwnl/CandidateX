@@ -180,7 +180,7 @@ export const SourceExplorerPanel: React.FC<SourceExplorerPanelProps> = ({
             discovery_reason: 'Discovered in candidatex-distributed-kv README.md banner link',
             files_inspected: 1,
             evidence_count: 3,
-            status_detail: 'HTTP 200 OK; SSL TLS 1.3 verified; health endpoint responsive.',
+            status_detail: 'HTTP 200 OK; SSL TLS 1.3 confirmed; health endpoint responsive.',
             children: [
               {
                 source_id: 'src-api-metrics',
@@ -258,7 +258,7 @@ export const SourceExplorerPanel: React.FC<SourceExplorerPanelProps> = ({
             discovery_depth: 1,
             discovery_reason: 'Discovered in certifications section of portfolio',
             evidence_count: 2,
-            status_detail: 'Verified issuer Credly badge with authorized cryptographic receipt.',
+            status_detail: 'Issuer-corroborated Credly badge with authorized cryptographic receipt.',
           },
           {
             source_id: 'src-queued-medium-article',

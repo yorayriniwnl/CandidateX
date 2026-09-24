@@ -215,7 +215,7 @@ export default function ResearchDemonstration() {
                         <span className="block text-slate-500 text-xs">Weighted observability</span>
                       </div>
                       <div className="bg-[#0a0f1e] border border-white/[0.05] p-5 rounded-xl">
-                        <span className="block text-slate-400 text-xs mb-2">Conflicted capabilities</span>
+                        <span className="block text-slate-400 text-xs mb-2">Discrepant capabilities</span>
                         <strong data-testid="conflict-count" className="block text-3xl font-bold tracking-tight mb-1">{conflictCount}</strong>
                         <span className="block text-slate-500 text-xs">Signals to investigate</span>
                       </div>
@@ -223,7 +223,7 @@ export default function ResearchDemonstration() {
 
                     {dossier.is_insufficient_evidence && (
                       <div className="text-amber-200/90 text-sm mb-4 bg-amber-900/20 p-3 rounded-lg border border-amber-900/30">
-                        Insufficient evidence: coverage is below {percent(result.scoring_config.low_coverage_threshold)}. The RCI describes observed capabilities only; this dossier cannot support a complete ranking.
+                        Insufficient evidence: coverage is below {percent(result.scoring_config.low_coverage_threshold)}. The RCI describes observed capabilities only; this dossier cannot support candidate comparison or ranking decisions.
                       </div>
                     )}
                     <p className="text-slate-400 text-sm">{dossier.evidence_records.length} observations · {new Set(dossier.evidence_records.map(e => e.cluster_id)).size} project clusters · scenario: {label(dossier.scenario)}</p>
@@ -262,7 +262,7 @@ export default function ResearchDemonstration() {
                             <th className="py-3 px-4 border-b border-white/[0.05] text-slate-400 font-medium">Estimate</th>
                             <th className="py-3 px-4 border-b border-white/[0.05] text-slate-400 font-medium">Coverage</th>
                             <th className="py-3 px-4 border-b border-white/[0.05] text-slate-400 font-medium">95% interval</th>
-                            <th className="py-3 px-4 border-b border-white/[0.05] text-slate-400 font-medium">Conflict</th>
+                            <th className="py-3 px-4 border-b border-white/[0.05] text-slate-400 font-medium">Discrepancy</th>
                           </tr>
                         </thead>
                         <tbody>

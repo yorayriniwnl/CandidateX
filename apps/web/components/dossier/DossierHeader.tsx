@@ -263,7 +263,7 @@ export const DossierHeader: React.FC<{
               </span>
               <span className="text-xs text-slate-500 font-mono">/ 100</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Weighted composite of verified code capabilities</p>
+            <p className="text-[10px] text-slate-400 mt-1">Weighted composite of observed code capabilities</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-brand-500/15 text-brand-400 flex items-center justify-center shrink-0">
             <Award className="w-5 h-5" />
@@ -274,7 +274,7 @@ export const DossierHeader: React.FC<{
         <GlassCard variant="subtle" glow={isLowCoverage ? 'amber' : 'emerald'} className="flex items-center justify-between p-4">
           <div>
             <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
-              Verified Code Coverage
+              Observed Evidence Coverage
             </span>
             <div className="flex items-baseline gap-2">
               <span className={`text-2xl font-black ${isLowCoverage ? 'text-amber-400' : 'text-emerald-400'} font-mono`}>
