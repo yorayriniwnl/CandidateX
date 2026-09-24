@@ -8,6 +8,7 @@ import {
   MessageSquare,
   FileCheck2,
   GitFork,
+  ShieldCheck,
 } from 'lucide-react';
 import { CapabilityKey, CanonicalRole, Dossier, CEGGraph } from '../../types/cci';
 import { TabSlider } from '../ui/TabSlider';
@@ -22,10 +23,12 @@ import { ExpertWeightOverrideModal } from './ExpertWeightOverrideModal';
 import { InterviewScorecardModal } from './InterviewScorecardModal';
 import { AuditTrailViewer } from './AuditTrailViewer';
 import { EvidenceProvenanceModal } from './EvidenceProvenanceModal';
+import { EvidenceExplorer } from './EvidenceExplorer';
 
-type DossierSubTab = 'overview' | 'capabilities' | 'probes' | 'claims' | 'graph';
+type DossierSubTab = 'explorer' | 'overview' | 'capabilities' | 'probes' | 'claims' | 'graph';
 
 const DOSSIER_TABS = (probeCount: number) => [
+  { key: 'explorer', label: 'Evidence Explorer (21 Views)', icon: <ShieldCheck className="w-4 h-4" /> },
   { key: 'overview', label: 'Executive Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
   { key: 'capabilities', label: '12 Core Capabilities', icon: <Layers className="w-4 h-4" /> },
   { key: 'probes', label: 'Interview Guide', icon: <MessageSquare className="w-4 h-4" />, badge: probeCount > 0 ? probeCount : undefined },
@@ -47,7 +50,7 @@ export const DossierView: React.FC<{
 }> = ({ initialDossier, graph: initialGraph, candidateName = 'Jordan Example (SYNTHETIC DEMONSTRATION DATA)', onSelectCandidate }) => {
   const [graph, setGraph] = useState<CEGGraph>(initialGraph);
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
-  const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('explorer');
   const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
   const [inspectedEvidenceId, setInspectedEvidenceId] = useState<string | null>(null);
   const [isWeightsModalOpen, setIsWeightsModalOpen] = useState(false);
@@ -114,6 +117,17 @@ export const DossierView: React.FC<{
           animate="animate"
           exit="exit"
         >
+          {activeSubTab === 'explorer' && (
+            <EvidenceExplorer
+              dossier={dossier}
+              graph={graph}
+              candidateName={candidateName}
+              onInspectEvidence={(id) => setInspectedEvidenceId(id)}
+              onOpenScorecard={() => setIsScorecardModalOpen(true)}
+              onOpenWeightsModal={() => setIsWeightsModalOpen(true)}
+            />
+          )}
+
           {activeSubTab === 'overview' && (
             <DossierOverviewTab
               dossier={dossier}

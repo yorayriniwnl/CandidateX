@@ -161,9 +161,145 @@ export interface Dossier {
   claims_corroboration: ClaimCorroboration[];
   interview_probes: ProbePriority[];
   interview_questions: InterviewQuestion[];
+  evidence_records?: any[];
+  academic_records?: AcademicRecord[];
+  project_entities?: ProjectEntity[];
+  credentials?: CredentialEntity[];
+  publications?: PublicationEntity[];
+  coding_profiles?: CodingProfileEntity[];
+  quantified_claims?: QuantifiedClaim[];
+  timeline?: CandidateTimeline;
+  source_inventory?: SourceInventoryItem[];
   system_limitations: string[];
   versions: Record<string, string>;
   generated_at: string;
+}
+
+export interface AcademicRecord {
+  institution: string;
+  degree?: string;
+  field_of_study?: string;
+  start_date?: string;
+  end_date?: string;
+  status: string;
+  verification_status: string;
+  coursework?: string[];
+  notes?: string;
+}
+
+export interface ProjectEntity {
+  project_id: string;
+  name: string;
+  resume_claim?: string;
+  repository?: string;
+  deployment?: string;
+  documentation?: string;
+  technologies?: string[];
+  db?: string;
+  backend?: string;
+  frontend?: string;
+  tests?: string;
+  infrastructure?: string;
+  candidate_attribution?: string;
+  recency?: string;
+  credentials_or_publication_relationship?: string;
+  quantitative_claims?: string[];
+  contradictions?: string[];
+  limitations?: string[];
+  trace_links?: TraceLink[];
+}
+
+export interface CredentialEntity {
+  credential_id: string;
+  title: string;
+  issuer: string;
+  issue_date?: string;
+  expiration_date?: string;
+  credential_url?: string;
+  verification_status: 'verified' | 'unverified' | 'expired' | 'issuer_confirmed';
+  notes?: string;
+}
+
+export interface PublicationEntity {
+  publication_id: string;
+  title: string;
+  authors: string[];
+  venue?: string;
+  year?: number;
+  doi?: string;
+  url?: string;
+  provenance_family?: string;
+}
+
+export interface CodingProfileEntity {
+  platform: string;
+  profile_url: string;
+  username: string;
+  solved_count?: number;
+  ranking_percentile?: number;
+  algorithmic_capability_observed: boolean;
+}
+
+export interface QuantifiedClaim {
+  metric: string;
+  value: number | string;
+  unit: string;
+  context: string;
+  source: string;
+  verification_status: 'supported_by_artifacts' | 'portfolio_mention_only' | 'unverified_mention';
+  supporting_artifacts: string[];
+  limitations?: string[];
+}
+
+export interface TimelineEvent {
+  event_id: string;
+  date_or_year: string;
+  category: 'education' | 'experience' | 'repository' | 'deployment' | 'credential' | 'publication';
+  description: string;
+  source_reference?: string;
+}
+
+export interface TimelineInconsistency {
+  inconsistency_type: string;
+  description: string;
+  events_involved: string[];
+}
+
+export interface CandidateTimeline {
+  events: TimelineEvent[];
+  inconsistencies: TimelineInconsistency[];
+}
+
+export interface TraceLink {
+  claim_id: string;
+  evidence_id: string;
+  source_url: string;
+  artifact_path: string;
+  immutable_revision: string;
+  content_fingerprint?: string;
+  line_or_symbol?: string;
+}
+
+export interface EvidenceRecordItem {
+  evidence_id: string;
+  fingerprint: string;
+  source_family: string;
+  source_locator: string;
+  immutable_revision: string;
+  target_capability: CapabilityKey;
+  technical_signal_strength?: number;
+  confidence: number;
+  observation_type: string;
+  provenance?: Record<string, any>;
+}
+
+export interface SourceInventoryItem {
+  source_id: string;
+  url: string;
+  kind: string;
+  status: 'supplied' | 'discovered' | 'queued' | 'fetched' | 'failed' | 'blocked' | 'deferred' | 'not_scanned' | 'observed';
+  discovered_by?: string;
+  discovery_depth?: number;
 }
 
 export interface CEGNode {
