@@ -9,6 +9,8 @@ from cci.domain.contracts import (
     CapabilityEstimate,
     EvidenceConfidenceFactors,
     EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
     NormalizedRequirement,
     RoleProfile,
     ScoringConfig,
@@ -123,6 +125,28 @@ def test_confidence_factor_monotonicity():
 # Equation 3 & 4: Capability Estimate q_k and Effective Count n_eff
 # ---------------------------------------------------------------------------
 
+def _synthetic_negative_details(
+    claim_reference: str = "cr1:" + "a" * 64,
+    candidate_type: str = "candidatex.contradiction.coverage_below_claim",
+) -> NegativeEvidenceDetails:
+    return NegativeEvidenceDetails(
+        claim_reference=claim_reference,
+        candidate_type=candidate_type,
+        expected_observation="line_coverage >= 95%",
+        actual_observation="line_coverage = 70%",
+        scan_scope=NegativeEvidenceScanScope(
+            scope_kind="synthetic",
+            repository_scope=None,
+            pinned_revision=None,
+            artifact_paths=[],
+            category=None,
+        ),
+        required_scan_completeness=1.0,
+        observed_scan_completeness=1.0,
+        explanation="Synthetic negative observation for testing",
+    )
+
+
 def _make_dummy_evidence(
     cap: CapabilityKey,
     score: float,
@@ -134,6 +158,9 @@ def _make_dummy_evidence(
     evidence_family_id: str | None = None,
     observation_type: str = "legacy_unknown",
     artifact_path: str | None = None,
+    is_legacy: bool = False,
+    negative_details: NegativeEvidenceDetails | None = None,
+    claim_reference: str | None = None,
 ) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=conf,
@@ -143,6 +170,12 @@ def _make_dummy_evidence(
         depth_specificity=conf,
         source_reliability=conf,
     )
+    prov = {"artifact_path": artifact_path} if artifact_path else {}
+    details = None
+    if not is_pos and not is_legacy:
+        ref = claim_reference or ("cr1:" + "a" * 64)
+        details = negative_details or _synthetic_negative_details(claim_reference=ref)
+        prov["synthetic"] = True
     return EvidenceRecord(
         fingerprint=fingerprint or str(uuid4()),
         source_family=SourceFamily.GITHUB,
@@ -151,12 +184,13 @@ def _make_dummy_evidence(
         target_capability=cap,
         support_score=score,
         is_positive_support=is_pos,
+        negative_evidence_details=details,
         confidence_factors=factors,
         confidence=conf * ownership,
         cluster_id=cluster,
         evidence_family_id=evidence_family_id,
         observation_type=observation_type,
-        provenance={"artifact_path": artifact_path} if artifact_path else {},
+        provenance=prov,
         analyzer_version="1.0.0",
     )
 
@@ -418,6 +452,55 @@ def test_correlated_conflict_uses_family_weights_and_preserves_all_ids():
         repeated_positive.evidence_id,
         negative.evidence_id,
     }
+
+
+def test_legacy_negative_omitted_from_diagnostic_and_capability():
+    cap = CapabilityKey.TESTING_QUALITY
+    config = ScoringConfig()
+    legacy = _make_dummy_evidence(cap, 20.0, 0.9, is_pos=False, is_legacy=True)
+
+    # Diagnostic ignores legacy negative
+    diag = compute_contradiction_diagnostic([legacy], cap, config)
+    assert diag.negative_support_sum == 0.0
+    assert diag.contradiction_diagnostic == 0.0
+    assert not diag.has_meaningful_conflict
+    assert legacy.evidence_id not in diag.triggering_evidence_ids
+
+    # Capability score ignores legacy negative
+    cap_est = compute_capability_score([legacy], cap, config)
+    assert cap_est.raw_evidence_count == 0
+    assert cap_est.coverage_k == 0.0
+    assert not cap_est.is_observed
+
+
+def test_mixed_qualified_and_unqualified_diagnostic_and_capability():
+    cap = CapabilityKey.TESTING_QUALITY
+    config = ScoringConfig()
+    pos = _make_dummy_evidence(cap, 90.0, 0.8, is_pos=True, cluster="cluster-pos")
+    qualified_neg = _make_dummy_evidence(cap, 15.0, 0.8, is_pos=False, cluster="cluster-neg")
+    legacy_neg = _make_dummy_evidence(cap, 10.0, 0.9, is_pos=False, is_legacy=True, cluster="cluster-legacy")
+
+    # Diagnostic with mixed inputs: legacy negative has zero effect on P_k, N_k, D_k, triggering_ids
+    diag_mixed = compute_contradiction_diagnostic([pos, qualified_neg, legacy_neg], cap, config)
+    diag_clean = compute_contradiction_diagnostic([pos, qualified_neg], cap, config)
+
+    assert diag_mixed.positive_support_sum == diag_clean.positive_support_sum == pytest.approx(0.8)
+    assert diag_mixed.negative_support_sum == diag_clean.negative_support_sum == pytest.approx(0.8)
+    assert diag_mixed.contradiction_diagnostic == diag_clean.contradiction_diagnostic
+    assert diag_mixed.has_meaningful_conflict is True
+    assert set(diag_mixed.triggering_evidence_ids) == {pos.evidence_id, qualified_neg.evidence_id}
+    assert legacy_neg.evidence_id not in diag_mixed.triggering_evidence_ids
+
+    # Capability score with mixed inputs: legacy negative excluded from raw count, score, coverage
+    cap_mixed = compute_capability_score([pos, legacy_neg], cap, config)
+    cap_clean = compute_capability_score([pos], cap, config)
+
+    assert cap_mixed.raw_evidence_count == 1
+    assert cap_mixed.effective_evidence_count == cap_clean.effective_evidence_count
+    assert cap_mixed.estimate == cap_clean.estimate
+    assert cap_mixed.coverage_k == cap_clean.coverage_k
+
+
 
 
 # ---------------------------------------------------------------------------

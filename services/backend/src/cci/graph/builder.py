@@ -1,5 +1,6 @@
 """Build the paper's provenance graph from the same snapshot used for scoring."""
 from hashlib import sha256
+from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import Dossier
 from cci.domain.enums import GraphNodeType as N, GraphEdgeType as E
 from cci.graph.ceg import CandidateEvidenceGraph, CEGNode, CEGEdge
@@ -79,7 +80,20 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
                  limitation="A GitHub account match is not human identity verification or line-level authorship.")
         edge(ev, artifact, E.DERIVED_FROM)
         edge(ev, run, E.CONTRIBUTES_TO)
-        edge(ev, f"cap_{record.target_capability.value}", E.SUPPORTS_CAPABILITY if record.is_positive_support else E.CONTRADICTS, weight=record.confidence)
+        if record.is_positive_support:
+            edge(
+                ev,
+                f"cap_{record.target_capability.value}",
+                E.SUPPORTS_CAPABILITY,
+                weight=record.confidence,
+            )
+        elif is_qualified_negative(record):
+            edge(
+                ev,
+                f"cap_{record.target_capability.value}",
+                E.CONTRADICTS,
+                weight=record.confidence,
+            )
     for question in dossier.interview_questions:
         key = str(question.question_id)
         node(key, N.DOSSIER_ITEM, question.question_text, rationale=question.rationale)

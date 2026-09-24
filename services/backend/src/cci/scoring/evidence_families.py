@@ -19,12 +19,15 @@ class EvidenceFamilyWeightInput:
     is_positive_support: bool
     confidence: float
     fingerprint: str
+    is_qualified: bool = True
 
 
 def family_weight_input_from_record(
     record: EvidenceRecord,
 ) -> EvidenceFamilyWeightInput:
     """Builds a weight input, deriving a conservative ID for legacy records."""
+    from cci.contradictions.qualification import is_qualified_negative
+
     family_id = record.evidence_family_id
     if family_id is None:
         family_id = build_fallback_evidence_family_identity(
@@ -36,6 +39,8 @@ def family_weight_input_from_record(
             fingerprint=record.fingerprint,
         ).evidence_family_id
 
+    is_qualified = record.is_positive_support or is_qualified_negative(record)
+
     return EvidenceFamilyWeightInput(
         evidence_id=record.evidence_id,
         evidence_family_id=family_id,
@@ -43,6 +48,7 @@ def family_weight_input_from_record(
         is_positive_support=record.is_positive_support,
         confidence=record.confidence,
         fingerprint=record.fingerprint,
+        is_qualified=is_qualified,
     )
 
 
@@ -65,7 +71,8 @@ def compute_evidence_family_weights(
     weights: dict[UUID, float] = {}
     for item in items:
         weights[item.evidence_id] = 0.0
-        grouped[item.evidence_family_id].append(item)
+        if item.is_qualified:
+            grouped[item.evidence_family_id].append(item)
 
     for family_items in grouped.values():
         strongest_by_observation: dict[

@@ -7,8 +7,35 @@ from cci.claims.corroborator import (
     ExtractedClaimInput,
     corroborate_candidate_claims,
 )
-from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord
+from cci.domain.contracts import (
+    EvidenceConfidenceFactors,
+    EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
+)
 from cci.domain.enums import CapabilityKey, ClaimStatus, SourceFamily
+
+
+def _synthetic_negative_details(
+    claim_reference: str = "cr1:" + "a" * 64,
+    candidate_type: str = "candidatex.contradiction.coverage_below_claim",
+) -> NegativeEvidenceDetails:
+    return NegativeEvidenceDetails(
+        claim_reference=claim_reference,
+        candidate_type=candidate_type,
+        expected_observation="line_coverage >= 95%",
+        actual_observation="line_coverage = 70%",
+        scan_scope=NegativeEvidenceScanScope(
+            scope_kind="synthetic",
+            repository_scope=None,
+            pinned_revision=None,
+            artifact_paths=[],
+            category=None,
+        ),
+        required_scan_completeness=1.0,
+        observed_scan_completeness=1.0,
+        explanation="Synthetic negative observation for testing",
+    )
 
 
 def _create_mock_evidence(
@@ -20,6 +47,8 @@ def _create_mock_evidence(
     evidence_family_id: str | None = None,
     observation_type: str = "legacy_unknown",
     fingerprint: str | None = None,
+    negative_details: NegativeEvidenceDetails | None = None,
+    provenance: dict | None = None,
 ) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=1.0,
@@ -30,6 +59,9 @@ def _create_mock_evidence(
         source_reliability=1.0,
     )
     evidence_id = uuid4()
+    prov = {"raw_support_text": text}
+    if provenance:
+        prov.update(provenance)
     return EvidenceRecord(
         evidence_id=evidence_id,
         fingerprint=fingerprint or f"sha256-mock-{evidence_id.hex}",
@@ -39,11 +71,12 @@ def _create_mock_evidence(
         target_capability=target_cap,
         support_score=support_score,
         is_positive_support=is_pos,
+        negative_evidence_details=negative_details,
         confidence_factors=factors,
         confidence=confidence,
         evidence_family_id=evidence_family_id,
         observation_type=observation_type,
-        provenance={"raw_support_text": text},
+        provenance=prov,
     )
 
 
@@ -100,18 +133,61 @@ def test_unknown_claim_missing_evidence():
 
 def test_contradicted_claim():
     """Verify claim receives CONTRADICTED when negative evidence outweighs positive."""
+    claim_ref = "cr1:" + "f" * 64
     claim = ExtractedClaimInput(
         claim_text="Architected distributed backend systems with high test coverage",
         target_capability=CapabilityKey.TESTING_QUALITY,
         technology_keywords=["testing"],
+        claim_reference=claim_ref,
     )
 
-    neg_ev = _create_mock_evidence(CapabilityKey.TESTING_QUALITY, confidence=0.9, is_pos=False, text="Broken test suite with failing assertions")
+    neg_ev = _create_mock_evidence(
+        CapabilityKey.TESTING_QUALITY,
+        confidence=0.9,
+        is_pos=False,
+        text="Broken test suite with failing assertions",
+        negative_details=_synthetic_negative_details(claim_reference=claim_ref),
+        provenance={"synthetic": True},
+    )
 
     results = corroborate_candidate_claims([claim], [neg_ev])
     assert len(results) == 1
     assert results[0].status == ClaimStatus.CONTRADICTED
     assert any("contradict" in results[0].explanation.lower() for _ in [1])
+
+
+def test_claim_negative_requires_exact_claim_reference():
+    claim_ref = "cr1:" + "1" * 64
+    other_ref = "cr1:" + "2" * 64
+    claim = ExtractedClaimInput(
+        claim_text="Architected systems with at least 95% line coverage",
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        technology_keywords=["coverage"],
+        claim_reference=claim_ref,
+    )
+    wrong_claim_negative = _create_mock_evidence(
+        CapabilityKey.TESTING_QUALITY,
+        is_pos=False,
+        negative_details=_synthetic_negative_details(claim_reference=other_ref),
+        provenance={"synthetic": True},
+    )
+    legacy_negative = _create_mock_evidence(
+        CapabilityKey.TESTING_QUALITY,
+        is_pos=False,
+        text="coverage failure",
+    )
+    unreferenced_claim = ExtractedClaimInput(
+        claim_text="Architected systems with at least 95% line coverage",
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        technology_keywords=["coverage"],
+    )
+
+    # Wrong claim reference yields UNKNOWN
+    assert corroborate_candidate_claims([claim], [wrong_claim_negative])[0].status == ClaimStatus.UNKNOWN
+
+    # Legacy negative yields UNKNOWN even with keyword hit
+    assert corroborate_candidate_claims([claim], [legacy_negative])[0].status == ClaimStatus.UNKNOWN
+    assert corroborate_candidate_claims([unreferenced_claim], [legacy_negative])[0].status == ClaimStatus.UNKNOWN
 
 
 def test_repeated_family_observation_does_not_corroborate_claim_twice():

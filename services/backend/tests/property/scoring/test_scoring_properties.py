@@ -8,6 +8,8 @@ import pytest
 from cci.domain.contracts import (
     EvidenceConfidenceFactors,
     EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
     ScoringConfig,
 )
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
@@ -20,6 +22,28 @@ from cci.scoring.rci import (
 )
 from cci.uncertainty.bootstrap import cluster_bootstrap_ci
 from cci.contradictions.diagnostic import compute_contradiction_diagnostic
+
+
+def _synthetic_negative_details(
+    claim_reference: str = "cr1:" + "a" * 64,
+    candidate_type: str = "candidatex.contradiction.coverage_below_claim",
+) -> NegativeEvidenceDetails:
+    return NegativeEvidenceDetails(
+        claim_reference=claim_reference,
+        candidate_type=candidate_type,
+        expected_observation="line_coverage >= 95%",
+        actual_observation="line_coverage = 70%",
+        scan_scope=NegativeEvidenceScanScope(
+            scope_kind="synthetic",
+            repository_scope=None,
+            pinned_revision=None,
+            artifact_paths=[],
+            category=None,
+        ),
+        required_scan_completeness=1.0,
+        observed_scan_completeness=1.0,
+        explanation="Synthetic negative observation for testing",
+    )
 
 
 def _generate_random_evidence(seed: int, count: int = 30) -> list[EvidenceRecord]:
@@ -45,6 +69,12 @@ def _generate_random_evidence(seed: int, count: int = 30) -> list[EvidenceRecord
             source_reliability=rng.uniform(0.1, 1.0),
         )
 
+        details = None
+        prov = {}
+        if not is_pos:
+            details = _synthetic_negative_details()
+            prov["synthetic"] = True
+
         records.append(
             EvidenceRecord(
                 fingerprint=str(uuid4()),
@@ -54,9 +84,11 @@ def _generate_random_evidence(seed: int, count: int = 30) -> list[EvidenceRecord
                 target_capability=cap,
                 support_score=score,
                 is_positive_support=is_pos,
+                negative_evidence_details=details,
                 confidence_factors=factors,
                 confidence=conf,
                 cluster_id=cluster,
+                provenance=prov,
                 analyzer_version="1.0.0",
             )
         )
@@ -127,3 +159,48 @@ def test_pure_rescore_no_mutation():
 
     # Evidence records must remain identical to backup
     assert records == records_backup
+
+
+def test_uncertainty_with_empty_legacy_only_cluster():
+    """Property: A cluster containing only legacy unqualified negative records does not establish multi-cluster bootstrap."""
+    cap = CapabilityKey.BACKEND_ENGINEERING
+    valid_records = _generate_random_evidence(seed=42, count=10)
+    valid_records = [r for r in valid_records if r.is_positive_support]
+    assert valid_records
+
+    single_cluster_records = []
+    for r in valid_records:
+        single_cluster_records.append(
+            r.model_copy(
+                update={
+                    "cluster_id": "valid-cluster",
+                    "source_locator": "https://github.com/test/valid-cluster",
+                    "source_family": SourceFamily.GITHUB,
+                    "target_capability": cap,
+                }
+            )
+        )
+
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    legacy = EvidenceRecord(
+        fingerprint=str(uuid4()),
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/test/legacy-cluster",
+        immutable_revision="sha_1111",
+        target_capability=cap,
+        support_score=10.0,
+        is_positive_support=False,
+        confidence_factors=factors,
+        confidence=0.8,
+        cluster_id="legacy-cluster",
+    )
+
+    ci = cluster_bootstrap_ci(single_cluster_records + [legacy], cap, n_resamples=100, seed=42)
+    assert ci == (None, None)

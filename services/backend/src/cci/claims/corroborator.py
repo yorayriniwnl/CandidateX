@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
 
+from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey, ClaimStatus
 from cci.scoring.evidence_families import compute_record_family_weights
@@ -91,7 +92,7 @@ def corroborate_candidate_claims(
                     confidence=0.0,
                     grounding_evidence_ids=[],
                     citation_urls=[],
-                    explanation=f"No evidence observed across scanned repositories or deployments for capability '{claim.target_capability.value}'.",
+                    explanation=f"No qualifying evidence was observed in the available scope for capability '{claim.target_capability.value}'.",
                 )
             )
             continue
@@ -125,19 +126,18 @@ def corroborate_candidate_claims(
             if ev.is_positive_support:
                 if keyword_hit:
                     matched_pos_evidence.append(ev)
-            else:
-                ev_ref = ev.negative_evidence_details.claim_reference if ev.negative_evidence_details else None
-                if claim.claim_reference is not None:
-                    if ev_ref == claim.claim_reference:
-                        matched_neg_evidence.append(ev)
-                elif keyword_hit:
+            elif is_qualified_negative(ev):
+                ev_ref = (
+                    ev.negative_evidence_details.claim_reference
+                    if ev.negative_evidence_details
+                    else None
+                )
+                if claim.claim_reference is not None and ev_ref == claim.claim_reference:
                     matched_neg_evidence.append(ev)
 
         # Fallback to capability-level evidence if keyword hits weren't found
         if not strict_technology_match and not matched_pos_evidence and not matched_neg_evidence:
             matched_pos_evidence = [e for e in matching_ev if e.is_positive_support]
-            if claim.claim_reference is None:
-                matched_neg_evidence = [e for e in matching_ev if not e.is_positive_support]
 
         # Calculate corroboration metrics
         pos_confidence_sum = sum(
@@ -173,7 +173,7 @@ def corroborate_candidate_claims(
             status = ClaimStatus.UNKNOWN
             conf = 0.0
             explanation = (
-                "Insufficient technical evidence to corroborate or contradict claim."
+                "No qualifying evidence was observed in the available scope."
             )
 
         results.append(

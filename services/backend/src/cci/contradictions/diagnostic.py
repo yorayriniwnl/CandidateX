@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from uuid import UUID
 
+from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import CapabilityConflict, EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey
 from cci.scoring.evidence_families import compute_record_family_weights
@@ -27,7 +28,9 @@ def compute_contradiction_diagnostic(
     relevant = [
         e
         for e in evidence_records
-        if e.target_capability == capability and e.confidence > 0.0
+        if e.target_capability == capability
+        and e.confidence > 0.0
+        and (e.is_positive_support or is_qualified_negative(e))
     ]
 
     if family_weights is None:

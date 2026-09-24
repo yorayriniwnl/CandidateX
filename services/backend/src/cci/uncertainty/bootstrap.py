@@ -6,6 +6,7 @@ from uuid import UUID
 
 import numpy as np
 
+from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey
 from cci.scoring.capability import evidence_coverage_item
@@ -34,7 +35,9 @@ def cluster_bootstrap_ci(
     relevant_records = [
         e
         for e in evidence_records
-        if e.target_capability == capability and e.confidence > 0.0
+        if e.target_capability == capability
+        and e.confidence > 0.0
+        and (e.is_positive_support or is_qualified_negative(e))
     ]
     if not relevant_records:
         return None, None

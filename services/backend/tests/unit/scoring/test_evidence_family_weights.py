@@ -5,17 +5,45 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
 
-from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord
+from cci.domain.contracts import (
+    EvidenceConfidenceFactors,
+    EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
+)
 from cci.domain.enums import CapabilityKey, SourceFamily
 from cci.scoring.evidence_families import (
     EvidenceFamilyWeightInput,
     compute_evidence_family_weights,
+    compute_record_family_weights,
     family_weight_input_from_record,
 )
 
 
 FAMILY_ID = "ef1:" + "f" * 64
 REPO_URL = "https://github.com/acme/api"
+
+
+def _synthetic_negative_details(
+    claim_reference: str = "cr1:" + "a" * 64,
+    candidate_type: str = "candidatex.contradiction.coverage_below_claim",
+) -> NegativeEvidenceDetails:
+    return NegativeEvidenceDetails(
+        claim_reference=claim_reference,
+        candidate_type=candidate_type,
+        expected_observation="line_coverage >= 95%",
+        actual_observation="line_coverage = 70%",
+        scan_scope=NegativeEvidenceScanScope(
+            scope_kind="synthetic",
+            repository_scope=None,
+            pinned_revision=None,
+            artifact_paths=[],
+            category=None,
+        ),
+        required_scan_completeness=1.0,
+        observed_scan_completeness=1.0,
+        explanation="Synthetic negative observation for testing",
+    )
 
 
 def _weight_input(
@@ -45,6 +73,9 @@ def _record(
     artifact_path: str,
     evidence_family_id: str | None = None,
     observation_type: str = "dependency:manifest",
+    is_pos: bool = True,
+    negative_details: NegativeEvidenceDetails | None = None,
+    provenance: dict | None = None,
 ) -> EvidenceRecord:
     factors = EvidenceConfidenceFactors(
         artifact_integrity=1.0,
@@ -54,6 +85,9 @@ def _record(
         depth_specificity=1.0,
         source_reliability=1.0,
     )
+    prov = {"artifact_path": artifact_path}
+    if provenance:
+        prov.update(provenance)
     return EvidenceRecord(
         evidence_id=evidence_id,
         fingerprint=fingerprint,
@@ -62,12 +96,14 @@ def _record(
         immutable_revision="a" * 40,
         target_capability=CapabilityKey.BACKEND_ENGINEERING,
         support_score=75.0,
+        is_positive_support=is_pos,
+        negative_evidence_details=negative_details,
         confidence_factors=factors,
         confidence=0.8,
         cluster_id=REPO_URL,
         evidence_family_id=evidence_family_id,
         observation_type=observation_type,
-        provenance={"artifact_path": artifact_path},
+        provenance=prov,
     )
 
 
@@ -206,3 +242,53 @@ def test_weight_helper_rejects_decay_outside_configured_range(decay: float):
 
     with pytest.raises(ValueError):
         compute_evidence_family_weights([item], decay=decay)
+
+
+def test_legacy_negative_has_zero_family_weight_and_qualified_negative_gets_full_weight():
+    legacy = _record(
+        evidence_id=UUID(int=101),
+        fingerprint="l" * 64,
+        artifact_path="report.xml",
+        is_pos=False,
+    )
+    qualified = _record(
+        evidence_id=UUID(int=102),
+        fingerprint="q" * 64,
+        artifact_path="report.xml",
+        is_pos=False,
+        negative_details=_synthetic_negative_details(),
+        provenance={"synthetic": True},
+    )
+    weights_legacy = compute_record_family_weights([legacy], decay=0.5)
+    assert weights_legacy[legacy.evidence_id] == 0.0
+
+    weights_qualified = compute_record_family_weights([qualified], decay=0.5)
+    assert weights_qualified[qualified.evidence_id] == 1.0
+
+    weights_both = compute_record_family_weights([legacy, qualified], decay=0.5)
+    assert weights_both[legacy.evidence_id] == 0.0
+    assert weights_both[qualified.evidence_id] == 1.0
+
+
+def test_same_family_positive_and_qualified_negative_remain_separate_representatives():
+    family_id = "ef1:" + "e" * 64
+    positive = _record(
+        evidence_id=UUID(int=201),
+        fingerprint="p" * 64,
+        artifact_path="src/routes.py",
+        observation_type="route:python_decorator",
+        evidence_family_id=family_id,
+        is_pos=True,
+    )
+    qualified_negative = _record(
+        evidence_id=UUID(int=202),
+        fingerprint="n" * 64,
+        artifact_path="src/routes.py",
+        observation_type="route:python_decorator",
+        evidence_family_id=family_id,
+        is_pos=False,
+        negative_details=_synthetic_negative_details(),
+        provenance={"synthetic": True},
+    )
+    weights = compute_record_family_weights([positive, qualified_negative], decay=0.5)
+    assert {weights[positive.evidence_id], weights[qualified_negative.evidence_id]} == {1.0, 0.5}

@@ -7,6 +7,8 @@ from cci.domain.contracts import (
     Dossier,
     EvidenceConfidenceFactors,
     EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
 )
 from cci.domain.enums import (
     CanonicalRole,
@@ -177,3 +179,105 @@ def test_dossier_graph_evidence_nodes_expose_family_and_scope_metadata():
     assert node.properties["observation_type"] == "route:python_decorator"
     assert node.properties["cluster_id"] == "https://github.com/acme/api"
     assert node.properties["artifact_id"] == str(artifact_id)
+
+
+def test_legacy_negative_has_no_contradiction_edge_while_qualified_negative_has_one():
+    claim_ref = "cr1:" + "c" * 64
+    legacy = EvidenceRecord(
+        evidence_id=uuid4(),
+        fingerprint="l" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="a" * 40,
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        support_score=20.0,
+        is_positive_support=False,
+        confidence_factors=EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        confidence=0.8,
+        provenance={"artifact_path": "report.xml"},
+    )
+    details = NegativeEvidenceDetails(
+        claim_reference=claim_ref,
+        candidate_type="candidatex.contradiction.coverage_below_claim",
+        expected_observation="line_coverage >= 95%",
+        actual_observation="line_coverage = 70%",
+        scan_scope=NegativeEvidenceScanScope(
+            scope_kind="synthetic",
+            repository_scope=None,
+            pinned_revision=None,
+            artifact_paths=[],
+            category=None,
+        ),
+        required_scan_completeness=1.0,
+        observed_scan_completeness=1.0,
+        explanation="Synthetic negative observation for testing",
+    )
+    qualified = EvidenceRecord(
+        evidence_id=uuid4(),
+        fingerprint="q" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/api",
+        immutable_revision="a" * 40,
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        support_score=20.0,
+        is_positive_support=False,
+        negative_evidence_details=details,
+        confidence_factors=EvidenceConfidenceFactors(
+            artifact_integrity=1.0,
+            ownership_score=1.0,
+            recency_factor=1.0,
+            verification_level=1.0,
+            depth_specificity=1.0,
+            source_reliability=1.0,
+        ),
+        confidence=0.8,
+        provenance={"artifact_path": "report.xml", "synthetic": True},
+    )
+
+    def _dossier(records):
+        return Dossier(
+            candidate_id=uuid4(),
+            analysis_run_id=uuid4(),
+            role=CanonicalRole.BACKEND,
+            coverage=0.0,
+            is_insufficient_evidence=True,
+            capability_estimates={
+                CapabilityKey.TESTING_QUALITY: CapabilityEstimate(
+                    capability_key=CapabilityKey.TESTING_QUALITY,
+                    estimate=70.0,
+                    is_observed=True,
+                    effective_evidence_count=1.0,
+                    raw_evidence_count=1,
+                    cluster_count=1,
+                    standard_error=0.0,
+                    dispersion=0.0,
+                    coverage_k=0.5,
+                )
+            },
+            capability_conflicts={},
+            role_requirements=[],
+            ownership_assessments=[],
+            claims_corroboration=[],
+            interview_probes=[],
+            interview_questions=[],
+            evidence_records=records,
+        )
+
+    graph_legacy = build_dossier_graph(_dossier([legacy]))
+    assert not any(
+        edge.edge_type == GraphEdgeType.CONTRADICTS
+        for edge in graph_legacy.edges.values()
+    )
+
+    graph_qualified = build_dossier_graph(_dossier([qualified]))
+    assert any(
+        edge.edge_type == GraphEdgeType.CONTRADICTS
+        for edge in graph_qualified.edges.values()
+    )

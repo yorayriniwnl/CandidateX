@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable
 from uuid import UUID
 
+from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import CapabilityEstimate, EvidenceRecord, ScoringConfig
 from cci.domain.coverage_policy import is_coverage_sufficient
 from cci.domain.evidence_families import normalize_source_cluster
@@ -197,7 +198,9 @@ def compute_capability_score(
     relevant = [
         e
         for e in evidence_records
-        if e.target_capability == capability and e.confidence > 0.0
+        if e.target_capability == capability
+        and e.confidence > 0.0
+        and (e.is_positive_support or is_qualified_negative(e))
     ]
 
     if not relevant:
