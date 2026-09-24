@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 
 from cci.contradictions.expectations import (
     COVERAGE_TYPE, DEPLOYMENT_TYPE, FRAMEWORK_TYPE, PERFORMANCE_TYPE,
-    ObservableClaimExpectation, normalize_repository_scope,
+    ObservableClaimExpectation, _PROJECT_ID_PATTERN, normalize_repository_scope,
 )
 from cci.domain.contracts import EvidenceInput, NegativeEvidenceDetails, NegativeEvidenceScanScope
 from cci.domain.enums import SourceFamily
@@ -214,7 +214,7 @@ def parse_benchmark_report(content: bytes) -> list[dict[str, object]] | None:
     required = {"metric", "value", "unit", "statistic", "workload", "environment"}
     seen = set()
     for item in observations:
-        if not isinstance(item, dict) or not required <= item.keys():
+        if not isinstance(item, dict) or set(item) != required:
             return None
         if not all(isinstance(item[key], str) and item[key].strip() and len(item[key]) <= 100
                    for key in required - {"value"}):
@@ -314,7 +314,7 @@ _JS_IMPORT = re.compile(
 )
 _GO_IMPORT = re.compile(r"^\s*import\s*(?:\((.*?)\)|([^\n]+))", re.M | re.S)
 _JAVA_IMPORT = re.compile(r"^\s*import\s+(?:static\s+)?([\w.]+)", re.M)
-_JSX = re.compile(r"<\s*[A-Za-z][\w.:-]*(?:\s|/?>)")
+_JSX = re.compile(r"<>|<\s*[A-Za-z][\w.:-]*(?:\s|/?>)")
 
 
 def _go_import_paths(content: str) -> set[str]:
@@ -378,8 +378,14 @@ def _manifest_declares(path: str, content: str,
             return None
         if not isinstance(data, dict):
             return None
+        dependency_groups = ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
+        if any(group in data and (not isinstance(data[group], dict)
+                                  or any(not isinstance(version, str)
+                                         for version in data[group].values()))
+               for group in dependency_groups):
+            return None
         return any(isinstance(data.get(group), dict) and alias in data[group]
-                   for group in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
+                   for group in dependency_groups
                    for alias in rule.package_aliases)
     if name == "requirements.txt":
         return any(re.match(r"\s*" + re.escape(alias) + r"(?=\s|[<>=!~;\[]|$)", line, re.I)
@@ -393,7 +399,7 @@ def _manifest_declares(path: str, content: str,
                              line, re.I) for alias in rule.package_aliases
                    for line in content.splitlines() if not line.lstrip().startswith("#"))
     if name == "go.mod":
-        return bool(re.search(r"\bgithub\.com/gin-gonic/gin\s+v\d", content))
+        return _go_mod_declares(content, rule.package_aliases)
     if name == "pom.xml":
         if re.search(rb"<!\s*(?:DOCTYPE|ENTITY)\b", content.encode(), re.I):
             return None
@@ -409,6 +415,44 @@ def _manifest_declares(path: str, content: str,
             if fields.get("groupId") == "org.springframework.boot" and fields.get("artifactId", "").startswith("spring-boot-"):
                 return True
     return False
+
+
+_GO_VERSION = re.compile(r"v\d+\.\d+\.\d+(?:[-+][\w.-]+)?$")
+
+
+def _go_mod_declares(content: str, aliases: frozenset[str]) -> bool | None:
+    """Validate the module and direct require forms used for dependency context."""
+    module_seen = False
+    in_require = False
+    present = False
+    for raw in content.splitlines():
+        line = raw.split("//", 1)[0].strip()
+        if not line:
+            continue
+        if in_require and line == ")":
+            in_require = False
+            continue
+        if in_require:
+            parts = line.split()
+        elif line == "require (":
+            in_require = True
+            continue
+        elif line.startswith("require "):
+            parts = line.split()[1:]
+        elif line.startswith("module "):
+            parts = line.split()
+            if module_seen or len(parts) != 2 or not parts[1]:
+                return None
+            module_seen = True
+            continue
+        elif re.fullmatch(r"go\s+\d+\.\d+(?:\.\d+)?|toolchain\s+go\d+\.\d+(?:\.\d+)?", line):
+            continue
+        else:
+            return None
+        if len(parts) != 2 or not _GO_VERSION.fullmatch(parts[1]):
+            return None
+        present |= parts[0] in aliases
+    return present if module_seen and not in_require else None
 
 
 def evaluate_framework_usage_absent(
@@ -493,10 +537,15 @@ def evaluate_deployment_project_mismatch(
             or not identity.authoritative or not identity.verifier_identity
             or not identity.verification_revision or not identity.project_identity
             or not expectation.project_identity or not expectation.deployment_url
-            or identity.deployment_url != expectation.deployment_url
-            or identity.project_identity.casefold() == expectation.project_identity.casefold()):
+            or identity.deployment_url != expectation.deployment_url):
         return None
-    observation = f"{identity.deployment_url} project={identity.project_identity}"
+    actual_project = _normalize_token(identity.project_identity)
+    expected_project = _normalize_token(expectation.project_identity)
+    if (not _PROJECT_ID_PATTERN.fullmatch(f"project={actual_project}")
+            or not _PROJECT_ID_PATTERN.fullmatch(f"project={expected_project}")
+            or actual_project == expected_project):
+        return None
+    observation = f"{identity.deployment_url} project={actual_project}"
     details = _details(expectation, f"project={expectation.project_identity}", observation,
                        NegativeEvidenceScanScope(
                            scope_kind="deployment", deployment_url=identity.deployment_url,

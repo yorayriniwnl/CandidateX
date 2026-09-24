@@ -213,8 +213,11 @@ def test_unrelated_manifest_alone_does_not_create_framework_scope():
 
 @pytest.mark.parametrize("technology,manifest,content", [
     ("express", "package.json", b"{broken"),
+    ("express", "package.json", b'{"dependencies":[]}'),
     ("fastapi", "pyproject.toml", b"[project\n"),
     ("spring-boot", "pom.xml", b"<project"),
+    ("gin", "go.mod", b"module example.com/api\nrequire (\n github.com/gin-gonic/gin v1.10.0\n"),
+    ("gin", "go.mod", b"module example.com/api\nrequire github.com/gin-gonic/gin unknown\n"),
 ])
 def test_malformed_registered_manifest_suppresses_absence(technology, manifest, content):
     assert evaluate_one(claim(f"Built with {technology}"), {manifest: content}) == []
@@ -241,6 +244,13 @@ def test_react_jsx_without_explicit_import_is_ambiguous():
     expectation = claim("Built with React")
     assert evaluate_one(expectation, {"src/App.tsx": b"export const App = () => <div>Hello</div>;"}) == []
     assert evaluate_one(expectation, {"src/App.tsx": b"import React from 'react';\n"}) == []
+
+
+@pytest.mark.parametrize("path", ["src/App.jsx", "src/App.tsx"])
+def test_react_fragment_without_import_is_ambiguous(path):
+    assert evaluate_one(claim("Built with React"), {
+        path: b"export const App = () => <>Hello</>;",
+    }) == []
 
 
 @pytest.mark.parametrize("technology,path,content", [
@@ -305,6 +315,15 @@ def test_invalid_or_empty_benchmark_report_is_unknown(report):
                         {"benchmarks/run.json": report}) == []
 
 
+def test_benchmark_observation_with_extra_field_is_unknown():
+    report = (b'{"schema_version":"1.0.0","observations":[{'
+              b'"metric":"latency","value":50,"unit":"ms",'
+              b'"statistic":"p95","workload":"read","environment":"prod",'
+              b'"extra":"unrecognized"}]}')
+    assert evaluate_one(claim("latency under 50 ms technology=fastapi"),
+                        {"benchmarks/run.json": report}) == []
+
+
 def test_deployment_identity_requires_fresh_verified_structured_result():
     expectation = parse_observable_claim(
         "project=api-v2 https://api.example.com", deployment_url="https://api.example.com")[0]
@@ -329,3 +348,31 @@ def test_deployment_identity_requires_fresh_verified_structured_result():
         status="VERIFIED", deployment_url=expectation.deployment_url,
         project_identity="other", verifier_identity="public-link-inspector",
         verification_revision="check-4", fresh=True, authoritative=False)) is None
+
+
+def test_deployment_identity_is_normalized_before_exact_comparison():
+    expectation = parse_observable_claim(
+        "project=api-v2 https://api.example.com", deployment_url="https://api.example.com")[0]
+    equal = DeploymentProjectIdentity(
+        status="VERIFIED", deployment_url=expectation.deployment_url,
+        project_identity="  API-V2  ", verifier_identity="platform-api",
+        verification_revision="check-5", fresh=True, authoritative=True)
+    assert evaluate_deployment_project_mismatch(expectation, equal) is None
+    different = DeploymentProjectIdentity(
+        status="VERIFIED", deployment_url=expectation.deployment_url,
+        project_identity="  OTHER  ", verifier_identity="platform-api",
+        verification_revision="check-6", fresh=True, authoritative=True)
+    result = evaluate_deployment_project_mismatch(expectation, different)
+    assert result is not None
+    assert result.negative_evidence_details.actual_observation.endswith("project=other")
+
+
+@pytest.mark.parametrize("identity", ["other/tenant", "1other", "other project", ""])
+def test_deployment_identity_outside_claim_identifier_grammar_is_unknown(identity):
+    expectation = parse_observable_claim(
+        "project=api-v2 https://api.example.com", deployment_url="https://api.example.com")[0]
+    observed = DeploymentProjectIdentity(
+        status="VERIFIED", deployment_url=expectation.deployment_url,
+        project_identity=identity, verifier_identity="platform-api",
+        verification_revision="check-7", fresh=True, authoritative=True)
+    assert evaluate_deployment_project_mismatch(expectation, observed) is None
