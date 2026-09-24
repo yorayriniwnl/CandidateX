@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-test('paper demonstration uses the backend and changes with role, JD, missingness and overrides', async ({ page }) => {
+test('paper demonstration uses the backend and changes with role, missingness and overrides', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/research-demo');
@@ -15,16 +15,12 @@ test('paper demonstration uses the backend and changes with role, JD, missingnes
   await expect(page.getByText('Inputs changed. Run again to update the results.')).toBeVisible();
   await page.getByRole('button', { name: 'Run demonstration', exact: true }).click();
   await expect(page.getByTestId('rci-value')).not.toHaveText(baseline);
-  await page.getByLabel('Job description').fill('Must have Python and PostgreSQL.');
-  await page.getByRole('button', { name: 'Run demonstration', exact: true }).click();
-  await expect(page.getByTestId('parsed-requirements')).toContainText('Must have Python and PostgreSQL.');
   await page.getByRole('button', { name: 'Inspect backend engineering evidence' }).click();
   await expect(page.getByTestId('evidence-inspector')).toContainText('SHA-256');
   await expect(page.getByTestId('evidence-inspector')).toContainText('synthetic://');
   await page.getByLabel('Override capability').selectOption('backend_engineering');
-  await page.getByLabel('Override justification').fill('Demonstrate a backend-focused interview');
   await page.getByRole('button', { name: 'Apply focused override' }).click();
-  await expect(page.getByTestId('override-history')).toContainText('Demonstrate a backend-focused interview');
+  await expect(page.getByTestId('override-history')).toContainText('Synthetic demonstration weight override');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export snapshot JSON' }).click();
   const download = await downloadPromise;
@@ -33,7 +29,7 @@ test('paper demonstration uses the backend and changes with role, JD, missingnes
   expect(exported.dossier.evidence_mode).toBe('synthetic');
   expect(exported.benchmark_scope.headline_reproduced).toBe(false);
   expect(exported.graph.analysis_run_id).toBe(exported.dossier.analysis_run_id);
-  expect(exported.dossier.override_history.at(-1).justification).toBe('Demonstrate a backend-focused interview');
+  expect(exported.dossier.override_history.at(-1).justification).toBe('Synthetic demonstration weight override');
   await page.getByLabel('Evidence scenario').selectOption('conflicting');
   await page.getByRole('button', { name: 'Run demonstration', exact: true }).click();
   await expect(page.getByTestId('conflict-count')).toHaveText('2');
@@ -71,9 +67,21 @@ test('mobile controls and evidence table fit within the viewport', async ({ page
   await page.screenshot({ path: 'test-results/research-demo-mobile.png' });
 });
 
-test('research demo links to the legacy workspace without a fabricated initial dossier', async ({ page }) => {
+test('public synthetic demo rejects real-data inputs and legacy routes', async ({ page }) => {
   await page.goto('/research-demo');
-  await page.getByRole('link', { name: 'Prototype workspace' }).click();
+  await expect(page.getByLabel('Job description')).toHaveCount(0);
+  await expect(page.getByLabel('Override justification')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Prototype workspace' })).toHaveCount(0);
+  await expect(page.getByText(/generated synthetic observations/i)).toBeVisible();
+  await expect(page.getByText(/no resumes or profiles are accepted/i)).toBeVisible();
+  await expect(page.getByText(/no real person is assessed/i)).toBeVisible();
+  await expect(page.getByText(/not a validated hiring predictor/i)).toBeVisible();
+});
+
+test('local legacy workspace remains directly accessible without a demo shortcut', async ({ page }) => {
+  await page.goto('/research-demo');
+  await expect(page.getByRole('link', { name: 'Prototype workspace' })).toHaveCount(0);
+  await page.goto('/workspace');
   await page.getByRole('button', { name: 'Dossier Deep analysis' }).click();
   await expect(page.getByText('No candidate dossier selected or available.')).toBeVisible();
 });

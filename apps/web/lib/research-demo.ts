@@ -3,11 +3,10 @@ import type { CEGGraph, CapabilityKey, Dossier } from '../types/cci';
 export const SOURCES = ['resume', 'github', 'deployment', 'database', 'coding', 'certificate', 'linkedin'] as const;
 export type Source = typeof SOURCES[number];
 export type Scenario = 'consistent' | 'sparse' | 'low_ownership' | 'conflicting' | 'empty';
+export const SYNTHETIC_CANDIDATE_ID = 'd3333333-3333-4333-8333-333333333333';
 export interface DemoInput {
-  candidate_id: string;
   scenario: Scenario;
   role: Dossier['role'];
-  jd_text: string;
   excluded_sources: Source[];
   ownership_multiplier: number;
   reliability_false_positives: number;

@@ -3,6 +3,14 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   output: process.env.STANDALONE_BUILD === 'true' ? 'standalone' : undefined,
+  async redirects() {
+    if (process.env.NODE_ENV !== 'production') return [];
+    return ['/', '/analyze', '/hr', '/workspace'].map((source) => ({
+      source,
+      destination: '/research-demo',
+      permanent: false,
+    }));
+  },
   async headers() {
     return [
       {

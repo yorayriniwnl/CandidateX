@@ -1,4 +1,6 @@
 /** Same-origin bridge. Destinations are fixed; candidate URLs are never fetched. */
+import { resolveCciBackendUrl } from '../../../lib/server/cci-backend';
+
 export async function POST(request: Request) {
   let body;
   try { body = await request.json(); }
@@ -6,9 +8,15 @@ export async function POST(request: Request) {
   if (!body || !['run', 'rescore'].includes(body.operation)) {
     return Response.json({ detail: 'Unknown demonstration operation.' }, { status: 400 });
   }
-  const base = (process.env.CCI_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+  const base = resolveCciBackendUrl();
+  if (!base) {
+    return Response.json(
+      { detail: 'Synthetic demo backend is not configured.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   try {
-    const response = await fetch(`${base}/api/v1/research-demo/${body.operation}`, {
+    const response = await fetch(`${base}/api/v1/synthetic-demo/${body.operation}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body.payload), cache: 'no-store', signal: AbortSignal.timeout(30000),
     });

@@ -19,6 +19,7 @@ from cci.api.routers import (
 from cci.config import settings
 from cci.api.routers.research_demo import router as research_demo_router
 from cci.api.routers.live import router as live_router
+from cci.api.routers.synthetic_demo import router as synthetic_demo_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -46,6 +47,7 @@ app.include_router(overrides_router)
 app.include_router(research_router)
 app.include_router(research_demo_router)
 app.include_router(live_router)
+app.include_router(synthetic_demo_router)
 
 
 @app.get(

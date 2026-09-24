@@ -102,6 +102,9 @@ jobs:
       - name: Verify research demonstration in the browser
         run: pnpm --filter web test
 
+      - name: Verify production synthetic-only boundaries
+        run: pnpm --filter web run test:production
+
   security-and-invariants:
     name: Paper Invariants & SSRF Audit
     runs-on: ubuntu-latest

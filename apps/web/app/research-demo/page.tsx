@@ -1,10 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CapabilityKey, CanonicalRole } from '../../types/cci';
-import { demoRequest, label, SOURCES, type DemoInput, type DemoResult, type Scenario } from '../../lib/research-demo';
+import { demoRequest, label, SOURCES, SYNTHETIC_CANDIDATE_ID, type DemoInput, type DemoResult, type Scenario } from '../../lib/research-demo';
 
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlowBadge } from '@/components/ui/GlowBadge';
@@ -15,8 +14,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const INITIAL: DemoInput = {
-  candidate_id: 'd3333333-3333-4333-8333-333333333333', scenario: 'consistent', role: 'backend',
-  jd_text: '', excluded_sources: [], ownership_multiplier: 1, reliability_false_positives: 0,
+  scenario: 'consistent', role: 'backend', excluded_sources: [], ownership_multiplier: 1, reliability_false_positives: 0,
 };
 const ROLES: CanonicalRole[] = ['backend', 'frontend', 'fullstack', 'ml_engineer', 'devops_cloud', 'data_engineer'];
 const SCENARIOS: { value: Scenario; name: string; description: string }[] = [
@@ -37,7 +35,6 @@ export default function ResearchDemonstration() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<CapabilityKey>('backend_engineering');
   const [overrideCap, setOverrideCap] = useState<CapabilityKey>('backend_engineering');
-  const [justification, setJustification] = useState('');
   
   const inspector = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -58,7 +55,7 @@ export default function ResearchDemonstration() {
     setBusy(true); setError(''); setPrevious(result); setResult(null);
     try {
       const next = await demoRequest<DemoResult>('run', input);
-      if (next.dossier.candidate_id !== input.candidate_id || next.graph.analysis_run_id !== next.dossier.analysis_run_id) throw new Error('Result identity mismatch. No dossier displayed.');
+      if (next.dossier.candidate_id !== SYNTHETIC_CANDIDATE_ID || next.graph.analysis_run_id !== next.dossier.analysis_run_id) throw new Error('Synthetic result identity mismatch. No dossier displayed.');
       setResult(next);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The run failed. No result substituted.'); }
@@ -70,9 +67,9 @@ export default function ResearchDemonstration() {
     inFlight.current = true; setBusy(true); setError('');
     try {
       const revised = await demoRequest<Pick<DemoResult, 'dossier' | 'graph' | 'graph_snapshot'>>('rescore', {
-        run_id: result.dossier.analysis_run_id, weights: { [overrideCap]: 1 }, justification,
+        ...result.input, weights: { [overrideCap]: 1 },
       });
-      if (revised.dossier.candidate_id !== result.dossier.candidate_id) throw new Error('Result identity mismatch.');
+      if (revised.dossier.candidate_id !== SYNTHETIC_CANDIDATE_ID || revised.graph.analysis_run_id !== revised.dossier.analysis_run_id) throw new Error('Synthetic result identity mismatch.');
       setPrevious(result); setResult({ ...result, ...revised });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Override failed. The displayed snapshot is unchanged.'); }
     finally { inFlight.current = false; setBusy(false); }
@@ -98,7 +95,6 @@ export default function ResearchDemonstration() {
         <div className="flex gap-5">
           <a href="#method" className="text-indigo-200 hover:text-indigo-100">The method</a>
           <a href="#benchmarks" className="text-indigo-200 hover:text-indigo-100">Experiments</a>
-          <Link href="/workspace" className="text-indigo-200 hover:text-indigo-100">Prototype workspace</Link>
         </div>
       </nav>
 
@@ -110,7 +106,7 @@ export default function ResearchDemonstration() {
         </header>
 
         <GlassCard variant="subtle" glow="indigo" className="mb-8">
-          <strong className="text-indigo-300">Controlled synthetic demonstration.</strong> <span className="text-slate-300">All candidate observations and source-review counts on this page are simulated. Calculations run through the CCI backend. No real person is assessed and no external repository is fetched.</span>
+          <strong className="text-indigo-300">Controlled synthetic demonstration.</strong> <span className="text-slate-300">Every result is based on generated synthetic observations. No resumes or profiles are accepted. No real person is assessed. This is not a validated hiring predictor. Calculations run through the CCI backend; no external repository is fetched.</span>
         </GlassCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8 items-start">
@@ -129,11 +125,6 @@ export default function ResearchDemonstration() {
 
               <GlassSelect label="Target role" value={input.role} onChange={e => update({ role: e.target.value as CanonicalRole })} options={ROLES.map(role => ({ value: role, label: label(role) }))} />
               
-              <div>
-                <GlassInput variant="textarea" label="Job description" value={input.jd_text} onChange={e => update({ jd_text: e.target.value })} maxLength={20000} placeholder="Optional: Must have Python and PostgreSQL. Preferred: Docker and testing." />
-                <p className="text-slate-400 text-xs mt-2">Leave blank to use canonical role priors. Recognized JD terms adjust capability weights.</p>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Include source families</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -294,26 +285,12 @@ export default function ResearchDemonstration() {
                       </table>
                     </div>
 
-                    <details className="mt-6 group">
-                      <summary className="cursor-pointer text-sm text-slate-400 hover:text-slate-300 transition-colors">Parsed job requirements ({dossier.role_requirements.length})</summary>
-                      <div data-testid="parsed-requirements" className="mt-4 p-4 bg-[#0a0f1e] border border-white/[0.05] rounded-lg">
-                        {dossier.role_requirements.length ? dossier.role_requirements.map(req => (
-                          <p className="text-slate-400 text-sm mb-2 last:mb-0" key={req.requirement_id}>
-                            <span className="text-slate-300">{req.source_text}</span> → {req.capability_mappings.length ? req.capability_mappings.map(label).join(', ') : 'Unresolved; excluded from weights'} ({req.priority})
-                          </p>
-                        )) : <p className="text-slate-500 text-sm">No parsed requirements. Canonical role priors are in use.</p>}
-                      </div>
-                    </details>
-
                     <div className="mt-8 pt-6 border-t border-white/[0.05]">
                       <div className="flex flex-col md:flex-row gap-4 items-end">
                         <div className="flex-1 w-full">
                           <GlassSelect label="Override capability" value={overrideCap} onChange={e => setOverrideCap(e.target.value as CapabilityKey)} options={Object.keys(dossier.role_weights).map(cap => ({value: cap, label: label(cap)}))} />
                         </div>
-                        <div className="flex-[2] w-full">
-                          <GlassInput variant="text" label="Override justification" value={justification} onChange={e => setJustification(e.target.value)} maxLength={2000} placeholder="Why should this capability receive all the weight?" />
-                        </div>
-                        <GlassButton variant="secondary" disabled={busy || dirty || justification.trim().length < 3} onClick={override}>Apply focused override</GlassButton>
+                        <GlassButton variant="secondary" disabled={busy || dirty} onClick={override}>Apply focused override</GlassButton>
                       </div>
                       <p className="text-slate-500 text-xs mt-3">This teaching control assigns 100% weight to one capability. It recalculates the complete dossier without changing the evidence.</p>
                       
@@ -495,7 +472,7 @@ export default function ResearchDemonstration() {
               </div>
             </GlassCard>
           </div>
-          <p className="text-slate-500 text-xs mt-6 max-w-4xl leading-relaxed">Implementation convention: support, capability and RCI use a 0–100 scale; confidence, coverage and probe CI width use 0–1. The prototype adds canonical role priors to JD importance and uses a controlled synonym parser. These configured choices do not reconstruct the manuscript’s unavailable calibration. Cluster intervals describe these simulated observations, not validated uncertainty about real candidates.</p>
+          <p className="text-slate-500 text-xs mt-6 max-w-4xl leading-relaxed">Implementation convention: support, capability and RCI use a 0–100 scale; confidence, coverage and probe CI width use 0–1. Canonical role priors and confidence factors are configured prototype choices, not manuscript-reproduced calibration. Cluster intervals describe these generated observations; they are not validated uncertainty estimates for real candidates.</p>
         </section>
 
         <section id="benchmarks" className="mt-24 pt-12 border-t border-white/[0.05]">

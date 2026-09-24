@@ -1,11 +1,18 @@
 import type { NextRequest } from 'next/server';
+import { isSyntheticOnlyDeployment, resolveCciBackendUrl } from '../../../../lib/server/cci-backend';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest, context: { params: Promise<{ operation: string }> }) {
+  if (isSyntheticOnlyDeployment()) {
+    return Response.json(
+      { detail: 'Live analysis is disabled in this deployment.' },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const { operation } = await context.params;
   if (!['intake', 'analyze'].includes(operation)) return Response.json({ detail: 'Unknown operation.' }, { status: 404 });
-  const base = process.env.CCI_API_URL || (process.env.VERCEL ? '' : 'http://127.0.0.1:8000');
+  const base = resolveCciBackendUrl();
   if (!base) return Response.json({ detail: 'Live analysis backend is not configured.' }, { status: 503 });
   const limit = operation === 'intake' ? 3 * 1024 * 1024 : 128 * 1024;
   const reader = request.body?.getReader();
