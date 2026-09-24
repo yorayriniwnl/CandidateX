@@ -7,7 +7,7 @@ import json
 from pathlib import PurePosixPath
 import re
 from types import MappingProxyType
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from cci.analyzers.repository.indexer import categorize_file
 

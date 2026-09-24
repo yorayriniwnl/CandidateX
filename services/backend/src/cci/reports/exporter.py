@@ -15,6 +15,19 @@ from cci.domain.contracts import Dossier, EvidenceRecord
 from cci.versioning import VersionFamilies
 
 
+def _sanitize_link_url(url: str) -> str:
+    """Sanitizes URL for safe inclusion in HTML href attributes, disallowing dangerous schemes."""
+    if not url:
+        return "#"
+    trimmed = url.strip()
+    lower = trimmed.lower()
+    if lower.startswith(("javascript:", "data:", "vbscript:", "file:", "about:")):
+        return "#"
+    if not (lower.startswith("http://") or lower.startswith("https://")):
+        return "#"
+    return trimmed
+
+
 def _get_evidence_map(dossier: Dossier) -> dict[str, EvidenceRecord]:
     """Indexes evidence records by evidence_id string for constant-time lookup."""
     evidence_records = getattr(dossier, "evidence_records", None) or []
@@ -693,7 +706,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                 prov_rows.append(f"""
                 <tr>
                     <td class="mono text-muted">{html.escape(prov['evidence_id'])}</td>
-                    <td class="mono"><a href="{html.escape(prov['source_url'])}" style="color: var(--accent-indigo); text-decoration: none;" target="_blank">{html.escape(prov['source_url'])}</a></td>
+                    <td class="mono"><a href="{html.escape(_sanitize_link_url(prov['source_url']))}" style="color: var(--accent-indigo); text-decoration: none;" target="_blank" rel="noopener noreferrer">{html.escape(prov['source_url'])}</a></td>
                     <td class="mono text-muted">{html.escape(prov['commit_sha'])}</td>
                     <td class="mono">{html.escape(prov['artifact_path'])}</td>
                     <td class="mono text-muted">{html.escape(prov['content_hash'])}</td>

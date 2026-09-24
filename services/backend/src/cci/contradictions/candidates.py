@@ -12,7 +12,7 @@ import tomllib
 from types import MappingProxyType
 from typing import Mapping
 import unicodedata
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from cci.contradictions.expectations import (
     COVERAGE_TYPE, DEPLOYMENT_TYPE, FRAMEWORK_TYPE, PERFORMANCE_TYPE,
