@@ -211,20 +211,18 @@ export const CandidateDirectory: React.FC<{
     const meanRci = validRcis.length > 0 ? validRcis.reduce((a, b) => a + b, 0) / validRcis.length : 0;
     const meanCov = validCovs.length > 0 ? validCovs.reduce((a, b) => a + b, 0) / validCovs.length : 0;
     const conflictCount = filteredCandidates.filter((c) => c.has_meaningful_conflict).length;
-    const topCandidate = [...filteredCandidates].sort((a, b) => (b.rci ?? 0) - (a.rci ?? 0))[0];
 
     return {
       total: filteredCandidates.length,
       meanRci,
       meanCov,
       conflictCount,
-      topCandidate,
     };
   }, [filteredCandidates]);
 
   const handleExportCohortMarkdown = () => {
     const lines = [
-      '# Candidate Capability Intelligence (CCI) — Cohort Ranking Leaderboard',
+      '# Candidate Capability Intelligence (CCI) — Cohort Decision Support Summary',
       '',
       `Generated: ${new Date().toISOString()}`,
       `Total Evaluated Candidates: ${cohortMetrics.total}`,
@@ -232,28 +230,30 @@ export const CandidateDirectory: React.FC<{
       `Cohort Mean Evidence Coverage: ${(cohortMetrics.meanCov * 100).toFixed(1)}%`,
       `Candidates with Contradiction Alerts: ${cohortMetrics.conflictCount}`,
       '',
-      '| Rank | Candidate Name | Canonical Role | Role Capability Index (RCI) | Evidence Coverage | Contradiction Alert |',
+      '> **MANDATORY NOTICE:** CandidateX does not decide whether to hire a person. CandidateX never designates a "best candidate" or automated hiring recommendation. All metrics serve solely as human decision support.',
+      '',
+      '| Index | Candidate Name | Canonical Role | Role Capability Index (RCI) | Evidence Coverage | Contradiction Alert |',
       '|:---:|:---|:---|:---:|:---:|:---:|',
     ];
 
     filteredCandidates.forEach((c, idx) => {
-      const rank = idx + 1;
+      const itemIndex = idx + 1;
       const rciStr = c.rci !== null && c.rci !== undefined ? `${c.rci.toFixed(1)} / 100` : 'UNKNOWN';
       const covStr = c.coverage !== null && c.coverage !== undefined ? `${(c.coverage * 100).toFixed(1)}%` : '0.0%';
       const conflictStr = c.has_meaningful_conflict ? '⚠️ Conflict Detected' : 'Aligned';
       const roleStr = c.role || 'Unspecified';
-      lines.push(`| **#${rank}** | ${c.display_name} | ${roleStr} | **${rciStr}** | ${covStr} | ${conflictStr} |`);
+      lines.push(`| ${itemIndex} | ${c.display_name} | ${roleStr} | ${rciStr} | ${covStr} | ${conflictStr} |`);
     });
 
     lines.push('');
     lines.push('---');
-    lines.push('*Decision Support Only: CCI strictly assists human hiring committees and never makes autonomous hire/reject decisions.*');
+    lines.push('*Decision Support Only: CandidateX strictly assists human hiring committees and never makes autonomous hire/reject decisions.*');
 
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `cohort_leaderboard_${new Date().toISOString().slice(0, 10)}.md`);
+    link.setAttribute('download', `cohort_decision_support_${new Date().toISOString().slice(0, 10)}.md`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -298,7 +298,7 @@ export const CandidateDirectory: React.FC<{
             type="button"
             onClick={() => window.print()}
             className="px-3 py-1.5 glass hover:bg-white/[0.08] text-slate-300 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5"
-            title="Print executive cohort leaderboard packet"
+            title="Print executive cohort decision support packet"
           >
             <Printer className="w-3.5 h-3.5 text-slate-400" />
             <span>Print</span>
@@ -311,6 +311,18 @@ export const CandidateDirectory: React.FC<{
             <Plus className="w-4 h-4" />
             <span>New Evaluation</span>
           </button>
+        </div>
+      </GlassCard>
+
+      {/* Human Decision Support Invariant Banner */}
+      <GlassCard variant="subtle" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs p-3.5 border-brand-500/20 bg-brand-500/5">
+        <div className="flex items-center gap-2.5">
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-brand-500/20 text-brand-300 border border-brand-500/30 shrink-0">
+            Decision Support
+          </span>
+          <span className="text-slate-300">
+            <strong className="text-white">CandidateX does not decide whether to hire a person.</strong> Evaluation metrics and evidence profiles provide factual corroboration for human hiring teams. Automated hiring recommendations and candidate rankings are not produced.
+          </span>
         </div>
       </GlassCard>
 
@@ -575,7 +587,7 @@ export const CandidateDirectory: React.FC<{
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/[0.06] text-slate-500 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
-                  <th className="py-3 px-4 text-center">Rank</th>
+                  <th className="py-3 px-4 text-center">#</th>
                   <th className="py-3 px-4">Candidate &amp; Role</th>
                   <th className="py-3 px-4 text-center">RCI Score</th>
                   <th className="py-3 px-4 text-center">Coverage</th>
@@ -585,7 +597,6 @@ export const CandidateDirectory: React.FC<{
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
                 {filteredCandidates.map((candidate, idx) => {
-                  const rank = idx + 1;
                   const roleInfo = ROLE_META[candidate.role || 'backend'] || { label: candidate.role || 'Unknown', variant: 'neutral' as const };
                   const isInspecting = loadingCandidateId === candidate.id;
                   const isSelectedForCompare = selectedForComparison.includes(candidate.id);
@@ -598,13 +609,8 @@ export const CandidateDirectory: React.FC<{
                       }`}
                     >
                       <td className="py-3 px-4 text-center">
-                        <span className={`w-6 h-6 rounded-full inline-flex items-center justify-center font-mono font-bold text-xs ${
-                          rank === 1 ? 'bg-brand-600 text-white shadow-glow-sm' :
-                          rank === 2 ? 'bg-indigo-600/80 text-white' :
-                          rank === 3 ? 'bg-sky-600/80 text-white' :
-                          'glass text-slate-400'
-                        }`}>
-                          {rank}
+                        <span className="w-6 h-6 rounded-md inline-flex items-center justify-center font-mono text-xs text-slate-400 glass">
+                          {idx + 1}
                         </span>
                       </td>
 

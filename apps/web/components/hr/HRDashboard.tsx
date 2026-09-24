@@ -82,6 +82,16 @@ export function HRDashboard() {
           Refresh list
         </GlassButton>
       </div>
+
+      {/* Human Decision Support Mandatory Invariant Banner */}
+      <GlassCard variant="subtle" className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border-indigo-500/30 bg-indigo-500/10 text-xs text-slate-300">
+        <span className="px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+          Human Decision Support
+        </span>
+        <p className="leading-relaxed">
+          <strong className="text-white">CandidateX does not decide whether to hire a person.</strong> The system provides independent technical evidence analysis, contradiction diagnostics, and structured interview probes to support human hiring committees. Automated hiring decisions, candidate rankings, and &ldquo;best candidate&rdquo; designations are strictly prohibited.
+        </p>
+      </GlassCard>
       
       <AnimatePresence>
         {mode === 'sample' && (
@@ -229,7 +239,9 @@ export function HRDashboard() {
           </div>
         </GlassCard>
       </motion.section>
-      <p className="text-center text-xs leading-5 text-slate-500">Evidence helps you ask better questions. Hiring decisions always remain with your team.</p>
+      <p className="text-center text-xs leading-5 text-slate-500">
+        CandidateX does not decide whether to hire a person. Evidence helps you ask better questions; hiring decisions always remain with your human team.
+      </p>
     </main>
     {adding && <AddCandidateDialog onClose={() => setAdding(false)} onAdd={(candidate) => {
       setDrafts((previous) => [candidate, ...previous]); setAdding(false); clearFilters();

@@ -87,20 +87,90 @@ export function hasEvidenceAlert(candidate: HRCandidate) {
   return candidate.has_completed_dossier && (candidate.has_meaningful_conflict || candidate.coverage === 0);
 }
 
-export function summarizeDossier(dossier: Dossier) {
-  const claims = dossier.claims_corroboration;
-  const strengths = [...new Set(claims.filter((claim) => claim.status === 'corroborated')
-    .map((claim) => `${CAPABILITY_LABELS[claim.target_capability]}: supported by the supplied evidence.`))];
-  const discussion = [...new Set(claims.filter((claim) => claim.status === 'partial')
-    .map((claim) => `${CAPABILITY_LABELS[claim.target_capability]}: ask which parts the candidate personally delivered.`))];
-  const alerts = [...new Set([
-    ...Object.values(dossier.capability_conflicts).filter((item) => item.has_meaningful_conflict)
-      .map((item) => `${CAPABILITY_LABELS[item.capability_key]}: the available evidence gives mixed signals. Review with the candidate.`),
-    ...claims.filter((claim) => claim.status === 'contradicted' || claim.status === 'unknown')
-      .map((claim) => `${CAPABILITY_LABELS[claim.target_capability]}: ${claim.status === 'unknown' ? 'a stated skill is not yet supported by evidence.' : 'a stated skill does not fully match the supplied evidence.'}`),
-    ...(dossier.is_insufficient_evidence ? ['More work samples are needed before drawing conclusions.'] : []),
+export interface HRDecisionSupportSummary {
+  evidenceAvailable: string[];
+  unresolvedClaims: string[];
+  roleStrengths: string[];
+  uncertainty: string[];
+  evidenceGaps: string[];
+  contradictions: string[];
+  interviewQuestions: string[];
+  // Legacy aliases
+  strengths: string[];
+  discussion: string[];
+  alerts: string[];
+}
+
+export function summarizeDossier(dossier: Dossier): HRDecisionSupportSummary {
+  const claims = dossier.claims_corroboration || [];
+
+  // 1. Evidence Available
+  const evidenceAvailable = [
+    `Evidence coverage: ${(dossier.coverage * 100).toFixed(1)}% across ${Object.keys(dossier.capability_estimates || {}).length} technical dimensions.`,
+    `${dossier.evidence_records?.length || 0} immutable evidence records indexed from verified sources.`,
+    `${dossier.project_entities?.length || 0} project entities and ${dossier.ownership_assessments?.length || 0} repository ownership records attributed.`,
+  ];
+
+  // 2. Unresolved Claims (Declarations lacking independent proof)
+  const unresolvedClaims = [...new Set(
+    claims
+      .filter((claim) => claim.status === 'unknown' || claim.status === 'partial')
+      .map((claim) => {
+        const cap = CAPABILITY_LABELS[claim.target_capability] || claim.target_capability;
+        return claim.status === 'unknown'
+          ? `${cap}: candidate-declared skill has no independent artifact corroboration.`
+          : `${cap}: partially corroborated; candidate self-declaration lacks independent confirmation.`;
+      })
+  )];
+
+  // 3. Role-Relevant Strengths Observed
+  const roleStrengths = [...new Set(
+    claims
+      .filter((claim) => claim.status === 'corroborated')
+      .map((claim) => `${CAPABILITY_LABELS[claim.target_capability] || claim.target_capability}: supported by observed repository/deployment evidence.`)
+  )];
+
+  // 4. Uncertainty
+  const uncertainty = [
+    ...(dossier.is_insufficient_evidence
+      ? ['Overall evidence coverage is below sufficiency threshold. Missing evidence represents UNKNOWN capability, never low capability.']
+      : []),
+    ...Object.values(dossier.capability_estimates || {})
+      .filter((c) => c.is_observed && c.ci_lower !== null && c.ci_upper !== null && (c.ci_upper - c.ci_lower) > 0.35)
+      .map((c) => `${CAPABILITY_LABELS[c.capability_key] || c.capability_key}: wide estimation interval [${((c.ci_lower || 0) * 100).toFixed(0)}%–${((c.ci_upper || 0) * 100).toFixed(0)}%] due to bounded sample size.`),
+  ];
+
+  // 5. Evidence Gaps
+  const evidenceGaps = Object.entries(dossier.capability_estimates || {})
+    .filter(([_, c]) => !c.is_observed)
+    .map(([key, _]) => `${CAPABILITY_LABELS[key as CapabilityKey] || key}: no public artifacts observed in bounded scope.`);
+
+  // 6. Contradictions
+  const contradictions = [...new Set([
+    ...Object.values(dossier.capability_conflicts || {})
+      .filter((item) => item.has_meaningful_conflict)
+      .map((item) => `${CAPABILITY_LABELS[item.capability_key] || item.capability_key}: discrepancy detected between declared claim and observed artifacts.`),
+    ...claims
+      .filter((claim) => claim.status === 'contradicted')
+      .map((claim) => `${CAPABILITY_LABELS[claim.target_capability] || claim.target_capability}: artifact observation contradicts candidate assertion.`),
   ])];
-  return { strengths, discussion, alerts };
+
+  // 7. Interview Questions
+  const interviewQuestions = (dossier.interview_questions || []).map((q) => q.question_text);
+
+  return {
+    evidenceAvailable,
+    unresolvedClaims,
+    roleStrengths,
+    uncertainty,
+    evidenceGaps,
+    contradictions,
+    interviewQuestions,
+    // Legacy aliases
+    strengths: roleStrengths,
+    discussion: unresolvedClaims,
+    alerts: [...contradictions, ...uncertainty],
+  };
 }
 
 // Bound read-only requests without changing shared API utilities. Late results are ignored.

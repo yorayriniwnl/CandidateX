@@ -74,7 +74,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         "",
         "> [!IMPORTANT]",
         "> **Core Platform Invariant: Employer Decision Support Only.**",
-        "> This dossier assists human hiring teams and technical interviewers with verified artifact evidence.",
+        "> CandidateX does not decide whether to hire a person. This dossier assists human hiring teams and technical interviewers with verified artifact evidence.",
         "> **Based only on observed evidence.**",
         "> It never makes automated hiring or rejection determinations. Missing or insufficiently attributed capabilities evaluate strictly to `UNKNOWN`.",
         "",
@@ -799,7 +799,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         <!-- Decision Support Invariant Note -->
         <div class="decision-support-note">
             <strong>Platform Invariant: Human Hiring Decision Support.</strong>
-            This dossier provides provenance-grounded technical evidence for human interview panels. Missing or insufficiently attributed capabilities evaluate to <code>UNKNOWN</code>.
+            CandidateX does not decide whether to hire a person. This dossier provides provenance-grounded technical evidence for human interview panels and does not make autonomous hire/reject decisions. Missing or insufficiently attributed capabilities evaluate to <code>UNKNOWN</code>.
         </div>
 
         <!-- Low Coverage Alert -->
