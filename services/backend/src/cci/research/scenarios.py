@@ -10,7 +10,12 @@ from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, Field
-from cci.domain.contracts import EvidenceConfidenceFactors, EvidenceRecord
+from cci.domain.contracts import (
+    EvidenceConfidenceFactors,
+    EvidenceRecord,
+    NegativeEvidenceDetails,
+    NegativeEvidenceScanScope,
+)
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.domain.evidence_families import build_evidence_family_identity
 from cci.scoring.reliability import compute_source_reliability
@@ -76,6 +81,24 @@ def make_scenario(request: DemoRequest):
                 artifact_integrity=0.95, ownership_score=ownership,
                 recency_factor=0.9, verification_level=0.65 if family in (SourceFamily.RESUME, SourceFamily.LINKEDIN) else 0.9,
                 depth_specificity=0.85, source_reliability=reliability[family].posterior_mean)
+            negative_details = (
+                NegativeEvidenceDetails(
+                    claim_reference="cr1:" + hashlib.sha256(
+                        f"synthetic:{request.candidate_id}:{cap.value}".encode()
+                    ).hexdigest(),
+                    candidate_type="candidatex.contradiction.coverage_below_claim",
+                    expected_observation=f"Demonstrated proficiency in {cap.value}",
+                    actual_observation=f"Simulated contradictory signal for {cap.value}",
+                    scan_scope=NegativeEvidenceScanScope(
+                        scope_kind="synthetic",
+                    ),
+                    required_scan_completeness=1.0,
+                    observed_scan_completeness=1.0,
+                    explanation=f"Simulated conflict fixture for {cap.value} demonstration.",
+                )
+                if negative
+                else None
+            )
             records.append(EvidenceRecord(
                 evidence_id=uuid5(request.candidate_id, fingerprint), fingerprint=fingerprint,
                 source_family=family, source_locator=locator, immutable_revision=revision,
@@ -85,6 +108,7 @@ def make_scenario(request: DemoRequest):
                     f"{source_index % 3}:{index}",
                 ),
                 target_capability=cap, technical_signal_strength=score, is_positive_support=not negative,
+                negative_evidence_details=negative_details,
                 confidence_factors=factors, confidence=factors.composite_confidence,
                 cluster_id=cluster_id,
                 evidence_family_id=family_identity.evidence_family_id,

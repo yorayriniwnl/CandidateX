@@ -625,3 +625,56 @@ def test_production_qualified_record_requires_matching_rule_provenance():
         provenance={"signal_rule_id": details["candidate_type"], "signal_rule_version": "1.0.0"},
     )
     assert record.model_dump(mode="json")["negative_evidence_details"]["claim_reference"] == details["claim_reference"]
+
+
+def test_evidence_detail_response_and_dossier_serialization_preserve_negative_details():
+    details = _negative_details()
+    rule_id = details["candidate_type"]
+    record = EvidenceRecord(
+        **_negative_record_base(),
+        negative_evidence_details=details,
+        provenance={"signal_rule_id": rule_id, "signal_rule_version": "1.0.0"},
+    )
+    # Check EvidenceDetailResponse JSON serialization
+    response = EvidenceDetailResponse(
+        record=record,
+        repository_name="acme/api",
+        file_path="coverage.xml",
+    )
+    response_json = response.model_dump(mode="json")
+    assert response_json["record"]["negative_evidence_qualification"] == "qualified"
+    assert response_json["record"]["negative_evidence_details"]["claim_reference"] == details["claim_reference"]
+
+    # Check Dossier JSON serialization and roundtrip
+    dossier = Dossier(
+        candidate_id=uuid4(),
+        analysis_run_id=uuid4(),
+        role=CanonicalRole.BACKEND,
+        coverage=0.5,
+        is_insufficient_evidence=False,
+        capability_estimates={},
+        capability_conflicts={},
+        role_requirements=[],
+        ownership_assessments=[],
+        claims_corroboration=[],
+        interview_probes=[],
+        interview_questions=[],
+        evidence_records=[record],
+    )
+    dossier_json = dossier.model_dump(mode="json")
+    assert dossier_json["evidence_records"][0]["negative_evidence_qualification"] == "qualified"
+    assert dossier_json["evidence_records"][0]["negative_evidence_details"]["claim_reference"] == details["claim_reference"]
+
+    reloaded = Dossier.model_validate(dossier_json)
+    reloaded_record = reloaded.evidence_records[0]
+    assert reloaded_record.negative_evidence_qualification == "qualified"
+    assert reloaded_record.negative_evidence_details is not None
+    assert reloaded_record.negative_evidence_details.claim_reference == details["claim_reference"]
+
+
+def test_evidence_detail_response_serializes_legacy_negative_unqualified():
+    record = EvidenceRecord(**_negative_record_base())
+    response = EvidenceDetailResponse(record=record)
+    response_json = response.model_dump(mode="json")
+    assert response_json["record"]["negative_evidence_qualification"] == "legacy_unqualified"
+    assert response_json["record"]["negative_evidence_details"] is None

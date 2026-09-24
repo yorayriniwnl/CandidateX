@@ -390,3 +390,128 @@ def test_database_seeder_script_execution():
     test_db_file = "sqlite:///:memory:"
     # Run seed_database with 2 sample cohorts in-memory
     seed_database(db_url=test_db_file, reset=False, samples_count=2)
+
+
+def test_qualified_negative_round_trips_through_dossier_snapshot(memory_db):
+    """Verifies that qualified negative evidence preserves details and qualification through repository persistence."""
+    org = repo.save_organization(memory_db, "Negative Evidence Org", "negative-evidence-org")
+    candidate_id = uuid.uuid4()
+    run_id = uuid.uuid4()
+    claim_ref = "cr1:" + "e" * 64
+    rule_id = "candidatex.contradiction.coverage_below_claim"
+    details = {
+        "claim_reference": claim_ref,
+        "candidate_type": rule_id,
+        "expected_observation": "Line coverage >= 90%",
+        "actual_observation": "Line coverage 65%",
+        "scan_scope": {
+            "scope_kind": "artifact",
+            "repository_scope": "acme/repo",
+            "pinned_revision": "f" * 40,
+            "artifact_paths": ["coverage.xml"],
+            "category": "coverage_report",
+            "scope_version": "candidatex.negative-scan-scope/1.0.0",
+        },
+        "required_scan_completeness": 1.0,
+        "observed_scan_completeness": 1.0,
+        "explanation": "Report coverage 65% is below claimed 90%.",
+    }
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    negative_record = EvidenceRecord(
+        evidence_id=uuid.uuid4(),
+        fingerprint="f" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/repo",
+        immutable_revision="f" * 40,
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        technical_signal_strength=65.0,
+        is_positive_support=False,
+        negative_evidence_details=details,
+        confidence_factors=factors,
+        confidence=1.0,
+        provenance={
+            "signal_rule_id": rule_id,
+            "signal_rule_version": "1.0.0",
+            "artifact_path": "coverage.xml",
+        },
+    )
+    dossier = Dossier(
+        candidate_id=candidate_id,
+        analysis_run_id=run_id,
+        role=CanonicalRole.BACKEND,
+        coverage=0.8,
+        coverage_sufficiency_threshold=0.5,
+        is_insufficient_evidence=False,
+        capability_estimates={},
+        capability_conflicts={},
+        role_requirements=[],
+        ownership_assessments=[],
+        claims_corroboration=[],
+        interview_probes=[],
+        interview_questions=[],
+        evidence_records=[negative_record],
+    )
+    repo.save_dossier(
+        memory_db,
+        dossier,
+        org.id,
+        custom_evidence=[negative_record],
+    )
+    memory_db.commit()
+
+    loaded = repo.get_dossier_by_candidate_id(memory_db, dossier.candidate_id)
+    assert loaded is not None
+    negative = next(record for record in loaded.evidence_records if not record.is_positive_support)
+    assert negative.negative_evidence_qualification == "qualified"
+    assert negative.negative_evidence_details is not None
+    assert negative.negative_evidence_details.claim_reference == claim_ref
+
+    # Verify relational Evidence entity provenance in DB mirrors details and qualification
+    ev_entity = memory_db.query(models.Evidence).filter_by(fingerprint="f" * 64).one()
+    assert ev_entity.is_positive_support is False
+    assert ev_entity.provenance.get("negative_evidence_qualification") == "qualified"
+    assert ev_entity.provenance.get("negative_evidence_details") is not None
+    assert ev_entity.provenance["negative_evidence_details"]["claim_reference"] == claim_ref
+
+
+def test_legacy_negative_record_round_trips_unqualified_in_provenance(memory_db):
+    """Verifies that legacy unqualified negative evidence records mirror legacy_unqualified in provenance."""
+    org = repo.save_organization(memory_db, "Legacy Neg Org", "legacy-neg-org")
+    candidate_id = uuid.uuid4()
+    run = repo.save_analysis_run(memory_db, candidate_id, CanonicalRole.BACKEND, org.id)
+    memory_db.flush()
+
+    factors = EvidenceConfidenceFactors(
+        artifact_integrity=1.0,
+        ownership_score=1.0,
+        recency_factor=1.0,
+        verification_level=1.0,
+        depth_specificity=1.0,
+        source_reliability=1.0,
+    )
+    legacy_record = EvidenceRecord(
+        evidence_id=uuid.uuid4(),
+        fingerprint="e" * 64,
+        source_family=SourceFamily.GITHUB,
+        source_locator="https://github.com/acme/legacy",
+        immutable_revision="e" * 40,
+        target_capability=CapabilityKey.TESTING_QUALITY,
+        technical_signal_strength=40.0,
+        is_positive_support=False,
+        confidence_factors=factors,
+        confidence=1.0,
+    )
+    repo.save_evidence_records(memory_db, run.id, [legacy_record], ScoringConfig())
+    memory_db.commit()
+
+    ev_entity = memory_db.query(models.Evidence).filter_by(fingerprint="e" * 64).one()
+    assert ev_entity.is_positive_support is False
+    assert ev_entity.provenance.get("negative_evidence_qualification") == "legacy_unqualified"
+    assert "negative_evidence_details" not in ev_entity.provenance

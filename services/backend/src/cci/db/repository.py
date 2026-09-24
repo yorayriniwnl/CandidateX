@@ -342,6 +342,14 @@ def save_evidence_records(
                 mode="json"
             )
         provenance["evidence_family_basis"] = family_basis
+        if ev.negative_evidence_details is not None:
+            provenance["negative_evidence_details"] = (
+                ev.negative_evidence_details.model_dump(mode="json")
+            )
+        if ev.negative_evidence_qualification is not None:
+            provenance["negative_evidence_qualification"] = (
+                ev.negative_evidence_qualification
+            )
 
         entity = models.Evidence(
             id=ev.evidence_id,
