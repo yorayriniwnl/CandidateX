@@ -114,7 +114,9 @@ def compute_capability_score(
     ci_lower = None
     ci_upper = None
     if ci_bounds is not None:
-        ci_lower, ci_upper = ci_bounds
+        raw_lower, raw_upper = ci_bounds
+        ci_lower = max(0.0, min(100.0, raw_lower)) if raw_lower is not None else None
+        ci_upper = max(0.0, min(100.0, raw_upper)) if raw_upper is not None else None
 
     return CapabilityEstimate(
         capability_key=capability,

@@ -846,6 +846,14 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         else ""
     }
 
+        <!-- System Limitations -->
+        <div class="section-title">5. System Limitations &amp; Caveats</div>
+        <div class="decision-support-note" style="margin-bottom: 24px;">
+            <ul style="margin: 8px 0 0 16px; list-style: disc;">
+                {"".join(f'<li style="margin-bottom: 4px;">{html.escape(lim)}</li>' for lim in dossier.system_limitations)}
+            </ul>
+        </div>
+
         <!-- Footer -->
         <footer>
             Candidate Capability Intelligence (CCI) Platform • Confidential Interview Intelligence Brief • Human Decision Support System

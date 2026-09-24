@@ -185,9 +185,11 @@ def execute_analysis_pipeline(
             for u in repo_urls:
                 try:
                     norm = normalize_url(u)
-                    valid_repos.append(str(norm))
+                    if norm:
+                        valid_repos.append(str(norm))
+                    # normalize_url returns None for unparseable URLs — skip silently
                 except Exception:
-                    valid_repos.append(u)
+                    pass  # Malformed URL rejected at closed-world boundary
 
         # ----------------------------------------------------------------------
         # Stage 3: ANALYZING_ARTIFACTS
