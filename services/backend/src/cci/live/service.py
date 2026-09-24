@@ -37,6 +37,11 @@ def analyze_resume(request: LiveAnalysisRequest):
                 request.github_identity,
                 analysis_run_id,
                 observable_expectations=observable_expectations,
+                target_role=request.role,
+                manifest=manifest,
+                jd_text=request.jd_text,
+                deployment_urls=deployment_candidates,
+                portfolio_urls=manifest.portfolio_urls,
             )
         except TypeError:
             return acquire_sources(

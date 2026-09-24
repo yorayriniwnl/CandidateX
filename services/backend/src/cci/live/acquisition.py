@@ -29,6 +29,7 @@ from cci.config import settings
 from cci.domain.contracts import (
     ArtifactRecency,
     ArtifactAttribution,
+    CandidateManifest,
     EvidenceConfidenceFactors,
     EvidenceInput,
     EvidenceRecord,
@@ -36,10 +37,11 @@ from cci.domain.contracts import (
     RepositoryAssociation,
     RepositoryContribution,
 )
-from cci.domain.enums import ArtifactAttributionState
+from cci.domain.enums import ArtifactAttributionState, CanonicalRole
 from cci.domain.evidence_families import build_fallback_evidence_family_identity
 from cci.live.contracts import (MAX_REPOSITORIES, MAX_FILES, MAX_FILE_BYTES, MAX_ARCHIVE_BYTES,
     MAX_EXPANDED_BYTES, MAX_SECONDS, MAX_RECENT_COMMITS, MAX_ARTIFACT_ATTRIBUTION_PATHS, github_parts)
+from cci.live.prioritization import normalize_words, prioritize_repositories
 from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
@@ -660,6 +662,8 @@ def acquire_repository(
     attribution_path_budget,
     analysis_run_id: UUID | None = None,
     observable_expectations: Sequence[ObservableClaimExpectation] = (),
+    selection_reason: str | None = None,
+    priority_score: float | None = None,
 ):
     analysis_run_id = analysis_run_id or uuid4()
     owner, repo = github_parts(url)
@@ -711,6 +715,8 @@ def acquire_repository(
         candidate_identifier=identity or None,
         basis=association_basis,
         identity_verified=False,
+        selection_reason=selection_reason,
+        priority_score=priority_score,
         limitations=['A supplied repository URL or profile inventory link establishes association only.'],
     )
     contribution = RepositoryContribution(
@@ -841,6 +847,7 @@ def acquire_repository(
             ),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,
             'ownership_score': ownership, 'candidate_sampled_commits': authored, 'sampled_commits': len(commits),
+            'selection_reason': selection_reason, 'priority_score': priority_score,
             'repository_association': association.model_dump(mode='json'),
             'repository_contribution': contribution.model_dump(mode='json'),
             'artifact_attributions': [path_attributions[path].model_dump(mode='json') for path in ordered_paths],
@@ -967,16 +974,66 @@ def acquire_sources(
     identity,
     analysis_run_id: UUID | None = None,
     observable_expectations: Sequence[ObservableClaimExpectation] = (),
+    *,
+    target_role: CanonicalRole | str | None = None,
+    manifest: CandidateManifest | None = None,
+    jd_text: str | None = None,
+    deployment_urls: Sequence[str] = (),
+    portfolio_urls: Sequence[str] = (),
 ):
     analysis_run_id = analysis_run_id or uuid4()
-    records, ownership, receipts, repos = [], [], [], []
+    records, ownership, receipts = [], [], []
     association_basis = {}
     fetcher = Fetcher()
+
+    explicit_repos = [u for u in urls if github_parts(u)[1]]
+    association_basis.update({u.lower(): 'supplied_repository_url' for u in explicit_repos})
+    profiles = [u for u in urls if not github_parts(u)[1]]
+
+    explicit_set = {u.lower().rstrip('/') for u in explicit_repos}
+    resume_urls: set[str] = set()
+    project_titles: list[str] = []
+    candidate_skills: list[str] = []
+    jd_keywords: list[str] = []
+
+    if manifest:
+        resume_urls.update(
+            u.lower().rstrip('/')
+            for u in (list(manifest.project_links) + list(manifest.portfolio_urls) + list(manifest.deployment_urls))
+        )
+        candidate_skills = list(manifest.claimed_skills)
+        for claim in manifest.project_claims:
+            if isinstance(claim, dict) and claim.get('title'):
+                project_titles.append(claim['title'])
+        for claim in manifest.experience_claims:
+            if isinstance(claim, dict):
+                if claim.get('title'):
+                    project_titles.append(claim['title'])
+                if claim.get('company'):
+                    project_titles.append(claim['company'])
+
+    if jd_text:
+        jd_keywords = list(normalize_words(jd_text))
+
+    candidate_dict: dict[str, dict[str, Any]] = {}
+    for u in explicit_repos:
+        owner, rname = github_parts(u)
+        u_key = u.lower().rstrip('/')
+        candidate_dict[u_key] = {
+            'url': u,
+            'name': rname or u,
+            'description': '',
+            'language': '',
+            'stars': 0,
+            'fork': False,
+            'archived': False,
+            'pushed_at': None,
+            'size_kb': 100,
+            'topics': [],
+        }
+
     try:
-        # Explicit repository links take priority over bounded profile expansion.
-        repos = [u for u in urls if github_parts(u)[1]]
-        association_basis.update({u.lower(): 'supplied_repository_url' for u in repos})
-        profiles = [u for u in urls if not github_parts(u)[1]]
+        profile_receipts = []
         for url in profiles:
             owner, repo = github_parts(url)
             if repo:
@@ -996,7 +1053,6 @@ def acquire_sources(
                     data.extend(items)
                     if len(items) < 100:
                         break
-                expanded = []
                 inventory = []
                 for item in data:
                     if item.get('private'):
@@ -1004,50 +1060,113 @@ def acquire_sources(
                     name = item.get('name', '')
                     candidate_url = f'https://github.com/{owner}/{name}'
                     github_parts(candidate_url)
-                    inventory.append({'url': candidate_url, 'name': name, 'description': item.get('description'),
+                    repo_meta = {
+                        'url': candidate_url, 'name': name, 'description': item.get('description'),
                         'language': item.get('language'), 'stars': item.get('stargazers_count', 0),
                         'fork': bool(item.get('fork')), 'archived': bool(item.get('archived')),
                         'pushed_at': item.get('pushed_at'), 'size_kb': item.get('size'),
-                        'topics': item.get('topics', [])[:20]})
-                    if (len(repos) < MAX_REPOSITORIES and not item.get('fork') and not item.get('archived')
-                            and candidate_url.lower() not in {r.lower() for r in repos}):
-                        repos.append(candidate_url)
+                        'topics': item.get('topics', [])[:20],
+                    }
+                    inventory.append(repo_meta)
+                    u_key = candidate_url.lower().rstrip('/')
+                    if u_key not in candidate_dict:
+                        candidate_dict[u_key] = repo_meta
                         association_basis[candidate_url.lower()] = 'public_profile_inventory'
-                        expanded.append(candidate_url)
-                receipts.append({'url': url, 'kind': 'github_profile', 'status': 'observed' if not profile_error else 'partial',
-                    'detail': 'Public profile and repository inventory retrieved; recent non-fork repositories selected within the scan budget.',
+                    else:
+                        candidate_dict[u_key] = {**candidate_dict[u_key], **repo_meta}
+
+                profile_receipt = {
+                    'url': url, 'kind': 'github_profile',
+                    'status': 'observed' if not profile_error else 'partial',
+                    'detail': 'Public profile and repository inventory retrieved; role-aware prioritization applied within the scan budget.',
                     'profile': profile, 'profile_error': profile_error, 'inventory': inventory,
                     'inventory_truncated': len(data) == 200, 'fetched_at': datetime.now(timezone.utc).isoformat(),
-                    'expanded_repositories': expanded})
+                    'expanded_repositories': [],
+                }
+                profile_receipts.append(profile_receipt)
+                receipts.append(profile_receipt)
             except Exception as exc:
                 receipts.append(error_receipt(url, exc))
-        for url in repos[MAX_REPOSITORIES:]:
-            receipts.append({'url': url, 'status': 'not_scanned', 'detail': f'Limit of {MAX_REPOSITORIES} repositories per analysis.'})
-        selected_repos = repos[:MAX_REPOSITORIES]
-        base_path_budget, extra_path_budget = divmod(
-            MAX_ARTIFACT_ATTRIBUTION_PATHS, max(1, len(selected_repos))
+
+        ranked_results = prioritize_repositories(
+            list(candidate_dict.values()),
+            max_repositories=MAX_REPOSITORIES,
+            target_role=target_role,
+            explicit_urls=explicit_set,
+            resume_urls=resume_urls,
+            project_titles=project_titles,
+            candidate_skills=candidate_skills,
+            jd_keywords=jd_keywords,
+            deployment_urls=deployment_urls,
+            portfolio_urls=portfolio_urls,
         )
-        for index, url in enumerate(selected_repos):
+
+        results_by_url = {r.url.lower().rstrip('/'): r for r in ranked_results}
+
+        for p_rec in profile_receipts:
+            expanded = []
+            for item in p_rec.get('inventory', []):
+                u_key = item['url'].lower().rstrip('/')
+                res = results_by_url.get(u_key)
+                if res:
+                    item['inspection_status'] = res.inspection_status
+                    item['selection_reason'] = res.selection_reason
+                    item['deferral_reason'] = res.deferral_reason
+                    item['priority_score'] = res.priority_score
+                    item['matched_features'] = res.matched_features
+                    if res.is_selected:
+                        expanded.append(res.url)
+            p_rec['expanded_repositories'] = expanded
+
+        selected_results = [r for r in ranked_results if r.is_selected]
+        deferred_results = [r for r in ranked_results if not r.is_selected]
+
+        for res in deferred_results:
+            u_key = res.url.lower().rstrip('/')
+            if u_key in explicit_set or res.inspection_status == 'deferred':
+                receipts.append({
+                    'url': res.url,
+                    'name': res.name,
+                    'kind': 'repository',
+                    'status': 'deferred',
+                    'inspection_status': res.inspection_status,
+                    'selection_reason': None,
+                    'deferral_reason': res.deferral_reason,
+                    'priority_score': res.priority_score,
+                    'detail': f'Limit of {MAX_REPOSITORIES} repositories per analysis. {res.deferral_reason}',
+                    'evidence_count': 0,
+                })
+
+        base_path_budget, extra_path_budget = divmod(
+            MAX_ARTIFACT_ATTRIBUTION_PATHS, max(1, len(selected_results))
+        )
+        for index, res in enumerate(selected_results):
             try:
                 path_budget = base_path_budget + (1 if index < extra_path_budget else 0)
                 evidence, assessment, receipt = acquire_repository(
-                    fetcher, url, identity,
-                    association_basis=association_basis.get(url.lower(), 'selected_repository_url'),
+                    fetcher, res.url, identity,
+                    association_basis=association_basis.get(res.url.lower(), 'selected_repository_url'),
                     attribution_path_budget=path_budget,
                     analysis_run_id=analysis_run_id,
                     observable_expectations=observable_expectations,
+                    selection_reason=res.selection_reason,
+                    priority_score=res.priority_score,
                 )
                 records.extend(evidence)
                 ownership.append(assessment)
                 receipts.append(receipt)
             except Exception as exc:
-                receipts.append(error_receipt(url, exc))
+                receipts.append(error_receipt(res.url, exc))
     finally:
         fetcher.close()
-    scanned = {r['url'].lower(): r['status'] for r in receipts if r.get('kind') != 'github_profile'}
+
+    scanned = {r['url'].lower().rstrip('/'): r['status'] for r in receipts if r.get('kind') != 'github_profile'}
     for receipt in receipts:
         for repo in receipt.get('inventory', []):
-            repo['inspection_status'] = scanned.get(repo['url'].lower(), 'inventory_only')
+            u_clean = repo['url'].lower().rstrip('/')
+            if u_clean in scanned:
+                repo['inspection_status'] = scanned[u_clean]
+
     evidence_ids = evidence_ids_for_fingerprints(
         analysis_run_id, [record.fingerprint for record in records]
     )

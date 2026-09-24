@@ -40,10 +40,19 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
     for association in dossier.repository_associations:
         source = repository_source(association.repository_url)
         repo_id = "repo_" + sha256(association.repository_url.encode()).hexdigest()[:20]
-        node(repo_id, N.REPOSITORY, association.repository_url, repository_url=association.repository_url)
+        node(
+            repo_id,
+            N.REPOSITORY,
+            association.repository_url,
+            repository_url=association.repository_url,
+            selection_reason=association.selection_reason,
+            priority_score=association.priority_score,
+        )
         edge(source, repo_id, E.CONTAINS)
         edge(candidate, repo_id, E.ASSOCIATED_WITH,
-             basis=association.basis, identity_verified=association.identity_verified)
+             basis=association.basis, identity_verified=association.identity_verified,
+             selection_reason=association.selection_reason,
+             priority_score=association.priority_score)
         edge(candidate, source, E.ASSOCIATED_WITH,
              basis=association.basis, identity_verified=association.identity_verified)
 

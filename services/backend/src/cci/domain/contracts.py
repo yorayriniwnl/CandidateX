@@ -672,6 +672,8 @@ class RepositoryAssociation(BaseModel):
     candidate_identifier: str | None = None
     basis: str = Field(description="How the repository entered the selected source set")
     identity_verified: bool = Field(default=False, description="Whether the GitHub account is human-verified")
+    selection_reason: str | None = Field(default=None, description="Role-aware prioritization rationale for repository selection")
+    priority_score: float | None = Field(default=None, description="Numeric score from role-aware repository prioritization")
     limitations: list[str] = Field(default_factory=list)
 
 
