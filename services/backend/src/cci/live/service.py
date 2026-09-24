@@ -116,7 +116,18 @@ def analyze_resume(request: LiveAnalysisRequest):
         'repository_associations': associations, 'repository_contributions': contributions,
         'system_limitations': [*state.dossier.system_limitations, *limitations]})
     graph = build_dossier_graph(dossier)
-    return {'intake': request.intake, 'dossier': dossier,
+    from cci.live.resilience import extract_missing_pieces
+    has_partials = any(s['status'] not in ('observed', 'completed') for s in sources) or not evidence
+    missing_pieces = extract_missing_pieces(sources, has_evidence=bool(evidence))
+    return {
+        'intake': request.intake,
+        'dossier': dossier,
         'graph': graph.to_api_response(candidate_id=dossier.candidate_id, analysis_run_id=dossier.analysis_run_id),
-        'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': build_report(request.intake, sources), 'scoring_config': scoring_config,
-        'storage': 'request_only', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}
+        'graph_snapshot': graph.to_dict(),
+        'sources': sources,
+        'missing_pieces': missing_pieces,
+        'analysis': build_report(request.intake, sources),
+        'scoring_config': scoring_config,
+        'storage': 'request_only',
+        'status': 'partial' if has_partials else 'completed',
+    }

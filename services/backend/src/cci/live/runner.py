@@ -121,6 +121,9 @@ class DurableAnalysisRun:
     def to_status_dict(self) -> dict[str, Any]:
         """Returns pollable execution status."""
         from cci.security.abuse import sanitize_credentials
+        missing_pieces = []
+        if isinstance(self.result, dict):
+            missing_pieces = self.result.get("missing_pieces", [])
         return {
             "analysis_run_id": str(self.analysis_run_id),
             "state": self.state.value,
@@ -135,6 +138,7 @@ class DurableAnalysisRun:
             "structured_error": self.telemetry.structured_error if self.telemetry else None,
             "budget_summary": self.budget_tracker.get_summary() if self.budget_tracker else None,
             "telemetry": self.telemetry.to_dict() if self.telemetry else None,
+            "missing_pieces": missing_pieces,
             "result": sanitize_credentials(self.result) if self.result else None,
         }
 
@@ -372,6 +376,11 @@ class AnalysisRunManager:
                 evidence = dossier_data.get("evidence", [])
                 time_exhausted = run.budget_tracker.is_time_exhausted() if run.budget_tracker else False
                 has_partials = any(s.get("status") not in ("observed", "completed") for s in sources) or not evidence or time_exhausted
+
+                from cci.live.resilience import extract_missing_pieces
+                missing_pieces = extract_missing_pieces(sources, time_exhausted=time_exhausted, has_evidence=bool(evidence))
+                if isinstance(dossier_data, dict):
+                    dossier_data["missing_pieces"] = missing_pieces
 
                 run.state = AnalysisRunState.PARTIAL if has_partials else AnalysisRunState.COMPLETED
                 run.current_stage = run.state.value

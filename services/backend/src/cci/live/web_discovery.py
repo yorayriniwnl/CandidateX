@@ -50,6 +50,9 @@ TERMINAL_STATES = {
     "inaccessible",
     "failed",
     "not_scanned",
+    "timeout",
+    "rate_limited",
+    "parser_error",
 }
 
 SOURCE_CATEGORIES = {
@@ -503,137 +506,177 @@ class EvidenceDiscoveryFrontier:
         if time.monotonic() >= deadline:
             return "not_scanned", "Time budget reached before fetch started.", receipt, []
 
-        try:
-            with httpx.Client(
-                transport=transport,
-                follow_redirects=False,
-                trust_env=False,
-                headers={
-                    "User-Agent": "CandidateX-PublicEvidence/1.0",
-                    "Accept": "text/html,text/plain,application/pdf",
-                    "Accept-Encoding": "identity",
-                },
-            ) as client:
-                current = item.canonical_url
-                redirects: list[str] = []
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            if time.monotonic() >= deadline:
+                return "timeout", "Time budget reached before fetch completed.", receipt, []
 
-                for hop in range(4):
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        return "not_scanned", "Time budget expired during redirection.", receipt, []
+            try:
+                with httpx.Client(
+                    transport=transport,
+                    follow_redirects=False,
+                    trust_env=False,
+                    headers={
+                        "User-Agent": "CandidateX-PublicEvidence/1.0",
+                        "Accept": "text/html,text/plain,application/pdf",
+                        "Accept-Encoding": "identity",
+                    },
+                ) as client:
+                    current = item.canonical_url
+                    redirects: list[str] = []
+                    retry_needed = False
 
-                    client.cookies.clear()
-                    with client.stream("GET", current, timeout=min(4.0, remaining)) as response:
-                        receipt.update(http_status=response.status_code, final_url=current, redirects=redirects)
+                    for hop in range(4):
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            return "timeout", "Time budget expired during redirection.", receipt, []
 
-                        if response.is_redirect:
-                            if hop == 3 or not response.headers.get("location"):
-                                return "failed", "Redirect limit exceeded or missing destination.", receipt, []
-                            current = urljoin(current, response.headers["location"])
-                            redirects.append(current)
-                            continue
+                        client.cookies.clear()
+                        with client.stream("GET", current, timeout=min(4.0, remaining)) as response:
+                            receipt.update(http_status=response.status_code, final_url=current, redirects=redirects)
 
-                        # Terminal state: inaccessible
-                        if response.status_code in (401, 403, 429, 999):
-                            return (
-                                "inaccessible",
-                                f"Access restricted: HTTP {response.status_code} (login, rate limit, or provider block).",
-                                receipt,
-                                [],
-                            )
+                            if response.is_redirect:
+                                if hop == 3 or not response.headers.get("location"):
+                                    return "failed", "Redirect limit exceeded or missing destination.", receipt, []
+                                current = urljoin(current, response.headers["location"])
+                                redirects.append(current)
+                                continue
 
-                        # Terminal state: failed
-                        if response.status_code >= 400:
-                            return (
-                                "failed",
-                                f"Public page returned HTTP {response.status_code}.",
-                                receipt,
-                                [],
-                            )
-
-                        content_type = response.headers.get("content-type", "").lower()
-                        if not any(t in content_type for t in ("text/html", "text/plain", "application/xhtml+xml", "application/pdf")):
-                            return (
-                                "failed",
-                                "Unsupported content type: only HTML, plain text, and digital PDFs are inspected.",
-                                receipt,
-                                [],
-                            )
-
-                        content = bytearray()
-                        for chunk in response.iter_bytes():
-                            content.extend(chunk)
-                            if len(content) > MAX_PAGE_BYTES:
+                            # 429: Rate limited -> backoff and retry
+                            if response.status_code == 429:
+                                if attempt < max_retries:
+                                    retry_after = response.headers.get("retry-after")
+                                    backoff = min(2.0, float(retry_after)) if retry_after and retry_after.isdigit() else (0.2 * (2 ** attempt))
+                                    if (deadline - time.monotonic()) > backoff:
+                                        time.sleep(backoff)
+                                        retry_needed = True
+                                        break
                                 return (
-                                    "failed",
-                                    f"Page size exceeds maximum inspection limit ({MAX_PAGE_BYTES} bytes).",
+                                    "rate_limited",
+                                    "Public page rate limit reached (HTTP 429).",
                                     receipt,
                                     [],
                                 )
-                            if time.monotonic() >= deadline:
-                                return "not_scanned", "Time budget expired during streaming.", receipt, []
 
-                        raw_bytes = bytes(content)
-                        text = raw_bytes.decode("utf-8", errors="replace")
-                        parser = PublicPageParser()
+                            # 401, 403, 999: Terminal access-restricted (no retry)
+                            if response.status_code in (401, 403, 999):
+                                return (
+                                    "inaccessible",
+                                    f"Access restricted: HTTP {response.status_code} (login, authentication, or provider gate).",
+                                    receipt,
+                                    [],
+                                )
 
-                        if "application/pdf" in content_type:
-                            with pymupdf.open(stream=raw_bytes, filetype="pdf") as document:
-                                if document.is_encrypted or len(document) > MAX_PDF_PAGES:
+                            # Terminal 4xx / 5xx (except 429/401/403)
+                            if response.status_code >= 400:
+                                return (
+                                    "failed",
+                                    f"Public page returned HTTP {response.status_code}.",
+                                    receipt,
+                                    [],
+                                )
+
+                            content_type = response.headers.get("content-type", "").lower()
+                            if not any(t in content_type for t in ("text/html", "text/plain", "application/xhtml+xml", "application/pdf")):
+                                return (
+                                    "failed",
+                                    "Unsupported content type: only HTML, plain text, and digital PDFs are inspected.",
+                                    receipt,
+                                    [],
+                                )
+
+                            content = bytearray()
+                            for chunk in response.iter_bytes():
+                                content.extend(chunk)
+                                if len(content) > MAX_PAGE_BYTES:
                                     return (
                                         "failed",
-                                        f"PDF is encrypted or exceeds {MAX_PDF_PAGES}-page inspection limit.",
+                                        f"Page size exceeds maximum inspection limit ({MAX_PAGE_BYTES} bytes).",
                                         receipt,
                                         [],
                                     )
-                                title = document.metadata.get("title", "")
-                                description = ""
-                                visible = "\n".join(page.get_text() for page in document)
-                        elif "text/plain" in content_type:
-                            title, description, visible = "", "", text
-                        else:
-                            parser.feed(text)
-                            title, description, visible = " ".join(parser.title), parser.description, " ".join(parser.text)
-                            discovered_links = parser.hrefs[:100]
+                                if time.monotonic() >= deadline:
+                                    return "timeout", "Time budget expired during streaming.", receipt, []
 
-                        excerpt = re.sub(r"\s+", " ", visible).strip()[:MAX_TEXT_CHARS]
-                        gate = re.search(
-                            r"(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies)",
-                            f"{title} {excerpt[:1200]}",
-                            re.I,
-                        )
-                        receipt.update(
-                            title=title[:300],
-                            description=description,
-                            excerpt=excerpt,
-                            content_sha256=hashlib.sha256(raw_bytes).hexdigest(),
-                        )
+                            raw_bytes = bytes(content)
+                            text = raw_bytes.decode("utf-8", errors="replace")
+                            parser = PublicPageParser()
 
-                        if gate:
-                            return (
-                                "inaccessible",
-                                "Response is a login or anti-bot verification gate.",
-                                receipt,
-                                [],
+                            try:
+                                if "application/pdf" in content_type:
+                                    with pymupdf.open(stream=raw_bytes, filetype="pdf") as document:
+                                        if document.is_encrypted or len(document) > MAX_PDF_PAGES:
+                                            return (
+                                                "failed",
+                                                f"PDF is encrypted or exceeds {MAX_PDF_PAGES}-page inspection limit.",
+                                                receipt,
+                                                [],
+                                            )
+                                        title = document.metadata.get("title", "")
+                                        description = ""
+                                        visible = "\n".join(page.get_text() for page in document)
+                                elif "text/plain" in content_type:
+                                    title, description, visible = "", "", text
+                                else:
+                                    parser.feed(text)
+                                    title, description, visible = " ".join(parser.title), parser.description, " ".join(parser.text)
+                                    discovered_links = parser.hrefs[:100]
+                            except Exception as parse_exc:
+                                receipt.update(content_sha256=hashlib.sha256(raw_bytes).hexdigest())
+                                return (
+                                    "parser_error",
+                                    f"Public content could not be parsed: {parse_exc}",
+                                    receipt,
+                                    [],
+                                )
+
+                            excerpt = re.sub(r"\s+", " ", visible).strip()[:MAX_TEXT_CHARS]
+                            gate = re.search(
+                                r"(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies)",
+                                f"{title} {excerpt[:1200]}",
+                                re.I,
+                            )
+                            receipt.update(
+                                title=title[:300],
+                                description=description,
+                                excerpt=excerpt,
+                                content_sha256=hashlib.sha256(raw_bytes).hexdigest(),
                             )
 
-                        if len(excerpt) < 40:
-                            return (
-                                "failed",
-                                "Page has insufficient readable text without browser scripts.",
-                                receipt,
-                                [],
-                            )
+                            if gate:
+                                return (
+                                    "inaccessible",
+                                    "Response is a login or anti-bot verification gate.",
+                                    receipt,
+                                    [],
+                                )
 
-                        # Terminal state: fetched
-                        return "fetched", "Successfully inspected public page.", receipt, discovered_links
+                            if len(excerpt) < 40:
+                                return (
+                                    "failed",
+                                    "Page has insufficient readable text without browser scripts.",
+                                    receipt,
+                                    [],
+                                )
 
-        except SSRFSecurityError as exc:
-            return "blocked", f"SSRF security violation: {exc}", receipt, []
-        except (httpx.TimeoutException, TimeoutError):
-            return "failed", "Request timed out.", receipt, []
-        except Exception as exc:
-            return "failed", f"Inspection failed: {exc}", receipt, []
+                            # Terminal state: fetched
+                            return "fetched", "Successfully inspected public page.", receipt, discovered_links
+
+                    if retry_needed:
+                        continue
+
+            except SSRFSecurityError as exc:
+                return "blocked", f"SSRF security violation: {exc}", receipt, []
+            except (httpx.TimeoutException, TimeoutError):
+                if attempt < max_retries and (deadline - time.monotonic()) > 1.0:
+                    time.sleep(0.2)
+                    continue
+                return "timeout", "Request timed out.", receipt, []
+            except Exception as exc:
+                if attempt < max_retries and (deadline - time.monotonic()) > 1.0:
+                    time.sleep(0.2)
+                    continue
+                return "failed", f"Inspection failed: {exc}", receipt, []
 
         return "failed", "No inspectable response.", receipt, []
 
