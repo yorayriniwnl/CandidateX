@@ -465,3 +465,71 @@ class EvidenceMode(str, Enum):
 
 # Backward compatibility aliases
 EvidenceMode.PROVIDED = EvidenceMode.TEST_FIXTURE
+
+
+class AnalysisRunState(str, Enum):
+    """Canonical lifecycle state machine for durable analysis runs (Fix 26).
+
+    States:
+    - QUEUED: Staged and waiting for background worker to begin execution.
+    - PARSING_RESUME: Parsing resume document into structured intake and candidate claims.
+    - EXTRACTING_CLAIMS: Extracting and normalizing skill, project, education, and credential claims.
+    - DISCOVERING_SOURCES: Expanding seed links and populating prioritized discovery frontier.
+    - FETCHING_SOURCES: Safely fetching and verifying public web, credential, and documentation links.
+    - ANALYZING_GITHUB: Acquiring and inspecting repositories using role-aware prioritization and deep scan.
+    - ANALYZING_DEPLOYMENTS: Probing and inspecting deployed application runtimes.
+    - ANALYZING_CREDENTIALS: Corroborating third-party certification and credential claims.
+    - ANALYZING_ACADEMICS: Verifying educational history and academic records.
+    - ANALYZING_PROJECTS: Matching declared projects with code artifacts and runtime deployments.
+    - CORROBORATING_CLAIMS: Evaluating contradictory evidence, negative evidence, and expectations.
+    - COMPUTING_SIGNALS: Evaluating technical signal strength, capability estimates, and bootstrap CIs.
+    - BUILDING_GRAPH: Constructing heterogeneous Candidate Evidence Graph (CEG) ontology.
+    - BUILDING_DOSSIER: Assembling final candidate dossier, limitations, and provenance audit trail.
+    - COMPLETED: All pipeline stages completed successfully.
+    - PARTIAL: Execution finished with partial observations or non-fatal source restrictions.
+    - FAILED: Unrecoverable execution error occurred.
+    - CANCELLED: Analysis run was explicitly cancelled.
+    """
+
+    QUEUED = "QUEUED"
+    PARSING_RESUME = "PARSING_RESUME"
+    EXTRACTING_CLAIMS = "EXTRACTING_CLAIMS"
+    DISCOVERING_SOURCES = "DISCOVERING_SOURCES"
+    FETCHING_SOURCES = "FETCHING_SOURCES"
+    ANALYZING_GITHUB = "ANALYZING_GITHUB"
+    ANALYZING_DEPLOYMENTS = "ANALYZING_DEPLOYMENTS"
+    ANALYZING_CREDENTIALS = "ANALYZING_CREDENTIALS"
+    ANALYZING_ACADEMICS = "ANALYZING_ACADEMICS"
+    ANALYZING_PROJECTS = "ANALYZING_PROJECTS"
+    CORROBORATING_CLAIMS = "CORROBORATING_CLAIMS"
+    COMPUTING_SIGNALS = "COMPUTING_SIGNALS"
+    BUILDING_GRAPH = "BUILDING_GRAPH"
+    BUILDING_DOSSIER = "BUILDING_DOSSIER"
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.upper().replace("-", "_")
+            for member in cls:
+                if member.value == val_norm or member.name == val_norm:
+                    return member
+        return super()._missing_(value)
+
+    @property
+    def is_terminal(self) -> bool:
+        """Returns True if this state is a terminal run state."""
+        return self in (
+            AnalysisRunState.COMPLETED,
+            AnalysisRunState.PARTIAL,
+            AnalysisRunState.FAILED,
+            AnalysisRunState.CANCELLED,
+        )
+
+    @property
+    def is_active(self) -> bool:
+        """Returns True if the run is currently in progress."""
+        return not self.is_terminal and self != AnalysisRunState.QUEUED

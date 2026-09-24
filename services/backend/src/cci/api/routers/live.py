@@ -50,3 +50,61 @@ async def analyze(request: Request, response: Response):
         return await run_in_threadpool(analyze_resume, payload)
     except RuntimeError as exc:
         raise HTTPException(500, 'The analysis failed. No sample result was substituted.') from exc
+
+
+@router.post('/runs', status_code=202)
+async def create_analysis_run(request: Request, response: Response):
+    """Creates a persistent, asynchronous AnalysisRun and begins execution (Fix 26)."""
+    response.headers['Cache-Control'] = 'no-store'
+    body = await limited_body(request, 10 * 1024 * 1024)
+    try:
+        data = json.loads(body)
+    except Exception as exc:
+        raise HTTPException(422, 'Malformed JSON payload.') from exc
+
+    from cci.live.runner import get_analysis_run_manager
+    manager = get_analysis_run_manager()
+    run = manager.create_run(data, auto_start=True)
+    return {
+        "analysis_run_id": str(run.analysis_run_id),
+        "state": "QUEUED",
+        "current_stage": "QUEUED",
+        "progress_percent": 0.0,
+        "poll_url": f"/api/v1/live/runs/{run.analysis_run_id}",
+    }
+
+
+@router.get('/runs/{run_id}')
+async def get_analysis_run_status(run_id: str, response: Response):
+    """Polls progress, stage status, and final dossier artifacts of an AnalysisRun (Fix 26)."""
+    response.headers['Cache-Control'] = 'no-store'
+    from cci.live.runner import get_analysis_run_manager
+    manager = get_analysis_run_manager()
+    run = manager.get_run(run_id)
+    if not run:
+        raise HTTPException(404, f'Analysis run {run_id} not found.')
+    return run.to_status_dict()
+
+
+@router.post('/runs/{run_id}/resume')
+async def resume_analysis_run(run_id: str, response: Response):
+    """Resumes an interrupted or failed AnalysisRun from its last incomplete stage (Fix 26)."""
+    response.headers['Cache-Control'] = 'no-store'
+    from cci.live.runner import get_analysis_run_manager
+    manager = get_analysis_run_manager()
+    run = manager.resume_run(run_id)
+    if not run:
+        raise HTTPException(404, f'Analysis run {run_id} not found.')
+    return run.to_status_dict()
+
+
+@router.post('/runs/{run_id}/cancel')
+async def cancel_analysis_run(run_id: str, response: Response):
+    """Cancels an active or queued AnalysisRun (Fix 26)."""
+    response.headers['Cache-Control'] = 'no-store'
+    from cci.live.runner import get_analysis_run_manager
+    manager = get_analysis_run_manager()
+    run = manager.cancel_run(run_id)
+    if not run:
+        raise HTTPException(404, f'Analysis run {run_id} not found.')
+    return run.to_status_dict()
