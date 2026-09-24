@@ -666,12 +666,16 @@ class AnalysisRunManager:
             from cci.claims.quantified import extract_and_verify_all_quantified_claims
             quantified_claims = extract_and_verify_all_quantified_claims(intake_model, sources) if intake_model else []
 
+            from cci.chronology.engine import build_candidate_timeline
+            timeline = build_candidate_timeline(intake_model, sources=sources) if intake_model else None
+
             dossier = pipeline_state.dossier.model_copy(update={
                 "ownership_assessments": ownership,
                 "repository_associations": associations,
                 "repository_contributions": contributions,
                 "project_entities": project_entities,
                 "quantified_claims": quantified_claims,
+                "timeline": timeline,
                 "system_limitations": [*pipeline_state.dossier.system_limitations, *limitations],
             })
             if run.telemetry:

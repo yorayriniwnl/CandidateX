@@ -617,6 +617,81 @@ class QuantifiedClaim(BaseModel):
         return self.model_dump()
 
 
+# ---------------------------------------------------------------------------
+# Chronology & Timeline Contracts (Fix 42)
+# ---------------------------------------------------------------------------
+
+
+class TimelineEvent(BaseModel):
+    """A chronologically positioned candidate event across education, work, repos, deployments, or credentials."""
+
+    model_config = ConfigDict(frozen=True)
+
+    event_id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Unique identifier for this timeline event",
+    )
+    category: str = Field(
+        ...,
+        description="Category: education, work_experience, internship, repository_activity, deployment, credential, publication",
+    )
+    title: str = Field(..., description="Short descriptive label for the event")
+    start_date: str | None = Field(default=None, description="Start date (YYYY, YYYY-MM, or ISO 8601)")
+    end_date: str | None = Field(default=None, description="End date (YYYY, YYYY-MM, ISO 8601, or 'present')")
+    is_ongoing: bool = Field(default=False, description="True if marked present or ongoing")
+    source: str = Field(default="resume", description="Originating document or system")
+    source_url: str | None = Field(default=None, description="URL of source if applicable")
+    details: dict[str, Any] = Field(default_factory=dict, description="Additional context or parsed tokens")
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+class TimelineInconsistency(BaseModel):
+    """An observed chronological conflict or anomaly (Fix 42)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    inconsistency_id: str = Field(default_factory=lambda: str(uuid4()))
+    label: str = Field(
+        default="timeline inconsistency requiring review",
+        description="Canonical label; never infers dishonesty",
+    )
+    inconsistency_type: str = Field(
+        ...,
+        description="Type: inverted_date_range, future_date, expired_before_issue, anachronism, overlapping_commit_predate",
+    )
+    event_ids: list[str] = Field(default_factory=list, description="IDs of related timeline events")
+    explanation: str = Field(
+        ...,
+        description="Neutral, objective description of the observed date discrepancy",
+    )
+    severity: str = Field(default="requires_review")
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+class CandidateTimeline(BaseModel):
+    """Full candidate chronology with ordered events and detected inconsistencies (Fix 42)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    events: list[TimelineEvent] = Field(default_factory=list)
+    inconsistencies: list[TimelineInconsistency] = Field(default_factory=list)
+    earliest_date: str | None = None
+    latest_date: str | None = None
+    limitations: list[str] = Field(
+        default_factory=lambda: [
+            "Dates are extracted from candidate declarations and public timestamps.",
+            "Inconsistencies are labeled as timeline inconsistency requiring review; do not infer dishonesty.",
+            "Timezones, approximate years, and concurrent part-time activities can produce apparent overlaps without intent.",
+        ]
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump()
+
 
 class NormalizedRequirement(BaseModel):
     """Structured requirement produced by JD intake parser."""
@@ -1570,6 +1645,7 @@ class Dossier(BaseModel):
     evidence_records: list[EvidenceRecord] = Field(default_factory=list)
     project_entities: list[ProjectEntity] = Field(default_factory=list)
     quantified_claims: list[QuantifiedClaim] = Field(default_factory=list)
+    timeline: CandidateTimeline | None = None
     evidence_mode: str = "provided"
     scenario: str | None = None
     role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)

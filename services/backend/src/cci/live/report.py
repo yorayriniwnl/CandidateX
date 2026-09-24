@@ -101,6 +101,9 @@ def build_report(intake, sources):
     quantified_claims_entities = extract_and_verify_all_quantified_claims(intake, sources)
     quantified_claims = [qc.to_dict() for qc in quantified_claims_entities]
 
+    from cci.chronology.engine import build_candidate_timeline
+    timeline_entity = build_candidate_timeline(intake, sources=sources, credentials=credentials)
+
     return {'generated_at': datetime.now(timezone.utc).isoformat(), 'skills': skills, 'credentials': credentials,
         'projects': projects, 'experience': [{'claim': line, 'status': 'self_reported'} for line in sections.get('experience', [])],
         'education': [{'claim': line, 'status': 'self_reported'} for line in sections.get('education', [])],
@@ -108,6 +111,8 @@ def build_report(intake, sources):
         'achievements': [{'claim': line, 'status': 'self_reported'} for line in sections.get('achievements', [])],
         'quantified_claims': quantified_claims,
         'quantified_claims_to_verify': list(dict.fromkeys(numeric_claims))[:30], 'next_steps': actions,
+        'timeline': timeline_entity.to_dict(),
+        'timeline_inconsistencies': [i.to_dict() for i in timeline_entity.inconsistencies],
         'discovered_links': discovered_links,
         'source_coverage': {'by_status': source_statuses, 'by_kind': source_kinds,
                             'discovered_links': len(discovered_links)},
