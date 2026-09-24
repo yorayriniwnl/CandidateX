@@ -1087,6 +1087,14 @@ class EvidenceRecord(BaseModel):
     def normalize_legacy_provenance(cls, data: Any) -> Any:
         data = _reject_conflicting_score_names(data, "support_score")
         if isinstance(data, dict):
+            # Invariant: LLM output is NEVER an evidence source (Fix 44)
+            src_fam = str(data.get("source_family", "")).lower()
+            src_loc = str(data.get("source_locator", "")).lower()
+            if src_fam in ("llm", "ai", "model", "gpt", "claude", "gemini") or any(
+                src_loc.startswith(p) for p in ("llm:", "model:", "ai:", "gpt:", "claude:")
+            ):
+                raise ValueError("LLM output is NEVER an evidence source.")
+
             provenance = data.get("provenance")
             if provenance is None:
                 provenance = {}
