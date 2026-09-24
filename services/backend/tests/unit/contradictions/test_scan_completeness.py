@@ -235,12 +235,12 @@ def test_unreadable_git_report_is_skipped_and_sibling_is_inspected():
 
 
 def test_git_blob_selector_cap_does_not_shrink_inventory():
-    files = {f"src/app_{i:02}.py": f"print({i})\n".encode() for i in range(13)}
+    files = {f"src/app_{i:02}.py": f"print({i})\n".encode() for i in range(51)}
     with SafeRepositoryWorkspace() as workspace:
         omitted, receipt = inspect_git_blobs(FakeFetcher(files), "acme", "api", SHA, workspace)
     source = receipt.categories["source"]
     assert omitted == 1
-    assert (source.eligible, source.inspected, source.skipped_reasons["file_cap"]) == (13, 12, 1)
+    assert (source.eligible, source.inspected, source.skipped_reasons["file_cap"]) == (51, 50, 1)
 
 
 @pytest.mark.parametrize("missing", [False, True])
