@@ -1,16 +1,16 @@
-# Live resume analysis
+# Live resume analysis (local development only)
 
-The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, review the extracted links and declared GitHub identity, fetch public repositories live, and inspect/export an evidence-backed dossier. `/research-demo` remains an explicitly synthetic teaching tool.
+Live resume and public profile analysis (`/analyze`) is strictly a local-development workflow. The public hosted deployment serves only the bounded synthetic demonstration at `/research-demo`. In production builds, real-data inputs and live analysis routes are blocked, and entry routes redirect to `/research-demo`.
 
-## Data flow and implementation
+## Data flow and implementation (local only)
 
-1. The same-origin Next.js `/api/live/intake` route forwards a bounded binary upload to FastAPI. Digital PDF text, embedded annotations, DOCX hyperlinks, and visible URLs are extracted with the existing parsers. No OCR, search, or invented links.
+1. The same-origin Next.js `/api/live/intake` route forwards a bounded binary upload to FastAPI when running in development. Digital PDF text, embedded annotations, DOCX hyperlinks, and visible URLs are extracted with the existing parsers. No OCR, search, or invented links.
 2. Intake returns a document SHA-256, extracted manifest, and text preview. The browser holds this only in memory. The user can correct the source selection and supply the candidate-declared GitHub username; neither constitutes verified identity.
 3. `/api/live/analyze` forwards the reviewed manifest, selected role/JD, explicit GitHub URLs and other selected public links. Profiles include public account metadata and up to 200 public repository inventory entries. Explicit repository links take priority for detailed scans.
 4. The acquisition service fetches GitHub metadata, up to 30 recent commits, and a commit-pinned archive from fixed GitHub hosts. It does not follow redirects or execute candidate code. Only public repositories are accepted, even if a server token can access private ones.
 5. Selected files pass through the existing code, database, testing, infrastructure, and documentation analyzers. Observations preserve commit SHA, artifact hash, file/line, extracted trace, analyzer version, and all confidence factors. All analyzer observations are retained with stable IDs; correlated observations receive family weights before scoring. For up to 24 high-signal paths, path history supplies artifact recency and attribution. Repository last activity is recorded separately and never stands in for artifact age. Missing or deferred path history yields `artifact_recency_unknown`.
 6. Supplied public HTML/text pages and small digital PDFs are inspected through DNS-pinned transport. Every redirect is validated; proxies, credentials, private networks and script execution are excluded. Public claims do not increase capability scores.
-7. The response includes structured resume sections, skill-to-artifact matches, credential text matches, project/education/experience review, repository engineering summaries, source receipts, ownership assumptions, dossier, complete graph and scoring configuration. No public candidate lookup endpoint or cross-user dossier store is used by the deployed live service. Download JSON to retain the snapshot.
+7. The response includes structured resume sections, skill-to-artifact matches, credential text matches, project/education/experience review, repository engineering summaries, source receipts, ownership assumptions, dossier, complete graph and scoring configuration. No public candidate lookup endpoint or cross-user dossier store is used. Download JSON to retain the snapshot.
 
 ## Limits and honest interpretation
 
@@ -25,6 +25,8 @@ The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, re
 
 ## Run locally
 
+To run the local live analysis application:
+
 ```powershell
 python -m pip install -e "services/backend[dev]"
 python -m uvicorn cci.live_app:app --app-dir services/backend/src --port 8000
@@ -32,14 +34,22 @@ python -m uvicorn cci.live_app:app --app-dir services/backend/src --port 8000
 pnpm --filter web dev
 ```
 
-The full legacy backend (`cci.main:app`) also includes the live endpoints for tests/local development. The dedicated deployed app (`cci.live_app:app`) excludes the legacy candidate directory and lookup APIs.
+The full local backend (`cci.main:app`) also includes the live endpoints as well as the `/api/v1/synthetic-demo` endpoints for local tests and development. The dedicated local live app (`cci.live_app:app`) excludes candidate directory and lookup APIs. Neither entrypoint is mounted for the production deployment.
 
-## Hosting
+## Production hosting boundary
 
-Deploy `services/backend` as a Vercel FastAPI project using its `app.py`, `.python-version`, and `vercel.json`. Set the existing frontend project's server-only `CCI_API_URL` to that backend's production URL, then deploy the frontend. The production bridge returns an explicit error if the backend URL is absent; it does not fall back to localhost on Vercel.
+The public deployment is strictly a synthetic demonstration:
 
-An optional server-side `GITHUB_TOKEN` increases GitHub API limits. No browser token or user's GitHub login is required for public acquisition. Without it, shared deployment IP limits can produce rate-limit receipts; those failures never substitute synthetic results.
+- **Backend Vercel entrypoint:** `services/backend/app.py` serves the production FastAPI application (`cci.synthetic_demo_app:app`), exposing only `/health` and the stateless synthetic demo endpoints at `/api/v1/synthetic-demo/run` and `/api/v1/synthetic-demo/rescore`. It does not mount live intake, live profile analysis, database, or candidate-persistence routes.
+- **Strict synthetic API contracts:** The public demo API accepts only allowlisted simulation parameters: `scenario`, `role`, `excluded_sources`, `ownership_multiplier`, and `reliability_false_positives` (and valid `weights` on rescore). Extra fields—including candidate UUIDs, resume text, profile URLs, job descriptions, or user-written override notes—are rejected with HTTP 422. A fixed synthetic candidate identity (`d3333333-3333-4333-8333-333333333333`) and constant demonstration justification are applied server-side.
+- **Frontend production boundary:** In production builds, `/`, `/analyze`, `/hr`, and `/workspace` redirect to `/research-demo`. Requests to `/api/live/*` return HTTP 404 before reading the request body or contacting any upstream service.
+- **Fail-closed backend bridge:** The Next.js demo bridge (`/api/demo`) requires a configured `CCI_API_URL` environment variable pointing to the deployed synthetic backend. If `CCI_API_URL` is omitted in production, it fails closed with HTTP 503 and never falls back to `127.0.0.1`.
+- **Non-hiring prototype notice:** The hosted demo is an interactive research prototype designed to inspect evidence propagation and uncertainty handling under synthetic scenarios. It is not a validated hiring predictor, fairness-certified assessment, or multi-tenant SaaS.
+
+Deploy `services/backend` as a Vercel FastAPI project using its `app.py`, `.python-version`, and `vercel.json`. Set the frontend project's server-only `CCI_API_URL` environment variable to the deployed backend's URL, then deploy the frontend.
 
 ## Verification
 
-Backend tests exercise document extraction, actual static analyzers against HTTP fixtures, provider failures, profile bounds, zero ownership, redirects, archive traversal/symlinks/expansion limits, private repositories, and the absence of candidate lookup routes on the deployed app. Browser tests cover upload, review, unknown results, exports, and failures. A separate manual smoke test must fetch a real public GitHub repository through the deployed frontend before declaring the public flow operational.
+- **Backend tests:** `pytest -v` exercises synthetic-demo isolation, strict input validation, stateless rescoring, empty-scenario unknown preservation, and local live-analysis analyzers.
+- **Production web tests:** `pnpm --filter web run test:production` runs Playwright against the built Next.js production server and the Vercel FastAPI entrypoint (`app:app`), verifying route redirects, blocked live endpoints, and end-to-end synthetic run/rescore flows.
+- **Local web tests:** `pnpm --filter web test` verifies local development behavior against `next dev` and `cci.main:app`.
