@@ -110,6 +110,13 @@ class DurableAnalysisRun:
     result: dict[str, Any] | None = None
     client_ip: str = "127.0.0.1"
     budget_tracker: Any = None
+    telemetry: Any = None
+
+    def __post_init__(self):
+        if self.telemetry is None:
+            from cci.telemetry import create_run_telemetry
+            req_id = self.input_payload.get("request_id") if isinstance(self.input_payload, dict) else None
+            self.telemetry = create_run_telemetry(self.analysis_run_id, request_id=req_id)
 
     def to_status_dict(self) -> dict[str, Any]:
         """Returns pollable execution status."""
@@ -125,7 +132,9 @@ class DurableAnalysisRun:
             "completed_at": self.completed_at,
             "completed_stages": list(self.stage_data.keys()),
             "error_message": sanitize_credentials(self.error_message) if self.error_message else None,
+            "structured_error": self.telemetry.structured_error if self.telemetry else None,
             "budget_summary": self.budget_tracker.get_summary() if self.budget_tracker else None,
+            "telemetry": self.telemetry.to_dict() if self.telemetry else None,
             "result": sanitize_credentials(self.result) if self.result else None,
         }
 
@@ -306,6 +315,11 @@ class AnalysisRunManager:
                 return
             if not run.started_at:
                 run.started_at = datetime.now(timezone.utc).isoformat()
+            if run.telemetry is None:
+                from cci.telemetry import create_run_telemetry
+                req_id = run.input_payload.get("request_id") if isinstance(run.input_payload, dict) else None
+                run.telemetry = create_run_telemetry(run.analysis_run_id, request_id=req_id)
+            run.telemetry.start_run()
 
         try:
             if run.budget_tracker is None:
@@ -334,10 +348,22 @@ class AnalysisRunManager:
                 if stage.value in run.stage_data:
                     continue
 
+                if run.telemetry:
+                    run.telemetry.start_stage(stage.value)
+
                 # Execute stage logic
-                stage_output = self._run_stage(run, stage)
+                try:
+                    stage_output = self._run_stage(run, stage)
+                except Exception as stage_exc:
+                    if run.telemetry:
+                        run.telemetry.fail_stage(stage.value, stage_exc)
+                    raise
+
                 with self._lock:
                     run.stage_data[stage.value] = stage_output
+                    if run.telemetry:
+                        art_count = len(stage_output) if isinstance(stage_output, (list, dict)) else 1
+                        run.telemetry.complete_stage(stage.value, artifacts_count=art_count)
 
             # Finalize run
             with self._lock:
@@ -352,6 +378,8 @@ class AnalysisRunManager:
                 run.progress_percent = 100.0
                 run.completed_at = datetime.now(timezone.utc).isoformat()
                 run.result = dossier_data
+                if run.telemetry:
+                    run.telemetry.finalize()
 
         except Exception as exc:
             logger.exception("Analysis run %s failed during stage %s", run_id, run.current_stage)
@@ -360,6 +388,10 @@ class AnalysisRunManager:
                 from cci.security.abuse import sanitize_credentials
                 run.error_message = sanitize_credentials(str(exc))
                 run.completed_at = datetime.now(timezone.utc).isoformat()
+                if run.telemetry:
+                    if not run.telemetry.failure_stage:
+                        run.telemetry.fail_stage(run.current_stage or "PIPELINE", exc)
+                    run.telemetry.finalize()
         finally:
             from cci.security.abuse import get_abuse_controls
             get_abuse_controls().release_run_slot(getattr(run, "client_ip", "127.0.0.1"))
@@ -445,6 +477,8 @@ class AnalysisRunManager:
             deployment_candidates = set(discovery_data.get("deployment_candidates", []))
             non_deployment_selected = [u for u in selected if u not in deployment_candidates]
             public_receipts = acquire_public_links(non_deployment_selected)
+            if run.telemetry:
+                run.telemetry.record_sources(public_receipts)
             return {"public_sources": public_receipts}
 
         # Stage 5: ANALYZING_GITHUB
@@ -466,6 +500,10 @@ class AnalysisRunManager:
                 portfolio_urls=getattr(manifest, "portfolio_urls", []),
                 budget_tracker=run.budget_tracker,
             )
+            if run.telemetry:
+                calls = run.budget_tracker.github_calls if run.budget_tracker else len(github_sources)
+                budget = run.budget_tracker.max_github_calls if run.budget_tracker else 50
+                run.telemetry.record_github_usage(calls, budget)
             return {
                 "github_evidence": [e.model_dump(mode="json") for e in github_evidence],
                 "ownership_assessments": [o.model_dump(mode="json") for o in ownership],
@@ -585,6 +623,12 @@ class AnalysisRunManager:
                 "repository_contributions": contributions,
                 "system_limitations": [*pipeline_state.dossier.system_limitations, *limitations],
             })
+            if run.telemetry:
+                run.telemetry.record_pipeline_metrics(
+                    dossier,
+                    raw_evidence_count=len(evidence),
+                    artifacts_scanned=len(sources),
+                )
             graph = build_dossier_graph(dossier)
             report = build_report(intake_model, sources) if intake_model else {}
 

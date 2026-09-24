@@ -360,3 +360,18 @@ async def cancel_analysis_run(run_id: str, response: Response):
     if not run:
         raise HTTPException(404, f'Analysis run {run_id} not found.')
     return run.to_status_dict()
+
+
+@router.get('/runs/{run_id}/telemetry')
+async def get_analysis_run_telemetry(run_id: str, response: Response):
+    """Returns execution telemetry, timing metrics, and structured observability for an AnalysisRun."""
+    response.headers['Cache-Control'] = 'no-store'
+    from cci.live.runner import get_analysis_run_manager
+    manager = get_analysis_run_manager()
+    run = manager.get_run(run_id)
+    if not run:
+        raise HTTPException(404, f'Analysis run {run_id} not found.')
+    if not run.telemetry:
+        raise HTTPException(404, f'Telemetry not recorded for run {run_id}.')
+    return run.telemetry.to_dict()
+
