@@ -9,6 +9,7 @@ import hashlib
 import re
 from typing import Any
 
+from cci.claims.identity import generate_deterministic_claim_id
 from cci.contradictions.expectations import build_observable_claim_expectations
 from cci.live.contracts import ResumeIntake
 
@@ -25,9 +26,21 @@ DEGREE_RE = re.compile(
 )
 
 
-def _claim_id(category: str, section: str, text: str, ordinal: int) -> str:
-    payload = f"{category}\0{section}\0{ordinal}\0{text.strip()}".encode("utf-8")
-    return "clm_" + hashlib.sha256(payload).hexdigest()[:20]
+def _claim_id(
+    category: str,
+    section: str = "",
+    text: str = "",
+    ordinal: int = 0,
+    source_document_hash: str | None = None,
+    structured_semantics: Any | None = None,
+) -> str:
+    """Generate deterministic claim ID decoupled from resume order/ordinal."""
+    return generate_deterministic_claim_id(
+        source_document_hash=source_document_hash,
+        claim_type=category,
+        text=text,
+        structured_semantics=structured_semantics,
+    )
 
 
 def _record_id(text: str, ordinal: int) -> str:
@@ -47,31 +60,68 @@ def _quantified(text: str) -> bool:
 
 
 def build_claim_ledger(intake: ResumeIntake) -> list[dict[str, Any]]:
-    """Return stable resume claims without asserting that any are true."""
+    """Return stable resume claims with deterministic identity and duplicate detection."""
     claims: list[dict[str, Any]] = []
+    seen_claims: dict[str, dict[str, Any]] = {}
     sections = intake.resume_review.sections
+    doc_hash = getattr(intake, "document_sha256", None) or ""
 
     def add(category: str, section: str, text: str, ordinal: int, **extra: Any) -> None:
         clean = re.sub(r"\s+", " ", text).strip()
         if not clean:
             return
-        claims.append(
-            {
-                "claim_id": _claim_id(category, section, clean, ordinal),
-                "category": category,
-                "claim": clean,
-                "source": "resume",
-                "section": section,
-                "status": "self_reported",
-                "is_quantified": _quantified(clean),
-                **extra,
-            }
+
+        if category == "skill" and "normalized_subject" not in extra:
+            extra["normalized_subject"] = clean
+
+        semantics = {
+            k: v
+            for k, v in extra.items()
+            if k not in {"ordinal", "resume_order", "section", "source_location"}
+        }
+        claim_id = generate_deterministic_claim_id(
+            source_document_hash=doc_hash,
+            claim_type=category,
+            text=clean,
+            structured_semantics=semantics if semantics else None,
         )
+
+        occurrence = {
+            "section": section,
+            "ordinal": ordinal,
+            "source_location": f"{section}#{ordinal}",
+        }
+
+        if claim_id in seen_claims:
+            existing = seen_claims[claim_id]
+            existing["duplicate_count"] += 1
+            existing.setdefault("occurrences", []).append(occurrence)
+            return
+
+        entry = {
+            "claim_id": claim_id,
+            "category": category,
+            "claim": clean,
+            "source": "resume",
+            "section": section,
+            "ordinal": ordinal,
+            "resume_order": ordinal,
+            "source_location": f"{section}#{ordinal}",
+            "source_document_hash": doc_hash,
+            "status": "self_reported",
+            "is_quantified": _quantified(clean),
+            "duplicate_count": 0,
+            "occurrences": [occurrence],
+            **extra,
+        }
+        seen_claims[claim_id] = entry
+        claims.append(entry)
 
     for i, skill in enumerate(intake.manifest.claimed_skills):
         add("skill", "skills", skill, i, normalized_subject=skill)
 
     for section, category in (
+        ("skills", "skill"),
         ("education", "academic"),
         ("certifications", "credential"),
         ("experience", "experience"),

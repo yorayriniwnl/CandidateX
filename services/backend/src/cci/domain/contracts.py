@@ -205,7 +205,7 @@ class Claim(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    claim_id: UUID = Field(default_factory=uuid4)
+    claim_id: UUID | str = Field(default_factory=uuid4)
     analysis_run_id: UUID | None = None
     candidate_id: UUID | None = None
     claim_type: str = Field(default="skill", min_length=1, description="Categorization: skill, project, experience, education, metric, etc.")
@@ -220,6 +220,8 @@ class Claim(BaseModel):
     status: ClaimStatus = Field(default=ClaimStatus.SELF_REPORTED, description="Current evaluation status in the 10-state taxonomy")
     verification_state: str = Field(default="unverified", description="Operational verification details")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    duplicate_count: int = 0
+    occurrences: list[dict[str, Any]] = Field(default_factory=list)
 
     # Corroboration grounding and graph linkage
     target_capability: CapabilityKey | None = None
@@ -288,6 +290,41 @@ class Claim(BaseModel):
             "grounding_evidence_ids": getattr(result, "grounding_evidence_ids", []),
             "citation_urls": getattr(result, "citation_urls", []),
             "explanation": getattr(result, "explanation", ""),
+            **overrides,
+        }
+        return cls(**data)
+
+    @classmethod
+    def create_deterministic(
+        cls,
+        original_text: str,
+        claim_type: str = "skill",
+        source_document_hash: str | None = None,
+        structured_value: Any | None = None,
+        normalized_subject: str = "",
+        section: str | None = None,
+        source_location: str | None = None,
+        **overrides: Any,
+    ) -> "Claim":
+        """Instantiate a Claim with a deterministic UUID based on document hash and semantics."""
+        from cci.claims.identity import generate_deterministic_claim_uuid
+
+        semantics = {"normalized_subject": normalized_subject, "structured_value": structured_value} if (normalized_subject or structured_value is not None) else None
+        cid = generate_deterministic_claim_uuid(
+            source_document_hash=source_document_hash,
+            claim_type=claim_type,
+            text=original_text,
+            structured_semantics=semantics,
+        )
+        data = {
+            "claim_id": cid,
+            "original_text": original_text,
+            "claim_type": claim_type,
+            "source_document_hash": source_document_hash,
+            "structured_value": structured_value,
+            "normalized_subject": normalized_subject,
+            "section": section,
+            "source_location": source_location,
             **overrides,
         }
         return cls(**data)
