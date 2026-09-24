@@ -73,7 +73,14 @@ def analyze_resume(request: LiveAnalysisRequest):
         deployment_evidence, deployment_sources = deployments.result()
         public_sources = public.result()
 
-        evidence = [*github_evidence, *deployment_evidence]
+        from cci.profiles.coding import inspect_coding_profiles
+        coding_evidences = inspect_coding_profiles(manifest.coding_profile_urls, public_sources)
+        coding_records = [
+            rec for ce in coding_evidences
+            if (rec := ce.to_evidence_record(request.intake.candidate_id)) is not None
+        ]
+
+        evidence = [*github_evidence, *deployment_evidence, *coding_records]
         sources = [*github_sources, *deployment_sources, *public_sources]
     for url in extracted:
         if url not in selected:

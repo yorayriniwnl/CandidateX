@@ -883,6 +883,40 @@ class EvidenceRecord(BaseModel):
         """Deprecated compatibility value for stored rows and API clients."""
         return self.technical_signal_strength
 
+    @property
+    def capability(self) -> CapabilityKey:
+        """Alias for target_capability."""
+        return self.target_capability
+
+    @property
+    def candidate_id(self) -> UUID | None:
+        """Convenience accessor for candidate_id in provenance."""
+        cid = self.provenance.get("candidate_id")
+        if isinstance(cid, str):
+            try:
+                return UUID(cid)
+            except ValueError:
+                return None
+        return cid if isinstance(cid, UUID) else None
+
+    @property
+    def rule_id(self) -> str | None:
+        """Convenience accessor for rule_id in provenance."""
+        return self.provenance.get("signal_rule_id") or self.provenance.get("rule_id")
+
+    @property
+    def rule_strength(self) -> float:
+        """Convenience accessor for normalized rule strength in [0.0, 1.0]."""
+        val = self.provenance.get("rule_strength")
+        if val is not None:
+            return float(val)
+        return float(self.technical_signal_strength / 100.0)
+
+    @property
+    def context(self) -> dict[str, Any]:
+        """Convenience accessor for provenance context."""
+        return self.provenance
+
 
 # ---------------------------------------------------------------------------
 # Source Reliability & Ownership Contracts

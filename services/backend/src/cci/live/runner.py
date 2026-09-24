@@ -597,7 +597,16 @@ class AnalysisRunManager:
             deployment_sources = deploy_data.get("deployment_sources", [])
             public_sources = pub_data.get("public_sources", [])
 
-            evidence = [*github_evidence, *deployment_evidence]
+            # Fix 39: Coding Profile Evidence
+            from cci.profiles.coding import inspect_coding_profiles
+            coding_urls = getattr(manifest, "coding_profile_urls", [])
+            coding_evidences = inspect_coding_profiles(coding_urls, public_sources)
+            coding_records = [
+                rec for ce in coding_evidences
+                if (rec := ce.to_evidence_record(candidate_id)) is not None
+            ]
+
+            evidence = [*github_evidence, *deployment_evidence, *coding_records]
             sources = [*github_sources, *deployment_sources, *public_sources]
 
             scoring_config = ScoringConfig()
