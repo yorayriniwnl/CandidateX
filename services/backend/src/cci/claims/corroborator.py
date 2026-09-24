@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
 
+from cci.claims.independence import evaluate_corroboration_with_source_independence
 from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import EvidenceRecord, ScoringConfig
 from cci.domain.enums import CapabilityKey, ClaimStatus
@@ -41,6 +42,8 @@ class ClaimCorroborationResult:
     grounding_evidence_ids: list[UUID]
     citation_urls: list[str]
     explanation: str
+    provenance_families: list[str] = field(default_factory=list)
+    has_independent_confirmation: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -53,6 +56,8 @@ class ClaimCorroborationResult:
             "grounding_evidence_ids": [str(eid) for eid in self.grounding_evidence_ids],
             "citation_urls": self.citation_urls,
             "explanation": self.explanation,
+            "provenance_families": self.provenance_families,
+            "has_independent_confirmation": self.has_independent_confirmation,
         }
 
     def to_claim(self) -> Any:
@@ -66,6 +71,10 @@ class ClaimCorroborationResult:
             grounding_evidence_ids=self.grounding_evidence_ids,
             citation_urls=self.citation_urls,
             explanation=self.explanation,
+            metadata={
+                "provenance_families": self.provenance_families,
+                "has_independent_confirmation": self.has_independent_confirmation,
+            },
         )
 
 
@@ -75,6 +84,7 @@ def corroborate_candidate_claims(
     strict_technology_match: bool = False,
     config: ScoringConfig | None = None,
     family_weights: Mapping[UUID, float] | None = None,
+    candidate_identifier: str | None = None,
 ) -> list[ClaimCorroborationResult]:
     """Evaluates each candidate self-claim against registered technical evidence."""
     cfg = config or ScoringConfig()
@@ -153,15 +163,6 @@ def corroborate_candidate_claims(
         if not strict_technology_match and not matched_pos_evidence and not matched_neg_evidence:
             matched_pos_evidence = [e for e in matching_ev if e.is_positive_support]
 
-        # Calculate corroboration metrics
-        pos_confidence_sum = sum(
-            e.confidence * family_weights[e.evidence_id]
-            for e in matched_pos_evidence
-        )
-        neg_confidence_sum = sum(
-            e.confidence * family_weights[e.evidence_id]
-            for e in matched_neg_evidence
-        )
         grounding_ids = [
             e.evidence_id for e in matched_pos_evidence + matched_neg_evidence
         ]
@@ -171,24 +172,12 @@ def corroborate_candidate_claims(
             )
         )
 
-        if matched_neg_evidence and neg_confidence_sum > pos_confidence_sum:
-            status = ClaimStatus.CONTRADICTED
-            conf = min(1.0, neg_confidence_sum)
-            explanation = f"Observed artifacts contradict claim; negative support weight ({neg_confidence_sum:.2f}) exceeds positive ({pos_confidence_sum:.2f})."
-        elif pos_confidence_sum >= 1.0:
-            status = ClaimStatus.SUPPORTED
-            conf = min(1.0, pos_confidence_sum / 2.0)
-            explanation = f"Claim corroborated by {len(matched_pos_evidence)} verified technical observations (cumulative confidence: {pos_confidence_sum:.2f})."
-        elif pos_confidence_sum > 0.0:
-            status = ClaimStatus.PARTIALLY_SUPPORTED
-            conf = pos_confidence_sum
-            explanation = f"Partially corroborated by {len(matched_pos_evidence)} observation(s); further verification recommended."
-        else:
-            status = ClaimStatus.NOT_OBSERVED
-            conf = 0.0
-            explanation = (
-                "No qualifying evidence was observed in the available scope."
-            )
+        status, conf, explanation, meta = evaluate_corroboration_with_source_independence(
+            matched_pos_evidence,
+            matched_neg_evidence,
+            candidate_identifier=candidate_identifier,
+            family_weights=family_weights,
+        )
 
         results.append(
             ClaimCorroborationResult(
@@ -200,6 +189,8 @@ def corroborate_candidate_claims(
                 grounding_evidence_ids=grounding_ids,
                 citation_urls=citation_urls,
                 explanation=explanation,
+                provenance_families=meta.get("provenance_families", []),
+                has_independent_confirmation=meta.get("has_independent_confirmation", False),
             )
         )
 

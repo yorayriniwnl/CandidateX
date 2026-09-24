@@ -109,6 +109,27 @@ class SourceFamily(str, Enum):
     LINKEDIN = "linkedin"
 
 
+class ProvenanceFamily(str, Enum):
+    """Provenance families modeling source independence (Fix 43).
+
+    Evidence from:
+    - resume
+    - candidate portfolio
+    - candidate README
+    - candidate GitHub profile
+    may all originate from the candidate; they must not be counted as independent confirmations.
+    """
+
+    CANDIDATE_DECLARATION = "CANDIDATE_DECLARATION"
+    CANDIDATE_CONTROLLED_ARTIFACT = "CANDIDATE_CONTROLLED_ARTIFACT"
+    PLATFORM_METADATA = "PLATFORM_METADATA"
+    INDEPENDENT_PLATFORM = "INDEPENDENT_PLATFORM"
+    ISSUER_CONTROLLED = "ISSUER_CONTROLLED"
+    ORGANIZATION_CONTROLLED = "ORGANIZATION_CONTROLLED"
+    PUBLICATION_INDEX = "PUBLICATION_INDEX"
+    UNKNOWN = "UNKNOWN"
+
+
 class SourceState(str, Enum):
     """Canonical lifecycle state of an evidence source.
 
