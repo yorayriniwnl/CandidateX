@@ -238,29 +238,146 @@ ClaimStatus.UNKNOWN = ClaimStatus.NOT_OBSERVED
 
 
 class GraphNodeType(str, Enum):
-    """Node types in Candidate Evidence Graph (CEG)."""
+    """Canonical node types in Candidate Evidence Graph (CEG) ontology.
+
+    Ontology taxonomy:
+    - CANDIDATE: The human candidate entity under evaluation.
+    - IDENTITY: Digital identity accounts (GitHub, LinkedIn, GitLab, email).
+    - ANALYSIS_RUN: Immutable snapshot / analysis evaluation run.
+    - CLAIM: Self-reported or extracted claim made by candidate.
+    - SKILL: Technical skill or capability declared or evaluated.
+    - PROJECT: Software project declared in resume or discovered.
+    - REPOSITORY: Source code repository associated with candidate.
+    - ARTIFACT: Immutable file or code artifact within a repository.
+    - DEPLOYMENT: Live deployed service or production application.
+    - CREDENTIAL: Certification, badge, or external qualification.
+    - ACADEMIC_RECORD: Multi-line education degree or coursework history.
+    - EXPERIENCE_RECORD: Employment or organizational role history.
+    - PUBLICATION: Academic paper, technical blog, or RFC.
+    - CODING_PROFILE: Public competitive programming or developer profile.
+    - SOURCE: Input evidence document, URL, or data provider.
+    - ORGANIZATION: Company, university, or credential issuer.
+    - CAPABILITY: Evaluated technical competency dimension.
+    - OBSERVATION: Atomic static observation extracted from an artifact.
+    """
 
     CANDIDATE = "Candidate"
     IDENTITY = "Identity"
-    SOURCE = "Source"
-    ARTIFACT = "Artifact"
-    EVIDENCE = "Evidence"
-    CAPABILITY = "Capability"
-    ROLE_REQUIREMENT = "RoleRequirement"
-    CLAIM = "Claim"
     ANALYSIS_RUN = "AnalysisRun"
+    CLAIM = "Claim"
+    SKILL = "Skill"
+    PROJECT = "Project"
+    REPOSITORY = "Repository"
+    ARTIFACT = "Artifact"
+    DEPLOYMENT = "Deployment"
+    CREDENTIAL = "Credential"
+    ACADEMIC_RECORD = "AcademicRecord"
+    EXPERIENCE_RECORD = "ExperienceRecord"
+    PUBLICATION = "Publication"
+    CODING_PROFILE = "CodingProfile"
+    SOURCE = "Source"
+    ORGANIZATION = "Organization"
+    CAPABILITY = "Capability"
+    OBSERVATION = "Observation"
+
+    # Backward compatibility types
+    EVIDENCE = "Evidence"
+    ROLE_REQUIREMENT = "RoleRequirement"
     DOSSIER_ITEM = "DossierItem"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.lower().replace("_", "")
+            aliases = {
+                "observation": "Observation",
+                "evidence": "Evidence",
+                "education": "AcademicRecord",
+                "academic": "AcademicRecord",
+                "academicrecord": "AcademicRecord",
+                "experience": "ExperienceRecord",
+                "experiencerecord": "ExperienceRecord",
+                "repo": "Repository",
+                "repository": "Repository",
+                "analysisrun": "AnalysisRun",
+                "codingprofile": "CodingProfile",
+                "rolerequirement": "RoleRequirement",
+                "dossieritem": "DossierItem",
+            }
+            target = aliases.get(val_norm, None)
+            for member in cls:
+                if (
+                    member.value.lower() == value.lower()
+                    or member.name.lower() == value.lower()
+                    or member.value.lower().replace("_", "") == val_norm
+                    or member.name.lower().replace("_", "") == val_norm
+                    or (target and member.value == target)
+                ):
+                    return member
+        return super()._missing_(value)
+
+
+# Backward compatibility aliases
+GraphNodeType.EDUCATION = GraphNodeType.ACADEMIC_RECORD
+GraphNodeType.EXPERIENCE = GraphNodeType.EXPERIENCE_RECORD
 
 
 class GraphEdgeType(str, Enum):
-    """Edge types in Candidate Evidence Graph (CEG)."""
+    """Canonical edge types in Candidate Evidence Graph (CEG) ontology.
 
-    AUTHORED_BY = "AUTHORED_BY"  # Requires artifact-specific authorship evidence.
-    ASSOCIATED_WITH = "ASSOCIATED_WITH"  # Repository link does not imply contribution.
-    CONTRIBUTES_TO = "CONTRIBUTES_TO"  # Contribution may be repository- or artifact-scoped.
-    DERIVED_FROM = "DERIVED_FROM"
-    SUPPORTS_CAPABILITY = "SUPPORTS_CAPABILITY"
+    Ontology relationship taxonomy:
+    - DECLARES: Candidate declares a claim, skill, project, or identity.
+    - DISCOVERED_FROM: Entity discovered from a source or link.
+    - CONTAINS: Container entity contains sub-entity (e.g. repo contains artifact).
+    - OBSERVED_IN: Observation was made within an artifact or source.
+    - SUPPORTS: Observation or evidence supports a claim or capability.
+    - CONTRADICTS: Observation or qualified negative evidence refutes a claim or capability.
+    - CONTRIBUTES_TO: Candidate contributed to a repository or artifact (does not imply authorship).
+    - ATTRIBUTED_TO: Technical artifact or commit attributed to candidate with qualified confidence.
+    - DEPLOYED_AS: Project or artifact deployed as a live endpoint/service.
+    - ISSUED_BY: Credential or degree issued by an organization.
+    - VERIFIES: Third-party authoritative attestation verifies a claim or identity.
+    - REFERENCES: Claim, project, or artifact references a technology, source, or dependency.
+    - USES_TECHNOLOGY: Project or artifact utilizes a language, framework, or skill.
+    - ASSOCIATED_WITH: Candidate associated with an account or repository without authorship implication.
+    - DERIVED_FROM: Observation, score, or requirement derived from an upstream entity.
+    - AUTHORED_BY: Strict line-level or cryptographic authorship (requires verified evidence).
+    """
+
+    DECLARES = "DECLARES"
+    DISCOVERED_FROM = "DISCOVERED_FROM"
+    CONTAINS = "CONTAINS"
+    OBSERVED_IN = "OBSERVED_IN"
+    SUPPORTS = "SUPPORTS"
     CONTRADICTS = "CONTRADICTS"
+    CONTRIBUTES_TO = "CONTRIBUTES_TO"
+    ATTRIBUTED_TO = "ATTRIBUTED_TO"
+    DEPLOYED_AS = "DEPLOYED_AS"
+    ISSUED_BY = "ISSUED_BY"
+    VERIFIES = "VERIFIES"
+    REFERENCES = "REFERENCES"
+    USES_TECHNOLOGY = "USES_TECHNOLOGY"
+    ASSOCIATED_WITH = "ASSOCIATED_WITH"
+    DERIVED_FROM = "DERIVED_FROM"
+    AUTHORED_BY = "AUTHORED_BY"
+
+    # Compatibility edge types
+    SUPPORTS_CAPABILITY = "SUPPORTS_CAPABILITY"
     CORROBORATES = "CORROBORATES"
     SATISFIES_REQUIREMENT = "SATISFIES_REQUIREMENT"
     GENERATED_QUESTION_FROM = "GENERATED_QUESTION_FROM"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.upper().replace("-", "_")
+            aliases = {
+                "CORROBORATE": "CORROBORATES",
+                "SUPPORT": "SUPPORTS",
+                "CONTRADICT": "CONTRADICTS",
+            }
+            target = aliases.get(val_norm, val_norm)
+            for member in cls:
+                if member.value == target or member.name == target:
+                    return member
+        return super()._missing_(value)

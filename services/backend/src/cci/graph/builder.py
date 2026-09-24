@@ -1,5 +1,6 @@
 """Build the paper's provenance graph from the same snapshot used for scoring."""
 from hashlib import sha256
+from uuid import uuid4
 from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import Dossier
 from cci.domain.enums import ClaimStatus, GraphNodeType as N, GraphEdgeType as E
@@ -34,19 +35,35 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
          override_history=dossier.override_history, versions=dossier.versions)
     edge(identity, candidate, E.DERIVED_FROM)
     edge(run, candidate, E.DERIVED_FROM)
+
     for association in dossier.repository_associations:
         source = repository_source(association.repository_url)
+        repo_id = "repo_" + sha256(association.repository_url.encode()).hexdigest()[:20]
+        node(repo_id, N.REPOSITORY, association.repository_url, repository_url=association.repository_url)
+        edge(source, repo_id, E.CONTAINS)
+        edge(candidate, repo_id, E.ASSOCIATED_WITH,
+             basis=association.basis, identity_verified=association.identity_verified)
         edge(candidate, source, E.ASSOCIATED_WITH,
              basis=association.basis, identity_verified=association.identity_verified)
+
     for contribution in dossier.repository_contributions:
         source = repository_source(contribution.repository_url)
+        repo_id = "repo_" + sha256(contribution.repository_url.encode()).hexdigest()[:20]
+        node(repo_id, N.REPOSITORY, contribution.repository_url, repository_url=contribution.repository_url)
         if contribution.candidate_commit_count > 0:
+            edge(candidate, repo_id, E.CONTRIBUTES_TO,
+                 basis=contribution.method, weight=contribution.candidate_commit_ratio,
+                 candidate_commit_count=contribution.candidate_commit_count,
+                 sampled_commit_count=contribution.sampled_commit_count,
+                 candidate_commit_shas=contribution.candidate_commit_shas,
+                 limitation="Repository contribution does not establish artifact authorship.")
             edge(candidate, source, E.CONTRIBUTES_TO,
                  basis=contribution.method, weight=contribution.candidate_commit_ratio,
                  candidate_commit_count=contribution.candidate_commit_count,
                  sampled_commit_count=contribution.sampled_commit_count,
                  candidate_commit_shas=contribution.candidate_commit_shas,
                  limitation="Repository contribution does not establish artifact authorship.")
+
     for cap, estimate in dossier.capability_estimates.items():
         key = f"cap_{cap.value}"
         node(key, N.CAPABILITY, cap.value, **estimate.model_dump(mode="json"))
@@ -58,6 +75,7 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
         if estimate.is_observed:
             # A capability observation contributes to a requirement; it does not certify satisfaction.
             edge(key, requirement, E.CONTRIBUTES_TO, status="observed; interviewer verification required")
+
     for record in dossier.evidence_records:
         ev = str(record.evidence_id)
         source = "source_" + sha256(record.source_locator.encode()).hexdigest()[:20]
@@ -71,6 +89,13 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
         edge(artifact, source, E.CONTRIBUTES_TO)
         attribution = record.artifact_attribution
         if attribution and attribution.candidate_commit_count > 0:
+            edge(candidate, artifact, E.ATTRIBUTED_TO,
+                 basis=attribution.basis, weight=attribution.ownership_score,
+                 attribution_state=attribution.state.value,
+                 attribution_confidence=attribution.attribution_confidence,
+                 candidate_commit_count=attribution.candidate_commit_count,
+                 candidate_commit_shas=attribution.candidate_commit_shas,
+                 limitation="A GitHub account match is not human identity verification or line-level authorship.")
             edge(candidate, artifact, E.CONTRIBUTES_TO,
                  basis=attribution.basis, weight=attribution.ownership_score,
                  attribution_state=attribution.state.value,
@@ -96,6 +121,7 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
                     E.CONTRADICTS,
                     weight=record.confidence,
                 )
+
     for question in dossier.interview_questions:
         key = str(question.question_id)
         node(key, N.DOSSIER_ITEM, question.question_text, rationale=question.rationale)
@@ -105,6 +131,7 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
                 edge(key, str(evidence_id), E.GENERATED_QUESTION_FROM)
         if not question.grounding_evidence_ids:
             edge(key, f"cap_{question.target_capability.value}", E.GENERATED_QUESTION_FROM, reason="missing evidence")
+
     for claim_data in dossier.claims_corroboration:
         cid_str = (
             str(claim_data.get("claim_id"))
@@ -116,6 +143,11 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
             claim_data.get("original_text") or claim_data.get("claim_text", "")
             if isinstance(claim_data, dict)
             else getattr(claim_data, "original_text", "") or getattr(claim_data, "claim_text", "")
+        )
+        claim_type = (
+            claim_data.get("claim_type")
+            if isinstance(claim_data, dict)
+            else getattr(claim_data, "claim_type", "claim")
         )
         status_val = (
             claim_data.get("status")
@@ -129,6 +161,28 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
         )
         node(key, N.CLAIM, text, **props)
         edge(key, run, E.DERIVED_FROM)
+        edge(candidate, key, E.DECLARES)
+
+        # Specialized ontology nodes for claim subjects
+        claim_type_str = str(claim_type).lower() if claim_type else ""
+        norm_subj = props.get("normalized_subject") or text
+        if claim_type_str == "skill":
+            skill_id = f"skill_{sha256(norm_subj.encode()).hexdigest()[:16]}"
+            node(skill_id, N.SKILL, norm_subj, skill_name=norm_subj)
+            edge(key, skill_id, E.REFERENCES)
+        elif claim_type_str == "project":
+            proj_id = f"proj_{sha256(norm_subj.encode()).hexdigest()[:16]}"
+            node(proj_id, N.PROJECT, norm_subj, project_name=norm_subj)
+            edge(key, proj_id, E.REFERENCES)
+        elif claim_type_str in ("education", "degree", "academic"):
+            acad_id = f"acad_{cid_str}"
+            node(acad_id, N.ACADEMIC_RECORD, norm_subj, **props)
+            edge(key, acad_id, E.REFERENCES)
+        elif claim_type_str in ("experience", "employment"):
+            exp_id = f"exp_{cid_str}"
+            node(exp_id, N.EXPERIENCE_RECORD, norm_subj, **props)
+            edge(key, exp_id, E.REFERENCES)
+
         target_cap = (
             claim_data.get("target_capability")
             if isinstance(claim_data, dict)

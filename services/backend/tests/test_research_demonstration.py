@@ -63,7 +63,20 @@ def test_graph_traces_artifacts_and_questions_and_rescore_keeps_snapshot():
 
     data = run_demo(jd_text="Must have Python and PostgreSQL.")
     types = {n["type"] for n in data["graph"]["nodes"]}
-    assert types == {t.value for t in GraphNodeType}
+    demo_types = {
+        GraphNodeType.CANDIDATE.value,
+        GraphNodeType.IDENTITY.value,
+        GraphNodeType.SOURCE.value,
+        GraphNodeType.ARTIFACT.value,
+        GraphNodeType.EVIDENCE.value,
+        GraphNodeType.CAPABILITY.value,
+        GraphNodeType.ROLE_REQUIREMENT.value,
+        GraphNodeType.CLAIM.value,
+        GraphNodeType.ANALYSIS_RUN.value,
+        GraphNodeType.DOSSIER_ITEM.value,
+    }
+    assert demo_types <= types
+    assert types <= {t.value for t in GraphNodeType}
     dossier = Dossier.model_validate(data["dossier"])
     original_json = dossier.model_dump_json()
     rescored = rescore_dossier(dossier, {CapabilityKey.BACKEND_ENGINEERING: 1.0})
