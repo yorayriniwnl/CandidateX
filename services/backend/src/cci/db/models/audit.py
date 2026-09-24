@@ -4,8 +4,8 @@ from typing import Any
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, synonym
 
 from cci.db.base import (
     GUID,
@@ -15,6 +15,8 @@ from cci.db.base import (
     TimestampMixin,
     UUIDPrimaryKeyMixin,
 )
+
+DEFAULT_SYSTEM_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 class AnalyzerVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -44,16 +46,49 @@ class ModelVersion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 
 class AuditEvent(Base, UUIDPrimaryKeyMixin, ImmutableModelMixin, TimestampMixin):
-    """Immutable system audit trail of decisions, overrides, and security events."""
+    """Tamper-evident append-only audit trail of decisions, overrides, and security events (Fix 30)."""
 
     __tablename__ = "audit_events"
 
-    event_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        default=DEFAULT_SYSTEM_ORG_ID,
+        index=True,
+    )
+    sequence_number: Mapped[int] = mapped_column(
+        BigInteger, default=1, nullable=False, index=True
+    )
+
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    user_id = synonym("actor_id")
+
+    action: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="unknown", index=True
+    )
+    event_type = synonym("action")
+
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analysis_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True
+    )
+    request_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+
+    previous_event_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     details: Mapped[dict[str, Any]] = mapped_column(
         JSONType, default=dict, nullable=False
     )

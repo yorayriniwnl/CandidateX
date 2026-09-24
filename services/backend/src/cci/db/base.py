@@ -121,3 +121,14 @@ def guard_immutable_entities(_mapper: Any, _connection: Any, target: Any) -> Non
             f"Immutable entity '{target.__class__.__name__}' (id={getattr(target, 'id', 'unknown')}) "
             "cannot be modified after creation."
         )
+
+
+@event.listens_for(Base, "before_delete", propagate=True)
+def guard_immutable_entities_delete(_mapper: Any, _connection: Any, target: Any) -> None:
+    """Enforces database-layer append-only immutability for marked models."""
+    if getattr(target, "__is_immutable__", False):
+        raise ValueError(
+            f"Immutable entity '{target.__class__.__name__}' (id={getattr(target, 'id', 'unknown')}) "
+            "cannot be deleted; audit records are append-only."
+        )
+

@@ -220,7 +220,7 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         physical_intuition="Maintains prior stability while converging to empirical verification success rates.",
         key_properties=[
             "Conjugate Beta prior provides closed-form deterministic updates",
-            "Immutable audit trail logs every posterior parameter change",
+            "Audit trail logs every posterior parameter change",
             "Prevents single malicious/spam repositories from poisoning global prior",
         ],
     ),
