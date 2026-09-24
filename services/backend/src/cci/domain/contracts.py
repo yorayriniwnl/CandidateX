@@ -330,6 +330,92 @@ class Claim(BaseModel):
         return cls(**data)
 
 
+class AcademicRecord(BaseModel):
+    """Canonical representation of an educational qualification and institution history."""
+
+    model_config = ConfigDict(frozen=True)
+
+    record_id: str
+    institution: str | None = None
+    degree: str | None = None
+    branch: str | None = None
+    start_year: int | None = None
+    end_year: int | None = None
+    cgpa: float | None = None
+    scale: float | None = None
+    percentage: float | None = None
+    coursework: list[str] = Field(default_factory=list)
+    honors: list[str] = Field(default_factory=list)
+    source_lines: list[str] = Field(default_factory=list)
+    verification_state: str = Field(
+        default="unverified",
+        description="Attendance verification state; remains unverified without independent evidence",
+    )
+    status: str = Field(default="self_reported", description="Evaluation status")
+    limitations: list[str] = Field(
+        default_factory=lambda: [
+            "Structured fields are parsed from the resume declaration only.",
+            "No institution, transcript, grade, or enrollment verification is implied.",
+        ]
+    )
+
+    @property
+    def raw_claim(self) -> str:
+        return " — ".join(self.source_lines) if self.source_lines else ""
+
+    @property
+    def degree_text(self) -> str | None:
+        return self.degree
+
+    @property
+    def years(self) -> list[str]:
+        res = []
+        if self.start_year is not None:
+            res.append(str(self.start_year))
+        if self.end_year is not None:
+            res.append(str(self.end_year))
+        return res
+
+    @property
+    def claimed_cgpa(self) -> dict[str, Any] | None:
+        if self.cgpa is not None:
+            return {"value": self.cgpa, "scale": self.scale}
+        return None
+
+    @property
+    def claimed_percentage(self) -> float | None:
+        return self.percentage
+
+    @property
+    def evidence_sources(self) -> list[str]:
+        return []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "record_id": self.record_id,
+            "raw_claim": self.raw_claim,
+            "status": self.status,
+            "institution": self.institution,
+            "degree": self.degree,
+            "degree_text": self.degree,
+            "branch": self.branch,
+            "start_year": self.start_year,
+            "end_year": self.end_year,
+            "years": self.years,
+            "cgpa": self.cgpa,
+            "scale": self.scale,
+            "claimed_cgpa": self.claimed_cgpa,
+            "percentage": self.percentage,
+            "claimed_percentage": self.percentage,
+            "coursework": self.coursework,
+            "honors": self.honors,
+            "source_lines": self.source_lines,
+            "verification_state": self.verification_state,
+            "evidence_sources": [],
+            "limitations": list(self.limitations),
+        }
+
+
 class NormalizedRequirement(BaseModel):
     """Structured requirement produced by JD intake parser."""
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from cci.claims.identity import generate_deterministic_claim_id
 from cci.contradictions.expectations import build_observable_claim_expectations
+from cci.intake.academic import parse_academic_records
 from cci.live.contracts import ResumeIntake
 
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
@@ -145,43 +146,12 @@ def build_claim_ledger(intake: ResumeIntake) -> list[dict[str, Any]]:
 
 
 def build_academic_records(intake: ResumeIntake) -> list[dict[str, Any]]:
-    """Extract conservative structured fields from education declarations.
+    """Extract conservative structured fields from education declarations, supporting multi-line entities.
 
     The raw line remains authoritative. Regex-derived fields are labelled as
     resume-declared and are never converted into independent verification.
     """
-    records: list[dict[str, Any]] = []
-    for i, line in enumerate(intake.resume_review.sections.get("education", [])):
-        clean = re.sub(r"\s+", " ", line).strip()
-        if not clean:
-            continue
-
-        years = YEAR_RE.findall(clean)
-        cgpa_match = CGPA_RE.search(clean)
-        percentage_match = PERCENT_RE.search(clean)
-        degree_match = DEGREE_RE.search(clean)
-
-        cgpa = None
-        if cgpa_match:
-            cgpa = {
-                "value": float(cgpa_match.group(1)),
-                "scale": float(cgpa_match.group(2)) if cgpa_match.group(2) else None,
-            }
-
-        records.append(
-            {
-                "record_id": _record_id(clean, i),
-                "raw_claim": clean,
-                "status": "self_reported",
-                "degree_text": degree_match.group(0) if degree_match else None,
-                "years": years,
-                "claimed_cgpa": cgpa,
-                "claimed_percentage": float(percentage_match.group(1)) if percentage_match else None,
-                "evidence_sources": [],
-                "limitations": [
-                    "Structured fields are parsed from the resume declaration only.",
-                    "No institution, transcript, grade, or enrollment verification is implied.",
-                ],
-            }
-        )
-    return records
+    edu_lines = intake.resume_review.sections.get("education", [])
+    doc_hash = getattr(intake, "document_sha256", None)
+    records = parse_academic_records(edu_lines, source_document_hash=doc_hash)
+    return [r.to_dict() for r in records]
