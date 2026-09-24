@@ -1,116 +1,163 @@
 # CandidateX SaaS commercial readiness audit
 
 **Review date:** 2026-09-24
-**Reviewed branch:** codex/candidatex-saas-readiness
-**Reviewed code snapshot:** 048990f47269750ff9daef7c11a4bc262faafc3a, containing backend-hardening tip 7773d6f30e6ee1a0485d873e238e9d96958f3e77 and Evidence OS tip 2dce46cde56211bd688659fa9505f66209b4561c; based on origin/main baa559f
+**Reviewed branch:** `codex/candidatex-saas-readiness`
+**Reviewed code snapshot:** `a07c7bf` (commit `a07c7bf873c52e468db963503b12ce056637ef81`), containing backend-hardening cherry-pick `8676bf6` ("evaluate bounded negative candidates") and privacy sanitization commit `a07c7bf`; based on `origin/main` ancestor `baa559f`
+**Remote branch heads verified via `git ls-remote`:**
+- `origin/main`: `50556ac936fb346a59e6049453f6ab7d22832f8b`
+- `origin/codex/backend-hardening`: `891865dea84368fa0a60005165b8fddf70c85bf2`
+- `origin/codex/candidatex-evidence-os`: `2dce46cde56211bd688659fa9505f66209b4561c`
+- `origin/codex/candidatex-commercial-audit`: `ccc8ad3cfc64cd8b79eef5e02dae5b8996c7e373`
+- `origin/codex/candidatex-saas-readiness`: `a07c7bf873c52e468db963503b12ce056637ef81` (synchronized and pushed)
 **Verdict:** Not ready for a commercial multi-tenant launch or customer applicant data.
+
+---
 
 ## Scope
 
-This review covers the combined backend-hardening and Evidence OS process branches, their API wiring and persistence paths, deployment configuration, demo data, and automated checks. I also inspected the current origin/main head and the changes that postdate the reviewed branch. The deployed production source commit was not confirmed, so this review does not certify the running deployment.
+This review covers the combined backend-hardening and Evidence OS branches, API routes, persistence layers, deployment entrypoints, demo and seed fixtures, security postures, and automated regression test suites. I inspected the current `origin/main` head, divergence across active development branches, and the latest remote heads. The running production deployment environment was not confirmed, so this review does not certify live cloud infrastructure.
 
-## Branch currency
+---
 
-The published Evidence OS tip 2dce46c and backend-hardening tip 7773d6f are represented in the reviewed candidate branch at 048990f. The frontend branch adds a mobile navigation fix. The backend adds explicit claim scope and polarity parsing plus a versioned scan inventory that counts eligible, inspected, and skipped files by category for archive and bounded Git blob acquisition.
+## Branch Currency and Divergence
 
-The candidate branch is based on common ancestor baa559f, while origin/main advanced to 50556ac during this review. Current main includes PR #22, the production UI branch, and commit 2a98033, which hardens local development defaults (DEBUG=false, no built-in secret, required Compose database password, and loopback-only port bindings). Those main changes are not included in the reviewed candidate branch. An exploratory sync encountered conflicts across the README, application layout and home page, Evidence OS components, tests, and lockfile; it was aborted before any merge was committed. Select and reconcile the release branch, then rerun verification on that exact tree.
+The audit branch `codex/candidatex-saas-readiness` incorporates:
+1. Commit `8676bf6` (cherry-picked from `origin/codex/backend-hardening` commit `4eed784`), which adds bounded negative candidate evaluation (`services/backend/src/cci/contradictions/candidates.py`) and 46 automated unit tests.
+2. Commit `a07c7bf` (`fix(privacy): sanitize demo identities, sample resumes, and database seeds`), which cleanses all working-tree fixtures, database seeds, and UI mocks, and adds automated privacy regression tests in both backend and web suites.
 
-The latest main defaults improve local configuration but do not add authentication, tenant authorization, candidate lifecycle controls, or production operations. The current shared checkout is also a separate line at aebee8e with user changes; do not treat it as the same source tree as origin/main or this candidate branch.
+### Upstream Heads and Divergence
+- **`origin/main` (50556ac):** Advanced ahead of ancestor `baa559f` with PR #22 and commit `2a98033` (hardening local development defaults: `DEBUG=false`, required database password, loopback-only bindings). Those changes are not present in this candidate branch. A prior merge attempt encountered widespread conflicts across documentation, layout, and lockfiles and was safely aborted. This branch must not be assumed to be the release branch or merged into `main` blindly.
+- **`origin/codex/backend-hardening` (891865d):** Has advanced past `4eed784` with commit `891865d` ("fix(contradictions): enforce strict candidate validation and normalization"), adding Go module direct require validation and deployment project identity normalization.
+- **Shared local checkout:** The separate shared checkout at `C:\Users\yoray\Downloads\CandidateX-main\CandidateX-main` remains untouched at `aebee8e` with user changes, preserving isolation from this audit worktree.
 
-## Verification completed
+---
 
-- Backend suite on published backend-hardening tip 7773d6f: 490 passed, 1 skipped, 5 warnings. The skipped test is tests/unit/test_signal_rule_catalog.py:153; it requires the absent contradiction evaluator.
-- Frontend TypeScript check: passed.
-- Next.js production build: passed.
-- Playwright browser suite on the combined candidate branch: 23 of 23 passed in 1.8 minutes. The local Playwright configuration starts cci.main and Next.js; it does not exercise the Vercel services/backend/app.py entrypoint or certify the deployed company API.
-- Production JavaScript dependency audit: no known vulnerabilities reported.
-- Python pip check: no broken requirements found. This is not a Python vulnerability audit and does not replace a lockfile.
-- Node emitted a warning that the configured Kaspersky root certificate could not be loaded. Python reported upstream HTTP test-client and Alembic path deprecation warnings.
+## Verification Completed on Exact Current Snapshot (`a07c7bf`)
 
-### Separate shared-checkout and current-main state
+All verification steps were executed serially on the working copy to ensure consistent build artifacts:
 
-The shared checkout at aebee8e has its own history and uncommitted changes. Its prior local verification passed 246 backend tests, the web typecheck/build, and 22 Playwright cases; those results do not apply to the reviewed candidate branch or certify origin/main at 50556ac. The local aebee8e privacy commit sanitizes sample CV and seeder identities, but that change is absent from both the reviewed candidate branch and current origin/main. Current main still contains named candidate examples, university email addresses, and live GitHub URLs.
+1. **`git diff --check`:** PASSED cleanly with 0 whitespace or formatting errors.
+2. **Backend test suite (`python -m pytest -q` from `services/backend`):**
+   - **539 passed, 0 skipped, 0 failed, 5 warnings** (Starlette/HTTPX and Alembic path deprecations).
+   - Includes 46 passed tests in `tests/unit/contradictions/test_candidates.py` and 2 passed tests in `tests/test_demo_data_privacy.py`.
+   - The previously skipped test in `tests/unit/test_signal_rule_catalog.py:153` is now active and passing with the contradiction evaluator present.
+3. **Frontend typecheck and lint (`pnpm --filter web lint` / `tsc --noEmit`):**
+   - **PASSED with 0 errors**.
+4. **Next.js production build (`pnpm --filter web build`):**
+   - **PASSED with 0 errors**. All 9 routes compiled and statically prerendered or flagged dynamic on demand without issues.
+5. **Full web Playwright test suite (`pnpm exec playwright test` in `apps/web`):**
+   - **25 of 25 passed across all 6 spec files in 2.2 minutes**.
+   - Verified tests:
+     - `demo-privacy.spec.ts` (2 tests: hiring dashboard synthetic fallback and candidate intake presets)
+     - `evidence-os.spec.ts` (1 test: landing page routing)
+     - `live-analysis-ui.spec.ts` (12 tests: extraction, manifests, audit rail, 3D graph, WebGL fallback)
+     - `live-analysis.spec.ts` (4 tests: API uploads, DOCX parsing, mobile viewport, export)
+     - `live-dossier.spec.ts` (2 tests: partial dossier provenance, 20k-character JD boundary)
+     - `research-demo.spec.ts` (4 tests: live paper demonstration, mobile controls, override handling)
 
-## Launch blockers
+---
 
-### Critical: no authenticated user or server-verified tenant boundary
+## Launch Blockers
 
-The full FastAPI application has no authentication dependency or authorization middleware. Candidate and job listing endpoints accept organization IDs supplied by the caller; candidate listing leaves the organization filter optional. Candidate detail, dossier, graph, provenance, and audit endpoints take candidate IDs without a verified user-to-organization check. Recruiter override requests also accept a caller-supplied organization ID. The generated OpenAPI schema confirms the gap: it defines no security schemes or global security, and its operations have no security declarations.
+### 1. Critical: No authenticated user or server-verified tenant boundary
+The FastAPI application (`services/backend/src/cci/main.py`) contains no authentication dependencies or authorization middleware.
+- Listing endpoints (`/api/v1/candidates`, `/api/v1/jobs`) accept caller-supplied `organization_id` parameters without verification. If omitted, `/api/v1/candidates` returns records across all organizations.
+- Detail, dossier, evidence graph, provenance, and audit endpoints accept arbitrary UUIDs without verifying tenant membership.
+- Recruiter override requests (`/api/v1/overrides`) accept caller-supplied `user_id` and optional `organization_id`.
+- Dossier and evidence graph routers (`dossier.py`) maintain process-global in-memory dictionaries (`_DOSSIER_STORE`, `_GRAPH_STORE`), and the override router maintains a global `_AUDIT_LOG_STORE`. Multi-worker or multi-container deployments will exhibit state desynchronization.
+- The database schema (`Organization`, `User`) lacks an organization-membership join table or role-based access control (RBAC) model.
+- **Design Status:** The proposed architecture of provider-neutral managed OIDC (e.g. Auth0 / Okta / Cognito) coupled with application-owned organizations and membership remains an **unanswered design question**. All auth-dependent implementation remains blocked pending explicit user/stakeholder approval.
+- **Impact:** An employer's applicant pool, candidate evaluations, and override logs would be accessible to any other party on the platform.
 
-The current `User` row stores one organization ID and a password hash; the schema has no organization-membership join table. Override requests also accept caller-supplied `user_id` and optional `organization_id`. Dossier and graph routers keep process-global caches keyed only by candidate ID, the override audit trail has a process-global fallback, and pipeline run state is held in process memory. Adding token validation alone would therefore be insufficient: object access must be scoped to the verified membership, actor IDs must come from the token context, and company state must not depend on one worker's memory.
+### 2. Critical: The deployed backend entrypoint does not serve the company workspace API
+The serverless deployment entrypoint at `services/backend/app.py` directly imports `cci.live_app`:
+```python
+from cci.live_app import app
+```
+`cci.live_app` mounts only `live_router` (request-scoped, stateless document analysis) and `research_demo_router` (synthetic ablation demonstrations). It intentionally omits `candidates`, `jobs`, `dossier`, `pipeline`, and `overrides` routers.
+- The deployed public Vercel frontend provides `/hr` and `/workspace` views, but there is no deployed persistent API backing those routes.
+- The live evaluation pipeline explicitly specifies `storage: request_only` and avoids database retention.
+- **Impact:** The running deployment is a stateless demo surface, not a commercial enterprise SaaS product. A unified production topology (e.g., containerized ECS/EKS/Cloud Run cluster with managed Postgres and background worker queues) must be selected, configured, and verified.
 
-Relevant code: services/backend/src/cci/main.py, services/backend/src/cci/db/models/organizations.py, services/backend/src/cci/api/routers/candidates.py, services/backend/src/cci/api/routers/jobs.py, services/backend/src/cci/api/routers/dossier.py, services/backend/src/cci/api/routers/overrides.py, and services/backend/src/cci/pipeline/service.py.
+### 3. Critical: No demonstrated hiring validity or algorithmic fairness evidence
+All static scoring signals are documented in code as uncalibrated policy heuristics.
+- The repository contains no independent job-related validity studies (Uniform Guidelines on Employee Selection Procedures, EEOC), no adverse-impact analyses (four-fifths rule), and no demographic calibration.
+- Under the EU AI Act (Regulation (EU) 2024/1689), AI systems intended for recruitment or selection, notably for screening or filtering applications, are classified as **High-Risk AI Systems** (Annex III, point 4(a)). Requirements include continuous risk management, data governance, technical documentation, record-keeping, human oversight, accuracy, and cybersecurity.
+- **Impact:** Selling or marketing the platform as an automated candidate screening or rejection engine creates immediate legal and regulatory exposure for enterprise customers. Scoring must remain strictly advisory decision-support under human supervision until formal validation studies are conducted.
 
-**Impact:** a multi-company deployment cannot safely expose applicant, job, dossier, or override data. A random identifier is not an authorization boundary. Add verified identity, organization membership, role permissions, and tenant scoping in server-derived request context before accepting company data.
+### 4. High: Candidate-data lifecycle, retention, and deletion are absent
+While `cci.live_app` avoids retention by design, the core database schema in `cci.main` stores applicant manifests, resumes, and dossier records indefinitely without lifecycle management.
+- There are no customer-facing or automated APIs for candidate record deletion, retention limits, right-to-be-forgotten propagation (GDPR Art. 17 / CCPA), or audit log purge policies.
+- No Data Processing Agreement (DPA), subprocessor list, or controller/processor definition exists for commercial enterprise customers.
+- **Impact:** Enterprise HR and compliance teams cannot legally deploy the platform with real applicant resumes without certified data lifecycle and deletion guarantees.
 
-### Critical: the deployed backend entrypoint does not serve the company workspace API
+### 5. High: Negative-evidence qualification is not enforced end to end
+Commit `8676bf6` introduced `cci/contradictions/candidates.py` to evaluate bounded negative candidates across registered claim types, and upstream `backend-hardening` commit `891865d` added stricter module and deployment validation. However:
+- End-to-end qualification is not integrated across database persistence, scoring, graph building, and APIs.
+- The database `Evidence` model does not store typed `NegativeEvidenceDetails` or scan completeness records.
+- Downstream scoring and corroboration algorithms continue to branch primarily on boolean `is_positive_support` flags, potentially consuming unqualified negatives.
+- **Impact:** Contradiction findings and negative assertions cannot be safely relied upon in hiring recommendations without end-to-end qualification guarantees.
 
-The Vercel backend entrypoint in services/backend/app.py imports cci.live_app. That app mounts request-scoped live analysis and the synthetic research demo. It does not mount cci.main, which contains the database-backed candidates, jobs, pipelines, dossiers, and overrides APIs. The production site exposes /hr and /workspace pages, but those pages are not backed by the full company API through this Vercel entrypoint.
+### 6. High: Public Git history exposes prior personal identities (Release Caveat)
+While the active working tree is fully sanitized as of commit `a07c7bf`, earlier commits in the public Git history on `main` and feature branches contain real candidate names, student email addresses, and personal GitHub URLs.
+- **Release Caveat:** Sanitizing the working copy prevents new exposures, but public cloning or auditing of the repository history will still reveal historical personal data unless the history is cleaned.
+- **Remediation Path:** Public history rewriting must not be performed without explicit stakeholder authorization. Once approved, the required remediation path is:
+  1. Execute `git-filter-repo` using a replacement map to rewrite historical commits across all branches.
+  2. Coordinate forced updates across remote mirrors and forks.
+  3. Ensure contributors re-clone or rebase their local worktrees.
 
-The live analysis page describes uploaded documents and results as request-scoped and not saved. The synthetic research registry is process-local and its response asks operators to use one backend worker and export JSON for retention.
+### 7. High: Public analysis compute lacks per-tenant quotas and rate limiting
+Public routes (`/api/live/*` and Next.js proxy endpoints) parse complex documents (PDFs, DOCX, ZIP archives) and fetch external URLs (GitHub repositories, public web pages).
+- There is no application-level rate limiting (e.g., token bucket via Redis), per-IP throttling, or concurrency gate in FastAPI or Next.js route handlers.
+- Malicious or automated requests can induce denial-of-service, CPU exhaustion, or SSRF-related egress spikes.
+- **Impact:** Unbounded resource consumption and potential denial-of-service vulnerabilities.
 
-**Impact:** the running public deployment is a demo/live-analysis surface, not a durable employer workspace. Choose and verify one production topology that serves the intended APIs, persistent storage, background jobs, and tenant controls.
+### 8. High: Missing reproducible Python lockfile and supply-chain scanning
+- While the frontend relies on `pnpm-lock.yaml`, the backend `pyproject.toml` uses loose minimum-version bounds (e.g., `fastapi>=0.115.0`) without a locked dependency graph (such as `requirements.lock` or `uv.lock`).
+- CI currently runs linting and testing but lacks automated dependency vulnerability scanning (e.g., `pip-audit`, Trivy, or Snyk) for Python packages.
+- **Impact:** Non-deterministic container builds and unmonitored upstream vulnerabilities.
 
-### Critical: no demonstrated hiring validity or fairness evidence
+---
 
-The repository describes all static signal strengths as uncalibrated policy heuristics and says they do not establish proficiency or predict job performance. I found no independent job-related validity study, disparate-impact analysis, or documented acceptance criteria for using these outputs in candidate selection.
+## Recommended Launch Roadmap
 
-**Impact:** do not market the score as validated hiring accuracy or use it as an automated screen or rejection rule. Keep a trained human decision-maker responsible for decisions and obtain independent employment-validity, fairness, and legal review for the intended use.
+```mermaid
+flowchart TD
+    A["1. Architecture & Design Alignment"] --> B["2. Auth & Multi-Tenancy Implementation"]
+    B --> C["3. Production Topology & Workspace API Deployment"]
+    C --> D["4. Data Lifecycle & Privacy Controls"]
+    D --> E["5. Negative Qualification End-to-End Integration"]
+    E --> F["6. Production Hardening & Rate Limiting"]
+    F --> G["7. History Sanitization & Compliance Certification"]
 
-The European Commission lists AI used for employment and recruitment, including CV sorting, among high-risk use cases. Its current AI Act page says the rules for Annex III high-risk use cases apply from 2 December 2027 following the AI Omnibus. Product classification depends on the intended use; have counsel assess the actual product and customer workflow. Source: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
+    A -.- A1["Approve OIDC + Tenant Model"]
+    B -.- B1["JWT middleware, org membership, RBAC"]
+    C -.- C1["Deploy cci.main on durable container infra"]
+    D -.- D1["GDPR deletion, retention jobs, DPA"]
+    E -.- E1["Persist qualification, score integration"]
+    F -.- F1["Redis rate limits, CSP headers, uv.lock"]
+    G -.- G1["git-filter-repo, AI fairness review"]
+```
 
-### High: candidate-data lifecycle is incomplete
+1. **Resolve Architecture Decisions:**
+   - Formalize and approve the authentication and tenant model (managed OIDC + application-owned organizations).
+2. **Implement Authentication & Tenant Isolation:**
+   - Introduce JWT verification middleware, organization membership join tables, and request-scoped DB tenancy filters. Replace all in-memory global caches (`_DOSSIER_STORE`, `_GRAPH_STORE`, `_AUDIT_LOG_STORE`) with tenant-scoped Redis/Postgres storage.
+3. **Deploy Unified Workspace Topology:**
+   - Migrate beyond Vercel serverless for the full product; deploy containerized `cci.main` alongside Next.js with persistent Postgres and async workers (Celery/Temporal).
+4. **Implement Data Lifecycle & Privacy Policies:**
+   - Build candidate deletion endpoints with cascade cleanup, implement automated retention purge tasks, and publish enterprise privacy policies.
+5. **Complete Negative Evidence Qualification:**
+   - Incorporate `891865d` candidate validation fixes, persist `NegativeEvidenceDetails` in the DB schema, and ensure scoring algorithms reject unqualified negatives.
+6. **Harden Edge Security & Supply Chain:**
+   - Implement Redis-backed rate limiting, enforce Content Security Policy (CSP) and strict CORS, generate a pinned Python lockfile (`uv.lock`), and integrate `pip-audit` into CI.
+7. **Address Historical Git Exposure:**
+   - With explicit stakeholder sign-off, execute `git-filter-repo` to sanitize historical commits before public enterprise marketing.
 
-The live request path intentionally avoids server-side retention, which is useful for a demo. The separate full backend persists candidate and dossier records, but the reviewed API has no candidate deletion flow or retention/purge job. I found no customer-facing access, correction, export, retention, or deletion policy for a shared company workspace.
+---
 
-**Impact:** before storing real applicant data, define the controller/processor roles, purpose and legal basis, retention periods, deletion propagation to evidence and exports, access/correction handling, data location, subprocessors, and incident notification process. Implement and verify those controls.
+## Release Recommendation
 
-### High: negative-evidence qualification is not enforced end to end
+**Do not release CandidateX as a commercial enterprise SaaS product in its current state.**
 
-The latest backend adds NegativeEvidenceDetails, registered contradiction rule IDs, deterministic claim-expectation parsing, and a versioned repository scan inventory. The inventory now counts eligible, inspected, and skipped files by category and records skip reasons. However, RepositoryScanCompleteness remains local to acquisition: acquire_repository uses it only to reject a missing or truncated inventory, and the successful repository receipt does not serialize the category completeness values. No live evaluator consumes those values or compares them with NegativeEvidenceDetails.required_scan_completeness.
-
-The cci/contradictions/candidates.py evaluator referenced by the rule-catalog test is absent, so its test remains skipped. The expectation parser is imported by cci.live.claims but has no live-service call site. EvidenceRecord labels any negative record with details as qualified without enforcing observed_scan_completeness >= required_scan_completeness or recomputing the claim reference from the claim and scope. The scan-scope model is frozen but contains a mutable artifact_paths list.
-
-Evidence-family scoring, contradiction diagnostics, claim corroboration, graph construction, and uncertainty calculations still branch on is_positive_support and can therefore consume legacy unqualified negatives. The database Evidence row and repository mapping do not persist the typed negative-evidence details or qualification. The new scan inventory is a useful measurement substrate, but it is not yet an end-to-end qualification control.
-
-**Impact:** contradiction and negative-support outputs are not ready to influence company hiring decisions. Implement claim-scoped candidate generation, enforce completeness and immutable scope, persist and return qualification details, and make every scoring, graph, and claim consumer ignore unqualified legacy negatives. Add end-to-end tests for incomplete, missing, malformed, and cross-claim evidence before relying on these results.
-
-### High: demo fixtures contain plausible personal identities and live service URLs
-
-The reviewed candidate branch and current origin/main still contain named candidate profiles, university email addresses, and live GitHub accounts in scripts/seed_db.py, examples/sample_*_cv.txt, and the legacy dossier UI. Current origin/main still includes an Ayush Roy sample and a university email. The separate local aebee8e commit replaces the known sample CV and seeder identities with synthetic labels and reserved .invalid contacts and URLs, but it is not included in either pushed branch.
-
-**Impact:** replace all demo identities with clearly synthetic labels and reserved .invalid email and URL domains across seed data, sample files, mocks, and UI defaults. Keep a visible synthetic-data notice with samples and demo screens.
-
-### High: production hardening and operating evidence are incomplete
-
-The reviewed candidate branch predates current main's commit 2a98033, which improves the local Compose and settings defaults: DEBUG is false, the built-in secret is removed, Compose requires an ignored .env password, and service ports bind to loopback. Those fixes are not in the reviewed candidate snapshot. Even on current main, local-development defaults do not prove production configuration or deployment safety.
-
-An earlier public-page check found Access-Control-Allow-Origin: * and no Content-Security-Policy or X-Frame-Options. Because the deployed source commit is unconfirmed and main moved during this audit, recheck the live headers against the selected release deployment. I found no repository evidence of a production secret-management policy, backup/restore drill, customer SLO, incident runbook, or monitoring/alerting ownership.
-
-**Impact:** choose and verify the production source and topology, establish explicit browser security headers and allowed origins at the deployed edge, and document tested recovery and operating ownership before launch.
-
-### High: public analysis compute has no per-user throttling or tenant quotas
-
-The public live and demo routes cap individual payload sizes and request timeouts, but I found no application-level per-user or per-IP rate limiter, tenant usage quota, or request-concurrency policy in the backend or Next API handlers. The GitHub client handles upstream provider rate limits only.
-
-**Impact:** unauthenticated callers can repeatedly consume analysis and network capacity. Add edge/API throttling, concurrency limits, per-tenant quotas, cost monitoring, and burst tests before exposing the endpoints to company traffic.
-
-### High: Python dependencies are not locked or included in the vulnerability audit
-
-The frontend has a pnpm lockfile and its production dependency audit found no known advisories. The Python runtime dependencies in services/backend/pyproject.toml use minimum-version ranges and the repository has no Python lockfile or Python advisory scan in the verified release workflow.
-
-**Impact:** generate a reproducible Python dependency lock, scan the runtime and container dependencies, and add the scan to CI.
-
-## Recommended launch order
-
-1. Select an identity provider and implement verified authentication, organization membership, and role-based authorization across every company API.
-2. Decide the production topology and connect the intended UI to the durable, tenant-scoped API.
-3. Define and implement candidate-data lifecycle, retention, deletion, correction, and customer privacy documentation.
-4. Keep scoring advisory until independent validity and fairness work supports the stated use; review employment-law obligations with counsel.
-5. Remove plausible personal identities from all demo fixtures and legacy UI samples.
-6. Complete production security, Python supply-chain, backup/restore, monitoring, and incident-response controls.
-7. Run an end-to-end security and tenant-isolation review against the deployed environment.
-
-## Release recommendation
-
-Treat the current public site as a supervised demonstration using synthetic data. Do not onboard companies with real applicant data or sell the current deployment as a secure multi-tenant SaaS product. The code quality checks are useful, but they do not establish tenant isolation, employment validity, legal compliance, or production operations.
+The working-copy privacy sanitization (`a07c7bf`) and unit/E2E test suites (539 pytest cases, 25 Playwright tests) establish a solid and verifiable baseline. However, without authentication, tenant isolation, a deployed company workspace API, candidate deletion mechanisms, rate limiting, and employment-fairness compliance, the system remains a supervised technical demonstration rather than an enterprise-ready commercial SaaS offering.
