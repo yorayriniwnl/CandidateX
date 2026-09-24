@@ -19,6 +19,9 @@ from cci.scoring.rci import (
 )
 from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import (
+    DEFAULT_PRIOR_RATIONALES,
+    DEFAULT_PRIORS,
+    calibrate_from_empirical_outcomes,
     calibrate_from_observations,
     compute_source_reliability,
     get_default_reliability_snapshots,
@@ -31,10 +34,13 @@ from cci.scoring.weights import (
 )
 
 __all__ = [
+    "DEFAULT_PRIOR_RATIONALES",
+    "DEFAULT_PRIORS",
     "apply_expert_overrides",
     "assemble_confidence_factors",
     "build_role_profile",
     "calculate_elapsed_years",
+    "calibrate_from_empirical_outcomes",
     "calibrate_from_observations",
     "compute_capability_score",
     "compute_confidence_from_factors",

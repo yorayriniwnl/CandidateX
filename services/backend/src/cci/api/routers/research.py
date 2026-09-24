@@ -215,7 +215,7 @@ THEOREMS_CATALOG: list[TheoremMetadata] = [
         name="Beta-Binomial Source Reliability Consistency",
         category="Calibration & Bayesian Updates",
         latex_formula=r"\mathbb{E}[r_s | \alpha_s, \beta_s, k, n] = \frac{\alpha_s + k}{\alpha_s + \beta_s + n}",
-        description="Empirical Bayesian update calibrating repository and platform source reliability over time.",
+        description="Bayesian update model tracking repository and platform source reliability over time.",
         bound_statement=r"\lim_{n \to \infty} \mathbb{E}[r_s] = \frac{k}{n} \in [0, 1]",
         physical_intuition="Maintains prior stability while converging to empirical verification success rates.",
         key_properties=[

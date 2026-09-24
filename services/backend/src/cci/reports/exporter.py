@@ -74,7 +74,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
         "",
         "> [!IMPORTANT]",
         "> **Core Platform Invariant: Employer Decision Support Only.**",
-        "> This dossier assists human hiring teams and technical interviewers with empirically grounded evidence.",
+        "> This dossier assists human hiring teams and technical interviewers with verified artifact evidence.",
         "> **Based only on observed evidence.**",
         "> It never makes automated hiring or rejection determinations. Missing or insufficiently attributed capabilities evaluate strictly to `UNKNOWN`.",
         "",
@@ -200,7 +200,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
             status_badge = str(claim.get("status", "unknown")).upper()
             ev_count = len(claim.get("grounding_evidence_ids", []))
             lines.append(
-                f"| {c_text} | **`{status_badge}`** | {ev_count} empirical records |"
+                f"| {c_text} | **`{status_badge}`** | {ev_count} evidence records |"
             )
         lines.append("")
 
@@ -842,7 +842,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                     <div class="metric-sub">Configured sufficiency threshold: {threshold_pct}%</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Empirical Status</div>
+                    <div class="metric-label">Evidence Sufficiency</div>
                     <div class="metric-value" style="font-size: 22px; color: {
         "var(--accent-amber)"
         if index_context.is_insufficient_evidence
@@ -913,7 +913,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
                 <tr>
                     <th>Declared Resume Claim</th>
                     <th>Corroboration Status</th>
-                    <th>Empirical Records</th>
+                    <th>Evidence Records</th>
                 </tr>
             </thead>
             <tbody>

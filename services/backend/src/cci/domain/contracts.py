@@ -882,7 +882,12 @@ class EvidenceRecord(BaseModel):
 
 
 class SourceReliabilitySnapshot(BaseModel):
-    """Beta(alpha_s, beta_s) posterior state for a source family."""
+    """Beta(alpha_s, beta_s) belief state for a source family.
+
+    Formal paper model: r_s = (TP + alpha_s) / (TP + FP + alpha_s + beta_s).
+    Priors represent expert-selected baselines unless explicitly updated from
+    real-world empirical outcome truth.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -894,9 +899,41 @@ class SourceReliabilitySnapshot(BaseModel):
     posterior_mean: float = Field(
         ..., ge=0.0, le=1.0, description="r_s = (TP + alpha)/(TP + FP + alpha + beta)"
     )
-    state: ReliabilityState = Field(default=ReliabilityState.PRIOR)
+    state: ReliabilityState = Field(default=ReliabilityState.EXPERT_PRIOR)
     version: str = Field(default="1.0.0")
+    rationale: str = Field(
+        default="Expert-selected baseline prior; uncalibrated against real outcome data.",
+        description="Explicit rationale explaining the choice of prior parameters.",
+    )
+    is_empirically_updated: bool = Field(
+        default=False,
+        description="True ONLY if updated from external measured real-world truth.",
+    )
+    empirical_sample_size: int = Field(
+        default=0,
+        ge=0,
+        description="Number of real-world outcome cases used if empirically calibrated.",
+    )
+    calibration_provenance: str | None = Field(
+        default=None,
+        description="Provenance reference or dataset identifier when empirically updated.",
+    )
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @property
+    def prior_parameters(self) -> dict[str, float]:
+        """Convenience accessor for Beta prior parameters."""
+        return {"alpha": self.alpha_prior, "beta": self.beta_prior}
+
+    @property
+    def empirically_updated(self) -> bool:
+        """Alias for is_empirically_updated."""
+        return self.is_empirically_updated
+
+    @property
+    def is_expert_prior(self) -> bool:
+        """True if in un-updated expert prior state."""
+        return self.state == ReliabilityState.EXPERT_PRIOR and not self.is_empirically_updated
 
 
 class OwnershipAssessment(BaseModel):

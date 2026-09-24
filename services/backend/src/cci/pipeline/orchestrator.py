@@ -5,7 +5,7 @@ Formal 10-Stage Pipeline Lifecycle:
 2. INGESTING_SOURCES: Validating and canonicalizing declared source URLs.
 3. ANALYZING_ARTIFACTS: Static code, DB, test, DevOps, and deployment inspection.
 4. BUILDING_EVIDENCE: Constructing immutable evidence records.
-5. CALIBRATING_RELIABILITY: Beta-Binomial source family reliability updates.
+5. CALIBRATING_RELIABILITY: Beta-Binomial source family reliability priors and updates.
 6. ESTIMATING_OWNERSHIP: Heuristic authorship attribution.
 7. COMPUTING_UNCERTAINTY: Cluster bootstrap CIs and Kish effective counts.
 8. SCORING: Formal point estimates q_k and observed-only capability index.
@@ -114,7 +114,7 @@ def _init_stage_progress() -> list[StageProgress]:
         (AnalysisStage.INGESTING_SOURCES, "2. Canonicalize Sources"),
         (AnalysisStage.ANALYZING_ARTIFACTS, "3. Static Code & DB Intelligence"),
         (AnalysisStage.BUILDING_EVIDENCE, "4. Build Immutable Evidence"),
-        (AnalysisStage.CALIBRATING_RELIABILITY, "5. Source Calibration"),
+        (AnalysisStage.CALIBRATING_RELIABILITY, "5. Source Reliability Priors"),
         (AnalysisStage.ESTIMATING_OWNERSHIP, "6. Ownership Attribution"),
         (AnalysisStage.COMPUTING_UNCERTAINTY, "7. Bootstrap Uncertainty"),
         (AnalysisStage.SCORING, "8. Capability Scoring & Observed Index"),
@@ -236,7 +236,7 @@ def execute_analysis_pipeline(
         # ----------------------------------------------------------------------
         advance_stage(
             AnalysisStage.CALIBRATING_RELIABILITY,
-            "Using reliability factors attached to supplied observations; demo counts are simulated.",
+            "Applying expert-selected source reliability priors; uncalibrated against real outcome data.",
         )
 
         # ----------------------------------------------------------------------

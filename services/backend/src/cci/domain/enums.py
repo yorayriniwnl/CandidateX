@@ -182,10 +182,44 @@ class ScanDepth(str, Enum):
 
 
 class ReliabilityState(str, Enum):
-    """State of source family reliability posterior."""
+    """Taxonomy of source family reliability belief state.
 
-    PRIOR = "prior"
-    CALIBRATED = "calibrated"
+    Taxonomy:
+    - EXPERT_PRIOR: Expert-selected baseline parameters; not empirically calibrated.
+    - POSTERIOR_SIMULATED: Updated from synthetic tests or benchmark simulations.
+    - EMPIRICALLY_CALIBRATED: Updated from real, consenting measured outcome truth.
+    """
+
+    EXPERT_PRIOR = "expert_prior"
+    POSTERIOR_SIMULATED = "posterior_simulated"
+    EMPIRICALLY_CALIBRATED = "empirically_calibrated"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.lower()
+            aliases = {
+                "prior": "expert_prior",
+                "expert_selected": "expert_prior",
+                "expert_prior": "expert_prior",
+                "expert_priors": "expert_prior",
+                "simulated": "posterior_simulated",
+                "posterior_simulated": "posterior_simulated",
+                "calibrated": "posterior_simulated",
+                "empirically_calibrated": "empirically_calibrated",
+                "empirical": "empirically_calibrated",
+            }
+            target = aliases.get(val_norm, val_norm)
+            for member in cls:
+                if member.value == target or member.name.lower() == target:
+                    return member
+        return super()._missing_(value)
+
+
+# Backward compatibility aliases
+ReliabilityState.PRIOR = ReliabilityState.EXPERT_PRIOR
+ReliabilityState.CALIBRATED = ReliabilityState.POSTERIOR_SIMULATED
+ReliabilityState.SIMULATED = ReliabilityState.POSTERIOR_SIMULATED
 
 
 class ClaimStatus(str, Enum):
