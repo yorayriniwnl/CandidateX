@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
+from cci.artifacts.identity import compute_canonical_artifact_uuid
 from cci.domain.enums import ScanDepth
 from cci.security.repository_workspace import SafeRepositoryWorkspace
 
@@ -175,7 +176,12 @@ def index_repository_artifacts(
 
         indexed_artifacts.append(
             IndexedArtifact(
-                artifact_id=uuid4(),
+                artifact_id=compute_canonical_artifact_uuid(
+                    repo_url=repo_url,
+                    immutable_revision=commit_sha,
+                    artifact_path=file_info.relative_path,
+                    content_hash=content_hash,
+                ),
                 relative_path=file_info.relative_path,
                 category=cat,
                 byte_size=file_info.byte_size,

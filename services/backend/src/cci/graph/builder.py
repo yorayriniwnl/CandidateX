@@ -1,6 +1,7 @@
 """Build the paper's provenance graph from the same snapshot used for scoring."""
 from hashlib import sha256
 from uuid import uuid4
+from cci.artifacts.identity import compute_canonical_artifact_id
 from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import Dossier
 from cci.domain.enums import ClaimStatus, GraphNodeType as N, GraphEdgeType as E
@@ -79,13 +80,43 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
     for record in dossier.evidence_records:
         ev = str(record.evidence_id)
         source = "source_" + sha256(record.source_locator.encode()).hexdigest()[:20]
-        artifact = "artifact_" + record.fingerprint
-        node(source, N.SOURCE, record.source_family.value, locator=record.source_locator, synthetic=dossier.evidence_mode == "synthetic")
-        node(artifact, N.ARTIFACT, record.provenance.get("artifact_path", record.source_locator),
-             revision=record.immutable_revision, fingerprint=record.fingerprint,
-             raw_support_text=record.provenance.get("raw_support_text", ""), extractor_version=record.provenance.get("extractor_version"))
-        node(ev, N.EVIDENCE, f"{record.source_family.value}: {record.target_capability.value}",
-             **record.model_dump(mode="json"), score=record.technical_signal_strength)
+        art_path = record.provenance.get("artifact_path", record.source_locator)
+        content_hash = (
+            record.provenance.get("content_sha256")
+            or record.provenance.get("artifact_sha256")
+            or record.provenance.get("content_hash")
+            or ""
+        )
+        artifact = compute_canonical_artifact_id(
+            repo_url=record.source_locator,
+            immutable_revision=record.immutable_revision,
+            artifact_path=art_path,
+            content_hash=content_hash,
+        )
+        node(
+            source,
+            N.SOURCE,
+            record.source_family.value,
+            locator=record.source_locator,
+            synthetic=dossier.evidence_mode == "synthetic",
+        )
+        node(
+            artifact,
+            N.ARTIFACT,
+            art_path,
+            revision=record.immutable_revision,
+            artifact_path=art_path,
+            content_hash=content_hash,
+            raw_support_text=record.provenance.get("raw_support_text", ""),
+            extractor_version=record.provenance.get("extractor_version"),
+        )
+        node(
+            ev,
+            N.EVIDENCE,
+            f"{record.source_family.value}: {record.target_capability.value}",
+            **record.model_dump(mode="json"),
+            score=record.technical_signal_strength,
+        )
         edge(artifact, source, E.CONTRIBUTES_TO)
         attribution = record.artifact_attribution
         if attribution and attribution.candidate_commit_count > 0:
