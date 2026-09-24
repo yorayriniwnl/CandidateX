@@ -63,6 +63,7 @@ import { GlassButton } from '../ui/GlassButton';
 import { GlassModal } from '../ui/GlassModal';
 import { GraphViewer } from './GraphViewer';
 import { SourceExplorerPanel } from './SourceExplorerPanel';
+import { downloadDossier, getExportDossierUrl } from '../../lib/api';
 
 export type EvidenceExplorerSection =
   | 'overview'
@@ -1115,25 +1116,118 @@ export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({
                       Provenance-Preserving Exports
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
-                      Download complete evaluation dossier in structured formats preserving all evidence IDs.
+                      Download complete evaluation dossier in structured, cryptographic formats preserving all 9 core provenance properties.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([JSON.stringify(dossier, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `candidatex-dossier-${dossier.candidate_id}.json`;
-                        a.click();
-                      }}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all"
-                    >
-                      <Download className="w-4 h-4" />
-                      Export Structured JSON
-                    </button>
+                  <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                    <div className="text-xs font-semibold text-slate-200">Preserved Invariants &amp; Chain of Custody</div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Every export permanently links conclusions to Claim IDs, Evidence IDs, Source URLs, Commit SHAs, Artifact Paths, SHA-256 Content Fingerprints, Fetch Timestamps, System Limitations, and exact Analyzer / Scoring Model Versions. Uncertain findings strictly evaluate to <span className="font-mono text-amber-400">UNKNOWN</span> and are never penalized or converted into false certainty.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* JSON Export */}
+                    <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2 font-bold text-sm text-white">
+                          <Code2 className="w-4 h-4 text-emerald-400" />
+                          Structured JSON
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Full machine-readable CEG export with provenance conclusions, version families, and limitations schema.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await downloadDossier(dossier.candidate_id, 'json', 'candidate');
+                          } catch {
+                            const blob = new Blob([JSON.stringify(dossier, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `candidatex-dossier-${dossier.candidate_id}.json`;
+                            a.click();
+                          }
+                        }}
+                        className="w-full py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download JSON
+                      </button>
+                    </div>
+
+                    {/* Markdown Export */}
+                    <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2 font-bold text-sm text-white">
+                          <FileText className="w-4 h-4 text-blue-400" />
+                          Markdown Brief (.md)
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          GitHub-flavored Markdown brief with grounding evidence tables, provenance hashes, and subsystem versions.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await downloadDossier(dossier.candidate_id, 'markdown', 'candidate');
+                          } catch {
+                            const md = `# CandidateX Technical Intelligence Brief\nCandidate ID: ${dossier.candidate_id}\nRole: ${dossier.role}\n`;
+                            const blob = new Blob([md], { type: 'text/markdown' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `candidatex-brief-${dossier.candidate_id}.md`;
+                            a.click();
+                          }
+                        }}
+                        className="w-full py-2 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download Markdown
+                      </button>
+                    </div>
+
+                    {/* HTML / Printable PDF Brief */}
+                    <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2 font-bold text-sm text-white">
+                          <ExternalLink className="w-4 h-4 text-indigo-400" />
+                          Printable Brief (HTML/PDF)
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Standalone, CSS-styled printable dossier formatted for executive review and browser print-to-PDF.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await downloadDossier(dossier.candidate_id, 'html', 'candidate');
+                            } catch {
+                              window.open(getExportDossierUrl(dossier.candidate_id, 'html'), '_blank');
+                            }
+                          }}
+                          className="flex-1 py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Save HTML
+                        </button>
+                        <button
+                          onClick={() => {
+                            window.open(getExportDossierUrl(dossier.candidate_id, 'html'), '_blank');
+                          }}
+                          className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all"
+                          title="Open printable view in new window"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Print / PDF
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

@@ -9,7 +9,11 @@ from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CapabilityKey
 from cci.graph.ceg import CandidateEvidenceGraph
-from cci.reports.exporter import generate_html_brief, generate_markdown_brief
+from cci.reports.exporter import (
+    generate_html_brief,
+    generate_json_brief,
+    generate_markdown_brief,
+)
 from cci.security.auth import TenantContext, get_current_tenant, verify_candidate_tenant
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -145,8 +149,9 @@ def export_candidate_dossier(
         content = generate_markdown_brief(dossier, candidate_name=cand_name)
         return Response(content=content, media_type="text/markdown")
     else:
+        content = generate_json_brief(dossier, candidate_name=cand_name)
         return Response(
-            content=dossier.model_dump_json(indent=2),
+            content=content,
             media_type="application/json",
         )
 

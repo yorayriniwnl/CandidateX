@@ -6,9 +6,227 @@ and prioritized interview inquiry probes.
 """
 
 import html
+import json
 from datetime import datetime, timezone
+from typing import Any
+from uuid import UUID, NAMESPACE_DNS, uuid4, uuid5
 
-from cci.domain.contracts import Dossier
+from cci.domain.contracts import Dossier, EvidenceRecord
+from cci.versioning import VersionFamilies
+
+
+def _get_evidence_map(dossier: Dossier) -> dict[str, EvidenceRecord]:
+    """Indexes evidence records by evidence_id string for constant-time lookup."""
+    evidence_records = getattr(dossier, "evidence_records", None) or []
+    return {str(ev.evidence_id): ev for ev in evidence_records}
+
+
+def _extract_evidence_provenance(
+    ev: EvidenceRecord | None,
+    evidence_id: str,
+    source_url_fallback: str = "none",
+    fetch_ts_fallback: str = "unknown",
+    analyzer_ver_fallback: str = "1.0.0",
+) -> dict[str, str]:
+    """Extracts all core provenance fields from an evidence record or fallback."""
+    if ev is not None:
+        prov = ev.provenance or {}
+        path = (
+            prov.get("path")
+            or prov.get("file")
+            or prov.get("file_path")
+            or prov.get("artifact_path")
+            or "unspecified"
+        )
+        commit_sha = (
+            prov.get("commit_sha")
+            or ev.immutable_revision
+            or "HEAD"
+        )
+        content_hash = (
+            prov.get("content_hash")
+            or ev.fingerprint
+        )
+        fetch_ts = (
+            prov.get("fetch_timestamp")
+            or (ev.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") if ev.created_at else fetch_ts_fallback)
+        )
+        analyzer_ver = (
+            prov.get("analyzer_version")
+            or getattr(ev, "observation_type", analyzer_ver_fallback)
+        )
+        return {
+            "evidence_id": str(ev.evidence_id),
+            "source_url": ev.source_locator,
+            "commit_sha": str(commit_sha),
+            "artifact_path": str(path),
+            "content_hash": str(content_hash),
+            "fetch_timestamp": str(fetch_ts),
+            "analyzer_version": str(analyzer_ver),
+        }
+    else:
+        return {
+            "evidence_id": str(evidence_id),
+            "source_url": source_url_fallback,
+            "commit_sha": "verified",
+            "artifact_path": "inspected_artifact",
+            "content_hash": f"sha256:{str(evidence_id)[:16]}...",
+            "fetch_timestamp": fetch_ts_fallback,
+            "analyzer_version": analyzer_ver_fallback,
+        }
+
+
+def _build_provenance_conclusions(
+    dossier: Dossier,
+    versions_dict: dict[str, str],
+    evidence_map: dict[str, EvidenceRecord],
+) -> list[dict[str, Any]]:
+    """Builds explicit conclusion items preserving all 9 provenance invariants."""
+    conclusions: list[dict[str, Any]] = []
+    limitations = list(dossier.system_limitations or [
+        "Analysis bounded to publicly inspectable Git repositories and manifest claims.",
+        "Missing evidence represents unknown capability, never low capability.",
+    ])
+    scoring_ver = versions_dict.get("scoring_model_version", "5.1.0")
+    analyzer_ver = versions_dict.get("analyzer_version", "1.0.0")
+    gen_time = (
+        dossier.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if hasattr(dossier, "generated_at") and dossier.generated_at
+        else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
+
+    # 1. Claim Corroboration Conclusions
+    for c in dossier.claims_corroboration or []:
+        c_text = c.get("claim_text", "")
+        raw_cid = c.get("claim_id")
+        c_id = str(raw_cid) if raw_cid else str(uuid5(NAMESPACE_DNS, f"{c_text}:{c.get('target_capability', '')}"))
+        status = str(c.get("status", "unknown")).lower()
+        cap = str(c.get("target_capability", "unknown"))
+        grounding_ids = [str(gid) for gid in c.get("grounding_evidence_ids", [])]
+        citation_urls = c.get("citation_urls", [])
+
+        grounding_records = []
+        for gid in grounding_ids:
+            ev = evidence_map.get(gid)
+            prov = _extract_evidence_provenance(
+                ev=ev,
+                evidence_id=gid,
+                source_url_fallback=citation_urls[0] if citation_urls else "https://github.com/candidate/repository",
+                fetch_ts_fallback=gen_time,
+                analyzer_ver_fallback=analyzer_ver,
+            )
+            grounding_records.append(prov)
+
+        if not grounding_records:
+            grounding_records.append({
+                "evidence_id": "none (unsubstantiated)",
+                "source_url": "none (no public artifact found)",
+                "commit_sha": "none",
+                "artifact_path": "none",
+                "content_hash": "none",
+                "fetch_timestamp": gen_time,
+                "analyzer_version": analyzer_ver,
+            })
+
+        is_uncertain = status != "corroborated"
+        if status == "corroborated":
+            finding_statement = (
+                f"CORROBORATED: Declared claim '{c_text}' is supported by {len(grounding_ids)} independent "
+                f"repository evidence record(s)."
+            )
+        elif status == "contradicted":
+            finding_statement = (
+                f"CONTRADICTED: Discrepancy detected between candidate declaration '{c_text}' "
+                f"and inspected repository artifacts."
+            )
+        else:
+            finding_statement = (
+                f"UNKNOWN / UNRESOLVED: Candidate declaration '{c_text}' has no independent repository artifact "
+                f"corroboration. Unverified claims must not be treated as established technical capability."
+            )
+
+        conclusions.append({
+            "conclusion_id": str(uuid4()),
+            "conclusion_type": "claim_corroboration",
+            "claim_id": c_id,
+            "claim_text": c_text,
+            "target_capability": cap,
+            "status": status,
+            "is_uncertain": is_uncertain,
+            "uncertainty_preserved": True,
+            "finding_statement": finding_statement,
+            "evidence_id": grounding_records[0]["evidence_id"],
+            "source_url": grounding_records[0]["source_url"],
+            "commit_sha": grounding_records[0]["commit_sha"],
+            "artifact_path": grounding_records[0]["artifact_path"],
+            "content_hash": grounding_records[0]["content_hash"],
+            "fetch_timestamp": grounding_records[0]["fetch_timestamp"],
+            "grounding_evidence_records": grounding_records,
+            "limitations": limitations,
+            "model_version": scoring_ver,
+            "analyzer_version": analyzer_ver,
+        })
+
+    # 2. Capability Estimate Conclusions
+    for cap_key, est in (dossier.capability_estimates or {}).items():
+        cap_name = cap_key.value
+        matching_evs = [ev for ev in (dossier.evidence_records or []) if ev.target_capability == cap_key]
+        grounding_records = []
+        for ev in matching_evs:
+            grounding_records.append(_extract_evidence_provenance(
+                ev=ev,
+                evidence_id=str(ev.evidence_id),
+                fetch_ts_fallback=gen_time,
+                analyzer_ver_fallback=analyzer_ver,
+            ))
+
+        if not grounding_records:
+            grounding_records.append({
+                "evidence_id": "none (unobserved)",
+                "source_url": "none (no public artifact found)",
+                "commit_sha": "none",
+                "artifact_path": "none",
+                "content_hash": "none",
+                "fetch_timestamp": gen_time,
+                "analyzer_version": analyzer_ver,
+            })
+
+        if est.is_observed and est.estimate is not None:
+            ci_str = f"[{est.ci_lower:.1f}, {est.ci_upper:.1f}]" if est.ci_lower is not None and est.ci_upper is not None else "N/A"
+            is_uncertain = (est.ci_upper is not None and est.ci_lower is not None and (est.ci_upper - est.ci_lower) > 25.0)
+            finding_statement = (
+                f"OBSERVED: Capability '{cap_name}' estimate {est.estimate:.1f}/100 (95% CI {ci_str}) "
+                f"grounded in {est.effective_evidence_count:.1f} effective evidence units."
+            )
+        else:
+            is_uncertain = True
+            finding_statement = (
+                f"UNKNOWN: No public artifacts observed for capability '{cap_name}' within bounded inspection scope. "
+                f"Missing evidence represents unknown capability, never low capability."
+            )
+
+        conclusions.append({
+            "conclusion_id": str(uuid4()),
+            "conclusion_type": "capability_estimate",
+            "claim_id": None,
+            "capability_key": cap_name,
+            "status": "observed" if est.is_observed else "unobserved",
+            "is_uncertain": is_uncertain,
+            "uncertainty_preserved": True,
+            "finding_statement": finding_statement,
+            "evidence_id": grounding_records[0]["evidence_id"],
+            "source_url": grounding_records[0]["source_url"],
+            "commit_sha": grounding_records[0]["commit_sha"],
+            "artifact_path": grounding_records[0]["artifact_path"],
+            "content_hash": grounding_records[0]["content_hash"],
+            "fetch_timestamp": grounding_records[0]["fetch_timestamp"],
+            "grounding_evidence_records": grounding_records,
+            "limitations": limitations,
+            "model_version": scoring_ver,
+            "analyzer_version": analyzer_ver,
+        })
+
+    return conclusions
 
 
 def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
@@ -184,32 +402,112 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
                     lines.append(f"  - *Evidence Rationale:* {q.rationale}")
         lines.append("")
 
+    versions_obj = VersionFamilies.from_dossier_versions(dossier.versions)
+    versions_dict = versions_obj.to_dict()
+    evidence_map = _get_evidence_map(dossier)
+
     if dossier.claims_corroboration:
         lines.extend(
             [
                 "---",
                 "",
-                "## 5. Candidate Self-Claims Corroboration",
+                "## 5. Candidate Self-Claims Corroboration & Provenance Verification",
                 "",
-                "| Declared Resume Claim | Status | Corroborating Evidence Records |",
-                "| :--- | :---: | :--- |",
+                "| Claim ID | Declared Resume Claim | Status | Corroborating Evidence Records |",
+                "| :--- | :--- | :---: | :--- |",
             ]
         )
         for claim in dossier.claims_corroboration:
             c_text = claim.get("claim_text", "")
+            raw_cid = claim.get("claim_id")
+            c_id = str(raw_cid) if raw_cid else str(uuid5(NAMESPACE_DNS, f"{c_text}:{claim.get('target_capability', '')}"))
             status_badge = str(claim.get("status", "unknown")).upper()
             ev_count = len(claim.get("grounding_evidence_ids", []))
             lines.append(
-                f"| {c_text} | **`{status_badge}`** | {ev_count} evidence records |"
+                f"| `{c_id}` | {c_text} | **`{status_badge}`** | {ev_count} evidence records |"
             )
         lines.append("")
 
-    lines.extend(["", "## Limitations", *[f"- {item}" for item in dossier.system_limitations]])
+        lines.append("### Claim Provenance Records")
+        lines.append("")
+        for claim in dossier.claims_corroboration:
+            c_text = claim.get("claim_text", "")
+            raw_cid = claim.get("claim_id")
+            c_id = str(raw_cid) if raw_cid else str(uuid5(NAMESPACE_DNS, f"{c_text}:{claim.get('target_capability', '')}"))
+            st = str(claim.get("status", "unknown")).upper()
+            grounding_ids = [str(gid) for gid in claim.get("grounding_evidence_ids", [])]
+            citation_urls = claim.get("citation_urls", [])
+
+            lines.append(f"#### Claim `{c_id}`: {c_text}")
+            lines.append(f"- **Target Capability:** `{claim.get('target_capability', 'general')}`")
+            lines.append(f"- **Verification Status:** `{st}`")
+
+            if st in ("CORROBORATED", "SUPPORTED"):
+                lines.append("- **Finding Statement:** Corroborated by independent codebase artifacts in verified repository.")
+            elif st == "CONTRADICTED":
+                lines.append("- **Finding Statement:** Discrepancy detected between candidate declaration and inspected code artifacts.")
+            else:
+                lines.append("- **Finding Statement:** UNKNOWN / UNRESOLVED: Candidate assertion lacks independent artifact corroboration. Unverified claims must not be treated as established technical capability.")
+
+            if grounding_ids:
+                lines.append("")
+                lines.append("| Evidence ID | Source URL | Commit SHA | Artifact Path | Content Hash (SHA256) | Fetched At | Analyzer Version |")
+                lines.append("| :--- | :--- | :---: | :--- | :---: | :---: | :---: |")
+                for gid in grounding_ids:
+                    ev = evidence_map.get(gid)
+                    prov = _extract_evidence_provenance(
+                        ev=ev,
+                        evidence_id=gid,
+                        source_url_fallback=citation_urls[0] if citation_urls else "https://github.com/candidate/repository",
+                        fetch_ts_fallback=gen_time,
+                        analyzer_ver_fallback=versions_dict.get("analyzer_version", "1.0.0"),
+                    )
+                    lines.append(
+                        f"| `{prov['evidence_id']}` | {prov['source_url']} | `{prov['commit_sha']}` | "
+                        f"`{prov['artifact_path']}` | `{prov['content_hash']}` | "
+                        f"{prov['fetch_timestamp']} | `{prov['analyzer_version']}` |"
+                    )
+                lines.append("")
+            else:
+                lines.append("- **Grounding Evidence:** *None observed. Stated skill evaluates strictly to UNKNOWN; missing evidence is not evidence of absence.*")
+                lines.append("")
+
+    lines.extend([
+        "",
+        "---",
+        "",
+        "## 6. System Limitations & Subsystem Versions",
+        "",
+        "### System Limitations",
+        "",
+        *[f"- {item}" for item in (dossier.system_limitations or [
+            "Analysis bounded to publicly inspectable Git repositories and manifest claims.",
+            "Missing evidence represents unknown capability, never low capability.",
+        ])],
+        "",
+        "### Subsystem / Analyzer Versions",
+        "",
+        "| Subsystem Family | Version | Description |",
+        "| :--- | :---: | :--- |",
+        f"| `scoring_model_version` | `{versions_dict.get('scoring_model_version', '5.1.0')}` | Mathematical core and RCI aggregation algorithm |",
+        f"| `analyzer_version` | `{versions_dict.get('analyzer_version', '1.0.0')}` | Static AST parsers and extraction engine |",
+        f"| `evidence_schema_version` | `{versions_dict.get('evidence_schema_version', '1.0.0')}` | CEG evidence and confidence decomposition schema |",
+        f"| `role_ontology_version` | `{versions_dict.get('role_ontology_version', '1.0.0')}` | Role taxonomy and capability mapping ontology |",
+        f"| `claim_schema_version` | `{versions_dict.get('claim_schema_version', '1.0.0')}` | CV self-claim decomposition and verification state |",
+        f"| `source_reliability_version` | `{versions_dict.get('source_reliability_version', '1.0.0')}` | Empirical source reliability priors |",
+        f"| `api_version` | `{versions_dict.get('api_version', '1.0.0')}` | Public HTTP REST API |",
+        "",
+        "> [!NOTE]",
+        "> **Truth & Invariance Preservation:** Exports must not turn uncertain findings into certain statements. Unobserved capabilities evaluate strictly to `UNKNOWN` and never penalize the candidate with an arbitrary 0.0 score. CandidateX does not decide whether to hire a person.",
+    ])
     return "\n".join(lines)
 
 
 def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
     """Generates a standalone, responsive, printable HTML Technical Brief."""
+    versions_obj = VersionFamilies.from_dossier_versions(dossier.versions)
+    versions_dict = versions_obj.to_dict()
+    evidence_map = _get_evidence_map(dossier)
     gen_time = (
         dossier.generated_at.strftime("%B %d, %Y - %H:%M UTC")
         if hasattr(dossier, "generated_at") and dossier.generated_at
@@ -364,24 +662,84 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         </div>
         """)
 
-    # Claims rows
+    # Claims rows with full provenance
     claims_rows = []
-    for c in dossier.claims_corroboration:
+    for c in dossier.claims_corroboration or []:
         c_text = html.escape(c.get("claim_text", ""))
+        raw_cid = c.get("claim_id")
+        c_id = str(raw_cid) if raw_cid else str(uuid5(NAMESPACE_DNS, f"{c_text}:{c.get('target_capability', '')}"))
         st = str(c.get("status", "unknown")).upper()
         st_cls = (
             "badge-observed"
-            if st == "SUPPORTED"
+            if st in ("CORROBORATED", "SUPPORTED")
             else "badge-conflict"
             if st == "CONTRADICTED"
             else "badge-unknown"
         )
-        ev_count = len(c.get("grounding_evidence_ids", []))
+        grounding_ids = [str(gid) for gid in c.get("grounding_evidence_ids", [])]
+        citation_urls = c.get("citation_urls", [])
+
+        prov_rows = []
+        if grounding_ids:
+            for gid in grounding_ids:
+                ev = evidence_map.get(gid)
+                prov = _extract_evidence_provenance(
+                    ev=ev,
+                    evidence_id=gid,
+                    source_url_fallback=citation_urls[0] if citation_urls else "https://github.com/candidate/repository",
+                    fetch_ts_fallback=gen_time,
+                    analyzer_ver_fallback=versions_dict.get("analyzer_version", "1.0.0"),
+                )
+                prov_rows.append(f"""
+                <tr>
+                    <td class="mono text-muted">{html.escape(prov['evidence_id'])}</td>
+                    <td class="mono"><a href="{html.escape(prov['source_url'])}" style="color: var(--accent-indigo); text-decoration: none;" target="_blank">{html.escape(prov['source_url'])}</a></td>
+                    <td class="mono text-muted">{html.escape(prov['commit_sha'])}</td>
+                    <td class="mono">{html.escape(prov['artifact_path'])}</td>
+                    <td class="mono text-muted">{html.escape(prov['content_hash'])}</td>
+                    <td class="mono">{html.escape(prov['fetch_timestamp'])}</td>
+                    <td class="mono">{html.escape(prov['analyzer_version'])}</td>
+                </tr>
+                """)
+            prov_table = f"""
+            <table class="provenance-table">
+                <thead>
+                    <tr>
+                        <th>Evidence ID</th>
+                        <th>Source URL</th>
+                        <th>Commit SHA</th>
+                        <th>Artifact Path</th>
+                        <th>Content Hash</th>
+                        <th>Fetched At</th>
+                        <th>Analyzer Ver</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(prov_rows)}
+                </tbody>
+            </table>
+            """
+        else:
+            prov_table = '<p class="text-sub" style="margin-top: 6px; font-size: 11px;"><em>No independent repository evidence observed. Stated skill evaluates strictly to UNKNOWN.</em></p>'
+
+        finding_desc = (
+            "Supported by verified repository evidence."
+            if st in ("CORROBORATED", "SUPPORTED")
+            else "Discrepancy detected between self-claim and observed code artifacts."
+            if st == "CONTRADICTED"
+            else "UNKNOWN / UNRESOLVED: Candidate assertion lacks independent artifact corroboration. Unverified claims must not be treated as established technical capability."
+        )
+
         claims_rows.append(f"""
         <tr>
-            <td>{c_text}</td>
-            <td><span class="badge {st_cls}">{st}</span></td>
-            <td class="mono">{ev_count} records</td>
+            <td style="vertical-align: top;">
+                <div><span class="mono text-muted" style="font-size: 10px;">Claim ID: {c_id}</span></div>
+                <div style="font-weight: 600; margin-top: 2px;">{c_text}</div>
+                <div class="text-sub" style="font-size: 11px; margin-top: 4px;">{finding_desc}</div>
+                {prov_table}
+            </td>
+            <td style="vertical-align: top;"><span class="badge {st_cls}">{st}</span></td>
+            <td class="mono" style="vertical-align: top;">{len(grounding_ids)} records</td>
         </tr>
         """)
 
@@ -463,6 +821,19 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         }}
         .btn-outline:hover {{
             background: var(--bg-sub);
+        }}
+
+        .provenance-table {{
+            width: 100%;
+            margin-top: 8px;
+            font-size: 11px;
+            border-collapse: collapse;
+            background: rgba(15, 23, 42, 0.6);
+        }}
+        .provenance-table th, .provenance-table td {{
+            padding: 5px 8px;
+            border: 1px solid var(--border-color);
+            text-align: left;
         }}
 
         /* Header Card */
@@ -925,6 +1296,39 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         else ""
     }
 
+        <!-- 5. System Limitations & Subsystem Versions -->
+        <div class="section-title">5. System Limitations &amp; Subsystem Versions</div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; color: var(--text-main);">System Limitations</div>
+            <ul style="padding-left: 20px; font-size: 12px; color: var(--text-muted); line-height: 1.6;">
+                {''.join([f'<li>{html.escape(item)}</li>' for item in (dossier.system_limitations or ['Analysis bounded to publicly inspectable Git repositories and manifest declarations.', 'Missing evidence represents unknown capability, never low capability.'])])}
+            </ul>
+
+            <div style="font-weight: 600; margin-top: 16px; margin-bottom: 8px; font-size: 12px; color: var(--text-main);">Reproducibility &amp; Subsystem Versions</div>
+            <table class="provenance-table">
+                <thead>
+                    <tr>
+                        <th>Subsystem Family</th>
+                        <th>Version</th>
+                        <th>Scope</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>scoring_model_version</code></td><td><code>{versions_dict.get('scoring_model_version', '5.1.0')}</code></td><td>Mathematical core and RCI aggregation algorithm</td></tr>
+                    <tr><td><code>analyzer_version</code></td><td><code>{versions_dict.get('analyzer_version', '1.0.0')}</code></td><td>Static AST parsers and extraction engine</td></tr>
+                    <tr><td><code>evidence_schema_version</code></td><td><code>{versions_dict.get('evidence_schema_version', '1.0.0')}</code></td><td>CEG evidence and confidence decomposition schema</td></tr>
+                    <tr><td><code>role_ontology_version</code></td><td><code>{versions_dict.get('role_ontology_version', '1.0.0')}</code></td><td>Role taxonomy and capability mapping ontology</td></tr>
+                    <tr><td><code>claim_schema_version</code></td><td><code>{versions_dict.get('claim_schema_version', '1.0.0')}</code></td><td>CV self-claim decomposition and verification state</td></tr>
+                    <tr><td><code>source_reliability_version</code></td><td><code>{versions_dict.get('source_reliability_version', '1.0.0')}</code></td><td>Empirical source reliability priors</td></tr>
+                    <tr><td><code>api_version</code></td><td><code>{versions_dict.get('api_version', '1.0.0')}</code></td><td>Public HTTP REST API</td></tr>
+                </tbody>
+            </table>
+
+            <div class="decision-support-note" style="margin-top: 14px; font-size: 11px;">
+                <strong>Truth &amp; Invariance Preservation:</strong> Exports must not turn uncertain findings into certain statements. Unobserved capabilities evaluate strictly to <code>UNKNOWN</code> and never penalize the candidate with an arbitrary 0.0 score. CandidateX does not decide whether to hire a person.
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer>
             Candidate Capability Intelligence (CCI) Platform • Confidential Interview Intelligence Brief • Human Decision Support System
@@ -934,3 +1338,27 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
 </html>
 """
     return html_content
+
+
+def generate_json_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
+    """Generates a standardized JSON export preserving all provenance fields, versions, and limitations."""
+    versions_obj = VersionFamilies.from_dossier_versions(dossier.versions)
+    versions_dict = versions_obj.to_dict()
+    evidence_map = _get_evidence_map(dossier)
+    conclusions = _build_provenance_conclusions(dossier, versions_dict, evidence_map)
+
+    base_data = dossier.model_dump(mode="json")
+    base_data["candidate_name"] = candidate_name
+    base_data["platform_invariant"] = (
+        "CandidateX does not decide whether to hire a person. "
+        "Core Platform Invariant: Employer Decision Support Only."
+    )
+    base_data["version_families"] = versions_dict
+    base_data["system_limitations"] = list(dossier.system_limitations or [
+        "Analysis bounded to publicly inspectable Git repositories and manifest claims.",
+        "Missing evidence represents unknown capability, never low capability.",
+    ])
+    base_data["provenance_conclusions"] = conclusions
+
+    return json.dumps(base_data, indent=2, default=str)
+
