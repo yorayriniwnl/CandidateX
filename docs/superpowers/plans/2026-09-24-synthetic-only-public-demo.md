@@ -57,7 +57,7 @@
 - `synthetic_demo_router` is mounted at `/api/v1/synthetic-demo`, with `POST /run` and `POST /rescore`.
 - The Vercel `app.py` imports `cci.synthetic_demo_app:app`. A later web-contract task mounts the same strict router in local `cci.main:app` so the local demo uses the same API contract.
 
-- [ ] **Step 1: Write route-boundary and strict-input tests**
+- [x] **Step 1: Write route-boundary and strict-input tests**
 
 Create `services/backend/tests/test_synthetic_demo_app.py` and import the actual Vercel module (`from app import app`). Add these parameterized checks before implementation:
 
@@ -95,13 +95,13 @@ def test_public_demo_rejects_candidate_data_fields(extra):
     assert response.status_code == 422
 ```
 
-- [ ] **Step 2: Run the new tests and confirm they fail for the current live Vercel app**
+- [x] **Step 2: Run the new tests and confirm they fail for the current live Vercel app**
 
 Run from `services/backend`: `pytest tests/test_synthetic_demo_app.py -q`.
 
 Expected: failures show the existing Vercel app exposes `/api/v1/live/*`, and the synthetic-only module/routes do not yet exist.
 
-- [ ] **Step 3: Implement strict controls and a stateless synthetic run/rescore router**
+- [x] **Step 3: Implement strict controls and a stateless synthetic run/rescore router**
 
 In `synthetic_demo.py`, define `PUBLIC_DEMO_CANDIDATE_ID = UUID("d3333333-3333-4333-8333-333333333333")`, strict Pydantic models, and a helper that maps allowlisted controls into the existing `DemoRequest`, calls `make_scenario`, then calls `execute_analysis_pipeline` directly with `evidence_mode="synthetic"`. Do not call `pipeline_service.start_pipeline` or `pipeline_service.rescore_run`.
 
@@ -129,11 +129,11 @@ class SyntheticDemoRescoreRequest(SyntheticDemoControls):
 
 Use a helper signature `build_synthetic_state(controls: SyntheticDemoControls) -> tuple[PipelineExecutionState, list[EvidenceRecord], dict[SourceFamily, Any]]`. It constructs the fixed-ID internal `DemoRequest`, calls `make_scenario`, and calls `execute_analysis_pipeline` with only those generated records. The run and rescore handlers must both use this helper.
 
-- [ ] **Step 4: Test generated evidence, explicit unknowns, failure behavior, and stateless rescore**
+- [x] **Step 4: Test generated evidence, explicit unknowns, failure behavior, and stateless rescore**
 
 Add a populated `consistent` run test proving generated synthetic evidence is present, the response uses the fixed candidate UUID, and the graph run ID matches the dossier. Add an `empty` run test proving `evidence_mode == "synthetic"`, the fixed candidate UUID, `rci is None`, and `coverage == 0`. Stub pipeline execution to return an incomplete state and assert HTTP 500 with no dossier/result substituted. Add a rescore test that never calls `/run` and monkeypatches `pipeline_service.rescore_run` to `pytest.fail`; assert HTTP 200 and matching `graph.analysis_run_id == dossier.analysis_run_id`. Add empty- and negative-weight tests returning HTTP 422.
 
-- [ ] **Step 5: Wire the Vercel production entrypoint and run focused regression tests**
+- [x] **Step 5: Wire the Vercel production entrypoint and run focused regression tests**
 
 Create `synthetic_demo_app.py` with only the synthetic router and `/health`. Change `services/backend/app.py` to import that app. Keep `cci.main` unchanged in this task so the existing local frontend remains compatible until the web contract is updated in Task 2.
 
@@ -141,7 +141,7 @@ Run from `services/backend`: `pytest tests/test_synthetic_demo_app.py tests/test
 
 Expected: all new production-boundary/stateless tests and existing local live/research tests pass.
 
-- [ ] **Step 6: Commit and push this completed backend task**
+- [x] **Step 6: Commit and push this completed backend task**
 
 ```powershell
 git add services/backend/app.py services/backend/src/cci/api/routers/synthetic_demo.py services/backend/src/cci/synthetic_demo_app.py services/backend/tests/test_synthetic_demo_app.py
@@ -173,7 +173,7 @@ git push origin HEAD
 - `DemoInput` contains only scenario, role, excluded sources, ownership multiplier, and false-positive count. Rescore sends those fields plus weights; the backend supplies identity and justification.
 - The existing Playwright config tests local development (`next dev` plus `cci.main`); the production config tests `next start` plus the Vercel FastAPI entrypoint.
 
-- [ ] **Step 1: Write deployment-mode helper tests**
+- [x] **Step 1: Write deployment-mode helper tests**
 
 Create `apps/web/tests/cci-backend.spec.ts` and pin production fail-closed behavior and local compatibility:
 
@@ -195,7 +195,7 @@ test('keeps the loopback fallback for local development only', () => {
 
 Also add `public synthetic demo rejects real-data inputs and legacy routes` to `apps/web/tests/research-demo.spec.ts`. Assert there are no `Job description` or `Override justification` inputs and no `Prototype workspace` link; assert the page explicitly identifies generated observations and says results are not validated for hiring; keep the scenario, role, empty-evidence, override, and export assertions. Add production checks in `production-demo.spec.ts` for all four route aliases, blocked live API calls, synthetic-only/non-hiring copy, and a full synthetic run/rescore flow.
 
-- [ ] **Step 2: Run the helper tests and confirm they fail before the helper exists**
+- [x] **Step 2: Run the helper tests and confirm they fail before the helper exists**
 
 Run from `apps/web`:
 
@@ -206,11 +206,11 @@ pnpm exec playwright test tests/research-demo.spec.ts --grep "public synthetic d
 
 Expected: helper test module/import failure, and the browser regression fails because the existing page still exposes free-text fields and the workspace link.
 
-- [ ] **Step 3: Add the shared backend resolver and guard both API bridges**
+- [x] **Step 3: Add the shared backend resolver and guard both API bridges**
 
 Implement the tested helper in `apps/web/lib/server/cci-backend.ts`. Make `/api/live/[operation]` return HTTP 404 with `Cache-Control: no-store` before reading the body or calling `fetch` whenever `isSyntheticOnlyDeployment()` is true. Make `/api/demo` return HTTP 503 when `resolveCciBackendUrl()` returns `null`; otherwise proxy the allowlisted `run`/`rescore` operation to `/api/v1/synthetic-demo/{operation}`. Preserve the existing 127.0.0.1 fallback only for local development. Mount `synthetic_demo_router` in `cci.main` under its independent `/api/v1/synthetic-demo` prefix; retain the old local research-demo endpoints for local tests and users.
 
-- [ ] **Step 4: Add temporary production redirects and keep development routes intact**
+- [x] **Step 4: Add temporary production redirects and keep development routes intact**
 
 Read the installed Next.js guides named in `apps/web/AGENTS.md` before editing: `apps/web/node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/redirects.md` and `apps/web/node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md`.
 
@@ -244,7 +244,7 @@ if (revised.dossier.candidate_id !== SYNTHETIC_CANDIDATE_ID ||
 
 Update visible copy to say observations are generated, resumes/profiles are not accepted, no real person is assessed, and the prototype is not a validated hiring predictor. Use fixed server-supplied demo wording for override history.
 
-- [ ] **Step 5: Write and run production route tests**
+- [x] **Step 5: Write and run production route tests**
 
 In `production-demo.spec.ts`, verify each of `/`, `/analyze`, `/hr`, and `/workspace` ends at `/research-demo`, and POSTs to `/api/live/intake` and `/api/live/analyze` receive HTTP 404. Confirm the demo page renders with synthetic-only/non-hiring copy, runs a synthetic scenario, then rescales it successfully using only the allowlisted controls. Assert the synthetic identity and graph/dossier run IDs match. The test must run against the built production server, not `next dev`.
 
@@ -252,11 +252,11 @@ Run after a web build: `pnpm --filter web exec playwright test --config=playwrig
 
 Expected: all route aliases resolve to the demo; live API operations remain blocked despite `CCI_API_URL` being set; synthetic run and stateless rescore succeed.
 
-- [ ] **Step 6: Add the production browser suite to package scripts and CI**
+- [x] **Step 6: Add the production browser suite to package scripts and CI**
 
 Add `"test:production": "playwright test --config=playwright.production.config.ts"` to `apps/web/package.json`. In `.github/workflows/ci.yml`, run `pnpm --filter web run test:production` after `pnpm --filter web build` and Playwright browser installation, before or alongside the local-development Playwright suite.
 
-- [ ] **Step 7: Run local and production route suites, then commit and push**
+- [x] **Step 7: Run local and production route suites, then commit and push**
 
 Run from the repository root:
 
@@ -283,15 +283,15 @@ git push origin HEAD
 **Interfaces:**
 - Documentation names `services/backend/app.py` as the synthetic-only Vercel entrypoint and `cci.live_app:app` as the local live-analysis entrypoint.
 
-- [ ] **Step 1: Update the hosting guide to describe the production boundary**
+- [x] **Step 1: Update the hosting guide to describe the production boundary**
 
 In `docs/live-resume-analysis.md`, label the resume/profile workflow local-development-only. Keep the local command using `cci.live_app:app`. Replace the current hosting instructions that deploy `app.py` as live analysis with instructions that `services/backend/app.py` serves the synthetic demo and the frontend’s `/research-demo` is the only production product flow. State that the synthetic API accepts no candidate identity, resume/profile URLs, job description, or user-written override note, and that this is not a validated hiring predictor or multi-tenant SaaS.
 
-- [ ] **Step 2: Review the guide against the code and run whitespace validation**
+- [x] **Step 2: Review the guide against the code and run whitespace validation**
 
 Run `git diff --check`, then confirm each production API path, local startup command, and `CCI_API_URL` requirement in the guide matches the actual source and deployment configuration.
 
-- [ ] **Step 3: Commit and push the documentation task**
+- [x] **Step 3: Commit and push the documentation task**
 
 ```powershell
 git add docs/live-resume-analysis.md
@@ -308,23 +308,23 @@ git push origin HEAD
 - The release candidate is the pushed feature branch containing the three task commits.
 - Production promotion requires a verified Vercel project/environment and must use the built production app described above; do not point production at `cci.live_app`.
 
-- [ ] **Step 1: Run complete backend verification**
+- [x] **Step 1: Run complete backend verification**
 
 From `services/backend`, run `pytest -v --durations=10`.
 
 Expected: all backend tests pass, including the new production route boundary, strict-input, stateless rescore, empty-evidence, and existing local-live tests.
 
-- [ ] **Step 2: Run complete web verification from the repository root**
+- [x] **Step 2: Run complete web verification from the repository root**
 
 Run `pnpm --filter web lint`, `pnpm --filter web build`, `pnpm --filter web run test:production`, and `pnpm --filter web test`. Run `git diff --check` afterward.
 
 Expected: typecheck, production build, production-route/demo browser tests, local live/demo browser tests, and whitespace checks all pass.
 
-- [ ] **Step 3: Host and inspect the local development flow**
+- [x] **Step 3: Host and inspect the local development flow**
 
 Use the existing local-development commands from `docs/live-resume-analysis.md` and the Playwright dev-server configuration. Confirm the synthetic demo is reachable and that the local-only `/analyze` route remains functional. Do not replace or stop another process already serving port 3000; use an unused loopback port for this worktree if port 3000 is occupied.
 
-- [ ] **Step 4: Check deployment target before any production promotion**
+- [x] **Step 4: Check deployment target before any production promotion**
 
 Inspect the linked Vercel project and production environment. Confirm the frontend’s `CCI_API_URL` targets the separately deployed backend whose `services/backend/app.py` imports `cci.synthetic_demo_app:app`. If the Vercel team/project, project link, or required environment is still unavailable, stop before production promotion and report exactly what the user needs to connect. Do not invent a Vercel project, expose credentials, or claim deployment success from a local build.
 
@@ -332,6 +332,6 @@ Inspect the linked Vercel project and production environment. Confirm the fronte
 
 If the verified project is available, deploy the candidate using the repository’s configured Vercel project and run the production Playwright/smoke checks against the resulting production URL. Verify `/`, `/analyze`, `/hr`, and `/workspace` resolve to `/research-demo`; verify `/api/live/*` is blocked; run one synthetic scenario and a stateless rescore; inspect deployment status and error logs. If any boundary check fails, do not announce production success.
 
-- [ ] **Step 6: Report completed commits, checks, local URL, and deployment state**
+- [x] **Step 6: Report completed commits, checks, local URL, and deployment state**
 
 List each pushed commit and test command with its actual result. State whether production was deployed or remains blocked by Vercel access/configuration. Do not describe this synthetic demo as a production hiring SaaS.
