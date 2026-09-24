@@ -1,0 +1,77 @@
+{
+  "report_type": "performance-and-load-audit",
+  "audit_fix": "FIX 54",
+  "audited_on": "2026-09-24 21:39:08Z",
+  "working_branch": "codex/backend-hardening",
+  "system_invariants": {
+    "zero_dynamic_code_execution": true,
+    "deterministic_reproducibility": true,
+    "thread_and_memory_isolation": true,
+    "missingness_preserved_as_unknown": true
+  },
+  "benchmarks": {
+    "single_analysis_1_worker": {
+      "count": 50,
+      "min_ms": 3.78,
+      "p50_ms": 3.87,
+      "p95_ms": 4.17,
+      "p99_ms": 18.55,
+      "max_ms": 18.55,
+      "mean_ms": 4.19,
+      "stddev_ms": 2.07
+    },
+    "concurrent_analyses_5_workers": {
+      "count": 50,
+      "min_ms": 4.39,
+      "p50_ms": 6.16,
+      "p95_ms": 13.71,
+      "p99_ms": 13.9,
+      "max_ms": 13.9,
+      "mean_ms": 7.37,
+      "stddev_ms": 3.19
+    },
+    "concurrent_analyses_10_workers": {
+      "count": 50,
+      "min_ms": 4.55,
+      "p50_ms": 12.49,
+      "p95_ms": 24.12,
+      "p99_ms": 33.14,
+      "max_ms": 33.14,
+      "mean_ms": 11.71,
+      "stddev_ms": 6.47
+    },
+    "large_source_set_60_records_10_clusters": {
+      "count": 20,
+      "min_ms": 21.49,
+      "p50_ms": 21.83,
+      "p95_ms": 42.45,
+      "p99_ms": 42.45,
+      "max_ms": 42.45,
+      "mean_ms": 22.89,
+      "stddev_ms": 4.61
+    }
+  },
+  "resilience_controls": {
+    "github_throttling_429": {
+      "classified_as_rate_limited": true,
+      "retryable": true,
+      "backoff_applied_seconds": 3.0,
+      "max_backoff_clamped_seconds": 5.0
+    },
+    "circuit_breaker": {
+      "tripped_to_open_on_threshold": true,
+      "fast_fail_when_open": true,
+      "half_open_after_cooldown": true,
+      "reset_to_closed_on_success": true
+    },
+    "concurrency_limiter": {
+      "per_key_cap_enforced": true,
+      "global_cap_enforced": true
+    },
+    "partial_outages_and_timeouts": {
+      "failed_sources_extracted_without_crash": true,
+      "retryable_timeout_identified": true,
+      "terminal_unavailable_identified": true
+    }
+  }
+}
