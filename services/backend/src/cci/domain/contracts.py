@@ -33,6 +33,12 @@ from cci.domain.coverage_policy import (
     DEFAULT_COVERAGE_SUFFICIENCY_THRESHOLD,
     classify_evidence_state,
 )
+from cci.versioning import (
+    SCORING_MODEL_VERSION,
+    VersionFamilies,
+    build_reproducibility_metadata,
+    get_canonical_version_dict,
+)
 from cci.domain.evidence_families import normalize_source_cluster
 from cci.domain.signal_rules import SIGNAL_RULE_VERSIONS
 
@@ -59,7 +65,7 @@ class ScoringConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: str = Field(
-        default="5.1.0", description="Semver identifier for scoring parameter set"
+        default=SCORING_MODEL_VERSION, description="Semver identifier for scoring parameter set"
     )
     temperature: float = Field(
         default=1.0,
@@ -1345,13 +1351,20 @@ class Dossier(BaseModel):
         ]
     )
     versions: dict[str, str] = Field(
-        default_factory=lambda: {
-            "platform_version": "0.1.0",
-            "scoring_config_version": "5.1.0",
-            "ontology_version": "1.0.0",
-        }
+        default_factory=get_canonical_version_dict,
+        description="Version families guaranteeing historical dossier reproducibility",
     )
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @computed_field(description="Explicit version families guaranteeing reproducibility")
+    @property
+    def version_families(self) -> VersionFamilies:
+        return VersionFamilies.from_dossier_versions(self.versions)
+
+    @computed_field(description="Audit and reproducibility metadata")
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return build_reproducibility_metadata(self)
 
     @computed_field(description="Observed-only score over capabilities with sufficient evidence")
     @property

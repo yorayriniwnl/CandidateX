@@ -1,3 +1,26 @@
-"""Candidate Capability Intelligence (CCI) Platform Core Package."""
+from cci.versioning import (
+    ANALYZER_VERSION,
+    API_VERSION,
+    CLAIM_SCHEMA_VERSION,
+    EVIDENCE_SCHEMA_VERSION,
+    PACKAGE_VERSION,
+    ROLE_ONTOLOGY_VERSION,
+    SCORING_MODEL_VERSION,
+    SOURCE_RELIABILITY_VERSION,
+    VersionFamilies,
+)
 
-__version__ = "0.1.0"
+__version__ = PACKAGE_VERSION
+
+__all__ = [
+    "__version__",
+    "PACKAGE_VERSION",
+    "API_VERSION",
+    "EVIDENCE_SCHEMA_VERSION",
+    "SCORING_MODEL_VERSION",
+    "ANALYZER_VERSION",
+    "ROLE_ONTOLOGY_VERSION",
+    "CLAIM_SCHEMA_VERSION",
+    "SOURCE_RELIABILITY_VERSION",
+    "VersionFamilies",
+]

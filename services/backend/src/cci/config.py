@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     API_PORT: int = 8000
     API_HOST: str = "127.0.0.1"
     API_V1_PREFIX: str = "/v1"
+
+    # Semantic Version Families (Fix 33)
+    API_VERSION: str = "1.0.0"
+    EVIDENCE_SCHEMA_VERSION: str = "1.0.0"
+    SCORING_MODEL_VERSION: str = "5.1.0"
+    ANALYZER_VERSION: str = "1.0.0"
+    ROLE_ONTOLOGY_VERSION: str = "1.0.0"
+    CLAIM_SCHEMA_VERSION: str = "1.0.0"
+    SOURCE_RELIABILITY_VERSION: str = "1.0.0"
     SECRET_KEY: str = (
         "cci_insecure_development_secret_key_change_in_production_min_32_bytes"
     )

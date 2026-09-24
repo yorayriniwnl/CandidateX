@@ -385,6 +385,7 @@ def execute_analysis_pipeline(
 
         dossier_versions = dict(dossier.versions)
         dossier_versions["scoring_config_version"] = cfg.version
+        dossier_versions["scoring_model_version"] = cfg.version
         dossier = dossier.model_copy(update={
             "evidence_records": raw_evidence, "evidence_mode": mode.value,
             "scenario": scenario, "role_weights": role_weights,

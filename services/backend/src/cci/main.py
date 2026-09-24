@@ -57,6 +57,9 @@ app.include_router(live_router)
 
 
 
+from cci.versioning import API_VERSION, get_default_version_families
+
+
 @app.get(
     "/healthz",
     status_code=status.HTTP_200_OK,
@@ -75,6 +78,8 @@ def healthz() -> Any:
         "status": "healthy",
         "service": "cci-backend",
         "version": __version__,
+        "api_version": API_VERSION,
+        "version_families": get_default_version_families().to_dict(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "environment": settings.APP_ENV,
     }

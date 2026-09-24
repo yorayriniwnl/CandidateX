@@ -237,3 +237,37 @@ def get_capability_provenance(
             detail=f"Evidence graph not found for candidate ID {candidate_id}",
         )
     return graph.trace_provenance(capability_key)
+
+
+@router.get(
+    "/{candidate_id}/metadata",
+    summary="Get candidate dossier audit and reproducibility metadata",
+    status_code=status.HTTP_200_OK,
+)
+def get_candidate_dossier_metadata(
+    candidate_id: UUID,
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> dict[str, Any]:
+    """Returns the explicit version families, audit provenance, and reproducibility contract for a dossier."""
+    with SessionLocal() as db:
+        verify_candidate_tenant(db, candidate_id, tenant.organization_id)
+
+    dossier = get_stored_dossier(candidate_id, tenant.organization_id)
+    if not dossier:
+        try:
+            from cci.db.repository import get_dossier_by_candidate_id
+
+            with SessionLocal() as db:
+                dossier = get_dossier_by_candidate_id(db, candidate_id, organization_id=tenant.organization_id)
+                if dossier:
+                    register_dossier(dossier, organization_id=tenant.organization_id)
+        except Exception:
+            pass
+
+    if not dossier:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dossier not found for candidate ID {candidate_id}",
+        )
+    return dossier.metadata
+
