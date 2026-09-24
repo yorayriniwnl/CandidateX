@@ -39,6 +39,7 @@ EXPECTED_TABLES = {
     "claims",
     "claim_evidence_links",
     "requirement_evidence_links",
+    "calibration_cases",
     "source_reliability_posteriors",
     "ownership_assessments",
     "capability_estimates",

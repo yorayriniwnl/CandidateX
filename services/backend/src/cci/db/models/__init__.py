@@ -8,6 +8,7 @@ from cci.db.models.audit import (
     DeletionEvent,
     ModelVersion,
 )
+from cci.db.models.calibration import CalibrationCaseModel
 from cci.db.models.candidates import (
     Candidate,
     CandidateDocument,
@@ -62,6 +63,7 @@ __all__ = [
     "AnalyzerVersion",
     "Artifact",
     "AuditEvent",
+    "CalibrationCaseModel",
     "Candidate",
     "CandidateDocument",
     "CandidateSource",
