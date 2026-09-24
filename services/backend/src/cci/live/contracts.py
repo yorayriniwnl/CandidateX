@@ -7,17 +7,23 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from cci.domain.contracts import CandidateManifest
 from cci.domain.enums import CanonicalRole
 
-MAX_UPLOAD = 3 * 1024 * 1024
-MAX_REPOSITORIES = 6
-MAX_FILES = 100
+from cci.limits import (
+    HARD_CEILING_MAX_TEXT_CHARS,
+    get_system_limits,
+)
+
+_sys_limits = get_system_limits()
+MAX_UPLOAD = _sys_limits.max_upload_bytes.budget
+MAX_REPOSITORIES = _sys_limits.max_repositories.budget
+MAX_FILES = _sys_limits.max_files_per_repo.budget
 MAX_RECENT_COMMITS = 30
 MAX_ARTIFACT_ATTRIBUTION_PATHS = 24
 MAX_FILE_BYTES = 128 * 1024
 MAX_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_EXPANDED_BYTES = 24 * 1024 * 1024
-MAX_SECONDS = 45
-MAX_ANALYSIS_REQUEST_BYTES = 512 * 1024
-MAX_LEAN_REQUEST_BYTES = 512 * 1024
+MAX_SECONDS = _sys_limits.acquisition_budget_seconds.budget
+MAX_ANALYSIS_REQUEST_BYTES = _sys_limits.max_analysis_request_bytes.budget
+MAX_LEAN_REQUEST_BYTES = _sys_limits.max_analysis_request_bytes.budget
 ShortText = Annotated[str, Field(max_length=2048)]
 
 
@@ -49,7 +55,7 @@ class ResumeIntake(BaseModel):
     manifest: CandidateManifest
     document_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     filename: str = Field(max_length=240)
-    text_preview: str = Field(default='', max_length=12000)
+    text_preview: str = Field(default='', max_length=HARD_CEILING_MAX_TEXT_CHARS)
     warnings: list[str] = Field(default_factory=list, max_length=20)
     storage: str = 'request_only'
     resume_review: ResumeReview = Field(default_factory=ResumeReview)

@@ -9,20 +9,22 @@ import pymupdf
 from cci.intake.manifest import build_candidate_manifest, segment_sections, extract_skills_from_section
 from cci.intake.parsers.pdf import parse_pdf_document
 from cci.intake.parsers.docx import parse_docx_document
+from cci.limits import get_system_limits
 from cci.live.contracts import MAX_UPLOAD, MAX_EXPANDED_BYTES, ResumeIntake, ResumeReview
 
 
 def parse_resume(data: bytes, filename: str, analysis_run_id: UUID | None = None) -> ResumeIntake:
     """Parse only bounded digital documents, without disk persistence or OCR claims."""
-    if len(data) > MAX_UPLOAD:
-        raise ValueError('Resume exceeds the 3 MB upload limit.')
+    limits = get_system_limits()
+    if len(data) > limits.max_upload_bytes.budget:
+        raise ValueError(f'Resume exceeds the {limits.max_upload_bytes.budget // (1024 * 1024)} MB upload limit.')
     suffix = PurePosixPath(filename.lower()).suffix
     if suffix == '.pdf':
         with pymupdf.open(stream=data, filetype='pdf') as doc:
             if doc.is_encrypted:
                 raise ValueError('Password-protected PDFs are not supported. Upload an unlocked copy.')
-            if len(doc) > 30:
-                raise ValueError('Resume exceeds the 30-page limit.')
+            if len(doc) > limits.max_resume_pages.budget:
+                raise ValueError(f'Resume exceeds the {limits.max_resume_pages.budget}-page limit.')
         document = parse_pdf_document(data)
     elif suffix == '.docx':
         with zipfile.ZipFile(io.BytesIO(data)) as doc:
@@ -56,7 +58,7 @@ def parse_resume(data: bytes, filename: str, analysis_run_id: UUID | None = None
         'manifest': manifest,
         'document_sha256': hashlib.sha256(data).hexdigest(),
         'filename': filename[:240],
-        'text_preview': document.raw_text[:12000],
+        'text_preview': document.raw_text[:limits.max_text_chars.budget],
         'warnings': warnings,
         'resume_review': review,
     }

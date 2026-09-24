@@ -21,3 +21,17 @@ def health():
         'storage': 'request_only',
         'supported_sources': ['public_github', 'public_web_pages', 'credential_page_text'],
     }
+
+
+from cci.limits import get_system_limits
+
+
+@app.get('/api/v1/system/limits')
+@app.get('/limits')
+def get_limits():
+    limits = get_system_limits()
+    return {
+        'limits': limits.to_dict(),
+        'explanations': limits.get_user_visible_explanations(),
+    }
+

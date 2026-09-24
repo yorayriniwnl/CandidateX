@@ -83,3 +83,22 @@ def healthz() -> Any:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "environment": settings.APP_ENV,
     }
+
+
+from cci.limits import get_system_limits
+
+
+@app.get(
+    "/api/v1/system/limits",
+    status_code=status.HTTP_200_OK,
+    tags=["System"],
+    summary="Get centralized system limits and operational budgets",
+)
+def get_limits() -> Any:
+    """Returns active operational budgets, hard security ceilings, and user-facing explanations."""
+    limits = get_system_limits(settings)
+    return {
+        "limits": limits.to_dict(),
+        "explanations": limits.get_user_visible_explanations(),
+    }
+

@@ -30,13 +30,17 @@ import httpx
 import pymupdf
 
 from cci.intake.canonicalizer import normalize_url
+from cci.limits import get_system_limits
 from cci.security.ssrf import resolve_and_validate_hostname, SSRFSecurityError
 
-MAX_DISCOVERY_FETCHED = 24
+_sys_limits = get_system_limits()
+MAX_DISCOVERY_FETCHED = _sys_limits.max_urls.budget
 MAX_DISCOVERY_DEPTH = 2
 MAX_PER_DOMAIN = 3
-MAX_PAGE_BYTES = 512 * 1024
-DEFAULT_TIME_BUDGET_SECONDS = 20.0
+MAX_PAGE_BYTES = _sys_limits.max_page_bytes.budget
+DEFAULT_TIME_BUDGET_SECONDS = float(_sys_limits.link_timeout_seconds.budget)
+MAX_PDF_PAGES = _sys_limits.max_pdf_pages.budget
+MAX_TEXT_CHARS = _sys_limits.max_text_chars.budget
 
 TERMINAL_STATES = {
     "fetched",
@@ -353,10 +357,11 @@ class EvidenceDiscoveryFrontier:
         time_budget: float = DEFAULT_TIME_BUDGET_SECONDS,
         transport: httpx.BaseTransport | None = None,
     ):
-        self.max_fetched = max_fetched
+        limits = get_system_limits()
+        self.max_fetched = limits.max_urls.clamp_requested(max_fetched) if max_fetched is not None else MAX_DISCOVERY_FETCHED
         self.max_depth = max_depth
         self.max_per_domain = max_per_domain
-        self.time_budget = time_budget
+        self.time_budget = float(limits.link_timeout_seconds.clamp_requested(int(time_budget))) if time_budget is not None else DEFAULT_TIME_BUDGET_SECONDS
         self.transport = transport
 
         self.frontier: dict[str, FrontierItem] = {}
@@ -574,10 +579,10 @@ class EvidenceDiscoveryFrontier:
 
                         if "application/pdf" in content_type:
                             with pymupdf.open(stream=raw_bytes, filetype="pdf") as document:
-                                if document.is_encrypted or len(document) > 5:
+                                if document.is_encrypted or len(document) > MAX_PDF_PAGES:
                                     return (
                                         "failed",
-                                        "PDF is encrypted or exceeds 5-page inspection limit.",
+                                        f"PDF is encrypted or exceeds {MAX_PDF_PAGES}-page inspection limit.",
                                         receipt,
                                         [],
                                     )
@@ -591,7 +596,7 @@ class EvidenceDiscoveryFrontier:
                             title, description, visible = " ".join(parser.title), parser.description, " ".join(parser.text)
                             discovered_links = parser.hrefs[:100]
 
-                        excerpt = re.sub(r"\s+", " ", visible).strip()[:12000]
+                        excerpt = re.sub(r"\s+", " ", visible).strip()[:MAX_TEXT_CHARS]
                         gate = re.search(
                             r"(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies)",
                             f"{title} {excerpt[:1200]}",

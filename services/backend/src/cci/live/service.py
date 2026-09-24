@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from cci.domain.contracts import RepositoryAssociation, RepositoryContribution, ScoringConfig
 from cci.graph.builder import build_dossier_graph
+from cci.limits import get_system_limits
 from cci.live.acquisition import acquire_sources
 from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS, ResumeIntake
 from cci.pipeline.orchestrator import execute_analysis_pipeline
@@ -86,6 +87,7 @@ def analyze_resume(request: LiveAnalysisRequest):
         observable_expectations=observable_expectations)
     if state.dossier is None:
         raise RuntimeError('The scoring pipeline could not produce a dossier.')
+    sys_limits = get_system_limits()
     limitations = [
         'Resume identity and GitHub account association are candidate declarations, not identity verification.',
         'Public GitHub evidence is fetched live. Static heuristic observations do not prove mastery or job performance; rule strengths are not calibrated proficiency ratings.',
@@ -94,8 +96,16 @@ def analyze_resume(request: LiveAnalysisRequest):
         'Repository association and repository-level contribution are separate from path-specific artifact contribution.',
         'Artifact attribution uses bounded recent path history; failed, deferred, or ambiguous history remains unknown. A matching GitHub account does not verify human identity or line-level authorship.',
         'Public page text, profile metadata and certificate mentions do not increase capability scores. Issuer authentication and employment verification are not automated.',
-        'Public links: up to 24 HTML/text/digital PDF pages, 512 KB each, 3 redirects; PDFs up to 5 pages. Login gates, image-only and script-only pages remain unresolved.',
-        f'Bounded scan: {MAX_REPOSITORIES} repositories, {MAX_FILES} selected text files each, {MAX_SECONDS}s acquisition budget.',
+        (
+            f'Public links: up to {sys_limits.max_urls.budget} HTML/text/digital PDF pages, '
+            f'{sys_limits.max_page_bytes.budget // 1024} KB each, 3 redirects; PDFs up to '
+            f'{sys_limits.max_pdf_pages.budget} pages. Login gates, image-only and script-only pages remain unresolved.'
+        ),
+        (
+            f'Bounded scan: {sys_limits.max_repositories.budget} repositories, '
+            f'{sys_limits.max_files_per_repo.budget} selected text files each, '
+            f'{sys_limits.acquisition_budget_seconds.budget}s acquisition budget.'
+        ),
         'The uploaded document and analysis are request-scoped. Download JSON to retain this result; refreshing clears the page.',
     ]
     associations = [RepositoryAssociation.model_validate(source['repository_association'])

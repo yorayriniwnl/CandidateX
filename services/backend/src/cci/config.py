@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 5
     ANALYSIS_TIMEOUT_SECONDS: int = 300
 
+    # Centralized System Limits & Operational Budgets (Fix 34)
+    LIMIT_MAX_URLS: int = 24
+    LIMIT_MAX_REPOSITORIES: int = 6
+    LIMIT_MAX_FILES_PER_REPO: int = 100
+    LIMIT_LINK_TIMEOUT_SECONDS: int = 20
+    LIMIT_ACQUISITION_SECONDS: int = 45
+    LIMIT_MAX_PAGE_BYTES: int = 512 * 1024
+    LIMIT_MAX_TEXT_CHARS: int = 12000
+    LIMIT_MAX_PDF_PAGES: int = 5
+    LIMIT_MAX_RESUME_PAGES: int = 30
+    LIMIT_MAX_UPLOAD_BYTES: int = 3 * 1024 * 1024
+    LIMIT_MAX_REQUEST_BYTES: int = 512 * 1024
+
     # Production Abuse Controls (Fix 28)
     MAX_CONCURRENT_ANALYSES: int = 5
     MAX_CONCURRENT_ANALYSES_PER_CLIENT: int = 2

@@ -11,11 +11,15 @@ import httpx
 import pymupdf
 
 from cci.intake.canonicalizer import classify_url, normalize_url
+from cci.limits import get_system_limits
 from cci.security.ssrf import resolve_and_validate_hostname, SSRFSecurityError
 
-MAX_LINKS = 24
-MAX_BYTES = 512 * 1024
-LINK_SECONDS = 20
+_sys_limits = get_system_limits()
+MAX_LINKS = _sys_limits.max_urls.budget
+MAX_BYTES = _sys_limits.max_page_bytes.budget
+LINK_SECONDS = _sys_limits.link_timeout_seconds.budget
+MAX_PDF_PAGES = _sys_limits.max_pdf_pages.budget
+MAX_TEXT_CHARS = _sys_limits.max_text_chars.budget
 
 
 class PublicTransport(httpx.BaseTransport):
@@ -115,15 +119,15 @@ def inspect_link(url, deadline, transport=None):
                     for chunk in response.iter_bytes():
                         content.extend(chunk)
                         if len(content) > MAX_BYTES:
-                            return {**receipt, 'status': 'too_large', 'detail': 'Public page exceeds the 512 KB inspection limit.'}
+                            return {**receipt, 'status': 'too_large', 'detail': f'Public page exceeds the {MAX_BYTES // 1024} KB inspection limit.'}
                         if time.monotonic() >= deadline:
                             raise httpx.ReadTimeout('Time budget reached')
                     text = bytes(content).decode('utf-8', errors='replace')
                     parser = PageText()
                     if 'application/pdf' in content_type:
                         with pymupdf.open(stream=bytes(content), filetype='pdf') as document:
-                            if document.is_encrypted or len(document) > 5:
-                                return {**receipt, 'status': 'unsupported_content', 'detail': 'Public PDF is encrypted or exceeds the five-page certificate/document limit.'}
+                            if document.is_encrypted or len(document) > MAX_PDF_PAGES:
+                                return {**receipt, 'status': 'unsupported_content', 'detail': f'Public PDF is encrypted or exceeds the {MAX_PDF_PAGES}-page certificate/document limit.'}
                             title = document.metadata.get('title', '')
                             description = ''
                             visible = '\n'.join(page.get_text() for page in document)
@@ -148,11 +152,11 @@ def inspect_link(url, deadline, transport=None):
                             })
                             if len(discovered_links) >= 100:
                                 break
-                    excerpt = re.sub(r'\s+', ' ', visible).strip()[:12000]
+                    excerpt = re.sub(r'\s+', ' ', visible).strip()[:MAX_TEXT_CHARS]
                     gate = re.search(r'(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies)', f'{title} {excerpt[:1200]}', re.I)
                     receipt.update(title=title[:300], description=description, excerpt=excerpt,
-                                   discovered_links=discovered_links,
-                                   content_sha256=hashlib.sha256(content).hexdigest())
+                                    discovered_links=discovered_links,
+                                    content_sha256=hashlib.sha256(content).hexdigest())
                     if gate:
                         return {**receipt, 'status': 'access_restricted', 'detail': 'The public response is a login or anti-bot gate; its content is not verification evidence.'}
                     if len(excerpt) < 40:
@@ -171,8 +175,11 @@ def inspect_link(url, deadline, transport=None):
 def acquire_public_links(urls, transport=None, max_links=None, time_budget=None):
     """Acquires public web evidence using the evidence-prioritized discovery frontier (Fix 25)."""
     from cci.live.web_discovery import EvidenceDiscoveryFrontier
-    limit = max_links if max_links is not None else MAX_LINKS
-    budget = time_budget if time_budget is not None else LINK_SECONDS
+    limits = get_system_limits()
+    raw_limit = max_links if max_links is not None else MAX_LINKS
+    limit = limits.max_urls.clamp_requested(raw_limit)
+    raw_budget = time_budget if time_budget is not None else LINK_SECONDS
+    budget = limits.link_timeout_seconds.clamp_requested(raw_budget)
     frontier = EvidenceDiscoveryFrontier(
         max_fetched=limit,
         time_budget=budget,
