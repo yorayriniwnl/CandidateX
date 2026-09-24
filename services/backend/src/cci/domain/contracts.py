@@ -559,6 +559,65 @@ class ProjectEntity(BaseModel):
         return data
 
 
+# ---------------------------------------------------------------------------
+# Quantified Claim Contracts (Fix 41)
+# ---------------------------------------------------------------------------
+
+
+class QuantifiedClaim(BaseModel):
+    """Structured representation of an extracted quantitative or numeric claim (Fix 41)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    claim_id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Deterministic or unique ID for this quantified claim",
+    )
+    metric: str = Field(
+        ...,
+        description="Standardized metric name: accuracy, users, latency, uptime, deployed_projects, tokens, tests, optimization",
+    )
+    value: Any = Field(
+        ...,
+        description="Numeric or scaled value (e.g. 95.0, 10000, '10k', '5B', 500, 40)",
+    )
+    unit: str = Field(
+        ...,
+        description="Measurement unit: %, users, ms, s, tokens, tests, projects, multiplier",
+    )
+    context: str = Field(
+        ...,
+        description="Source sentence or snippet containing the claim",
+    )
+    source: str = Field(
+        default="resume",
+        description="Origin of the claim: resume, project_claim, experience, education, portfolio",
+    )
+    source_location: str | None = Field(
+        default=None,
+        description="Section and line location of the claim",
+    )
+    verification_status: str = Field(
+        default="unverified",
+        description="Status: unverified, supported_by_artifacts, portfolio_mention_only, contradicted, unsupported",
+    )
+    supporting_artifacts: list[str] = Field(
+        default_factory=list,
+        description="Paths or URLs to independent technical supporting artifacts (benchmarks, test files, configs)",
+    )
+    limitations: list[str] = Field(
+        default_factory=lambda: [
+            "Do not verify a metric merely because the same number appears on a portfolio.",
+            "Quantitative claims require independent or technical supporting artifacts (e.g. benchmarks, test files, configs).",
+            "Resume metrics are self-reported candidate declarations.",
+        ]
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+
 class NormalizedRequirement(BaseModel):
     """Structured requirement produced by JD intake parser."""
 
@@ -1510,6 +1569,7 @@ class Dossier(BaseModel):
     interview_questions: list[InterviewQuestion]
     evidence_records: list[EvidenceRecord] = Field(default_factory=list)
     project_entities: list[ProjectEntity] = Field(default_factory=list)
+    quantified_claims: list[QuantifiedClaim] = Field(default_factory=list)
     evidence_mode: str = "provided"
     scenario: str | None = None
     role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)

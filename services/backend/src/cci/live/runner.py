@@ -663,11 +663,15 @@ class AnalysisRunManager:
                 candidate_identifier=manifest.display_name,
             )
 
+            from cci.claims.quantified import extract_and_verify_all_quantified_claims
+            quantified_claims = extract_and_verify_all_quantified_claims(intake_model, sources) if intake_model else []
+
             dossier = pipeline_state.dossier.model_copy(update={
                 "ownership_assessments": ownership,
                 "repository_associations": associations,
                 "repository_contributions": contributions,
                 "project_entities": project_entities,
+                "quantified_claims": quantified_claims,
                 "system_limitations": [*pipeline_state.dossier.system_limitations, *limitations],
             })
             if run.telemetry:

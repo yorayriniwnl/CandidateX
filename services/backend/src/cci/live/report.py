@@ -97,11 +97,16 @@ def build_report(intake, sources):
                 seen_discovered.add(url)
                 discovered_links.append(discovered)
 
+    from cci.claims.quantified import extract_and_verify_all_quantified_claims
+    quantified_claims_entities = extract_and_verify_all_quantified_claims(intake, sources)
+    quantified_claims = [qc.to_dict() for qc in quantified_claims_entities]
+
     return {'generated_at': datetime.now(timezone.utc).isoformat(), 'skills': skills, 'credentials': credentials,
         'projects': projects, 'experience': [{'claim': line, 'status': 'self_reported'} for line in sections.get('experience', [])],
         'education': [{'claim': line, 'status': 'self_reported'} for line in sections.get('education', [])],
         'academic_records': academic_records, 'claims': claims,
         'achievements': [{'claim': line, 'status': 'self_reported'} for line in sections.get('achievements', [])],
+        'quantified_claims': quantified_claims,
         'quantified_claims_to_verify': list(dict.fromkeys(numeric_claims))[:30], 'next_steps': actions,
         'discovered_links': discovered_links,
         'source_coverage': {'by_status': source_statuses, 'by_kind': source_kinds,
