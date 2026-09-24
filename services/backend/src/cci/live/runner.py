@@ -146,19 +146,63 @@ class AnalysisRunManager:
         if isinstance(target_role, CanonicalRole):
             target_role = target_role.value
 
-        run = DurableAnalysisRun(
-            analysis_run_id=run_id,
-            target_role=str(target_role),
-            state=AnalysisRunState.QUEUED,
-            current_stage="QUEUED",
-            progress_percent=0.0,
-            input_payload=input_payload,
-        )
         with self._lock:
-            self._runs[run_id] = run
+            if run_id in self._runs:
+                run = self._runs[run_id]
+                run.input_payload.update(input_payload)
+                if target_role:
+                    run.target_role = str(target_role)
+            else:
+                run = DurableAnalysisRun(
+                    analysis_run_id=run_id,
+                    target_role=str(target_role),
+                    state=AnalysisRunState.QUEUED,
+                    current_stage="QUEUED",
+                    progress_percent=0.0,
+                    input_payload=input_payload,
+                )
+                self._runs[run_id] = run
 
         if auto_start:
             self._executor.submit(self._execute_run, run_id)
+
+        return run
+
+    def start_run(
+        self,
+        run_id: UUID | str,
+        update_payload: dict[str, Any] | None = None,
+        sync: bool = False,
+    ) -> DurableAnalysisRun | None:
+        """Starts or re-executes an existing run with updated payload."""
+        key = UUID(str(run_id))
+        with self._lock:
+            run = self._runs.get(key)
+            if not run:
+                return None
+            if update_payload:
+                run.input_payload.update(update_payload)
+                if "role" in update_payload:
+                    target_role = update_payload["role"]
+                    if isinstance(target_role, CanonicalRole):
+                        target_role = target_role.value
+                    run.target_role = str(target_role)
+                # Clear downstream stage data if inputs changed
+                for stage_name in list(run.stage_data.keys()):
+                    if stage_name not in (
+                        AnalysisRunState.PARSING_RESUME.value,
+                        AnalysisRunState.EXTRACTING_CLAIMS.value,
+                    ):
+                        del run.stage_data[stage_name]
+            run.state = AnalysisRunState.QUEUED
+            run.current_stage = "QUEUED"
+            run.error_message = None
+            run.completed_at = None
+
+        if sync:
+            self._execute_run(key)
+        else:
+            self._executor.submit(self._execute_run, key)
 
         return run
 
@@ -272,7 +316,7 @@ class AnalysisRunManager:
             intake_model = intake_obj
         elif isinstance(intake_obj, dict):
             try:
-                from cci.domain.contracts import ResumeIntake
+                from cci.live.contracts import ResumeIntake
                 intake_model = ResumeIntake.model_validate(intake_obj)
                 manifest = intake_model.manifest
             except Exception:
@@ -286,10 +330,10 @@ class AnalysisRunManager:
             manifest = CandidateManifest(display_name="Candidate")
 
         target_role = run.target_role
-        jd_text = payload.get("jd_text")
-        github_urls = payload.get("github_urls", getattr(manifest, "github_urls", []))
+        jd_text = payload.get("jd_text") or payload.get("jd_edits") or ""
+        github_urls = payload.get("github_urls") if payload.get("github_urls") is not None else getattr(manifest, "github_urls", [])
         github_identity = payload.get("github_identity", "")
-        external_urls = payload.get("external_urls")
+        external_urls = payload.get("external_urls") if payload.get("external_urls") is not None else payload.get("user_reviewed_urls")
 
         # Stage 1: PARSING_RESUME
         if stage == AnalysisRunState.PARSING_RESUME:

@@ -3,6 +3,7 @@ import io
 import zipfile
 import re
 from pathlib import PurePosixPath
+from uuid import UUID
 
 import pymupdf
 from cci.intake.manifest import build_candidate_manifest, segment_sections, extract_skills_from_section
@@ -11,7 +12,7 @@ from cci.intake.parsers.docx import parse_docx_document
 from cci.live.contracts import MAX_UPLOAD, MAX_EXPANDED_BYTES, ResumeIntake, ResumeReview
 
 
-def parse_resume(data: bytes, filename: str) -> ResumeIntake:
+def parse_resume(data: bytes, filename: str, analysis_run_id: UUID | None = None) -> ResumeIntake:
     """Parse only bounded digital documents, without disk persistence or OCR claims."""
     if len(data) > MAX_UPLOAD:
         raise ValueError('Resume exceeds the 3 MB upload limit.')
@@ -51,5 +52,14 @@ def parse_resume(data: bytes, filename: str) -> ResumeIntake:
     warnings = ['Extracted identity and skills are declarations, not independently verified facts.']
     if not manifest.github_urls:
         warnings.append('No GitHub link was found. You can supply a candidate-declared profile or repository before analysis.')
-    return ResumeIntake(manifest=manifest, document_sha256=hashlib.sha256(data).hexdigest(),
-                        filename=filename[:240], text_preview=document.raw_text[:12000], warnings=warnings, resume_review=review)
+    kwargs = {
+        'manifest': manifest,
+        'document_sha256': hashlib.sha256(data).hexdigest(),
+        'filename': filename[:240],
+        'text_preview': document.raw_text[:12000],
+        'warnings': warnings,
+        'resume_review': review,
+    }
+    if analysis_run_id is not None:
+        kwargs['analysis_run_id'] = analysis_run_id
+    return ResumeIntake(**kwargs)

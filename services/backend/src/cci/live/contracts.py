@@ -1,9 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from cci.domain.contracts import CandidateManifest
 from cci.domain.enums import CanonicalRole
 
@@ -16,6 +16,8 @@ MAX_FILE_BYTES = 128 * 1024
 MAX_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_EXPANDED_BYTES = 24 * 1024 * 1024
 MAX_SECONDS = 45
+MAX_ANALYSIS_REQUEST_BYTES = 512 * 1024
+MAX_LEAN_REQUEST_BYTES = 512 * 1024
 ShortText = Annotated[str, Field(max_length=2048)]
 
 
@@ -42,6 +44,7 @@ class ResumeReview(BaseModel):
 
 
 class ResumeIntake(BaseModel):
+    analysis_run_id: UUID = Field(default_factory=uuid4)
     candidate_id: UUID = Field(default_factory=uuid4)
     manifest: CandidateManifest
     document_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
@@ -52,13 +55,16 @@ class ResumeIntake(BaseModel):
     resume_review: ResumeReview = Field(default_factory=ResumeReview)
 
 
-class LiveAnalysisRequest(BaseModel):
-    intake: ResumeIntake
+class LeanAnalysisRequest(BaseModel):
+    analysis_run_id: UUID
     role: CanonicalRole = CanonicalRole.BACKEND
     jd_text: str = Field(default='', max_length=20000)
+    jd_edits: str | None = Field(default=None, max_length=20000)
     github_urls: list[ShortText] = Field(default_factory=list, max_length=20)
+    user_reviewed_urls: list[ShortText] | None = Field(default=None, max_length=100)
     external_urls: list[ShortText] | None = Field(default=None, max_length=100)
     github_identity: str = Field(default='', pattern=r'^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38})?$')
+    optional_settings: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator('github_urls')
     @classmethod
@@ -70,3 +76,45 @@ class LiveAnalysisRequest(BaseModel):
             if normalized.lower() not in {s.lower() for s in result}:
                 result.append(normalized)
         return result
+
+    @model_validator(mode='after')
+    def normalize_fields(self):
+        if self.jd_edits and not self.jd_text:
+            self.jd_text = self.jd_edits
+        if self.user_reviewed_urls is not None and self.external_urls is None:
+            self.external_urls = self.user_reviewed_urls
+        return self
+
+
+class LiveAnalysisRequest(BaseModel):
+    intake: ResumeIntake | None = None
+    analysis_run_id: UUID | None = None
+    role: CanonicalRole = CanonicalRole.BACKEND
+    jd_text: str = Field(default='', max_length=20000)
+    jd_edits: str | None = Field(default=None, max_length=20000)
+    github_urls: list[ShortText] = Field(default_factory=list, max_length=20)
+    user_reviewed_urls: list[ShortText] | None = Field(default=None, max_length=100)
+    external_urls: list[ShortText] | None = Field(default=None, max_length=100)
+    github_identity: str = Field(default='', pattern=r'^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38})?$')
+    optional_settings: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator('github_urls')
+    @classmethod
+    def validate_urls(cls, urls):
+        result = []
+        for url in urls:
+            owner, repo = github_parts(url)
+            normalized = f'https://github.com/{owner}' + (f'/{repo}' if repo else '')
+            if normalized.lower() not in {s.lower() for s in result}:
+                result.append(normalized)
+        return result
+
+    @model_validator(mode='after')
+    def validate_and_normalize(self):
+        if not self.intake and not self.analysis_run_id:
+            raise ValueError('Either intake or analysis_run_id must be provided.')
+        if self.jd_edits and not self.jd_text:
+            self.jd_text = self.jd_edits
+        if self.user_reviewed_urls is not None and self.external_urls is None:
+            self.external_urls = self.user_reviewed_urls
+        return self

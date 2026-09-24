@@ -3,7 +3,7 @@ from uuid import uuid4
 from cci.domain.contracts import RepositoryAssociation, RepositoryContribution, ScoringConfig
 from cci.graph.builder import build_dossier_graph
 from cci.live.acquisition import acquire_sources
-from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS
+from cci.live.contracts import LiveAnalysisRequest, MAX_REPOSITORIES, MAX_FILES, MAX_SECONDS, ResumeIntake
 from cci.pipeline.orchestrator import execute_analysis_pipeline
 from concurrent.futures import ThreadPoolExecutor
 from cci.live.public_links import acquire_public_links
@@ -11,6 +11,20 @@ from cci.live.report import build_report
 
 
 def analyze_resume(request: LiveAnalysisRequest):
+    if request.intake is None and request.analysis_run_id is not None:
+        from cci.live.runner import get_analysis_run_manager
+        manager = get_analysis_run_manager()
+        stored_run = manager.get_run(request.analysis_run_id)
+        if not stored_run:
+            raise ValueError(f"Analysis run {request.analysis_run_id} not found.")
+        stored_intake = stored_run.input_payload.get("intake")
+        if not stored_intake:
+            raise ValueError(f"Analysis run {request.analysis_run_id} contains no intake data.")
+        request.intake = ResumeIntake.model_validate(stored_intake)
+
+    if request.intake is None:
+        raise ValueError("Resume intake data is required for analysis.")
+
     analysis_run_id = uuid4()
     scoring_config = ScoringConfig()
     manifest = request.intake.manifest
