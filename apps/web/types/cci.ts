@@ -78,6 +78,17 @@ export interface PipelineStageInfo {
   completed_at?: string;
 }
 
+export interface RealStageProgressionItem {
+  stage: string;
+  label: string;
+  status: 'completed' | 'running' | 'queued' | 'failed';
+  metric_label: string;
+  count?: number;
+  details?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 export interface CapabilityEstimate {
   capability_key: CapabilityKey;
   estimate: number | null;
@@ -158,6 +169,8 @@ export interface Dossier {
   capability_conflicts: Record<CapabilityKey, CapabilityConflict>;
   role_requirements: NormalizedRequirement[];
   ownership_assessments: OwnershipAssessment[];
+  repository_associations?: any[];
+  repository_contributions?: any[];
   claims_corroboration: ClaimCorroboration[];
   interview_probes: ProbePriority[];
   interview_questions: InterviewQuestion[];
@@ -171,6 +184,7 @@ export interface Dossier {
   timeline?: CandidateTimeline;
   source_discovery_tree?: SourceDiscoveryTree;
   source_inventory?: SourceInventoryItem[];
+  real_stage_progression?: RealStageProgressionItem[];
   system_limitations: string[];
   versions: Record<string, string>;
   generated_at: string;

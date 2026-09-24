@@ -1656,6 +1656,7 @@ class Dossier(BaseModel):
     timeline: CandidateTimeline | None = None
     source_discovery_tree: dict[str, Any] | None = None
     source_inventory: list[dict[str, Any]] = Field(default_factory=list)
+    pipeline_stage_progression: list[dict[str, Any]] = Field(default_factory=list)
     evidence_mode: str = "provided"
     scenario: str | None = None
     role_weights: dict[CapabilityKey, float] = Field(default_factory=dict)

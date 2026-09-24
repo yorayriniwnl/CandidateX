@@ -399,6 +399,18 @@ def execute_analysis_pipeline(
         })
         ceg = build_dossier_graph(dossier)
         complete_current_stage()
+        stage_progression_dicts = [
+            {
+                "stage": sp.stage.value if hasattr(sp.stage, "value") else str(sp.stage),
+                "label": sp.label,
+                "status": sp.status,
+                "metric_label": sp.details or sp.label,
+                "started_at": sp.started_at,
+                "completed_at": sp.completed_at,
+            }
+            for sp in state.stages
+        ]
+        dossier = dossier.model_copy(update={"pipeline_stage_progression": stage_progression_dicts})
         state.status = PipelineStatus.COMPLETED
         state.dossier = dossier
         state.ceg_graph = ceg

@@ -118,6 +118,150 @@ class DurableAnalysisRun:
             req_id = self.input_payload.get("request_id") if isinstance(self.input_payload, dict) else None
             self.telemetry = create_run_telemetry(self.analysis_run_id, request_id=req_id)
 
+    def get_real_stage_progression(self) -> list[dict[str, Any]]:
+        """Returns backend-derived analysis stage progression with real metrics (Fix 47)."""
+        stages = []
+        sd = self.stage_data
+
+        # 1. PARSING_RESUME
+        p_status = "completed" if AnalysisRunState.PARSING_RESUME.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.PARSING_RESUME.value else "queued"
+        )
+        stages.append({
+            "stage": AnalysisRunState.PARSING_RESUME.value,
+            "label": "Resume Manifest Parsing",
+            "status": p_status,
+            "metric_label": "Resume parsed" if p_status == "completed" else "Parsing resume manifest...",
+            "count": 1 if p_status == "completed" else 0,
+        })
+
+        # 2. EXTRACTING_CLAIMS
+        c_status = "completed" if AnalysisRunState.EXTRACTING_CLAIMS.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.EXTRACTING_CLAIMS.value else "queued"
+        )
+        c_data = sd.get(AnalysisRunState.EXTRACTING_CLAIMS.value, {})
+        skills = c_data.get("claimed_skills", [])
+        p_claims = c_data.get("project_claims", [])
+        e_claims = c_data.get("experience_claims", [])
+        c_count = len(skills) + len(p_claims) + len(e_claims)
+        if c_count == 0 and isinstance(self.input_payload.get("intake"), dict):
+            intake_m = self.input_payload["intake"].get("manifest", {})
+            c_count = len(intake_m.get("claimed_skills", [])) + len(intake_m.get("project_claims", [])) + len(intake_m.get("experience_claims", []))
+        c_label = f"{c_count} claims extracted" if c_status == "completed" else "Extracting claims..."
+        stages.append({
+            "stage": AnalysisRunState.EXTRACTING_CLAIMS.value,
+            "label": "Claim Extraction",
+            "status": c_status,
+            "metric_label": c_label,
+            "count": c_count,
+        })
+
+        # 3. DISCOVERING_SOURCES
+        d_status = "completed" if AnalysisRunState.DISCOVERING_SOURCES.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.DISCOVERING_SOURCES.value else "queued"
+        )
+        d_data = sd.get(AnalysisRunState.DISCOVERING_SOURCES.value, {})
+        selected_urls = d_data.get("selected_urls", [])
+        extracted_urls = d_data.get("extracted_urls", [])
+        exp_count = len(selected_urls) or len(extracted_urls)
+        disc_count = max(0, len(extracted_urls) - len(selected_urls)) if len(extracted_urls) > len(selected_urls) else len(extracted_urls)
+        d_label = f"{exp_count} explicit sources, {disc_count} sources discovered" if d_status == "completed" else "Discovering external sources..."
+        stages.append({
+            "stage": AnalysisRunState.DISCOVERING_SOURCES.value,
+            "label": "Source Discovery",
+            "status": d_status,
+            "metric_label": d_label,
+            "count": exp_count + disc_count,
+        })
+
+        # 4. FETCHING_SOURCES
+        f_status = "completed" if AnalysisRunState.FETCHING_SOURCES.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.FETCHING_SOURCES.value else "queued"
+        )
+        f_data = sd.get(AnalysisRunState.FETCHING_SOURCES.value, {})
+        public_sources = f_data.get("public_sources", [])
+        f_count = len(public_sources)
+        f_label = f"{f_count} sources fetched" if f_status == "completed" else "Fetching external sources..."
+        stages.append({
+            "stage": AnalysisRunState.FETCHING_SOURCES.value,
+            "label": "Safe Source Ingestion",
+            "status": f_status,
+            "metric_label": f_label,
+            "count": f_count,
+        })
+
+        # 5. ANALYZING_GITHUB
+        g_status = "completed" if AnalysisRunState.ANALYZING_GITHUB.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.ANALYZING_GITHUB.value else "queued"
+        )
+        g_data = sd.get(AnalysisRunState.ANALYZING_GITHUB.value, {})
+        gh_sources = g_data.get("github_sources", [])
+        inv_count = len(gh_sources)
+        deep_count = len([s for s in gh_sources if s.get("deep_scan") or int(s.get("files_inspected", 0)) > 0])
+        g_label = f"{inv_count} repositories inventoried, {deep_count} repositories deeply scanned" if g_status == "completed" else "Inventorying and scanning repositories..."
+        stages.append({
+            "stage": AnalysisRunState.ANALYZING_GITHUB.value,
+            "label": "Repository Deep Scan",
+            "status": g_status,
+            "metric_label": g_label,
+            "count": inv_count,
+        })
+
+        # 6. ANALYZING_DEPLOYMENTS
+        dep_status = "completed" if AnalysisRunState.ANALYZING_DEPLOYMENTS.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.ANALYZING_DEPLOYMENTS.value else "queued"
+        )
+        dep_data = sd.get(AnalysisRunState.ANALYZING_DEPLOYMENTS.value, {})
+        dep_sources = dep_data.get("deployment_sources", [])
+        dep_count = len(dep_sources)
+        dep_label = f"{dep_count} deployments inspected" if dep_status == "completed" else "Inspecting deployment runtimes..."
+        stages.append({
+            "stage": AnalysisRunState.ANALYZING_DEPLOYMENTS.value,
+            "label": "Deployment Verification",
+            "status": dep_status,
+            "metric_label": dep_label,
+            "count": dep_count,
+        })
+
+        # 7. ANALYZING_CREDENTIALS
+        cred_status = "completed" if AnalysisRunState.ANALYZING_CREDENTIALS.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.ANALYZING_CREDENTIALS.value else "queued"
+        )
+        cred_data = sd.get(AnalysisRunState.ANALYZING_CREDENTIALS.value, {})
+        cred_count = cred_data.get("count", len(cred_data.get("verified_credentials", [])))
+        cred_label = f"{cred_count} credentials reviewed" if cred_status == "completed" else "Reviewing third-party credentials..."
+        stages.append({
+            "stage": AnalysisRunState.ANALYZING_CREDENTIALS.value,
+            "label": "Credential Review",
+            "status": cred_status,
+            "metric_label": cred_label,
+            "count": cred_count,
+        })
+
+        # 8. CORROBORATING_CLAIMS
+        cor_status = "completed" if AnalysisRunState.CORROBORATING_CLAIMS.value in sd else (
+            "running" if self.current_stage == AnalysisRunState.CORROBORATING_CLAIMS.value else "queued"
+        )
+        stages.append({
+            "stage": AnalysisRunState.CORROBORATING_CLAIMS.value,
+            "label": "Claim Corroboration",
+            "status": cor_status,
+            "metric_label": "claim corroboration complete" if cor_status == "completed" else "Corroborating claims with source independence...",
+        })
+
+        # 9. BUILDING_DOSSIER
+        dos_status = "completed" if self.state in (AnalysisRunState.COMPLETED, AnalysisRunState.PARTIAL) else (
+            "running" if self.current_stage == AnalysisRunState.BUILDING_DOSSIER.value else "queued"
+        )
+        stages.append({
+            "stage": AnalysisRunState.BUILDING_DOSSIER.value,
+            "label": "Dossier Synthesis",
+            "status": dos_status,
+            "metric_label": "dossier finalized" if dos_status == "completed" else "Finalizing decision support dossier...",
+        })
+
+        return stages
+
     def to_status_dict(self) -> dict[str, Any]:
         """Returns pollable execution status."""
         from cci.security.abuse import sanitize_credentials
@@ -134,6 +278,7 @@ class DurableAnalysisRun:
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "completed_stages": list(self.stage_data.keys()),
+            "real_stage_progression": self.get_real_stage_progression(),
             "error_message": sanitize_credentials(self.error_message) if self.error_message else None,
             "structured_error": self.telemetry.structured_error if self.telemetry else None,
             "budget_summary": self.budget_tracker.get_summary() if self.budget_tracker else None,
