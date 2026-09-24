@@ -25,6 +25,7 @@ def run_demo(request: DemoRequest):
     scoring_config = ScoringConfig()
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id, role=request.role, jd_text=request.jd_text,
+        declared_claims=request.declared_claims,
         custom_evidence=records, evidence_mode="synthetic", scenario=request.scenario,
         scoring_config=scoring_config)
     if state.dossier is None or state.ceg_graph is None:

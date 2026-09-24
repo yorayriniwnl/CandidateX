@@ -137,12 +137,52 @@ class ReliabilityState(str, Enum):
 
 
 class ClaimStatus(str, Enum):
-    """Corroboration state of a candidate self-claim."""
+    """Canonical corroboration state taxonomy for candidate claims.
 
-    CORROBORATED = "corroborated"
-    PARTIAL = "partial"
-    UNKNOWN = "unknown"
+    Taxonomy:
+    - SELF_REPORTED: Declared by candidate, not yet checked against artifacts.
+    - OBSERVED: Directly observed in public/unverified artifact.
+    - SUPPORTED: Corroborated by verified evidence.
+    - STRONGLY_SUPPORTED: Supported by multiple verified high-confidence evidence sources.
+    - ISSUER_VERIFIED: Directly attested by authoritative third-party issuer.
+    - PARTIALLY_SUPPORTED: Some aspects verified, but incomplete match or lower confidence.
+    - CONTRADICTED: Directly refuted by qualified negative evidence.
+    - NOT_OBSERVED: No matching observation in available scope; NEVER treated as false.
+    - INACCESSIBLE: Declared source could not be reached or accessed.
+    - INSUFFICIENT_EVIDENCE: Observations present but below minimum evidentiary threshold.
+    """
+
+    SELF_REPORTED = "self_reported"
+    OBSERVED = "observed"
+    SUPPORTED = "supported"
+    STRONGLY_SUPPORTED = "strongly_supported"
+    ISSUER_VERIFIED = "issuer_verified"
+    PARTIALLY_SUPPORTED = "partially_supported"
     CONTRADICTED = "contradicted"
+    NOT_OBSERVED = "not_observed"
+    INACCESSIBLE = "inaccessible"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.lower()
+            aliases = {
+                "corroborated": "supported",
+                "partial": "partially_supported",
+                "unknown": "not_observed",
+            }
+            target = aliases.get(val_norm, val_norm)
+            for member in cls:
+                if member.value == target or member.name.lower() == target:
+                    return member
+        return super()._missing_(value)
+
+
+# Backward compatibility aliases
+ClaimStatus.CORROBORATED = ClaimStatus.SUPPORTED
+ClaimStatus.PARTIAL = ClaimStatus.PARTIALLY_SUPPORTED
+ClaimStatus.UNKNOWN = ClaimStatus.NOT_OBSERVED
 
 
 class GraphNodeType(str, Enum):
@@ -155,6 +195,7 @@ class GraphNodeType(str, Enum):
     EVIDENCE = "Evidence"
     CAPABILITY = "Capability"
     ROLE_REQUIREMENT = "RoleRequirement"
+    CLAIM = "Claim"
     ANALYSIS_RUN = "AnalysisRun"
     DOSSIER_ITEM = "DossierItem"
 

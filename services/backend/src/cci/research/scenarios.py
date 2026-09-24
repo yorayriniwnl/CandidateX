@@ -32,6 +32,12 @@ class DemoRequest(BaseModel):
     excluded_sources: list[SourceFamily] = Field(default_factory=list, max_length=7)
     ownership_multiplier: float = Field(default=1, ge=0, le=1)
     reliability_false_positives: int = Field(default=0, ge=0, le=100)
+    declared_claims: list[str] = Field(
+        default_factory=lambda: [
+            "Experience developing backend services in Python and PostgreSQL",
+        ],
+        max_length=50,
+    )
 
 
 def make_scenario(request: DemoRequest):

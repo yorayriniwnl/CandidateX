@@ -46,6 +46,7 @@ class ClaimCorroborationResult:
         return {
             "claim_id": str(self.claim_id),
             "claim_text": self.claim_text,
+            "original_text": self.claim_text,
             "target_capability": self.target_capability.value,
             "status": self.status.value,
             "confidence": self.confidence,
@@ -53,6 +54,19 @@ class ClaimCorroborationResult:
             "citation_urls": self.citation_urls,
             "explanation": self.explanation,
         }
+
+    def to_claim(self) -> Any:
+        from cci.domain.contracts import Claim
+        return Claim(
+            claim_id=self.claim_id,
+            original_text=self.claim_text,
+            target_capability=self.target_capability,
+            status=self.status,
+            confidence=self.confidence,
+            grounding_evidence_ids=self.grounding_evidence_ids,
+            citation_urls=self.citation_urls,
+            explanation=self.explanation,
+        )
 
 
 def corroborate_candidate_claims(
@@ -88,7 +102,7 @@ def corroborate_candidate_claims(
                     claim_id=claim.claim_id,
                     claim_text=claim.claim_text,
                     target_capability=claim.target_capability,
-                    status=ClaimStatus.UNKNOWN,
+                    status=ClaimStatus.NOT_OBSERVED,
                     confidence=0.0,
                     grounding_evidence_ids=[],
                     citation_urls=[],
@@ -162,15 +176,15 @@ def corroborate_candidate_claims(
             conf = min(1.0, neg_confidence_sum)
             explanation = f"Observed artifacts contradict claim; negative support weight ({neg_confidence_sum:.2f}) exceeds positive ({pos_confidence_sum:.2f})."
         elif pos_confidence_sum >= 1.0:
-            status = ClaimStatus.CORROBORATED
+            status = ClaimStatus.SUPPORTED
             conf = min(1.0, pos_confidence_sum / 2.0)
             explanation = f"Claim corroborated by {len(matched_pos_evidence)} verified technical observations (cumulative confidence: {pos_confidence_sum:.2f})."
         elif pos_confidence_sum > 0.0:
-            status = ClaimStatus.PARTIAL
+            status = ClaimStatus.PARTIALLY_SUPPORTED
             conf = pos_confidence_sum
             explanation = f"Partially corroborated by {len(matched_pos_evidence)} observation(s); further verification recommended."
         else:
-            status = ClaimStatus.UNKNOWN
+            status = ClaimStatus.NOT_OBSERVED
             conf = 0.0
             explanation = (
                 "No qualifying evidence was observed in the available scope."

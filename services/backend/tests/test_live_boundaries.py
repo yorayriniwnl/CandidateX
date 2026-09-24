@@ -125,4 +125,4 @@ def test_live_claims_do_not_treat_unrelated_backend_evidence_as_java_verificatio
     data = client.post('/api/v1/live/analyze', json={'intake': resume,
         'github_urls': ['https://github.com/example/api'], 'github_identity': 'example'}).json()
     assert data['dossier']['claims_corroboration']
-    assert all(c['status'] == 'unknown' and not c['grounding_evidence_ids'] for c in data['dossier']['claims_corroboration'])
+    assert all(c['status'] in ('unknown', 'not_observed') and not c['grounding_evidence_ids'] for c in data['dossier']['claims_corroboration'])

@@ -23,6 +23,7 @@ from cci.domain.enums import (
     ArtifactAttributionState,
     CanonicalRole,
     CapabilityKey,
+    ClaimStatus,
     EvidenceState,
     ReliabilityState,
     RequirementPriority,
@@ -197,6 +198,99 @@ class CandidateManifest(BaseModel):
     )
     manifest_version: str = Field(default="1.0.0")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Claim(BaseModel):
+    """Canonical candidate claim representation unifying resume ledger, corroboration, and graph nodes."""
+
+    model_config = ConfigDict(frozen=True)
+
+    claim_id: UUID = Field(default_factory=uuid4)
+    analysis_run_id: UUID | None = None
+    candidate_id: UUID | None = None
+    claim_type: str = Field(default="skill", min_length=1, description="Categorization: skill, project, experience, education, metric, etc.")
+    original_text: str = Field(..., min_length=1, description="Verbatim raw claim text from source document")
+    normalized_subject: str = Field(default="", description="Canonicalized entity or topic of the claim")
+    structured_value: Any | None = Field(default=None, description="Parsed metric, credential, or structured representation")
+    unit: str | None = Field(default=None, description="Unit for quantified metric claims")
+    source: SourceFamily | str = Field(default=SourceFamily.RESUME, description="Source family originating this claim")
+    section: str | None = Field(default=None, description="Document section, e.g. experience, education, skills")
+    source_location: str | None = Field(default=None, description="Location within source: line, bullet index, page, URL")
+    source_document_hash: str | None = Field(default=None, description="SHA-256 hash of the originating document")
+    status: ClaimStatus = Field(default=ClaimStatus.SELF_REPORTED, description="Current evaluation status in the 10-state taxonomy")
+    verification_state: str = Field(default="unverified", description="Operational verification details")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Corroboration grounding and graph linkage
+    target_capability: CapabilityKey | None = None
+    technology_keywords: list[str] = Field(default_factory=list)
+    claim_reference: str | None = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    grounding_evidence_ids: list[UUID] = Field(default_factory=list)
+    citation_urls: list[str] = Field(default_factory=list)
+    explanation: str = Field(default="")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def claim_text(self) -> str:
+        """Compatibility accessor for legacy claim consumers."""
+        return self.original_text
+
+    @model_validator(mode="after")
+    def validate_corroboration_evidence(self):
+        if self.status in {
+            ClaimStatus.SUPPORTED,
+            ClaimStatus.STRONGLY_SUPPORTED,
+            ClaimStatus.PARTIALLY_SUPPORTED,
+            ClaimStatus.CONTRADICTED,
+        }:
+            if not self.grounding_evidence_ids:
+                raise ValueError(
+                    f"Corroborated or contradicted claims ({self.status.value}) must reference grounding evidence IDs"
+                )
+        return self
+
+    def to_dict(self) -> dict[str, Any]:
+        """Compatibility dictionary format matching ClaimCorroborationResult."""
+        return {
+            "claim_id": str(self.claim_id),
+            "claim_text": self.original_text,
+            "target_capability": self.target_capability.value if self.target_capability else None,
+            "status": self.status.value,
+            "confidence": self.confidence,
+            "grounding_evidence_ids": [str(eid) for eid in self.grounding_evidence_ids],
+            "citation_urls": self.citation_urls,
+            "explanation": self.explanation,
+            "claim_type": self.claim_type,
+            "original_text": self.original_text,
+            "normalized_subject": self.normalized_subject,
+            "structured_value": self.structured_value,
+            "unit": self.unit,
+            "source": self.source.value if hasattr(self.source, "value") else str(self.source),
+            "section": self.section,
+            "source_location": self.source_location,
+            "source_document_hash": self.source_document_hash,
+            "verification_state": self.verification_state,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_corroboration(cls, result: Any, **overrides: Any) -> "Claim":
+        """Construct a Claim from a ClaimCorroborationResult or similar mapping."""
+        if isinstance(result, Claim):
+            return result
+        data = {
+            "claim_id": getattr(result, "claim_id", uuid4()),
+            "original_text": getattr(result, "claim_text", "") or getattr(result, "original_text", ""),
+            "target_capability": getattr(result, "target_capability", None),
+            "status": getattr(result, "status", ClaimStatus.SELF_REPORTED),
+            "confidence": getattr(result, "confidence", 0.0),
+            "grounding_evidence_ids": getattr(result, "grounding_evidence_ids", []),
+            "citation_urls": getattr(result, "citation_urls", []),
+            "explanation": getattr(result, "explanation", ""),
+            **overrides,
+        }
+        return cls(**data)
 
 
 class NormalizedRequirement(BaseModel):
