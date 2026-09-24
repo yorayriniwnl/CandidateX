@@ -15,10 +15,21 @@ def analyze_resume(request: LiveAnalysisRequest):
     scoring_config = ScoringConfig()
     manifest = request.intake.manifest
     from cci.contradictions.expectations import build_observable_claim_expectations
+    from cci.intake.canonicalizer import classify_url
+    from cci.live.deployment import acquire_deployment_sources
+
     observable_expectations = build_observable_claim_expectations(request.intake)
     extracted = list(dict.fromkeys(url for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls',
         'deployment_urls', 'portfolio_urls', 'project_links') for url in getattr(manifest, key)))
     selected = request.external_urls if request.external_urls is not None else extracted
+
+    deployment_candidates = list(dict.fromkeys(
+        list(manifest.deployment_urls) +
+        [u for u in (manifest.project_links + manifest.portfolio_urls) if classify_url(u) == "deployment"]
+    ))
+    selected_deployments = [u for u in deployment_candidates if u in selected]
+    non_deployment_selected = [u for u in selected if u not in set(selected_deployments)]
+
     def _fetch_github_sources():
         try:
             return acquire_sources(
@@ -34,11 +45,16 @@ def analyze_resume(request: LiveAnalysisRequest):
                 analysis_run_id,
             )
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         github = pool.submit(_fetch_github_sources)
-        public = pool.submit(acquire_public_links, selected)
-        evidence, ownership, sources = github.result()
-        sources.extend(public.result())
+        deployments = pool.submit(acquire_deployment_sources, selected_deployments, request.github_urls, analysis_run_id)
+        public = pool.submit(acquire_public_links, non_deployment_selected)
+        github_evidence, ownership, github_sources = github.result()
+        deployment_evidence, deployment_sources = deployments.result()
+        public_sources = public.result()
+
+        evidence = [*github_evidence, *deployment_evidence]
+        sources = [*github_sources, *deployment_sources, *public_sources]
     for url in extracted:
         if url not in selected:
             sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted from the resume but not selected for this run.'})

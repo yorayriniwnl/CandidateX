@@ -4,7 +4,7 @@ from uuid import uuid4
 from cci.artifacts.identity import compute_canonical_artifact_id
 from cci.contradictions.qualification import is_qualified_negative
 from cci.domain.contracts import Dossier
-from cci.domain.enums import ClaimStatus, GraphNodeType as N, GraphEdgeType as E
+from cci.domain.enums import ClaimStatus, GraphNodeType as N, GraphEdgeType as E, SourceFamily
 from cci.graph.ceg import CandidateEvidenceGraph, CEGNode, CEGEdge
 
 
@@ -118,6 +118,30 @@ def build_dossier_graph(dossier: Dossier) -> CandidateEvidenceGraph:
             score=record.technical_signal_strength,
         )
         edge(artifact, source, E.CONTRIBUTES_TO)
+
+        if record.source_family == SourceFamily.DEPLOYMENT:
+            deploy_id = "deploy_" + sha256(record.source_locator.encode()).hexdigest()[:20]
+            node(
+                deploy_id,
+                N.DEPLOYMENT,
+                record.source_locator,
+                url=record.source_locator,
+                status="observed",
+                linked_repository=record.provenance.get("linked_repository"),
+                supported_signals=record.provenance.get("supported_signals", []),
+            )
+            edge(deploy_id, source, E.DISCOVERED_FROM)
+            edge(candidate, deploy_id, E.ATTRIBUTED_TO,
+                 weight=record.confidence_factors.ownership_score,
+                 basis="candidate_declared_deployment")
+            edge(artifact, deploy_id, E.OBSERVED_IN)
+            linked_repo = record.provenance.get("linked_repository")
+            if linked_repo:
+                repo_id = "repo_" + sha256(linked_repo.encode()).hexdigest()[:20]
+                if repo_id not in graph.nodes:
+                    node(repo_id, N.REPOSITORY, linked_repo, repository_url=linked_repo)
+                edge(repo_id, deploy_id, E.DEPLOYED_AS, basis="verified_runtime_linkage")
+
         attribution = record.artifact_attribution
         if attribution and attribution.candidate_commit_count > 0:
             edge(candidate, artifact, E.ATTRIBUTED_TO,
