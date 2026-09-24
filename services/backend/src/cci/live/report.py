@@ -51,24 +51,15 @@ def build_report(intake, sources):
                             'Public page text mentions this skill; self-published mentions do not establish capability.' if mentions else
                             'No matching technology was observed in the bounded scan. This is not a claim that the candidate lacks the skill.')})
 
-    credentials = []
-    credential_sources = [s for s in sources if s.get('kind') == 'credential' or classify_url(s['url']) == 'credential']
-    for claim in intake.resume_review.sections.get('certifications', []):
-        # Topic overlap associates review candidates only, never authenticates a credential.
-        tokens = [t.lower() for t in re.findall(r'[A-Za-z]{4,}', claim)
-                  if t.lower() not in {'certificate', 'certified', 'certification', 'course', 'completion', 'with', 'from'}]
-        matches = []
-        for source in credential_sources:
-            if source['status'] != 'observed':
-                continue
-            text = f"{source.get('title', '')} {source.get('excerpt', '')}"
-            overlap = [t for t in tokens if text_mentions(text, t)]
-            if len(overlap) >= min(2, max(1, len(tokens))) and tokens:
-                matches.append({'url': source['url'], 'title': source.get('title', ''),
-                    'matched_terms': overlap, 'candidate_name_present': intake.manifest.display_name != 'Unknown Candidate'
-                    and text_mentions(text, intake.manifest.display_name)})
-        credentials.append({'claim': claim, 'status': 'possible_public_match' if matches else 'unverified',
-            'matching_pages': matches, 'explanation': 'Public text matching is not issuer authentication. Confirm recipient, credential ID, issuer, issue/expiry dates and revocation status with the issuer.'})
+    from cci.credentials.verification import verify_all_credentials
+    cert_claims = list(intake.resume_review.sections.get('certifications', []))
+    verified_results = verify_all_credentials(
+        resume_claims=cert_claims,
+        candidate_name=intake.manifest.display_name,
+        sources=sources,
+        declared_urls=getattr(intake.manifest, 'credential_urls', ()),
+    )
+    credentials = [r.to_dict() for r in verified_results]
 
     projects = []
     for project in intake.manifest.project_claims:

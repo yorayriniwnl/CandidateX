@@ -533,3 +533,38 @@ class AnalysisRunState(str, Enum):
     def is_active(self) -> bool:
         """Returns True if the run is currently in progress."""
         return not self.is_terminal and self != AnalysisRunState.QUEUED
+
+
+class CredentialState(str, Enum):
+    """Canonical credential verification states (Fix 38).
+
+    Taxonomy:
+    - RESUME_ONLY: Credential is a self-reported resume mention with no verified or accessible public source.
+    - PUBLIC_PAGE_MATCH: Public page text mentions the certification or topic, but recipient or ID is not confirmed.
+    - RECIPIENT_MATCH: Public page explicitly matches the candidate's verified name.
+    - CREDENTIAL_ID_MATCH: Public page or record explicitly matches the claimed credential/badge ID.
+    - ISSUER_VERIFIED: Authoritative provider adapter verified the credential directly with the issuing platform.
+    - EXPIRED: Credential was authenticated or verified, but has passed its valid expiration date.
+    - REVOKED: Issuer explicitly reports the credential has been revoked or invalidated.
+    - INACCESSIBLE: Credential destination was blocked, gated by login, or unreachable.
+    - UNKNOWN: Inconclusive verification or unsupported credential format.
+    """
+
+    RESUME_ONLY = "RESUME_ONLY"
+    PUBLIC_PAGE_MATCH = "PUBLIC_PAGE_MATCH"
+    RECIPIENT_MATCH = "RECIPIENT_MATCH"
+    CREDENTIAL_ID_MATCH = "CREDENTIAL_ID_MATCH"
+    ISSUER_VERIFIED = "ISSUER_VERIFIED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+    INACCESSIBLE = "INACCESSIBLE"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.upper().replace("-", "_")
+            for member in cls:
+                if member.value == val_norm or member.name == val_norm:
+                    return member
+        return super()._missing_(value)

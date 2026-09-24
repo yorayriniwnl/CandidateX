@@ -536,7 +536,27 @@ class AnalysisRunManager:
 
         # Stage 7: ANALYZING_CREDENTIALS
         if stage == AnalysisRunState.ANALYZING_CREDENTIALS:
-            return {"credential_status": "evaluated"}
+            from cci.credentials.verification import verify_all_credentials
+            fetching_output = run.stage_data.get(AnalysisRunState.FETCHING_SOURCES.value, {})
+            sources = fetching_output.get("public_sources", [])
+            resume_review = getattr(intake_model, "resume_review", None)
+            cert_claims = []
+            if resume_review and hasattr(resume_review, "sections"):
+                cert_claims = list(resume_review.sections.get("certifications", []))
+            if not cert_claims and hasattr(manifest, "claimed_skills"):
+                cert_claims = [c for c in manifest.claimed_skills if "cert" in c.lower()]
+
+            verified = verify_all_credentials(
+                resume_claims=cert_claims,
+                candidate_name=getattr(manifest, "display_name", "Candidate"),
+                sources=sources,
+                declared_urls=getattr(manifest, "credential_urls", ()),
+            )
+            return {
+                "credential_status": "evaluated",
+                "verified_credentials": [r.to_dict() for r in verified],
+                "count": len(verified),
+            }
 
         # Stage 8: ANALYZING_ACADEMICS
         if stage == AnalysisRunState.ANALYZING_ACADEMICS:
