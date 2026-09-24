@@ -168,12 +168,17 @@ def inspect_link(url, deadline, transport=None):
     return {**receipt, 'detail': 'No inspectable public response.'}
 
 
-def acquire_public_links(urls):
-    unique = list(dict.fromkeys(urls))
-    deadline = time.monotonic() + LINK_SECONDS
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        receipts = list(pool.map(lambda url: inspect_link(url, deadline), unique[:MAX_LINKS]))
-    receipts.extend({'url': url, 'kind': classify_url(url), 'status': 'not_scanned',
-                     'detail': f'All links are retained; the first {MAX_LINKS} are fetched per run. Select this URL for a follow-up run.'}
-                    for url in unique[MAX_LINKS:])
-    return receipts
+def acquire_public_links(urls, transport=None, max_links=None, time_budget=None):
+    """Acquires public web evidence using the evidence-prioritized discovery frontier (Fix 25)."""
+    from cci.live.web_discovery import EvidenceDiscoveryFrontier
+    limit = max_links if max_links is not None else MAX_LINKS
+    budget = time_budget if time_budget is not None else LINK_SECONDS
+    frontier = EvidenceDiscoveryFrontier(
+        max_fetched=limit,
+        time_budget=budget,
+        transport=transport,
+    )
+    for url in urls:
+        frontier.add_url(url, discovery_method="seed", depth=0)
+    frontier.run()
+    return frontier.get_receipts()
