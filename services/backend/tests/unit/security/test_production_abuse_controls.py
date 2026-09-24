@@ -253,7 +253,7 @@ def test_run_budget_tracker_crawl_page_and_byte_budget():
 def test_run_budget_tracker_wall_clock_timeout():
     """Verify that wall-clock timeout budget is detected."""
     tracker = RunBudgetTracker(max_wall_clock_seconds=0.05)
-    time.sleep(0.06)
+    time.sleep(0.08)
 
     assert tracker.is_time_exhausted() is True
     assert tracker.remaining_seconds() == 0.0

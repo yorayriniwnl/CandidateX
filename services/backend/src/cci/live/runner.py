@@ -264,6 +264,39 @@ class AnalysisRunManager:
 
         return run
 
+    def evict_candidate_runs(self, candidate_id: UUID | str) -> int:
+        """Evicts all analysis runs associated with the candidate upon deletion request."""
+        cid_str = str(candidate_id)
+        with self._lock:
+            to_delete = [
+                rid
+                for rid, r in self._runs.items()
+                if str(getattr(r, "candidate_id", "")) == cid_str
+                or (r.input_payload and str(r.input_payload.get("candidate_id", "")) == cid_str)
+            ]
+            for rid in to_delete:
+                self._runs.pop(rid, None)
+            return len(to_delete)
+
+    def evict_expired_runs(self, max_age_seconds: float) -> int:
+        """Evicts in-memory runs older than max_age_seconds to prevent hidden indefinite storage."""
+        now = datetime.now(timezone.utc)
+        count = 0
+        with self._lock:
+            to_delete = []
+            for rid, r in self._runs.items():
+                try:
+                    created = datetime.fromisoformat(r.created_at)
+                    if (now - created).total_seconds() > max_age_seconds:
+                        to_delete.append(rid)
+                except Exception:
+                    pass
+            for rid in to_delete:
+                self._runs.pop(rid, None)
+                count += 1
+        return count
+
+
     def _execute_run(self, run_id: UUID) -> None:
         """Executes all sequential pipeline stages idempotently."""
         with self._lock:

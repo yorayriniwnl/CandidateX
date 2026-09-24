@@ -15,11 +15,16 @@ from cci.api.routers import (
     jobs_router,
     overrides_router,
     pipeline_router,
+    privacy_router,
     research_router,
 )
 from cci.api.routers.live import router as live_router
 from cci.api.routers.research_demo import router as research_demo_router
 from cci.config import settings
+from cci.security.privacy import configure_pii_safe_logging
+
+# Guarantee PII-safe logging across the entire platform
+configure_pii_safe_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -45,9 +50,11 @@ app.include_router(pipeline_router)
 app.include_router(jobs_router)
 app.include_router(candidates_router)
 app.include_router(overrides_router)
+app.include_router(privacy_router)
 app.include_router(research_router)
 app.include_router(research_demo_router)
 app.include_router(live_router)
+
 
 
 @app.get(

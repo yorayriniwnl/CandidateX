@@ -63,6 +63,16 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "cci_jwt_secret_key_change_in_production_min_32_bytes_safe"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    # Privacy, PII Protection & Data Retention (Fix 31)
+    RETENTION_RESUME_BYTES_HOURS: int = 24
+    RETENTION_PARSED_TEXT_DAYS: int = 30
+    RETENTION_ANALYSIS_ARTIFACTS_DAYS: int = 7
+    RETENTION_CACHED_PAGES_HOURS: int = 24
+    RETENTION_CANDIDATE_RECORDS_DAYS: int = 180
+    RETENTION_LOGS_DAYS: int = 30
+    RETENTION_EXPORTS_DAYS: int = 14
+    PII_LOG_REDACTION_ENABLED: bool = True
+
     # Formal Scoring Parameters (Paper-aligned default v1)
     SCORING_CONFIG_VERSION: str = "1.0.0"
     DEFAULT_TEMPERATURE: float = 1.0

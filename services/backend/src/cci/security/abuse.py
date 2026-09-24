@@ -471,6 +471,17 @@ class ContentCache:
         with self._lock:
             self._cache.clear()
 
+    def evict_expired(self) -> int:
+        now = time.monotonic()
+        count = 0
+        with self._lock:
+            expired_keys = [k for k, (_, exp) in self._cache.items() if now > exp]
+            for k in expired_keys:
+                del self._cache[k]
+                count += 1
+        return count
+
+
 
 # ---------------------------------------------------------------------------
 # 7. Credential Redaction

@@ -196,3 +196,50 @@ def get_candidate(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+class CandidateDeletionResponse(BaseModel):
+    candidate_id: UUID
+    candidate_id_hash: str
+    is_deleted: bool
+    deleted_tables: list[str]
+    tombstone_id: UUID
+    recorded_at: str
+    message: str
+
+
+@router.delete(
+    "/{candidate_id}",
+    response_model=CandidateDeletionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Delete candidate and all associated PII, documents, and evidence (GDPR Right-to-be-Forgotten)",
+)
+def delete_candidate_endpoint(
+    candidate_id: UUID,
+    reason: str = Query("candidate_request", description="Reason for candidate deletion"),
+    tenant: TenantContext = Depends(get_current_tenant),
+) -> CandidateDeletionResponse:
+    """Executes the candidate deletion pathway, permanently removing all PII and recording a cryptographic tombstone."""
+    from cci.security.privacy import delete_candidate_permanently
+
+    try:
+        with SessionLocal() as db:
+            result = delete_candidate_permanently(
+                db=db,
+                candidate_id=candidate_id,
+                organization_id=tenant.organization_id,
+                requested_by=tenant.user_id or "authenticated_user",
+                reason=reason,
+            )
+            return CandidateDeletionResponse(**result.model_dump())
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Candidate deletion failed: {exc}",
+        ) from exc
+

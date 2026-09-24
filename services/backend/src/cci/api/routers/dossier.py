@@ -34,6 +34,14 @@ def register_dossier(
         _DOSSIER_ORG_MAP[dossier.candidate_id] = organization_id
 
 
+def unregister_dossier(candidate_id: UUID) -> None:
+    """Evicts in-memory dossier, graph, and tenant association upon candidate deletion."""
+    _DOSSIER_STORE.pop(candidate_id, None)
+    _GRAPH_STORE.pop(candidate_id, None)
+    _DOSSIER_ORG_MAP.pop(candidate_id, None)
+
+
+
 def get_stored_dossier(candidate_id: UUID, organization_id: UUID | None = None) -> Dossier | None:
     """Retrieves an in-memory dossier by candidate ID, respecting organization scoping."""
     if organization_id is not None:

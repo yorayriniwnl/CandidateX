@@ -112,5 +112,15 @@ class PipelineService:
                 pass
             return rescored
 
+    def evict_candidate(self, candidate_id: UUID) -> None:
+        """Evicts in-memory pipeline states and dossiers for a deleted candidate."""
+        with self._lock:
+            to_del_runs = [rid for rid, s in self._runs.items() if s.candidate_id == candidate_id]
+            for rid in to_del_runs:
+                self._runs.pop(rid, None)
+            to_del_dossiers = [did for did, d in self._dossiers_by_id.items() if d.candidate_id == candidate_id]
+            for did in to_del_dossiers:
+                self._dossiers_by_id.pop(did, None)
+
 
 pipeline_service = PipelineService()
