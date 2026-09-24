@@ -35,12 +35,12 @@ interface ComparisonSubject {
 }
 
 const PRESET_COHORTS = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'backend' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'backend' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', role: 'frontend' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ml_engineer' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'devops_cloud' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', role: 'fullstack' },
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Demo Candidate 01', role: 'backend' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'Demo Candidate 06', role: 'backend' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Demo Candidate 02', role: 'frontend' },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Demo Candidate 03', role: 'ml_engineer' },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Demo Candidate 04', role: 'devops_cloud' },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'Demo Candidate 05', role: 'fullstack' },
 ];
 
 const CAPABILITY_LABELS: Record<CapabilityKey, string> = {

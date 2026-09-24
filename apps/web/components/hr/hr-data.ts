@@ -35,8 +35,8 @@ export interface HRCandidate extends CandidateSummary {
 export const SAMPLE_CANDIDATES: HRCandidate[] = [
   {
     id: MOCK_DOSSIER.candidate_id,
-    display_name: 'Ayush Roy',
-    primary_email: '2329027@kiit.ac.in',
+    display_name: 'Demo Candidate 01',
+    primary_email: 'candidate01@example.invalid',
     role: MOCK_DOSSIER.role,
     has_completed_dossier: true,
     coverage: MOCK_DOSSIER.coverage,
@@ -45,22 +45,22 @@ export const SAMPLE_CANDIDATES: HRCandidate[] = [
     source: 'sample',
   },
   {
-    id: 'hr-sample-archi', display_name: 'Archi Srivastava', primary_email: '2329100@kiit.ac.in', role: 'frontend',
+    id: 'hr-sample-02', display_name: 'Demo Candidate 02', primary_email: 'candidate02@example.invalid', role: 'frontend',
     has_completed_dossier: false, has_meaningful_conflict: false,
     created_at: '', source: 'sample',
   },
   {
-    id: 'hr-sample-atmaja', display_name: 'Atmaja Tripathy', primary_email: '2329179@kiit.ac.in', role: 'ml_engineer',
+    id: 'hr-sample-03', display_name: 'Demo Candidate 03', primary_email: 'candidate03@example.invalid', role: 'ml_engineer',
     has_completed_dossier: false, has_meaningful_conflict: false,
     created_at: '', source: 'sample',
   },
   {
-    id: 'hr-sample-shreya', display_name: 'Shreya', primary_email: '2329065@kiit.ac.in', role: 'devops_cloud',
+    id: 'hr-sample-04', display_name: 'Demo Candidate 04', primary_email: 'candidate04@example.invalid', role: 'devops_cloud',
     has_completed_dossier: false, has_meaningful_conflict: false,
     created_at: '', source: 'sample',
   },
   {
-    id: 'hr-sample-shreshth', display_name: 'Shreshth Nigam', primary_email: '2329064@kiit.ac.in', role: 'fullstack',
+    id: 'hr-sample-05', display_name: 'Demo Candidate 05', primary_email: 'candidate05@example.invalid', role: 'fullstack',
     has_completed_dossier: false, has_meaningful_conflict: false,
     created_at: '', source: 'sample',
   },

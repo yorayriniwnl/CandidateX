@@ -1,7 +1,8 @@
-# Alice Chen
+# Demo Candidate 01
+SYNTHETIC DEMO DATA: reserved example identity and URLs.
 Senior Backend & Distributed Systems Engineer
-Email: alice.chen@example.com | GitHub: https://github.com/alicechen-dev
-Portfolio: https://alicechen.dev | Location: San Francisco, CA
+Email: candidate01@example.invalid | GitHub: https://github.invalid/demo-candidate-01
+Portfolio: https://portfolio.demo-candidate-01.invalid | Location: Synthetic demo profile
 
 ## Summary
 Experienced Backend Engineer with 7+ years architecting high-throughput distributed transaction engines,
@@ -17,18 +18,18 @@ event-driven payment reconciliation and database replication tools.
 
 ## Open Source & Key Projects
 1. Distributed Payment Reconciliation Engine
-   Repository: https://github.com/alicechen-dev/distributed-payment-engine
+   Repository: https://github.invalid/demo-candidate-01/distributed-payment-engine
    - Built an event-driven payment reconciliation service handling 10,000 tx/sec using Go and PostgreSQL.
    - Designed dual-write transactional outbox pattern with idempotent Kafka consumers.
    - Authored comprehensive ADRs and achieved 94% test coverage with automated integration tests.
 
 2. PostgreSQL Partitioning & Reversible Migration Tool
-   Repository: https://github.com/alicechen-dev/pg-partition-manager
+   Repository: https://github.invalid/demo-candidate-01/pg-partition-manager
    - Created automated partition lifecycle management for high-volume time-series database tables.
    - Enforced bidirectional zero-downtime Alembic migrations with automated rollback guarantees.
 
 3. Async Service Gateway
-   Repository: https://github.com/alicechen-dev/async-service-gateway
+   Repository: https://github.invalid/demo-candidate-01/async-service-gateway
    - Implemented an asynchronous gRPC-to-REST API gateway with distributed token bucket rate limiting.
    - Integrated strict security headers, mTLS authentication, and SSRF prevention guards.
 

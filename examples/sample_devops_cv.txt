@@ -1,7 +1,8 @@
-# Tariq Mansour
+# Demo Candidate 04
+SYNTHETIC DEMO DATA: reserved example identity and URLs.
 Staff Site Reliability & Cloud Infrastructure Engineer
-Email: tariq.mansour@example.com | GitHub: https://github.com/tmansour-infra
-Portfolio: https://tmansour.cloud | Location: Austin, TX
+Email: candidate04@example.invalid | GitHub: https://github.invalid/demo-candidate-04
+Portfolio: https://portfolio.demo-candidate-04.invalid | Location: Synthetic demo profile
 
 ## Summary
 Staff Site Reliability & Platform Engineer with 8+ years building mission-critical cloud infrastructure,
@@ -19,18 +20,18 @@ and chaos engineering. Maintainer of open-source Terraform security linting and 
 
 ## Open Source & Key Projects
 1. Terraform Security & Blast-Radius Policy Enforcer
-   Repository: https://github.com/tmansour-infra/tf-blast-guard
+   Repository: https://github.invalid/demo-candidate-04/tf-blast-guard
    - Static analysis tool evaluating Terraform plan files against OPA Rego policies to prevent catastrophic drops.
    - Comprehensive test suite in Go testing simulated deletion of RDS clusters and VPC route tables.
    - Used in production across 80+ enterprise engineering organizations.
 
 2. Multi-Region Kubernetes Automated Failover Operator
-   Repository: https://github.com/tmansour-infra/k8s-region-failover
+   Repository: https://github.invalid/demo-candidate-04/k8s-region-failover
    - Kubernetes controller managing DNS failover and state replication sync between US-East and EU-Central.
    - Automated health checks triggering Route53 health checks and active-passive failover in <45 seconds.
 
 3. Observability Baseline Module for EKS
-   Repository: https://github.com/tmansour-infra/eks-telemetry-stack
+   Repository: https://github.invalid/demo-candidate-04/eks-telemetry-stack
    - Reusable Helm chart and Terraform module deploying OpenTelemetry Collector, Prometheus, and Grafana.
    - Pre-configured golden signals (latency, traffic, errors, saturation) dashboards and PagerDuty alert rules.
 
