@@ -63,10 +63,12 @@ class AcquisitionError(Exception):
 
 
 class Fetcher:
-    def __init__(self):
+    def __init__(self, budget_tracker=None):
+        self.budget_tracker = budget_tracker
         self.deadline = time.monotonic() + MAX_SECONDS
         self.client = httpx.Client(transport=HTTP_TRANSPORT, follow_redirects=False, trust_env=False,
             headers={'User-Agent': 'CandidateX-LiveEvidence/1.0', 'Accept': 'application/vnd.github+json'})
+        self.cache = {}
 
     def close(self):
         self.client.close()
@@ -76,30 +78,62 @@ class Fetcher:
         if remaining <= 0:
             raise AcquisitionError('timeout', 'The live acquisition time budget was reached.')
         host = 'https://codeload.github.com' if archive else 'https://api.github.com'
+        host_name = 'codeload.github.com' if archive else 'api.github.com'
+
+        from cci.security.abuse import get_abuse_controls, sanitize_credentials
+        abuse = get_abuse_controls()
+
+        # Circuit Breaker check
+        if not abuse.circuit_breakers.can_execute(host_name):
+            raise AcquisitionError('circuit_open', f'Circuit breaker for {host_name} is OPEN due to repeated upstream failures.')
+
+        # Budget Tracker check
+        if self.budget_tracker is not None:
+            if not self.budget_tracker.record_github_call():
+                raise AcquisitionError('budget_exhausted', 'GitHub API call budget exceeded for this analysis run.')
+
+        # Deduplication cache check (non-archive API calls within this fetcher)
+        cache_key = f'gh:{path}'
+        if not archive and cache_key in self.cache:
+            return self.cache[cache_key]
+
         headers = {}
         if not archive and settings.GITHUB_TOKEN:
             headers['Authorization'] = f'Bearer {settings.GITHUB_TOKEN}'
         limit = MAX_ARCHIVE_BYTES if archive else 2 * 1024 * 1024
-        with self.client.stream('GET', host + path, headers=headers, timeout=min(10, remaining)) as response:
-            code = response.status_code
-            if code in (403, 429):
-                raise AcquisitionError('rate_limited', 'GitHub refused or rate-limited this request. Retry later; a server GitHub token can raise API limits.')
-            if code in (401, 404):
-                raise AcquisitionError('unavailable', 'Public source not found or requires authentication.')
-            if 300 <= code < 400:
-                raise AcquisitionError('unavailable', 'The source moved. Update the supplied URL; redirects are not followed.')
-            if code != 200:
-                raise AcquisitionError('unavailable', f'GitHub returned HTTP {code}.')
-            chunks, size = [], 0
-            for chunk in response.iter_bytes():
-                size += len(chunk)
-                if size > limit:
-                    raise AcquisitionError('too_large', f'Source exceeds the {limit // 1024} KB transfer limit.')
-                if time.monotonic() >= self.deadline:
-                    raise AcquisitionError('timeout', 'The live acquisition time budget was reached.')
-                chunks.append(chunk)
+        try:
+            with self.client.stream('GET', host + path, headers=headers, timeout=min(10, remaining)) as response:
+                code = response.status_code
+                if code in (403, 429):
+                    raise AcquisitionError('rate_limited', 'GitHub refused or rate-limited this request. Retry later; a server GitHub token can raise API limits.')
+                if code in (500, 502, 503, 504):
+                    abuse.circuit_breakers.record_failure(host_name)
+                    raise AcquisitionError('unavailable', f'GitHub returned upstream server error {code}.')
+                if code in (401, 404):
+                    raise AcquisitionError('unavailable', 'Public source not found or requires authentication.')
+                if 300 <= code < 400:
+                    raise AcquisitionError('unavailable', 'The source moved. Update the supplied URL; redirects are not followed.')
+                if code != 200:
+                    abuse.circuit_breakers.record_failure(host_name)
+                    raise AcquisitionError('unavailable', f'GitHub returned HTTP {code}.')
+                chunks, size = [], 0
+                for chunk in response.iter_bytes():
+                    size += len(chunk)
+                    if size > limit:
+                        raise AcquisitionError('too_large', f'Source exceeds the {limit // 1024} KB transfer limit.')
+                    if time.monotonic() >= self.deadline:
+                        raise AcquisitionError('timeout', 'The live acquisition time budget was reached.')
+                    chunks.append(chunk)
+            abuse.circuit_breakers.record_success(host_name)
+        except httpx.RequestError as exc:
+            abuse.circuit_breakers.record_failure(host_name, exc)
+            raise AcquisitionError('unavailable', sanitize_credentials(str(exc))) from exc
+
         content = b''.join(chunks)
-        return content if archive else json.loads(content)
+        result = content if archive else json.loads(content)
+        if not archive:
+            self.cache[cache_key] = result
+        return result
 
 
 def inspect_archive(data, workspace):
@@ -884,11 +918,12 @@ def acquire_sources(
     jd_text: str | None = None,
     deployment_urls: Sequence[str] = (),
     portfolio_urls: Sequence[str] = (),
+    budget_tracker: Any = None,
 ):
     analysis_run_id = analysis_run_id or uuid4()
     records, ownership, receipts = [], [], []
     association_basis = {}
-    fetcher = Fetcher()
+    fetcher = Fetcher(budget_tracker=budget_tracker)
 
     explicit_repos = [u for u in urls if github_parts(u)[1]]
     association_basis.update({u.lower(): 'supplied_repository_url' for u in explicit_repos})

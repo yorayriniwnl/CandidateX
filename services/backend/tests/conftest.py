@@ -23,3 +23,19 @@ def pytest_sessionfinish(session, exitstatus):
     from cci.db.session import engine
     engine.dispose()
     _test_database.cleanup()
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def reset_abuse_controls():
+    """Resets all abuse control singletons between tests."""
+    try:
+        from cci.security.abuse import get_abuse_controls
+        abuse = get_abuse_controls()
+        abuse.reset()
+        yield
+        abuse.reset()
+    except ImportError:
+        yield

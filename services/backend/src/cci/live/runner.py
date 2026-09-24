@@ -107,9 +107,12 @@ class DurableAnalysisRun:
     input_payload: dict[str, Any] = field(default_factory=dict)
     stage_data: dict[str, Any] = field(default_factory=dict)
     result: dict[str, Any] | None = None
+    client_ip: str = "127.0.0.1"
+    budget_tracker: Any = None
 
     def to_status_dict(self) -> dict[str, Any]:
         """Returns pollable execution status."""
+        from cci.security.abuse import sanitize_credentials
         return {
             "analysis_run_id": str(self.analysis_run_id),
             "state": self.state.value,
@@ -120,8 +123,9 @@ class DurableAnalysisRun:
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "completed_stages": list(self.stage_data.keys()),
-            "error_message": self.error_message,
-            "result": self.result,
+            "error_message": sanitize_credentials(self.error_message) if self.error_message else None,
+            "budget_summary": self.budget_tracker.get_summary() if self.budget_tracker else None,
+            "result": sanitize_credentials(self.result) if self.result else None,
         }
 
 
@@ -139,6 +143,8 @@ class AnalysisRunManager:
         *,
         analysis_run_id: UUID | None = None,
         auto_start: bool = True,
+        client_ip: str = "127.0.0.1",
+        budget_tracker: Any = None,
     ) -> DurableAnalysisRun:
         """Admits a new analysis run into QUEUED state."""
         run_id = analysis_run_id or uuid4()
@@ -152,6 +158,10 @@ class AnalysisRunManager:
                 run.input_payload.update(input_payload)
                 if target_role:
                     run.target_role = str(target_role)
+                if client_ip:
+                    run.client_ip = client_ip
+                if budget_tracker:
+                    run.budget_tracker = budget_tracker
             else:
                 run = DurableAnalysisRun(
                     analysis_run_id=run_id,
@@ -160,6 +170,8 @@ class AnalysisRunManager:
                     current_stage="QUEUED",
                     progress_percent=0.0,
                     input_payload=input_payload,
+                    client_ip=client_ip,
+                    budget_tracker=budget_tracker,
                 )
                 self._runs[run_id] = run
 
@@ -173,6 +185,8 @@ class AnalysisRunManager:
         run_id: UUID | str,
         update_payload: dict[str, Any] | None = None,
         sync: bool = False,
+        client_ip: str | None = None,
+        budget_tracker: Any = None,
     ) -> DurableAnalysisRun | None:
         """Starts or re-executes an existing run with updated payload."""
         key = UUID(str(run_id))
@@ -180,6 +194,10 @@ class AnalysisRunManager:
             run = self._runs.get(key)
             if not run:
                 return None
+            if client_ip:
+                run.client_ip = client_ip
+            if budget_tracker:
+                run.budget_tracker = budget_tracker
             if update_payload:
                 run.input_payload.update(update_payload)
                 if "role" in update_payload:
@@ -222,6 +240,8 @@ class AnalysisRunManager:
             run.state = AnalysisRunState.CANCELLED
             run.current_stage = "CANCELLED"
             run.completed_at = datetime.now(timezone.utc).isoformat()
+            from cci.security.abuse import get_abuse_controls
+            get_abuse_controls().release_run_slot(getattr(run, "client_ip", "127.0.0.1"))
             return run
 
     def resume_run(self, run_id: UUID | str, sync: bool = False) -> DurableAnalysisRun | None:
@@ -254,11 +274,24 @@ class AnalysisRunManager:
                 run.started_at = datetime.now(timezone.utc).isoformat()
 
         try:
+            if run.budget_tracker is None:
+                from cci.security.abuse import RunBudgetTracker
+                from cci.config import settings
+                run.budget_tracker = RunBudgetTracker(
+                    max_wall_clock_seconds=getattr(settings, "MAX_RUN_WALL_CLOCK_SECONDS", 60.0),
+                    max_github_calls=getattr(settings, "MAX_GITHUB_CALLS_PER_RUN", 50),
+                    max_crawl_pages=getattr(settings, "MAX_CRAWL_PAGES_PER_RUN", 24),
+                    max_crawl_bytes=getattr(settings, "MAX_CRAWL_BYTES_PER_RUN", 5 * 1024 * 1024),
+                )
+
             for stage in PIPELINE_STAGES:
                 # Check cancellation
                 with self._lock:
                     if run.state == AnalysisRunState.CANCELLED:
                         return
+                    if run.budget_tracker and run.budget_tracker.is_time_exhausted():
+                        logger.warning("Analysis run %s wall-clock timeout exceeded.", run_id)
+                        break
                     run.state = stage
                     run.current_stage = stage.value
                     run.progress_percent = STAGE_PROGRESS.get(stage, run.progress_percent)
@@ -277,7 +310,8 @@ class AnalysisRunManager:
                 dossier_data = run.stage_data.get(AnalysisRunState.BUILDING_DOSSIER.value, {})
                 sources = dossier_data.get("sources", [])
                 evidence = dossier_data.get("evidence", [])
-                has_partials = any(s.get("status") not in ("observed", "completed") for s in sources) or not evidence
+                time_exhausted = run.budget_tracker.is_time_exhausted() if run.budget_tracker else False
+                has_partials = any(s.get("status") not in ("observed", "completed") for s in sources) or not evidence or time_exhausted
 
                 run.state = AnalysisRunState.PARTIAL if has_partials else AnalysisRunState.COMPLETED
                 run.current_stage = run.state.value
@@ -289,8 +323,12 @@ class AnalysisRunManager:
             logger.exception("Analysis run %s failed during stage %s", run_id, run.current_stage)
             with self._lock:
                 run.state = AnalysisRunState.FAILED
-                run.error_message = str(exc)
+                from cci.security.abuse import sanitize_credentials
+                run.error_message = sanitize_credentials(str(exc))
                 run.completed_at = datetime.now(timezone.utc).isoformat()
+        finally:
+            from cci.security.abuse import get_abuse_controls
+            get_abuse_controls().release_run_slot(getattr(run, "client_ip", "127.0.0.1"))
 
     def _run_stage(self, run: DurableAnalysisRun, stage: AnalysisRunState) -> dict[str, Any]:
         """Executes an individual pipeline stage and returns its serializable artifacts."""
@@ -392,6 +430,7 @@ class AnalysisRunManager:
                 jd_text=jd_text,
                 deployment_urls=deployment_candidates,
                 portfolio_urls=getattr(manifest, "portfolio_urls", []),
+                budget_tracker=run.budget_tracker,
             )
             return {
                 "github_evidence": [e.model_dump(mode="json") for e in github_evidence],

@@ -44,6 +44,19 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 5
     ANALYSIS_TIMEOUT_SECONDS: int = 300
 
+    # Production Abuse Controls (Fix 28)
+    MAX_CONCURRENT_ANALYSES: int = 5
+    MAX_CONCURRENT_ANALYSES_PER_CLIENT: int = 2
+    RATE_LIMIT_INTAKE_PER_MINUTE: int = 20
+    RATE_LIMIT_RUNS_PER_MINUTE: int = 15
+    MAX_RUN_WALL_CLOCK_SECONDS: int = 60
+    MAX_GITHUB_CALLS_PER_RUN: int = 50
+    MAX_CRAWL_PAGES_PER_RUN: int = 24
+    MAX_CRAWL_BYTES_PER_RUN: int = 5 * 1024 * 1024
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = 5
+    CIRCUIT_BREAKER_COOLDOWN_SECONDS: float = 30.0
+    REQUIRE_SIGNED_ANALYSIS_TOKEN: bool = False
+
     # Formal Scoring Parameters (Paper-aligned default v1)
     SCORING_CONFIG_VERSION: str = "1.0.0"
     DEFAULT_TEMPERATURE: float = 1.0
