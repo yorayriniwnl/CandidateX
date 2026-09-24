@@ -25,6 +25,7 @@ class ExtractedClaimInput:
     claim_text: str = ""
     target_capability: CapabilityKey = CapabilityKey.BACKEND_ENGINEERING
     technology_keywords: list[str] = field(default_factory=list)
+    claim_reference: str | None = None
 
 
 @dataclass
@@ -121,16 +122,22 @@ def corroborate_candidate_claims(
                         text_lower += ' ' + language
                 keyword_hit = any(re.search(r'(?<![a-z0-9])' + re.escape(k) + r'(?![a-z0-9])', text_lower) for k in keywords_lower)
 
-            if keyword_hit:
-                if ev.is_positive_support:
+            if ev.is_positive_support:
+                if keyword_hit:
                     matched_pos_evidence.append(ev)
-                else:
+            else:
+                ev_ref = ev.negative_evidence_details.claim_reference if ev.negative_evidence_details else None
+                if claim.claim_reference is not None:
+                    if ev_ref == claim.claim_reference:
+                        matched_neg_evidence.append(ev)
+                elif keyword_hit:
                     matched_neg_evidence.append(ev)
 
         # Fallback to capability-level evidence if keyword hits weren't found
         if not strict_technology_match and not matched_pos_evidence and not matched_neg_evidence:
             matched_pos_evidence = [e for e in matching_ev if e.is_positive_support]
-            matched_neg_evidence = [e for e in matching_ev if not e.is_positive_support]
+            if claim.claim_reference is None:
+                matched_neg_evidence = [e for e in matching_ev if not e.is_positive_support]
 
         # Calculate corroboration metrics
         pos_confidence_sum = sum(

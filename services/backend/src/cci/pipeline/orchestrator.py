@@ -22,7 +22,10 @@ CRITICAL INVARIANTS:
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from collections.abc import Sequence
 from uuid import UUID, uuid4
+
+from cci.contradictions.expectations import ObservableClaimExpectation
 
 from cci.claims.corroborator import ExtractedClaimInput, corroborate_candidate_claims
 from cci.contradictions.diagnostic import compute_contradiction_diagnostic
@@ -133,6 +136,7 @@ def execute_analysis_pipeline(
     scenario: str | None = None,
     scoring_config: ScoringConfig | None = None,
     analysis_run_id: UUID | None = None,
+    observable_expectations: Sequence[ObservableClaimExpectation] = (),
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
     cfg = scoring_config or ScoringConfig()
@@ -329,6 +333,15 @@ def execute_analysis_pipeline(
                     claim_inputs.append(ExtractedClaimInput(
                         claim_id=uuid4(), claim_text=claim, target_capability=cap,
                         technology_keywords=requirement.technology_mentions if evidence_mode == "live" else []))
+        for exp in observable_expectations:
+            keywords = [exp.technology] if exp.technology else []
+            claim_inputs.append(ExtractedClaimInput(
+                claim_id=uuid4(),
+                claim_text=exp.claim_text,
+                target_capability=exp.target_capability,
+                technology_keywords=keywords,
+                claim_reference=exp.claim_reference,
+            ))
         corroborated_claims = corroborate_candidate_claims(
             claim_inputs,
             raw_evidence,

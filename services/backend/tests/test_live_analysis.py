@@ -509,3 +509,63 @@ def test_archive_traversal_rejected(monkeypatch):
     data = client.post('/api/v1/live/analyze', json={'intake': intake().json(), 'github_urls': ['https://github.com/example/api']}).json()
     assert data['sources'][0]['status'] == 'security_blocked'
     assert data['dossier']['evidence_records'] == []
+
+
+def test_live_analysis_emits_qualified_negative_and_contradicts_matched_claim(monkeypatch):
+    from cci.live import acquisition
+
+    cobertura_70 = b'<?xml version="1.0" ?><coverage line-rate="0.70" branch-rate="0.65"/>'
+    archive_data = io.BytesIO()
+    with zipfile.ZipFile(archive_data, 'w') as z:
+        z.writestr('api-main/app.py', '@app.get("/items")\nasync def items():\n    return []\n')
+        z.writestr('api-main/coverage.xml', cobertura_70)
+
+    def handler(request):
+        path = request.url.path
+        if path == '/repos/example/api':
+            return httpx.Response(200, json={'private': False, 'fork': False, 'default_branch': 'main', 'owner': {'login': 'example'}})
+        if path == '/repos/example/api/commits':
+            return httpx.Response(200, json=[{
+                'sha': SHA,
+                'author': {'login': 'example'},
+                'commit': {'committer': {'date': '2026-09-01T00:00:00Z'}},
+            }])
+        if request.url.host == 'codeload.github.com':
+            return httpx.Response(200, content=archive_data.getvalue())
+        raise AssertionError(f'Unexpected outbound request: {request.url}')
+
+    monkeypatch.setattr(acquisition, 'HTTP_TRANSPORT', httpx.MockTransport(handler))
+
+    intake_data = intake().json()
+    intake_data['manifest']['project_claims'] = [{
+        'title': 'API https://github.com/example/api',
+        'description': 'Maintained at least 95% line coverage',
+    }]
+
+    response = client.post('/api/v1/live/analyze', json={
+        'intake': intake_data,
+        'role': 'backend',
+        'github_urls': ['https://github.com/example/api'],
+        'github_identity': 'example',
+    })
+    assert response.status_code == 200, response.text
+    data = response.json()
+    dossier = data['dossier']
+
+    positives = [r for r in dossier['evidence_records'] if r['is_positive_support']]
+    negatives = [r for r in dossier['evidence_records'] if not r['is_positive_support']]
+
+    assert len(positives) >= 1
+    assert len(negatives) == 1
+    negative = negatives[0]
+    assert negative['negative_evidence_qualification'] == 'qualified'
+    assert negative['immutable_revision'] == SHA
+    assert negative['provenance']['artifact_path'] == 'coverage.xml'
+    assert negative['provenance']['negative_evidence_qualification'] == 'qualified'
+    assert negative['provenance']['negative_evidence_details'] is not None
+
+    claims = dossier['claims_corroboration']
+    contradicted = [c for c in claims if c['status'] == 'contradicted']
+    assert len(contradicted) == 1
+    assert 'coverage' in contradicted[0]['claim_text'].lower()
+    assert negative['evidence_id'] in contradicted[0]['grounding_evidence_ids']

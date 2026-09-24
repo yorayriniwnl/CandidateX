@@ -14,16 +14,28 @@ def analyze_resume(request: LiveAnalysisRequest):
     analysis_run_id = uuid4()
     scoring_config = ScoringConfig()
     manifest = request.intake.manifest
+    from cci.contradictions.expectations import build_observable_claim_expectations
+    observable_expectations = build_observable_claim_expectations(request.intake)
     extracted = list(dict.fromkeys(url for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls',
         'deployment_urls', 'portfolio_urls', 'project_links') for url in getattr(manifest, key)))
     selected = request.external_urls if request.external_urls is not None else extracted
+    def _fetch_github_sources():
+        try:
+            return acquire_sources(
+                request.github_urls,
+                request.github_identity,
+                analysis_run_id,
+                observable_expectations=observable_expectations,
+            )
+        except TypeError:
+            return acquire_sources(
+                request.github_urls,
+                request.github_identity,
+                analysis_run_id,
+            )
+
     with ThreadPoolExecutor(max_workers=2) as pool:
-        github = pool.submit(
-            acquire_sources,
-            request.github_urls,
-            request.github_identity,
-            analysis_run_id,
-        )
+        github = pool.submit(_fetch_github_sources)
         public = pool.submit(acquire_public_links, selected)
         evidence, ownership, sources = github.result()
         sources.extend(public.result())
@@ -35,7 +47,8 @@ def analyze_resume(request: LiveAnalysisRequest):
             sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted GitHub link not selected for this run.'})
     state = execute_analysis_pipeline(candidate_id=request.intake.candidate_id, role=request.role,
         jd_text=request.jd_text, declared_claims=manifest.claimed_skills, custom_evidence=evidence,
-        evidence_mode='live', scoring_config=scoring_config, analysis_run_id=analysis_run_id)
+        evidence_mode='live', scoring_config=scoring_config, analysis_run_id=analysis_run_id,
+        observable_expectations=observable_expectations)
     if state.dossier is None:
         raise RuntimeError('The scoring pipeline could not produce a dossier.')
     limitations = [

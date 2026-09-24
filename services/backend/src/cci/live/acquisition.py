@@ -44,6 +44,8 @@ from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
 from cci.live.repository_review import review_repository
+from cci.contradictions.candidates import evaluate_repository_candidates
+from cci.contradictions.expectations import ObservableClaimExpectation
 from cci.live.scan_inventory import IGNORED_COMPONENTS, InventoryCounter, report_is_parseable
 from cci.security.repository_workspace import WorkspaceSecurityError
 
@@ -274,18 +276,35 @@ def build_live_evidence_records(
     for (observation, artifact, content_hash, fingerprint), evidence_id in zip(
         prepared, evidence_ids
     ):
-        artifact_attribution = path_attributions.get(observation.artifact_path)
-        if artifact_attribution is None:
-            artifact_attribution = unknown_artifact_attribution(
-                immutable_revision,
-                observation.artifact_path,
-                "No path-specific commit history was available for this observation; repository contribution is not used as fallback.",
-            )
-        artifact_recency = artifact_recencies.get(observation.artifact_path)
-        if artifact_recency is None:
-            artifact_recency = unknown_artifact_recency(
-                repository_last_activity,
-                "Path history was unavailable or outside the bounded request budget; repository activity is not used as artifact recency.",
+        if observation.artifact_path is None:
+            artifact_attribution = None
+            artifact_recency = None
+            ownership_factor = repository_contribution.candidate_commit_ratio
+            recency_factor = 1.0
+        else:
+            artifact_attribution = path_attributions.get(observation.artifact_path)
+            if artifact_attribution is None:
+                artifact_attribution = unknown_artifact_attribution(
+                    immutable_revision,
+                    observation.artifact_path,
+                    "No path-specific commit history was available for this observation; repository contribution is not used as fallback.",
+                )
+            artifact_recency = artifact_recencies.get(observation.artifact_path)
+            if artifact_recency is None:
+                artifact_recency = unknown_artifact_recency(
+                    repository_last_activity,
+                    "Path history was unavailable or outside the bounded request budget; repository activity is not used as artifact recency.",
+                )
+            ownership_factor = artifact_attribution.ownership_score
+            recency_factor = (
+                compute_recency_factor(
+                    calculate_elapsed_years(
+                        artifact_recency.last_meaningful_modification_at
+                    ),
+                    observation.target_capability,
+                )
+                if artifact_recency.state == "known"
+                else 1.0
             )
 
         family_id = observation.evidence_family_id
@@ -304,23 +323,56 @@ def build_live_evidence_records(
 
         factors = EvidenceConfidenceFactors(
             artifact_integrity=1.0,
-            ownership_score=artifact_attribution.ownership_score,
-            recency_factor=(
-                compute_recency_factor(
-                    calculate_elapsed_years(
-                        artifact_recency.last_meaningful_modification_at
-                    ),
-                    observation.target_capability,
-                )
-                if artifact_recency.state == "known"
-                else 1.0
-            ),
+            ownership_score=ownership_factor,
+            recency_factor=recency_factor,
             verification_level=0.55,
             depth_specificity=0.5,
             source_reliability=compute_source_reliability(
                 observation.source_family
             ).posterior_mean,
         )
+        provenance = {
+            "artifact_path": observation.artifact_path,
+            "artifact_sha256": content_hash,
+            "symbol_or_line": observation.symbol_or_line,
+            "raw_support_text": observation.raw_support_text[:2000],
+            "extractor_version": observation.extractor_version,
+            "signal_rule_id": observation.signal_rule_id or "legacy_unknown",
+            "signal_rule_version": observation.signal_rule_version or "legacy_unknown",
+            "verification_status": "live_static_inspection",
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "artifact_recency": (
+                artifact_recency.model_dump(mode="json")
+                if artifact_recency is not None
+                else None
+            ),
+            "artifact_url": (
+                f"{source_locator}/blob/{immutable_revision}/"
+                f"{quote(observation.artifact_path, safe='/')}"
+                if artifact and observation.artifact_path
+                else source_locator
+            ),
+            "repository_association": repository_association.model_dump(
+                mode="json"
+            ),
+            "repository_contribution": repository_contribution.model_dump(
+                mode="json"
+            ),
+            "artifact_attribution": (
+                artifact_attribution.model_dump(mode="json")
+                if artifact_attribution is not None
+                else None
+            ),
+            "evidence_family_basis": family_basis,
+        }
+        if observation.negative_evidence_details is not None:
+            provenance["negative_evidence_details"] = observation.negative_evidence_details.model_dump(mode="json")
+            provenance["negative_evidence_qualification"] = observation.negative_evidence_qualification
+            if observation.artifact_path is None:
+                provenance["ownership_basis"] = "repository_candidate_commit_ratio"
+                provenance["ownership_limitations"] = [
+                    "Repository commit ratio is used as ownership factor for repository-scope negative observation; it is not artifact authorship."
+                ]
         records.append(
             EvidenceRecord(
                 evidence_id=evidence_id,
@@ -332,6 +384,7 @@ def build_live_evidence_records(
                 target_capability=observation.target_capability,
                 technical_signal_strength=observation.technical_signal_strength,
                 is_positive_support=observation.is_positive_support,
+                negative_evidence_details=observation.negative_evidence_details,
                 confidence_factors=factors,
                 confidence=factors.composite_confidence,
                 artifact_attribution=artifact_attribution,
@@ -340,34 +393,7 @@ def build_live_evidence_records(
                 evidence_family_id=family_id,
                 observation_type=observation.observation_type,
                 evidence_family_basis=family_basis,
-                provenance={
-                    "artifact_path": observation.artifact_path,
-                    "artifact_sha256": content_hash,
-                    "symbol_or_line": observation.symbol_or_line,
-                    "raw_support_text": observation.raw_support_text[:2000],
-                    "extractor_version": observation.extractor_version,
-                    "signal_rule_id": observation.signal_rule_id or "legacy_unknown",
-                    "signal_rule_version": observation.signal_rule_version or "legacy_unknown",
-                    "verification_status": "live_static_inspection",
-                    "observed_at": datetime.now(timezone.utc).isoformat(),
-                    "artifact_recency": artifact_recency.model_dump(mode="json"),
-                    "artifact_url": (
-                        f"{source_locator}/blob/{immutable_revision}/"
-                        f"{quote(observation.artifact_path, safe='/')}"
-                        if artifact
-                        else source_locator
-                    ),
-                    "repository_association": repository_association.model_dump(
-                        mode="json"
-                    ),
-                    "repository_contribution": repository_contribution.model_dump(
-                        mode="json"
-                    ),
-                    "artifact_attribution": artifact_attribution.model_dump(
-                        mode="json"
-                    ),
-                    "evidence_family_basis": family_basis,
-                },
+                provenance=provenance,
             )
         )
     return records
@@ -633,6 +659,7 @@ def acquire_repository(
     association_basis,
     attribution_path_budget,
     analysis_run_id: UUID | None = None,
+    observable_expectations: Sequence[ObservableClaimExpectation] = (),
 ):
     analysis_run_id = analysis_run_id or uuid4()
     owner, repo = github_parts(url)
@@ -725,6 +752,16 @@ def acquire_repository(
         snapshot, artifacts = index_repository_artifacts(workspace, url, sha)
         raw = run_code_intelligence(workspace.root, url, sha, artifacts)
         raw += run_db_test_infra_intelligence(workspace.root, url, sha, artifacts)
+        artifacts_bytes = {
+            artifact.relative_path: (Path(workspace.root) / artifact.relative_path).read_bytes()
+            for artifact in artifacts
+            if (Path(workspace.root) / artifact.relative_path).is_file()
+        }
+        negative_candidates = evaluate_repository_candidates(
+            observable_expectations, url, sha, artifacts_bytes, completeness
+        )
+        if negative_candidates:
+            raw.extend(negative_candidates)
         by_path = {a.relative_path: a for a in artifacts}
         path_scores = {}
         for observation in raw:
@@ -925,7 +962,12 @@ def inspect_git_blobs(fetcher, owner, repo, sha, workspace):
     return len(files) - stored, inventory.receipt()
 
 
-def acquire_sources(urls, identity, analysis_run_id: UUID | None = None):
+def acquire_sources(
+    urls,
+    identity,
+    analysis_run_id: UUID | None = None,
+    observable_expectations: Sequence[ObservableClaimExpectation] = (),
+):
     analysis_run_id = analysis_run_id or uuid4()
     records, ownership, receipts, repos = [], [], [], []
     association_basis = {}
@@ -993,6 +1035,7 @@ def acquire_sources(urls, identity, analysis_run_id: UUID | None = None):
                     association_basis=association_basis.get(url.lower(), 'selected_repository_url'),
                     attribution_path_budget=path_budget,
                     analysis_run_id=analysis_run_id,
+                    observable_expectations=observable_expectations,
                 )
                 records.extend(evidence)
                 ownership.append(assessment)
