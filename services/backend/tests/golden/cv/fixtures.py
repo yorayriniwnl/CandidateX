@@ -11,13 +11,14 @@ def create_golden_pdf_with_hidden_links() -> bytes:
     page = doc.new_page(width=612, height=792)  # Standard Letter size
 
     # Header
-    page.insert_text((50, 60), "Alice Developer", fontsize=18)
-    page.insert_text((50, 80), "Email: alice.dev@example.com", fontsize=10)
-    page.insert_text((50, 95), "Personal Site: https://alice-dev.vercel.app?utm_source=resume&ref=cv", fontsize=10)
+    page.insert_text((50, 60), "Jordan Example", fontsize=18)
+    page.insert_text((50, 75), "SYNTHETIC DEMONSTRATION DATA", fontsize=10)
+    page.insert_text((50, 90), "Email: jordan@example.test", fontsize=10)
+    page.insert_text((50, 105), "Personal Site: https://jordan-example.vercel.app?utm_source=resume&ref=cv", fontsize=10)
 
     # Section 1: Links (one visible, one hidden behind anchor text)
     page.insert_text((50, 130), "Portfolio & Code:", fontsize=12)
-    page.insert_text((50, 150), "Visible GitHub: https://github.com/alicedev", fontsize=10)
+    page.insert_text((50, 150), "Visible GitHub: https://github.com/jordan-example", fontsize=10)
 
     # Insert anchor text "Distributed Cache Project" with a hidden URI annotation over it
     rect = fitz.Rect(50, 170, 220, 185)
@@ -25,7 +26,7 @@ def create_golden_pdf_with_hidden_links() -> bytes:
     page.insert_link({
         "kind": fitz.LINK_URI,
         "from": rect,
-        "uri": "https://github.com/alicedev/distributed-cache.git",
+        "uri": "https://github.com/jordan-example/distributed-cache.git",
     })
 
     # Another hidden link
@@ -34,7 +35,7 @@ def create_golden_pdf_with_hidden_links() -> bytes:
     page.insert_link({
         "kind": fitz.LINK_URI,
         "from": rect2,
-        "uri": "https://www.linkedin.com/in/alicedev?ref=resume_pdf",
+        "uri": "https://www.linkedin.com/in/jordan-example?ref=resume_pdf",
     })
 
     # Section 2: Skills
@@ -54,9 +55,10 @@ def create_golden_pdf_with_hidden_links() -> bytes:
 def create_golden_docx_with_links() -> bytes:
     """Generates a valid digital DOCX with paragraph text, table, and embedded hyperlinks."""
     doc = docx.Document()
-    doc.add_heading("Bob Engineer", level=1)
-    doc.add_paragraph("Email: bob.eng@example.com")
-    doc.add_paragraph("GitHub: https://github.com/bobeng")
+    doc.add_heading("SYNTHETIC DEMONSTRATION DATA", level=3)
+    doc.add_heading("Alex Rivera", level=1)
+    doc.add_paragraph("Email: alex@example.test")
+    doc.add_paragraph("GitHub: https://github.com/alex-rivera")
 
     # Add paragraph with hyperlink
     p = doc.add_paragraph("Check out my live demo at: ")

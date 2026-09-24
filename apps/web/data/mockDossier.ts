@@ -1,3 +1,4 @@
+// SYNTHETIC DEMONSTRATION DATA
 import { Dossier, CEGGraph } from '../types/cci';
 
 export const MOCK_DOSSIER: Dossier = {
@@ -269,8 +270,8 @@ export const MOCK_DOSSIER: Dossier = {
   ownership_assessments: [
     {
       assessment_id: 'own_1',
-      repository_url: 'https://github.com/ayush-dev/distributed-cache',
-      candidate_identifier: 'ayush-dev',
+      repository_url: 'https://github.com/jordan-example/distributed-cache',
+      candidate_identifier: 'jordan-example',
       ownership_score: 0.96,
       feature_vector: { commit_ratio: 0.94, line_ratio: 0.97, is_creator: 1.0 },
       is_fork: false,
@@ -281,7 +282,7 @@ export const MOCK_DOSSIER: Dossier = {
     {
       assessment_id: 'own_2',
       repository_url: 'https://github.com/corp-infra/payment-gateway',
-      candidate_identifier: 'ayush-dev',
+      candidate_identifier: 'jordan-example',
       ownership_score: 0.42,
       feature_vector: { commit_ratio: 0.38, line_ratio: 0.44, is_creator: 0.0 },
       is_fork: false,
@@ -298,7 +299,7 @@ export const MOCK_DOSSIER: Dossier = {
       status: 'corroborated',
       confidence: 0.92,
       grounding_evidence_ids: ['ev_backend_01', 'ev_backend_04'],
-      citation_urls: ['https://github.com/ayush-dev/distributed-cache'],
+      citation_urls: ['https://github.com/jordan-example/distributed-cache'],
       explanation: 'Confirmed in repository commit history: implemented non-blocking socket reactor with redis protocol emulation and ring-hash partitioning.',
     },
     {
@@ -308,7 +309,7 @@ export const MOCK_DOSSIER: Dossier = {
       status: 'contradicted',
       confidence: 0.88,
       grounding_evidence_ids: ['ev_test_02', 'ev_test_05'],
-      citation_urls: ['https://github.com/ayush-dev/distributed-cache/tests'],
+      citation_urls: ['https://github.com/jordan-example/distributed-cache/tests'],
       explanation: 'Static test topology analysis found 4 of 6 services contain placeholder assert True statements, and no property-based Hypothesis suites were present in repository manifests.',
     },
     {
@@ -494,9 +495,9 @@ export const MOCK_GRAPH: CEGGraph = {
   candidate_id: 'cand_7a8b9c0d1e',
   analysis_run_id: 'run_6e5d4c3b2a',
   nodes: [
-    { id: 'src_gh_cache', type: 'source', label: 'ayush-dev/cache', properties: { url: 'https://github.com/ayush-dev/distributed-cache', stars: 124 } },
+    { id: 'src_gh_cache', type: 'source', label: 'jordan-example/cache', properties: { url: 'https://github.com/jordan-example/distributed-cache', stars: 124 } },
     { id: 'src_gh_pay', type: 'source', label: 'corp/payment-gw', properties: { url: 'https://github.com/corp-infra/payment-gateway', commits: 38 } },
-    { id: 'src_cv_pdf', type: 'source', label: 'Ayush_CV.pdf', properties: { pages: 2, extracted_links: 5 } },
+    { id: 'src_cv_pdf', type: 'source', label: 'Jordan_Example_CV.pdf (SYNTHETIC DEMONSTRATION DATA)', properties: { pages: 2, extracted_links: 5 } },
     { id: 'clm_cache_perf', type: 'claim', label: 'Claim: 10k RPS Cache', properties: { capability: 'backend_engineering', status: 'corroborated' } },
     { id: 'clm_testing_cov', type: 'claim', label: 'Claim: 95% Coverage', properties: { capability: 'testing_quality', status: 'contradicted' } },
     { id: 'art_ast_socket', type: 'artifact', label: 'socket_reactor.py', properties: { lines: 480, complexity: 14 } },

@@ -337,7 +337,7 @@ export const EvidenceProvenanceModal: React.FC<EvidenceProvenanceModalProps> = (
                   <div className="flex-1 p-3 bg-slate-900/50 border border-slate-800 rounded-lg text-center w-full">
                     <span className="text-[10px] text-sky-400 font-mono block">1. RAW SOURCE</span>
                     <div className="font-bold text-slate-100 mt-1 truncate">
-                      {incomingSources[0]?.label || 'ayush-dev/distributed-cache'}
+                      {incomingSources[0]?.label || 'jordan-example/distributed-cache'}
                     </div>
                     <span className="text-[10px] text-slate-500 block">GitHub Repository</span>
                   </div>

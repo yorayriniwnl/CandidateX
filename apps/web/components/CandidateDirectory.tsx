@@ -27,8 +27,8 @@ import { AnimatedCounter } from './ui/AnimatedCounter';
 const FALLBACK_CANDIDATES: CandidateSummary[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    display_name: 'Ayush Roy',
-    primary_email: '2329027@kiit.ac.in',
+    display_name: 'Jordan Example (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'jordan@example.test',
     has_completed_dossier: true,
     rci: 90.0,
     coverage: 0.18,
@@ -38,8 +38,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    display_name: 'Archi Srivastava',
-    primary_email: '2329100@kiit.ac.in',
+    display_name: 'Alex Rivera (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'alex@example.test',
     has_completed_dossier: true,
     rci: 86.0,
     coverage: 0.182,
@@ -49,8 +49,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
-    display_name: 'Atmaja Tripathy',
-    primary_email: '2329179@kiit.ac.in',
+    display_name: 'Morgan Lee (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'morgan@example.test',
     has_completed_dossier: true,
     rci: 88.0,
     coverage: 0.18,
@@ -60,8 +60,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
-    display_name: 'Shreya',
-    primary_email: '2329065@kiit.ac.in',
+    display_name: 'Taylor Casey (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'taylor@example.test',
     has_completed_dossier: true,
     rci: 89.0,
     coverage: 0.18,
@@ -71,8 +71,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '55555555-5555-5555-5555-555555555555',
-    display_name: 'Shreshth Nigam',
-    primary_email: '2329064@kiit.ac.in',
+    display_name: 'Sam Vance (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'sam@example.test',
     has_completed_dossier: true,
     rci: 89.0,
     coverage: 0.18,
@@ -82,8 +82,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
   },
   {
     id: '77777777-7777-7777-7777-777777777777',
-    display_name: 'P Ajay Kumar',
-    primary_email: '2329195@kiit.ac.in',
+    display_name: 'Quinn Avery (SYNTHETIC DEMONSTRATION DATA)',
+    primary_email: 'quinn@example.test',
     has_completed_dossier: true,
     rci: 69.9,
     coverage: 0.0,

@@ -8,7 +8,7 @@ from cci.live.report import build_report
 
 def test_docx_identity_tables_sections_and_skill_groups():
     document = docx.Document()
-    document.add_table(rows=1, cols=1).cell(0, 0).text = 'AYUSH ROY\nayush@example.com'
+    document.add_table(rows=1, cols=1).cell(0, 0).text = 'JORDAN EXAMPLE\njordan@example.test'
     for line in ['Professional Summary', 'Software developer building public applications.',
                  'Technical Skills', 'DevOps & Tools: Docker, CI/CD, Git',
                  'Currently Learning: AWS (S3, Lambda), RAG',
@@ -21,7 +21,7 @@ def test_docx_identity_tables_sections_and_skill_groups():
     data = io.BytesIO()
     document.save(data)
     result = parse_resume(data.getvalue(), 'resume.docx')
-    assert result.manifest.display_name == 'AYUSH ROY'
+    assert result.manifest.display_name == 'JORDAN EXAMPLE'
     assert 'CI/CD' in result.manifest.claimed_skills
     assert 'DevOps & Tools: Docker' not in result.manifest.claimed_skills
     assert 'AWS (S3, Lambda)' in result.manifest.claimed_skills
@@ -144,7 +144,7 @@ def test_large_repository_falls_back_to_commit_pinned_blobs(monkeypatch):
 
 def test_bare_portfolio_urls_do_not_extract_email_domains():
     from cci.intake.parsers.pdf import URL_REGEX
-    matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | ayushroy.dev@gmail.com | person@sub.example.com | issuer.org/verify/abc | https://issuer.org?credential=123')]
+    matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | jordan.example@example.test | person@sub.example.com | issuer.org/verify/abc | https://issuer.org?credential=123')]
     assert matches == ['example.dev', 'issuer.org/verify/abc', 'https://issuer.org?credential=123']
 
 def test_report_builds_stable_claim_ledger_and_academic_record():

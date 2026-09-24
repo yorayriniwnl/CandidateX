@@ -1,3 +1,4 @@
+# SYNTHETIC DEMONSTRATION DATA
 # Senior / Staff Site Reliability Engineer (SRE) — Platform Infrastructure
 
 ## Company Overview
