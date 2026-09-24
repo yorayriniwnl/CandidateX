@@ -110,16 +110,68 @@ class SourceFamily(str, Enum):
 
 
 class SourceState(str, Enum):
-    """Operational/observation state of an evidence source."""
+    """Canonical lifecycle state of an evidence source.
 
+    Lifecycle taxonomy:
+    - DECLARED: Listed by candidate/manifest; not yet fetched or accessed.
+    - DISCOVERED: Discovered via public links or repository references.
+    - QUEUED: Staged for network retrieval or analysis.
+    - FETCHING: Actively being retrieved.
+    - FETCHED: Raw payload retrieved but not yet analyzed.
+    - PARSED: Syntactically parsed into AST or structured form.
+    - OBSERVED: Static inspection complete; technical observations extracted.
+    - CORROBORATED: Corroborated with candidate technical claims.
+    - VERIFIED: Formally verified by authoritative third-party issuer.
+    - ACCESS_RESTRICTED: Rate-limited, 403, or blocked by security policies.
+    - INACCESSIBLE: 404, DNS failure, network unreachable, or timeout.
+    - FAILED: Malformed content, corrupted archive, or extraction error.
+    - DEFERRED: Bounded out or queued for subsequent analysis pass.
+    - NOT_SCANNED: Omitted due to safety, limits, or scan policy.
+    """
+
+    DECLARED = "declared"
+    DISCOVERED = "discovered"
+    QUEUED = "queued"
+    FETCHING = "fetching"
+    FETCHED = "fetched"
+    PARSED = "parsed"
     OBSERVED = "observed"
-    UNAVAILABLE = "unavailable"
-    RATE_LIMITED = "rate_limited"
-    UNSUPPORTED = "unsupported"
-    PARSE_FAILED = "parse_failed"
-    SECURITY_BLOCKED = "security_blocked"
-    TOO_LARGE = "too_large"
-    TIMEOUT = "timeout"
+    CORROBORATED = "corroborated"
+    VERIFIED = "verified"
+    ACCESS_RESTRICTED = "access_restricted"
+    INACCESSIBLE = "inaccessible"
+    FAILED = "failed"
+    DEFERRED = "deferred"
+    NOT_SCANNED = "not_scanned"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.lower()
+            aliases = {
+                "unavailable": "inaccessible",
+                "rate_limited": "access_restricted",
+                "security_blocked": "access_restricted",
+                "unsupported": "inaccessible",
+                "parse_failed": "failed",
+                "timeout": "inaccessible",
+                "too_large": "access_restricted",
+            }
+            target = aliases.get(val_norm, val_norm)
+            for member in cls:
+                if member.value == target or member.name.lower() == target:
+                    return member
+        return super()._missing_(value)
+
+
+# Backward compatibility aliases
+SourceState.UNAVAILABLE = SourceState.INACCESSIBLE
+SourceState.RATE_LIMITED = SourceState.ACCESS_RESTRICTED
+SourceState.SECURITY_BLOCKED = SourceState.ACCESS_RESTRICTED
+SourceState.UNSUPPORTED = SourceState.INACCESSIBLE
+SourceState.PARSE_FAILED = SourceState.FAILED
+SourceState.TIMEOUT = SourceState.INACCESSIBLE
+SourceState.TOO_LARGE = SourceState.ACCESS_RESTRICTED
 
 
 class ScanDepth(str, Enum):

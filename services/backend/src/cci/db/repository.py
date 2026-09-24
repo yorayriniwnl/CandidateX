@@ -191,7 +191,7 @@ def save_candidate(
             platform="github",
             identifier=username,
             profile_url=gh_url,
-            is_verified=True,
+            is_verified=False,
         )
         session.add(ident)
 
@@ -207,7 +207,7 @@ def save_candidate(
             candidate_id=candidate.id,
             source_family=fam,
             source_url=url,
-            state="observed",
+            state="declared",
         )
         session.add(src)
 

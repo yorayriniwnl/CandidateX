@@ -140,11 +140,15 @@ class CandidateSource(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )  # resume, github, deployment, etc.
     source_url: Mapped[str] = mapped_column(String(1024), nullable=False)
     state: Mapped[str] = mapped_column(
-        String(50), default="observed", nullable=False
-    )  # observed, unavailable, etc.
+        String(50), default="declared", nullable=False
+    )  # declared, observed, etc.
     failure_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     candidate: Mapped["Candidate"] = relationship("Candidate", back_populates="sources")
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("state", "declared")
+        super().__init__(**kwargs)
 
 
 class Project(Base, UUIDPrimaryKeyMixin, TimestampMixin):
