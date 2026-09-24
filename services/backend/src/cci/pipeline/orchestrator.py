@@ -44,6 +44,7 @@ from cci.domain.enums import (
     AnalysisStage,
     CanonicalRole,
     CapabilityKey,
+    EvidenceMode,
     GraphEdgeType,
     GraphNodeType,
     SourceFamily,
@@ -139,6 +140,15 @@ def execute_analysis_pipeline(
     observable_expectations: Sequence[ObservableClaimExpectation] = (),
 ) -> PipelineExecutionState:
     """Executes the complete 10-stage Candidate Capability Intelligence analysis pipeline."""
+    mode = EvidenceMode(evidence_mode)
+    raw_evidence = list(custom_evidence or [])
+    if mode == EvidenceMode.LIVE:
+        for ev in raw_evidence:
+            if ev.provenance.get("synthetic") is True or getattr(ev, "synthetic", False):
+                raise ValueError(
+                    f"Synthetic evidence record '{ev.evidence_id}' must never appear in a live candidate analysis run."
+                )
+
     cfg = scoring_config or ScoringConfig()
     run_id = analysis_run_id or uuid4()
     state = PipelineExecutionState(
@@ -373,7 +383,7 @@ def execute_analysis_pipeline(
         dossier_versions = dict(dossier.versions)
         dossier_versions["scoring_config_version"] = cfg.version
         dossier = dossier.model_copy(update={
-            "evidence_records": raw_evidence, "evidence_mode": evidence_mode,
+            "evidence_records": raw_evidence, "evidence_mode": mode.value,
             "scenario": scenario, "role_weights": role_weights,
             "versions": dossier_versions,
             "system_limitations": dossier.system_limitations + [

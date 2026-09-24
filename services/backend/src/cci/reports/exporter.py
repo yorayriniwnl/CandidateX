@@ -57,9 +57,18 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
     )
     role_title = dossier.role.value.replace("_", " ").title()
 
+    is_sim = str(dossier.evidence_mode).lower() in ("synthetic", "research_simulation")
+    sim_banner = [
+        "> [!WARNING]",
+        "> **RESEARCH SIMULATION / SYNTHETIC DEMONSTRATION**",
+        "> This dossier was generated from synthetic demonstration data. It does NOT evaluate a real human candidate.",
+        "",
+    ] if is_sim else []
+
     lines = [
         f"# Candidate Technical Intelligence Brief: {candidate_name}",
         f"**Evidence mode:** {dossier.evidence_mode} | **Scenario:** {dossier.scenario or 'none'}",
+        *sim_banner,
         f"**Role:** {role_title} | **Candidate ID:** `{dossier.candidate_id}`",
         f"**Generated:** {gen_time} | **Platform:** Candidate Capability Intelligence (CCI) v0.1.0-paper",
         "",
@@ -772,6 +781,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
 </head>
 <body>
 <p><strong>Evidence mode: {html.escape(dossier.evidence_mode)}. Scenario: {html.escape(dossier.scenario or "none")}. Synthetic runs demonstrate the method; they do not assess real candidates.</strong></p>
+    {f'<div class="alert-banner" style="background:#fee2e2; border-color:#ef4444; color:#991b1b; margin-bottom:16px;"><strong>RESEARCH SIMULATION:</strong> This profile was generated from synthetic simulation data and does not assess a real candidate.</div>' if str(dossier.evidence_mode).lower() in ("synthetic", "research_simulation") else ""}
     <div class="container">
         <!-- Action Bar (Screen only) -->
         <div class="action-bar">

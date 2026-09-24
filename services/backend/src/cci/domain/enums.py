@@ -381,3 +381,53 @@ class GraphEdgeType(str, Enum):
                 if member.value == target or member.name == target:
                     return member
         return super()._missing_(value)
+
+
+class EvidenceMode(str, Enum):
+    """Canonical data origin mode enforcing unmistakable boundaries between live and synthetic data.
+
+    Taxonomy:
+    - LIVE: Real candidate intake, actual acquired artifacts, verified or unverified live sources.
+    - SYNTHETIC: Explicit research demonstration scenario.
+    - TEST_FIXTURE: Deterministic test fixtures for unit/integration suites.
+    - RESEARCH_SIMULATION: Academic/empirical simulation experiments.
+    """
+
+    LIVE = "live"
+    SYNTHETIC = "synthetic"
+    TEST_FIXTURE = "test_fixture"
+    RESEARCH_SIMULATION = "research_simulation"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            val_norm = value.lower().replace("-", "_")
+            aliases = {
+                "provided": "test_fixture",
+                "real": "live",
+                "production": "live",
+                "simulation": "research_simulation",
+                "experiment": "research_simulation",
+                "test": "test_fixture",
+                "fixture": "test_fixture",
+                "demo": "synthetic",
+            }
+            target = aliases.get(val_norm, val_norm)
+            for member in cls:
+                if member.value == target or member.name.lower() == target:
+                    return member
+        return super()._missing_(value)
+
+    @property
+    def is_synthetic(self) -> bool:
+        """Returns True if this mode represents synthetic or simulated data."""
+        return self in (EvidenceMode.SYNTHETIC, EvidenceMode.RESEARCH_SIMULATION)
+
+    @property
+    def is_live(self) -> bool:
+        """Returns True if this mode represents live real candidate data."""
+        return self == EvidenceMode.LIVE
+
+
+# Backward compatibility aliases
+EvidenceMode.PROVIDED = EvidenceMode.TEST_FIXTURE
