@@ -60,19 +60,33 @@ def generate_interview_questions(
             f" (e.g. in {', '.join(sample_artifacts)})" if sample_artifacts else ""
         )
 
+        matched_claim = next(
+            (c.claim_text for c in (claims_corroboration or []) if getattr(c, "target_capability", None) == cap_key),
+            None
+        )
+
         if has_conflict:
-            q_text = (
-                f"We observed conflicting signals regarding {cap_key.value}{art_mention}. "
-                f"Could you explain your specific design decisions and the engineering trade-offs you made?"
-            )
             d_k_val = conflict.contradiction_diagnostic if conflict else 0.0
+            if matched_claim:
+                q_text = (
+                    f"Regarding your declaration '{matched_claim}' in {cap_key.value}{art_mention}: "
+                    f"Static code inspection observed conflicting signals (D_k={d_k_val:+.2f}). "
+                    f"Could you explain the production constraints, technical debt, or architectural trade-offs behind this discrepancy?"
+                )
+            else:
+                q_text = (
+                    f"We observed conflicting signals regarding {cap_key.value}{art_mention} (D_k={d_k_val:+.2f}). "
+                    f"Could you explain your specific design decisions and the engineering trade-offs you made?"
+                )
             rationale = (
                 f"High contradiction diagnostic (D_k={d_k_val:.2f}) "
                 f"with role importance weight w_k={probe.role_weight:.3f}."
             )
             guidance = (
                 "Listen for candid discussion of system limitations, debugging approaches, "
-                "and how the candidate reconciled conflicting engineering requirements."
+                "and how the candidate reconciled conflicting engineering requirements. "
+                "Rubric — Positive: candidate is transparent about technical debt and trade-offs. "
+                "Negative: candidate is defensive or unfamiliar with the committed repository code."
             )
             followups = [
                 "What would you do differently if rebuilding this component today?",

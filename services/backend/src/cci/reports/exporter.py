@@ -242,6 +242,74 @@ def _build_provenance_conclusions(
     return conclusions
 
 
+
+def _build_interview_blueprint(dossier: Dossier) -> dict[str, Any]:
+    """Constructs a 3-phase structured 45-minute technical interview agenda from verified evidence."""
+    # Phase 1: Verified Technical Depth (00-15m)
+    observed = [
+        (cap, est) for cap, est in (dossier.capability_estimates or {}).items()
+        if est.is_observed and est.estimate is not None
+    ]
+    observed_sorted = sorted(observed, key=lambda x: (x[1].coverage_k, x[1].estimate or 0), reverse=True)
+    top_verified = observed_sorted[0] if observed_sorted else None
+
+    # Phase 2: Contradiction Defense (15-30m)
+    conflicts = [
+        (cap, conf) for cap, conf in (dossier.capability_conflicts or {}).items()
+        if conf.has_meaningful_conflict or conf.contradiction_diagnostic < 0.0
+    ]
+    conflicts_sorted = sorted(conflicts, key=lambda x: x[1].contradiction_diagnostic)
+    top_conflict = conflicts_sorted[0] if conflicts_sorted else None
+
+    # Phase 3: Unobserved Dimension Scenario (30-45m)
+    unobserved_probes = [
+        p for p in (dossier.interview_probes or [])
+        if p.coverage_gap_term > 0.35 or (
+            p.capability_key in dossier.capability_estimates
+            and not dossier.capability_estimates[p.capability_key].is_observed
+        )
+    ]
+    top_gap = unobserved_probes[0] if unobserved_probes else (
+        dossier.interview_probes[0] if dossier.interview_probes else None
+    )
+
+    cap1_name = top_verified[0].value.replace("_", " ").title() if top_verified else "Core Engineering Architecture"
+    score1 = f"{top_verified[1].estimate:.1f}/100" if top_verified else "Observed"
+    cov1 = f"{top_verified[1].coverage_k * 100:.1f}%" if top_verified else "Grounding Available"
+
+    cap2_name = top_conflict[0].value.replace("_", " ").title() if top_conflict else "System Edge Cases & Test Coverage"
+    diag2 = f"D_k = {top_conflict[1].contradiction_diagnostic:+.2f}" if top_conflict else "Consistent"
+
+    cap3_name = top_gap.capability_key.value.replace("_", " ").title() if top_gap else "Distributed Systems Scalability"
+    gap3 = f"{top_gap.coverage_gap_term * 100:.1f}% unobserved" if top_gap else "Exploratory Dimension"
+
+    return {
+        "phase_1": {
+            "title": "Phase 1 (00:00–15:00): Verified Technical Mastery & Authorship Deep-Dive",
+            "capability": cap1_name,
+            "metric": f"{score1} (Cov: {cov1})",
+            "objective": f"Probe deep architectural decisions, concurrency patterns, and authored code paths in {cap1_name}.",
+            "rubric_pos": "Explains architectural trade-offs, cites specific profiling metrics, demonstrates clear authorship.",
+            "rubric_neg": "Unfamiliar with committed code details, relies on third-party framework defaults as personal design.",
+        },
+        "phase_2": {
+            "title": "Phase 2 (15:00–30:00): Contradiction Defense & Engineering Candor",
+            "capability": cap2_name,
+            "metric": diag2,
+            "objective": f"Address discrepancies between resume declarations and static code observations in {cap2_name}.",
+            "rubric_pos": "Transparent about technical debt, clarifies production constraints and why trade-offs were made.",
+            "rubric_neg": "Defensive, claims unverified features are fully tested, or dismisses inspection findings.",
+        },
+        "phase_3": {
+            "title": "Phase 3 (30:00–45:00): Unobserved Dimension Architectural Whiteboard",
+            "capability": cap3_name,
+            "metric": gap3,
+            "objective": f"Evaluate unobserved requirements in {cap3_name} through hands-on system design (Missing = UNKNOWN, not zero).",
+            "rubric_pos": "Applies rigorous first-principles design (data partitioning, fault tolerance, API idempotency).",
+            "rubric_neg": "Superficial buzzwords without operational mechanics or failure recovery strategies.",
+        },
+    }
+
 def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate") -> str:
     """Generates a standardized GitHub Flavored Markdown Technical Brief."""
     gen_time = (
@@ -380,6 +448,31 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
             f"{conflict.negative_support_sum:.2f} | {interpretation} | {flag} |"
         )
 
+    # Forensic Contradiction Detail Section
+    contradictions = [
+        (c_key, c_val) for c_key, c_val in dossier.capability_conflicts.items()
+        if c_val.has_meaningful_conflict or c_val.contradiction_diagnostic < 0.0
+    ]
+    if contradictions:
+        lines.extend([
+            "",
+            "### 3.1 Forensic Contradiction Detail & Defense Rubrics",
+            "",
+            "Detailed inspection traces for capabilities where code evidence contradicts claims or expectations:",
+            "",
+        ])
+        for c_key, c_val in contradictions:
+            c_name = c_key.value.replace("_", " ").title()
+            d_score = c_val.contradiction_diagnostic
+            lines.extend([
+                f"#### Discrepancy: {c_name} ($D_k = {d_score:+.2f}$)",
+                f"- **Positive Evidence Mass ($P_k$):** `{c_val.positive_support_sum:.2f}` | **Contradictory Mass ($N_k$):** `{c_val.negative_support_sum:.2f}`",
+                f"- **Meaningful Conflict Flag:** `{'YES — High Discrepancy' if c_val.has_meaningful_conflict else 'Moderate Divergence'}`",
+                f"- **Interviewer Action:** Probe the candidate on specific implementation trade-offs during Phase 2 of the interview.",
+                f"- **Grounding Evidence Trigger IDs:** {', '.join(f'`{str(eid)[:8]}`' for eid in c_val.triggering_evidence_ids[:3]) if c_val.triggering_evidence_ids else 'None attached'}",
+                "",
+            ])
+
     lines.extend(
         [
             "",
@@ -414,6 +507,26 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
                 if q.rationale:
                     lines.append(f"  - *Evidence Rationale:* {q.rationale}")
         lines.append("")
+
+    # 4.1 Executive 45-Minute Timed Technical Interview Blueprint
+    blueprint = _build_interview_blueprint(dossier)
+    lines.extend([
+        "---",
+        "",
+        "## 4.1 Executive 45-Minute Timed Technical Interview Blueprint",
+        "",
+        "Operational interview roadmap structured from verified evidence, contradiction diagnostics, and coverage gaps:",
+        "",
+        "| Time Block | Focus & Target | Verification Objective | Rubric: What to Listen For |",
+        "| :--- | :--- | :--- | :--- |",
+        f"| **00:00 – 15:00**<br>(Phase 1) | **Verified Mastery Deep-Dive**<br>**{blueprint['phase_1']['capability']}**<br>`{blueprint['phase_1']['metric']}` | {blueprint['phase_1']['objective']} | **Positive:** {blueprint['phase_1']['rubric_pos']}<br><br>**Negative:** {blueprint['phase_1']['rubric_neg']} |",
+        f"| **15:00 – 30:00**<br>(Phase 2) | **Contradiction Defense**<br>**{blueprint['phase_2']['capability']}**<br>`{blueprint['phase_2']['metric']}` | {blueprint['phase_2']['objective']} | **Positive:** {blueprint['phase_2']['rubric_pos']}<br><br>**Negative:** {blueprint['phase_2']['rubric_neg']} |",
+        f"| **30:00 – 45:00**<br>(Phase 3) | **Unobserved Gap Scenario**<br>**{blueprint['phase_3']['capability']}**<br>`{blueprint['phase_3']['metric']}` | {blueprint['phase_3']['objective']} | **Positive:** {blueprint['phase_3']['rubric_pos']}<br><br>**Negative:** {blueprint['phase_3']['rubric_neg']} |",
+        "",
+        "> [!TIP]",
+        "> **Interviewer Time Management:** Allocate the full 15 minutes of Phase 3 to live whiteboard or system design. Because missing evidence represents `UNKNOWN` capability (never low capability), Phase 3 ensures the candidate is evaluated fairly on unobserved role requirements without penalizing the absence of public repository artifacts.",
+        "",
+    ])
 
     versions_obj = VersionFamilies.from_dossier_versions(dossier.versions)
     versions_dict = versions_obj.to_dict()
@@ -555,6 +668,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
     role_title = dossier.role.value.replace("_", " ").title()
     cand_safe = html.escape(candidate_name)
 
+    bp = _build_interview_blueprint(dossier)
     # Capability rows
     capability_rows = []
     for cap_key, est in dossier.capability_estimates.items():
@@ -1103,6 +1217,69 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         .text-muted {{ color: var(--text-muted); }}
         .text-sub {{ color: var(--text-sub); }}
 
+
+        /* Interview Blueprint Styles */
+        .blueprint-container {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }}
+        .blueprint-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }}
+        .blueprint-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }}
+        .blueprint-time {{
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-indigo);
+        }}
+        .blueprint-phase-badge {{
+            font-size: 11px;
+            font-family: var(--font-mono);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }}
+        .badge-phase1 {{ background: rgba(16, 185, 129, 0.15); color: #34d399; }}
+        .badge-phase2 {{ background: rgba(244, 63, 94, 0.15); color: #fb7185; }}
+        .badge-phase3 {{ background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }}
+        .blueprint-title {{
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--text-main);
+        }}
+        .blueprint-desc {{
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            flex-grow: 1;
+        }}
+        .rubric-box {{
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 11px;
+            line-height: 1.4;
+        }}
+        .rubric-pos {{ color: #34d399; margin-bottom: 4px; }}
+        .rubric-neg {{ color: #fb7185; }}
+
         /* Footer */
         footer {{
             margin-top: 40px;
@@ -1286,6 +1463,48 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
         <p class="text-sub" style="margin-bottom: 14px;">Inquiries prioritized by information gain <em>I_k</em> to resolve maximum candidate uncertainty during interview rounds.</p>
         <div class="probes-container">
             {"".join(probe_cards)}
+        </div>
+
+        <!-- 3.1 Executive 45-Minute Interview Blueprint -->
+        <div class="section-title">3.1 Executive 45-Minute Timed Technical Interview Blueprint</div>
+        <p class="text-sub" style="margin-bottom: 14px;">Structured interview agenda derived from verified evidence, contradiction diagnostics, and coverage gaps:</p>
+        <div class="blueprint-container">
+            <div class="blueprint-card">
+                <div class="blueprint-header">
+                    <span class="blueprint-time">00:00 – 15:00</span>
+                    <span class="blueprint-phase-badge badge-phase1">Phase 1: Verified Depth</span>
+                </div>
+                <div class="blueprint-title">{html.escape(bp['phase_1']['capability'])} ({html.escape(bp['phase_1']['metric'])})</div>
+                <div class="blueprint-desc">{html.escape(bp['phase_1']['objective'])}</div>
+                <div class="rubric-box">
+                    <div class="rubric-pos"><strong>Positive:</strong> {html.escape(bp['phase_1']['rubric_pos'])}</div>
+                    <div class="rubric-neg"><strong>Negative:</strong> {html.escape(bp['phase_1']['rubric_neg'])}</div>
+                </div>
+            </div>
+            <div class="blueprint-card">
+                <div class="blueprint-header">
+                    <span class="blueprint-time">15:00 – 30:00</span>
+                    <span class="blueprint-phase-badge badge-phase2">Phase 2: Contradiction</span>
+                </div>
+                <div class="blueprint-title">{html.escape(bp['phase_2']['capability'])} ({html.escape(bp['phase_2']['metric'])})</div>
+                <div class="blueprint-desc">{html.escape(bp['phase_2']['objective'])}</div>
+                <div class="rubric-box">
+                    <div class="rubric-pos"><strong>Positive:</strong> {html.escape(bp['phase_2']['rubric_pos'])}</div>
+                    <div class="rubric-neg"><strong>Negative:</strong> {html.escape(bp['phase_2']['rubric_neg'])}</div>
+                </div>
+            </div>
+            <div class="blueprint-card">
+                <div class="blueprint-header">
+                    <span class="blueprint-time">30:00 – 45:00</span>
+                    <span class="blueprint-phase-badge badge-phase3">Phase 3: Gap Architecture</span>
+                </div>
+                <div class="blueprint-title">{html.escape(bp['phase_3']['capability'])} ({html.escape(bp['phase_3']['metric'])})</div>
+                <div class="blueprint-desc">{html.escape(bp['phase_3']['objective'])}</div>
+                <div class="rubric-box">
+                    <div class="rubric-pos"><strong>Positive:</strong> {html.escape(bp['phase_3']['rubric_pos'])}</div>
+                    <div class="rubric-neg"><strong>Negative:</strong> {html.escape(bp['phase_3']['rubric_neg'])}</div>
+                </div>
+            </div>
         </div>
 
         <!-- 4. Self-Claims Matrix -->
