@@ -60,6 +60,36 @@
   line-height: 1.7;
 }
 
+.heroCredit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 9px;
+  max-width: 680px;
+  margin-top: 22px;
+  color: #d7d9eb;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.heroCreditLabel {
+  color: #7e89a3;
+  font: 600 10px/1.3 var(--font-mono), monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.heroCredit strong {
+  color: #f2f0ff;
+  font-weight: 650;
+}
+
+.heroCreditDivider {
+  color: #8f7fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
 .heroActions {
   display: flex;
   flex-wrap: wrap;
@@ -353,6 +383,16 @@
 
   .heroDescription {
     font-size: 16px;
+  }
+
+  .heroCredit {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .heroCreditDivider {
+    display: none;
   }
 
   .heroVisual {

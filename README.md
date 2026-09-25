@@ -236,19 +236,22 @@ Open `http://localhost:3000/` for the command center, then choose Live Evidence.
 
 ---
 
-## Docker Deployment
+## Local Docker Integration Stack
 
-The containerized integration stack is provided in `docker-compose.yml`. It runs PostgreSQL 16, Redis 7, FastAPI, and the Next.js production server. The web container uses `CCI_API_URL=http://backend:8000` for service-to-service calls while the browser-facing API URL remains `http://localhost:8000`. The configuration includes security settings (`no-new-privileges:true`, dropped capabilities, healthchecks, and non-root users):
+The Compose stack is for local development and integration checks. It runs PostgreSQL 16, Redis 7, FastAPI, and the Next.js server. Host ports bind to `127.0.0.1`; the database password must be supplied through the ignored `.env` file. The backend runs in development mode. This stack is not a production deployment: the full `cci.main` API does not enforce user authentication or organization membership, so do not expose it to a network or use it for live hiring data.
 
-```bash
-# Spin up PostgreSQL 16, Redis 7, FastAPI backend, and Next.js frontend
+```powershell
+# Copy the local template, then set POSTGRES_PASSWORD to a unique URL-safe value.
+Copy-Item .env.example .env
+
+# Start PostgreSQL 16, Redis 7, FastAPI, and the web app on localhost.
 docker compose up --build -d
 
-# Verify all services are responsive
+# Verify local services are responsive.
 & services/backend/.venv/Scripts/python.exe scripts/smoke_test.py
 ```
 
-- Web Dashboard: `http://localhost:3000`
+- Web app: `http://localhost:3000`
 - FastAPI Documentation: `http://localhost:8000/docs`
 - Healthcheck Endpoint: `http://localhost:8000/health`
 

@@ -14,13 +14,16 @@ test('real upload, extracted claims, unknown assessment, and export work through
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/analyze');
   await expect(page).toHaveURL(/\/analyze$/);
-  await page.getByLabel('Upload resume').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
   await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
-  await expect(page.getByText('Python', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
-  await expect(page.getByRole('heading', { name: 'Technical evidence dossier' })).toBeVisible();
-  await expect(page.getByText('No public sources were selected.')).toBeVisible();
-  await expect(page.getByText('Insufficient evidence for a broad assessment.', { exact: false })).toBeVisible();
+  await expect(page.getByTestId('declared-skills')).toContainText('Python');
+  await page.getByRole('button', { name: 'Continue to target role' }).click();
+  await page.getByRole('button', { name: 'Continue to public sources' }).click();
+  await page.getByRole('button', { name: 'Continue to review' }).click();
+  await page.getByRole('button', { name: 'Start live analysis' }).click();
+  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  await expect(page.getByText('No public sources were selected for this run.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Insufficient evidence', { exact: true })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export dossier JSON' }).click();
   const download = await downloadPromise;
@@ -36,24 +39,33 @@ test('real upload, extracted claims, unknown assessment, and export work through
   await page.screenshot({ path: 'test-results/live-analysis-desktop.png', fullPage: true });
 });
 
-test('invalid upload and backend errors are visible with no stale dossier', async ({ page }) => {
+test('invalid upload is visible and a failed rerun keeps the prior dossier clearly identified', async ({ page }) => {
   await page.goto('/analyze');
-  await page.getByLabel('Upload resume').setInputFiles({ name: 'invalid.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid') });
+  await page.locator('#resume-upload').setInputFiles({ name: 'invalid.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid') });
   await expect(page.getByRole('alert').filter({ hasText: /document|PDF|file/i })).toBeVisible();
-  await page.getByLabel('Upload resume').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
   await expect(page.getByRole('heading', { name: 'Example Candidate' })).toBeVisible();
-  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
-  await expect(page.getByRole('heading', { name: 'Technical evidence dossier' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue to target role' }).click();
+  await page.getByRole('button', { name: 'Continue to public sources' }).click();
+  await page.getByRole('button', { name: 'Continue to review' }).click();
+  await page.getByRole('button', { name: 'Start live analysis' }).click();
+  await expect(page.getByRole('region', { name: 'Live candidate dossier' })).toBeVisible();
+  await page.getByRole('button', { name: /New evaluation/ }).click();
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await page.getByRole('button', { name: 'Continue to target role' }).click();
+  await page.getByRole('button', { name: 'Continue to public sources' }).click();
+  await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.route('**/api/live/analyze', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Live backend unavailable.' }) }));
-  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
+  await page.getByRole('button', { name: 'Start live analysis' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Live backend unavailable' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Technical evidence dossier' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Live candidate dossier' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'The previous dossier is still shown' })).toBeVisible();
 });
 
 test('mobile upload and review stay within viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/analyze');
-  await page.getByLabel('Upload resume').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
   await expect(page.getByRole('heading', { name: 'Example Candidate' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/live-analysis-mobile.png' });
@@ -61,11 +73,15 @@ test('mobile upload and review stay within viewport', async ({ page }) => {
 
 test('DOCX sections, public-link failures, skill filters and detailed export', async ({ page }) => {
   await page.goto('/analyze');
-  await page.getByLabel('Upload resume').setInputFiles({ name: 'detailed resume.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: docx });
+  await page.locator('#resume-upload').setInputFiles({ name: 'detailed resume.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: docx });
   await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
-  await page.getByText('Review public sources (optional)').click();
-  await page.getByLabel('Public portfolio, certificate and other links').fill('http://127.0.0.1/private');
-  await page.getByRole('button', { name: 'Fetch live evidence & analyze' }).click();
+  await page.getByRole('button', { name: 'Continue to target role' }).click();
+  await page.getByRole('button', { name: 'Continue to public sources' }).click();
+  await page.getByLabel('Add a public source URL').fill('http://127.0.0.1/private');
+  await page.getByRole('button', { name: 'Add source' }).click();
+  await expect(page.getByRole('checkbox', { name: /http:\/\/127\.0\.0\.1\/private/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Continue to review' }).click();
+  await page.getByRole('button', { name: 'Start live analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Skills and supporting evidence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Certificates and credentials' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Python Programming Certificate' })).toBeVisible();

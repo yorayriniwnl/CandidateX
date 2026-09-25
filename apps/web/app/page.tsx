@@ -33,6 +33,13 @@ export default function HomePage() {
             <p className={styles.heroDescription}>
               Trace technical claims through public evidence, capability signals, and the questions that make a human interview sharper. CandidateX supports hiring judgment; it never makes the decision for you.
             </p>
+            <div className={styles.heroCredit} aria-label="CandidateX attribution">
+              <span className={styles.heroCreditLabel}>Made by</span>
+              <strong>Archi Srivastava &amp; Ayush Roy</strong>
+              <span className={styles.heroCreditDivider} aria-hidden="true">·</span>
+              <span className={styles.heroCreditLabel}>Under the guidance of</span>
+              <strong>Dr. Debachudamani Prusti</strong>
+            </div>
             <div className={styles.heroActions}>
               <Link href="/analyze" className={styles.primaryAction}>
                 Start with live evidence <ArrowRight size={17} aria-hidden="true" />
