@@ -15,7 +15,7 @@ from typing import Iterable
 
 PRACTICE_PATTERNS: dict[str, tuple[str, ...]] = {
     "input_validation": (
-        r"\b(pydantic|zod|joi|validator|validation|sanitize|schema)\b",
+        r"\b(pydantic|zod|joi|validate|validator|validation|sanitize|schema)\b",
     ),
     "authentication_authorization": (
         r"\b(oauth|jwt|authentication|authorization|permission|rbac|acl)\b",
