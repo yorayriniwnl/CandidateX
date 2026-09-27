@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { Info, UserPlus, X } from 'lucide-react';
 import type { CandidateManifest, CanonicalRole } from '../../types/cci';
-import { ROLE_LABELS, type HRCandidate } from './hr-data';
+import { ROLE_LABELS, saveHRCandidate, type HRCandidate } from './hr-data';
 import { GlassModal } from '@/components/ui/GlassModal';
 import { GlassInput } from '@/components/ui/GlassInput';
 import { GlassSelect } from '@/components/ui/GlassSelect';
@@ -65,11 +65,13 @@ export function AddCandidateDialog({ onClose, onAdd }: {
       declared_skills: skills,
       extraction_metadata: { source: 'hr_local_draft', role, consent_confirmed: true },
     };
-    onAdd({
+    const candidateDraft: HRCandidate = {
       id, display_name: name, primary_email: email || undefined, role,
       has_completed_dossier: false, has_meaningful_conflict: false,
       created_at: new Date().toISOString(), source: 'draft', manifest,
-    });
+    };
+    saveHRCandidate(candidateDraft);
+    onAdd(candidateDraft);
   }
 
   return (

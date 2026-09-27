@@ -28,7 +28,7 @@ export interface CandidateSummary {
   display_name: string;
   primary_email?: string;
   has_completed_dossier: boolean;
-  rci?: number;
+  rci?: number | null;
   coverage?: number;
   role?: string;
   has_meaningful_conflict: boolean;
@@ -227,34 +227,61 @@ export async function fetchCandidatesList(): Promise<CandidateSummary[]> {
   return res.json();
 }
 
+export type ExportFormat = 'html' | 'markdown' | 'json' | 'csv';
+export type ExportScope = 'report' | 'audit' | 'full';
+
 /**
- * Constructs the export endpoint URL for the given candidate and format.
+ * Constructs the export endpoint URL for the given candidate, format, and scope.
  */
 export function getExportDossierUrl(
   candidateId: string,
-  format: 'html' | 'markdown' | 'json' = 'html'
+  format: ExportFormat = 'html',
+  scope: ExportScope = 'report'
 ): string {
-  return `${API_BASE_URL}/api/v1/dossier/${candidateId}/export?format=${format}`;
+  return `${API_BASE_URL}/api/v1/dossier/${candidateId}/export?format=${format}&scope=${scope}`;
 }
 
 /**
- * Downloads the exported dossier file directly to the client browser.
+ * Constructs the dedicated audit export endpoint URL for the candidate.
+ */
+export function getExportAuditUrl(
+  candidateId: string,
+  format: ExportFormat = 'json'
+): string {
+  return `${API_BASE_URL}/api/v1/overrides/audit/${candidateId}/export?format=${format}`;
+}
+
+/**
+ * Downloads the exported dossier report, full audit, or combined bundle.
  */
 export async function downloadDossier(
   candidateId: string,
-  format: 'html' | 'markdown' | 'json',
-  candidateName: string = 'candidate'
+  format: ExportFormat = 'html',
+  candidateName: string = 'candidate',
+  scope: ExportScope = 'report'
 ): Promise<void> {
-  const url = getExportDossierUrl(candidateId, format);
+  const url = getExportDossierUrl(candidateId, format, scope);
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Failed to export dossier: HTTP ${res.status}`);
+    throw new Error(`Failed to export ${scope}: HTTP ${res.status}`);
   }
 
   const blob = await res.blob();
-  const ext = format === 'html' ? 'html' : format === 'markdown' ? 'md' : 'json';
+  const extMap: Record<ExportFormat, string> = {
+    html: 'html',
+    markdown: 'md',
+    json: 'json',
+    csv: 'csv',
+  };
+  const ext = extMap[format] || 'txt';
   const cleanName = candidateName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  const filename = `${cleanName}_technical_brief.${ext}`;
+  const scopeSuffix =
+    scope === 'audit'
+      ? 'full_audit'
+      : scope === 'full'
+      ? 'report_and_full_audit'
+      : 'technical_report';
+  const filename = `${cleanName}_${scopeSuffix}.${ext}`;
 
   const link = document.createElement('a');
   link.href = window.URL.createObjectURL(blob);
@@ -263,6 +290,28 @@ export async function downloadDossier(
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(link.href);
+}
+
+/**
+ * Downloads the candidate's full audit and governance log directly.
+ */
+export async function downloadFullAudit(
+  candidateId: string,
+  format: ExportFormat = 'html',
+  candidateName: string = 'candidate'
+): Promise<void> {
+  return downloadDossier(candidateId, format, candidateName, 'audit');
+}
+
+/**
+ * Downloads the combined Report and Full Audit package.
+ */
+export async function downloadReportAndAudit(
+  candidateId: string,
+  format: ExportFormat = 'html',
+  candidateName: string = 'candidate'
+): Promise<void> {
+  return downloadDossier(candidateId, format, candidateName, 'full');
 }
 
 export interface RecruiterOverridePayload {
@@ -392,6 +441,38 @@ export async function calculateTheoremMath(
 
   if (!res.ok) {
     throw new Error(`Theorem calculation failed: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Saves or updates a candidate profile in the backend directory.
+ */
+export async function saveCandidateBackend(
+  candidate: CandidateSummary & { manifest?: CandidateManifest }
+): Promise<CandidateSummary> {
+  const payload = {
+    id: candidate.id,
+    display_name: candidate.display_name,
+    primary_email: candidate.primary_email,
+    has_completed_dossier: candidate.has_completed_dossier,
+    rci: candidate.rci,
+    coverage: candidate.coverage,
+    role: candidate.role,
+    has_meaningful_conflict: candidate.has_meaningful_conflict,
+    created_at: candidate.created_at,
+    manifest_data: candidate.manifest,
+  };
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to save candidate to backend: HTTP ${res.status}`);
   }
 
   return res.json();

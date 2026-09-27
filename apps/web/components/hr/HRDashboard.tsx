@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Plus, RefreshCw, Search, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ClipboardList, Loader2, Plus, RefreshCw, Search, Users } from 'lucide-react';
 import { fetchCandidatesList } from '../../lib/api';
 import { AddCandidateDialog } from './AddCandidateDialog';
 import { CandidateQuickView } from './CandidateQuickView';
-import { SAMPLE_CANDIDATES, evaluationLabel, evidenceLabel, hasEvidenceAlert, roleLabel, withReadTimeout, type HRCandidate } from './hr-data';
+import { SAMPLE_CANDIDATES, evaluationLabel, evidenceLabel, getSavedHRCandidates, hasEvidenceAlert, roleLabel, withReadTimeout, type HRCandidate } from './hr-data';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassInput } from '@/components/ui/GlassInput';
@@ -18,6 +18,7 @@ import { StudioFooter } from '../studio/StudioFooter';
 
 export function HRDashboard() {
   const [candidates, setCandidates] = useState<HRCandidate[]>([]);
+  const [savedCandidates, setSavedCandidates] = useState<HRCandidate[]>([]);
   const [drafts, setDrafts] = useState<HRCandidate[]>([]);
   const [mode, setMode] = useState<'loading' | 'live' | 'sample'>('loading');
   const [attempt, setAttempt] = useState(0);
@@ -27,6 +28,19 @@ export function HRDashboard() {
   const [selected, setSelected] = useState<HRCandidate | null>(null);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    setSavedCandidates(getSavedHRCandidates());
+    const handleUpdate = () => {
+      setSavedCandidates(getSavedHRCandidates());
+    };
+    window.addEventListener('cci_hr_candidates_changed', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('cci_hr_candidates_changed', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -40,23 +54,59 @@ export function HRDashboard() {
     return () => { active = false; };
   }, [attempt]);
 
-  const all = [...drafts, ...candidates];
+  const savedIds = new Set(savedCandidates.map((c) => c.id));
+  const otherCandidates = candidates.filter((c) => !savedIds.has(c.id));
+  const draftIds = new Set(drafts.map((d) => d.id));
+  const nonDuplicateSaved = savedCandidates.filter((s) => !draftIds.has(s.id));
+  const all = [...drafts, ...nonDuplicateSaved, ...otherCandidates];
   const roles = [...new Set(all.map((candidate) => candidate.role || ''))].sort((a, b) => roleLabel(a).localeCompare(roleLabel(b)));
-  const hasFilters = query !== '' || role !== 'all' || status !== 'all';
+  const [sortField, setSortField] = useState<'candidate' | 'score' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const hasFilters = query !== '' || role !== 'all' || status !== 'all' || sortField !== null;
   const filtered = all.filter((candidate) => {
     const matchesQuery = `${candidate.display_name} ${candidate.primary_email || ''}`.toLowerCase().includes(query.trim().toLowerCase());
     return matchesQuery && (role === 'all' || (candidate.role || '') === role)
       && (status === 'all' || evaluationLabel(candidate) === status);
   });
-  const completed = candidates.filter((candidate) => candidate.has_completed_dossier).length;
+
+  const sortedCandidates = useMemo(() => {
+    if (!sortField) return filtered;
+    return [...filtered].sort((a, b) => {
+      if (sortField === 'score') {
+        const scoreA = a.rci != null ? a.rci : -1;
+        const scoreB = b.rci != null ? b.rci : -1;
+        return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+      }
+      if (sortField === 'candidate') {
+        return sortDirection === 'desc'
+          ? b.display_name.localeCompare(a.display_name)
+          : a.display_name.localeCompare(b.display_name);
+      }
+      return 0;
+    });
+  }, [filtered, sortField, sortDirection]);
+
+  function handleSort(field: 'candidate' | 'score') {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection(field === 'score' ? 'desc' : 'asc');
+    } else if (sortDirection === (field === 'score' ? 'desc' : 'asc')) {
+      setSortDirection(field === 'score' ? 'asc' : 'desc');
+    } else {
+      setSortField(null);
+    }
+  }
+
+  const completed = all.filter((candidate) => candidate.has_completed_dossier).length;
   const metrics = [
-    { title: 'Total Candidates', value: all.length, detail: 'Includes local drafts', icon: Users, delay: 0.1 },
+    { title: 'Total Candidates', value: all.length, detail: 'Includes reviewed & local drafts', icon: Users, delay: 0.1 },
     { title: 'Evaluations Completed', value: completed, detail: 'Dossiers available', icon: CheckCircle2, delay: 0.2 },
     { title: 'Interviews to Review', value: completed, detail: 'Completed evaluations to prepare for interview', icon: ClipboardList, delay: 0.3 },
-    { title: 'Evidence Alerts', value: candidates.filter(hasEvidenceAlert).length, detail: 'Candidates with mixed or missing evidence', icon: AlertTriangle, delay: 0.4 },
+    { title: 'Evidence Alerts', value: all.filter(hasEvidenceAlert).length, detail: 'Candidates with mixed or missing evidence', icon: AlertTriangle, delay: 0.4 },
   ];
 
-  function clearFilters() { setQuery(''); setRole('all'); setStatus('all'); }
+  function clearFilters() { setQuery(''); setRole('all'); setStatus('all'); setSortField(null); }
 
   return <div className="studio-hr">
     <main className="studio-page space-y-7">
@@ -150,18 +200,64 @@ export function HRDashboard() {
             </div>
           ) : filtered.length ? (
             <div tabIndex={0} role="region" aria-label="Candidate table — scroll horizontally to see all columns" className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-500">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <caption className="sr-only">Candidates with evaluation status, evidence status, alerts, and a quick-view action</caption>
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <caption className="sr-only">Candidates with evaluation status, score, evidence status, alerts, and a quick-view action</caption>
                 <thead className="studio-table-head text-xs text-slate-400 border-b border-white/[0.06]">
                   <tr>
-                    {['Candidate', 'Role', 'Evaluation', 'Evidence', 'Alerts', 'Action'].map((heading) => (
-                      <th key={heading} scope="col" className="px-5 py-4 font-semibold">{heading}</th>
-                    ))}
+                    {['Candidate', 'Role', 'Score', 'Evaluation', 'Evidence', 'Alerts', 'Action'].map((heading) => {
+                      if (heading === 'Score') {
+                        return (
+                          <th key={heading} scope="col" className="px-5 py-4 font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => handleSort('score')}
+                              className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort"
+                              title="Sort by score"
+                            >
+                              <span>Score</span>
+                              {sortField === 'score' ? (
+                                sortDirection === 'desc' ? (
+                                  <ArrowDown className="h-3.5 w-3.5 text-brand-400" />
+                                ) : (
+                                  <ArrowUp className="h-3.5 w-3.5 text-brand-400" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 text-slate-500 opacity-60 group-hover/sort:opacity-100" />
+                              )}
+                            </button>
+                          </th>
+                        );
+                      }
+                      if (heading === 'Candidate') {
+                        return (
+                          <th key={heading} scope="col" className="px-5 py-4 font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => handleSort('candidate')}
+                              className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort"
+                              title="Sort by candidate name"
+                            >
+                              <span>Candidate</span>
+                              {sortField === 'candidate' ? (
+                                sortDirection === 'desc' ? (
+                                  <ArrowDown className="h-3.5 w-3.5 text-brand-400" />
+                                ) : (
+                                  <ArrowUp className="h-3.5 w-3.5 text-brand-400" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 text-slate-500 opacity-60 group-hover/sort:opacity-100" />
+                              )}
+                            </button>
+                          </th>
+                        );
+                      }
+                      return <th key={heading} scope="col" className="px-5 py-4 font-semibold">{heading}</th>;
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   <AnimatePresence>
-                    {filtered.map((candidate) => (
+                    {sortedCandidates.map((candidate) => (
                       <motion.tr 
                         key={candidate.id} 
                         initial={{ opacity: 0 }}
@@ -175,6 +271,18 @@ export function HRDashboard() {
                           </div></div>
                         </th>
                         <td className="px-5 py-4 text-slate-400">{roleLabel(candidate.role)}</td>
+                        <td className="px-5 py-4 font-mono font-medium">
+                          {candidate.rci !== null && candidate.rci !== undefined ? (
+                            <span className="inline-flex items-baseline gap-1">
+                              <span className="text-sm font-bold text-brand-400">
+                                {candidate.rci.toFixed(1)}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-xs">—</span>
+                          )}
+                        </td>
                         <td className="px-5 py-4">
                           <GlowBadge variant={candidate.has_completed_dossier ? 'success' : 'neutral'} size="sm">
                             {evaluationLabel(candidate)}

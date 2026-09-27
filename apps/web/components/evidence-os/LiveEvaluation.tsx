@@ -1,8 +1,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import type { CanonicalRole } from '../../types/cci';
-import { liveRequest, publicUrl, type LiveResult, type ResumeIntake } from '../../lib/live-analysis';
+import { liveRequest, publicUrl, fetchLinkData, type LiveResult, type ResumeIntake, type ParsedJobDescription } from '../../lib/live-analysis';
+import { saveCandidateBackend } from '../../lib/api';
+import { saveReviewToHR } from '../hr/hr-data';
 import { PlatformHeader } from '../navigation/PlatformHeader';
 import { AnalysisWizard } from './AnalysisWizard';
 import { LiveDossier } from './LiveDossier';
@@ -12,7 +15,19 @@ import styles from './evidence-os.module.css';
 
 type Phase = 'idle' | 'upload' | 'analyze';
 
+function isCloudDrive(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return ['drive.google.com', 'docs.google.com', 'dropbox.com', 'onedrive.live.com', '1drv.ms', 'sharepoint.com', 'box.com', 'icloud.com'].some(d => host.includes(d));
+  } catch {
+    return false;
+  }
+}
+
 function sourceCategory(url: string, category: string) {
+  if (isCloudDrive(url)) {
+    return 'Shared file (Drive/Cloud)';
+  }
   if (category === 'github_urls') {
     try {
       const path = new URL(url).pathname.split('/').filter(Boolean);
@@ -25,6 +40,7 @@ function sourceCategory(url: string, category: string) {
     credential_urls: 'Credential page',
     deployment_urls: 'Deployment',
     portfolio_urls: 'Portfolio',
+    shared_document_urls: 'Shared file (Drive/Cloud)',
     project_links: 'Project link',
   };
   return labels[category] ?? 'Public source';
@@ -32,13 +48,14 @@ function sourceCategory(url: string, category: string) {
 
 function sourceSelections(intake: ResumeIntake): SourceSelection[] {
   const groups: [string, string[]][] = [
-    ['github_urls', intake.manifest.github_urls],
-    ['linkedin_urls', intake.manifest.linkedin_urls],
-    ['coding_profile_urls', intake.manifest.coding_profile_urls],
-    ['credential_urls', intake.manifest.credential_urls],
-    ['deployment_urls', intake.manifest.deployment_urls],
-    ['portfolio_urls', intake.manifest.portfolio_urls],
-    ['project_links', intake.manifest.project_links],
+    ['github_urls', intake.manifest.github_urls || []],
+    ['linkedin_urls', intake.manifest.linkedin_urls || []],
+    ['coding_profile_urls', intake.manifest.coding_profile_urls || []],
+    ['credential_urls', intake.manifest.credential_urls || []],
+    ['deployment_urls', intake.manifest.deployment_urls || []],
+    ['portfolio_urls', intake.manifest.portfolio_urls || []],
+    ['shared_document_urls', intake.manifest.shared_document_urls || []],
+    ['project_links', intake.manifest.project_links || []],
   ];
   const seen = new Set<string>();
   return groups.flatMap(([group, urls]) => {
@@ -76,6 +93,11 @@ export function LiveEvaluation() {
   const [result, setResult] = useState<LiveResult | null>(null);
   const [role, setRole] = useState<CanonicalRole>('backend');
   const [jd, setJd] = useState('');
+  const [jdFileName, setJdFileName] = useState('');
+  const [jdFileSize, setJdFileSize] = useState(0);
+  const [jdLoading, setJdLoading] = useState(false);
+  const [jdError, setJdError] = useState('');
+  const [jdWarning, setJdWarning] = useState('');
   const [sources, setSources] = useState<SourceSelection[]>([]);
   const [identity, setIdentity] = useState('');
   const [fileName, setFileName] = useState('');
@@ -86,6 +108,7 @@ export function LiveEvaluation() {
   const [step, setStep] = useState<EvaluationStep>(0);
   const [showWizard, setShowWizard] = useState(true);
   const [previousRunNotice, setPreviousRunNotice] = useState('');
+  const [hrSavedNotice, setHrSavedNotice] = useState('');
   const busy = useRef(false);
   const isBusy = phase !== 'idle';
 
@@ -123,6 +146,59 @@ export function LiveEvaluation() {
     setStep(0);
   }
 
+  async function uploadJd(file?: File) {
+    if (!file || busy.current || jdLoading) return;
+    setJdError('');
+    setJdWarning('');
+    const ext = file.name.toLowerCase();
+    if (!/\.(pdf|docx|doc|txt|md)$/i.test(ext)) {
+      setJdError('Choose a PDF, DOCX, DOC, or TXT document.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setJdError('Document must be 3 MB or smaller.');
+      return;
+    }
+
+    setJdLoading(true);
+    try {
+      if (ext.endsWith('.txt') || ext.endsWith('.md')) {
+        const text = await file.text();
+        const clean = text.trim();
+        if (clean.length < 10) throw new Error('No readable text found in document.');
+        const truncated = clean.length > 20000;
+        setJd(clean.slice(0, 20000));
+        setJdFileName(file.name);
+        setJdFileSize(file.size);
+        if (truncated) {
+          setJdWarning('Document text was truncated to 20,000 characters to fit the analysis limit.');
+        }
+      } else {
+        const parsed = await liveRequest<ParsedJobDescription>('parse-jd', file, file.name);
+        setJd(parsed.text);
+        setJdFileName(parsed.filename || file.name);
+        setJdFileSize(file.size);
+        if (parsed.truncated) {
+          setJdWarning('Document text was truncated to 20,000 characters to fit the analysis limit.');
+        } else if (parsed.warnings && parsed.warnings.length > 0) {
+          setJdWarning(parsed.warnings.join(' '));
+        }
+      }
+    } catch (cause) {
+      setJdError(cause instanceof Error ? cause.message : 'Document could not be read. Ensure it contains readable digital text.');
+    } finally {
+      setJdLoading(false);
+    }
+  }
+
+  function removeJd() {
+    setJdFileName('');
+    setJdFileSize(0);
+    setJd('');
+    setJdError('');
+    setJdWarning('');
+  }
+
   function addSource(value: string) {
     setSourceError('');
     const url = value.trim();
@@ -155,12 +231,46 @@ export function LiveEvaluation() {
     setSources(current => current.map(source => source.url === url ? { ...source, selected } : source));
   }
 
+  async function fetchLink(url: string) {
+    setSources(current => current.map(s => s.url.toLowerCase() === url.toLowerCase() ? { ...s, fetching: true, fetchError: undefined } : s));
+    try {
+      const data = await fetchLinkData(url);
+      setSources(current => current.map(s => {
+        if (s.url.toLowerCase() !== url.toLowerCase()) return s;
+        const newCategory = data.inferred_kind === 'project' ? 'Project archive (Fetched)' : 'Shared file (Fetched)';
+        return {
+          ...s,
+          fetching: false,
+          fetchedData: data,
+          category: newCategory,
+        };
+      }));
+    } catch (cause) {
+      setSources(current => current.map(s => {
+        if (s.url.toLowerCase() !== url.toLowerCase()) return s;
+        return {
+          ...s,
+          fetching: false,
+          fetchError: cause instanceof Error ? cause.message : 'Could not fetch link.',
+        };
+      }));
+    }
+  }
+
+  async function fetchAllCloud() {
+    const targets = sources.filter(s => isCloudDrive(s.url) && !s.fetchedData && !s.fetching);
+    for (const target of targets) {
+      fetchLink(target.url);
+    }
+  }
+
   async function analyze() {
     if (!intake || busy.current) return;
     busy.current = true;
     setPhase('analyze');
     setError('');
     setPreviousRunNotice('');
+    setHrSavedNotice('');
     const previousRunId = result?.dossier.analysis_run_id;
     try {
       const selected = sources.filter(source => source.selected && source.selectable);
@@ -174,6 +284,62 @@ export function LiveEvaluation() {
       }));
       setResult(data);
       setShowWizard(false);
+
+      // Auto-save candidate profile to HR at the end of the review
+      try {
+        const candidateId = data.intake.candidate_id || data.dossier.candidate_id || crypto.randomUUID();
+        const candidateName = data.intake.manifest.display_name || 'Candidate';
+        const candidateEmail = data.intake.manifest.email || undefined;
+        const candidateRole = data.dossier.role || role;
+        const score = data.dossier.rci;
+        const coverage = data.dossier.coverage;
+        const hasConflict = data.dossier.capability_conflicts
+          ? Object.values(data.dossier.capability_conflicts).some(item => item.has_meaningful_conflict)
+          : false;
+
+        const manifest = {
+          candidate_id: candidateId,
+          full_name: candidateName,
+          primary_email: candidateEmail,
+          picture: data.intake.manifest.picture || data.intake.picture || undefined,
+          github_usernames: identity.trim() ? [identity.trim()] : [],
+          github_repositories: selected.filter(s => s.kind === 'github').map(s => s.url),
+          deployment_urls: [],
+          portfolio_urls: selected.filter(s => s.kind === 'public').map(s => s.url),
+          declared_skills: data.intake.manifest.claimed_skills || [],
+          extraction_metadata: { source: 'live_review', role: candidateRole },
+        };
+
+        saveReviewToHR({
+          candidateId,
+          displayName: candidateName,
+          email: candidateEmail,
+          role: candidateRole,
+          rci: score,
+          coverage,
+          hasMeaningfulConflict: hasConflict,
+          manifest,
+          dossier: data.dossier,
+          graph: data.graph,
+        });
+
+        saveCandidateBackend({
+          id: candidateId,
+          display_name: candidateName,
+          primary_email: candidateEmail,
+          role: candidateRole,
+          rci: score ?? undefined,
+          coverage,
+          has_meaningful_conflict: hasConflict,
+          has_completed_dossier: true,
+          created_at: data.dossier.generated_at || new Date().toISOString(),
+          manifest,
+        }).catch(() => {});
+
+        setHrSavedNotice(`Candidate profile for ${candidateName} saved to HR with Score ${score != null ? score.toFixed(1) + '/100' : 'pending'}.`);
+      } catch (saveErr) {
+        console.error('Failed to auto-save candidate to HR', saveErr);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Analysis could not complete.';
       setError(message);
@@ -194,9 +360,15 @@ export function LiveEvaluation() {
     setFileSize(0);
     setRole('backend');
     setJd('');
+    setJdFileName('');
+    setJdFileSize(0);
+    setJdLoading(false);
+    setJdError('');
+    setJdWarning('');
     setError('');
     setSourceError('');
     setPreviousRunNotice('');
+    setHrSavedNotice('');
     setStep(0);
     setShowWizard(true);
   }
@@ -212,6 +384,11 @@ export function LiveEvaluation() {
           fileSize={fileSize}
           role={role}
           jd={jd}
+          jdFileName={jdFileName}
+          jdFileSize={jdFileSize}
+          jdLoading={jdLoading}
+          jdError={jdError}
+          jdWarning={jdWarning}
           sources={sources}
           identity={identity}
           busy={isBusy}
@@ -224,19 +401,52 @@ export function LiveEvaluation() {
           onRemoveResume={removeResume}
           onRoleChange={setRole}
           onJdChange={setJd}
+          onJdUpload={uploadJd}
+          onJdRemove={removeJd}
           onToggleSource={toggleSource}
           onAddSource={addSource}
           onIdentityChange={setIdentity}
           onAnalyze={analyze}
+          onFetchLink={fetchLink}
+          onFetchAllCloud={fetchAllCloud}
         />}
 
         {previousRunNotice && <div className={styles.previousRunNotice} role="status" aria-live="polite">{previousRunNotice}</div>}
+        {hrSavedNotice && (
+          <div style={{
+            margin: '0.75rem auto 1.25rem',
+            maxWidth: '1200px',
+            padding: '0.75rem 1.25rem',
+            borderRadius: '12px',
+            background: 'rgba(99, 102, 241, 0.12)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            color: '#c7d2fe',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            fontSize: '0.875rem',
+            flexWrap: 'wrap'
+          }} role="status" aria-live="polite">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              <strong style={{ color: '#818cf8' }}>✓ Saved in HR:</strong> {hrSavedNotice}
+            </span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '1rem' }}>
+              <Link href="/hr" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                Candidates →
+              </Link>
+              <Link href="/" style={{ color: '#a5b4fc', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                Home →
+              </Link>
+            </div>
+          </div>
+        )}
         {result && <LiveDossier key={result.dossier.analysis_run_id} result={result} onNewEvaluation={newEvaluation} />}
       </main>
 
       <footer className={styles.appFooter}>
-        <span>CandidateX · Research-informed technical decision support. Export the dossier to keep it; this page does not retain resumes or results across refreshes.</span>
-        <span>Resume identity and account association are declarations; static observations do not verify mastery or job performance. Live resumes and results are request-scoped.</span>
+        <span>CandidateX · Research-informed technical decision support. Candidate profiles & scores are automatically saved to the Candidates (HR) tab at the end of each review.</span>
+        <span>Resume identity and account association are declarations; static observations do not verify mastery or job performance.</span>
       </footer>
     </div>
   );

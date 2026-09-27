@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Trash2 } from 'lucide-react';
 import { fetchCandidateDossier, fetchCandidateGraph } from '../../lib/api';
 import { MOCK_DOSSIER, MOCK_GRAPH } from '../../data/mockDossier';
 import { DossierView } from '../dossier/DossierView';
 import type { CEGGraph, Dossier } from '../../types/cci';
-import { evaluationLabel, roleLabel, summarizeDossier, withReadTimeout, type HRCandidate } from './hr-data';
+import { evaluationLabel, removeSavedHRCandidate, roleLabel, summarizeDossier, withReadTimeout, type HRCandidate } from './hr-data';
 import { GlassModal } from '@/components/ui/GlassModal';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -47,7 +47,11 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
     if (!candidate.has_completed_dossier) return;
     setLoading(true);
     setError('');
-    const request = candidate.source === 'sample' ? Promise.resolve(MOCK_DOSSIER) : withReadTimeout(fetchCandidateDossier(candidate.id));
+    const request = candidate.dossier
+      ? Promise.resolve(candidate.dossier)
+      : candidate.source === 'sample'
+      ? Promise.resolve(MOCK_DOSSIER)
+      : withReadTimeout(fetchCandidateDossier(candidate.id));
     request.then((result) => {
       if (result.candidate_id !== candidate.id) throw new Error('Candidate mismatch');
       if (active) setDossier(result);
@@ -55,14 +59,18 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
       if (active) setError('We couldn’t load this candidate’s evaluation. No sample findings have been substituted.');
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [candidate.id, candidate.source, candidate.has_completed_dossier, attempt]);
+  }, [candidate.id, candidate.source, candidate.has_completed_dossier, candidate.dossier, attempt]);
 
   useEffect(() => {
     if (!fullView || !dossier) return;
     let active = true;
     setGraphLoading(true);
     setGraphError('');
-    const request = candidate.source === 'sample' ? Promise.resolve(MOCK_GRAPH) : withReadTimeout(fetchCandidateGraph(candidate.id));
+    const request = candidate.graph
+      ? Promise.resolve(candidate.graph)
+      : candidate.source === 'sample'
+      ? Promise.resolve(MOCK_GRAPH)
+      : withReadTimeout(fetchCandidateGraph(candidate.id));
     request.then((result) => {
       if (result.candidate_id !== dossier.candidate_id || result.analysis_run_id !== dossier.analysis_run_id) throw new Error('Evaluation mismatch');
       if (active) setGraph(result);
@@ -70,7 +78,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
       if (active) setGraphError('The full technical view could not be loaded. You can still use the candidate summary.');
     }).finally(() => { if (active) setGraphLoading(false); });
     return () => { active = false; };
-  }, [fullView, dossier, candidate.id, candidate.source, graphAttempt]);
+  }, [fullView, dossier, candidate.id, candidate.source, candidate.graph, graphAttempt]);
 
   function downloadDraft() {
     const blob = new Blob([JSON.stringify(candidate.manifest, null, 2)], { type: 'application/json' });
@@ -83,12 +91,13 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
   }
 
   const summary = dossier ? summarizeDossier(dossier) : null;
+  const scoreBadge = candidate.rci != null ? ` · Score: ${candidate.rci.toFixed(1)} / 100` : dossier?.rci != null ? ` · Score: ${dossier.rci.toFixed(1)} / 100` : '';
   return (
     <GlassModal 
       isOpen={!!candidate} 
       onClose={onClose} 
       title={fullView ? `${candidate.display_name} · Technical dossier` : candidate.display_name}
-      subtitle={`${roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
+      subtitle={`${roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${scoreBadge}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
       size={fullView ? 'xl' : 'lg'}
     >
       {fullView ? <div className="space-y-6">
@@ -99,14 +108,25 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
         {graphError && <div role="alert" className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 text-sm text-amber-200">{graphError}<button className="ml-2 font-medium text-amber-400 hover:text-amber-300 underline" onClick={() => setGraphAttempt((value) => value + 1)}>Try again</button></div>}
         {!graphLoading && !graphError && dossier && graph && <GlassCard className="p-1 sm:p-2">
           {candidate.source === 'sample' && <p className="mb-4 px-4 pt-4 text-sm text-amber-400">Sample dossier — demonstration only. Do not submit feedback for this sample.</p>}
-          <DossierView initialDossier={dossier} graph={graph} candidateName={candidate.display_name} />
+          <DossierView initialDossier={dossier} graph={graph} candidateName={candidate.display_name} candidatePicture={candidate.manifest?.picture} />
         </GlassCard>}
       </div> : <div className="space-y-6">
         {loading && <div role="status" className="flex items-center gap-3 py-10 text-sm text-slate-400"><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />Loading candidate summary…</div>}
         {error && <div role="alert" className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 text-sm leading-6 text-amber-200">{error}<button onClick={() => setAttempt((value) => value + 1)} className="ml-2 font-semibold text-amber-400 hover:text-amber-300 underline">Try again</button></div>}
         {!loading && !error && <>
           <GlassCard glow="indigo" className="p-5 border-indigo-500/20">
-            <h3 className="mb-2 text-sm font-semibold text-indigo-100">Overall candidate summary</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h3 className="text-sm font-semibold text-indigo-100">Overall candidate summary</h3>
+              {(candidate.rci != null || dossier?.rci != null) && (
+                <div className="flex items-baseline gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20">
+                  <span className="text-xs text-slate-400 font-medium">Score:</span>
+                  <span className="text-sm font-bold text-brand-400 font-mono">
+                    {((candidate.rci ?? dossier?.rci) as number).toFixed(1)}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
+                </div>
+              )}
+            </div>
             <p className="text-sm leading-6 text-indigo-200/80">{summary
               ? `The evaluation is complete. ${summary.strengths.length ? 'Some stated skills are supported by evidence.' : 'Review the supplied work with your technical interviewer.'} ${summary.alerts.length ? 'There are evidence gaps or mixed findings to discuss before deciding on next steps.' : 'No specific evidence alerts were reported in this evaluation.'}`
               : 'This candidate has not been evaluated yet. Collect work samples and arrange a technical review before drawing conclusions about their skills.'}</p>
@@ -130,13 +150,28 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
           </GlassCard>
           {candidate.manifest && <DetailList title="Candidate-provided skills · not verified" items={candidate.manifest.declared_skills} empty="No skills provided yet." />}
         </>}
-        <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10 mt-8">
+        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-white/10 mt-8">
           <GlassButton disabled={!dossier || loading || !!error} onClick={() => setFullView(true)} variant="primary" icon={<ArrowUpRight className="h-4 w-4" />} iconPosition="right">
             Open full technical dossier
           </GlassButton>
           {candidate.manifest && <GlassButton onClick={downloadDraft} variant="secondary" icon={<Download className="h-4 w-4" />}>
             Download draft
           </GlassButton>}
+          {(candidate.source === 'live' || candidate.source === 'draft') && (
+            <GlassButton
+              variant="ghost"
+              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 sm:ml-auto"
+              onClick={() => {
+                if (window.confirm(`Are you sure you want to remove ${candidate.display_name} from HR?`)) {
+                  removeSavedHRCandidate(candidate.id);
+                  onClose();
+                }
+              }}
+              icon={<Trash2 className="h-4 w-4" />}
+            >
+              {candidate.source === 'draft' ? 'Delete draft' : 'Remove candidate'}
+            </GlassButton>
+          )}
           {!candidate.has_completed_dossier && <p className="w-full mt-2 text-xs text-slate-500">A full dossier becomes available after an evaluation is completed.</p>}
         </div>
       </div>}

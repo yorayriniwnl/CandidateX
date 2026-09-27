@@ -1,6 +1,6 @@
 import type { CandidateSummary } from '../../lib/api';
-import type { CandidateManifest, CanonicalRole, CapabilityKey, Dossier } from '../../types/cci';
-import { MOCK_DOSSIER } from '../../data/mockDossier';
+import type { CandidateManifest, CanonicalRole, CapabilityKey, Dossier, CEGGraph } from '../../types/cci';
+import { MOCK_DOSSIER, MOCK_GRAPH } from '../../data/mockDossier';
 
 export const ROLE_LABELS: Record<CanonicalRole, string> = {
   backend: 'Backend Developer',
@@ -29,6 +29,83 @@ const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
 export interface HRCandidate extends CandidateSummary {
   source: 'live' | 'sample' | 'draft';
   manifest?: CandidateManifest;
+  dossier?: Dossier;
+  graph?: CEGGraph;
+}
+
+export const HR_STORAGE_KEY = 'cci_hr_saved_candidates';
+
+export function getSavedHRCandidates(): HRCandidate[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(HR_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Failed to load saved candidates from localStorage', e);
+    return [];
+  }
+}
+
+export function saveHRCandidate(candidate: HRCandidate): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getSavedHRCandidates();
+    const filtered = existing.filter(c => {
+      if (c.id === candidate.id) return false;
+      if (c.primary_email && candidate.primary_email && c.primary_email.toLowerCase() === candidate.primary_email.toLowerCase()) return false;
+      return true;
+    });
+    const updated = [candidate, ...filtered];
+    localStorage.setItem(HR_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('cci_hr_candidates_changed', { detail: candidate }));
+  } catch (e) {
+    console.error('Failed to save HR candidate to localStorage', e);
+  }
+}
+
+export function removeSavedHRCandidate(candidateId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getSavedHRCandidates();
+    const updated = existing.filter(c => c.id !== candidateId);
+    localStorage.setItem(HR_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('cci_hr_candidates_changed', { detail: { id: candidateId, removed: true } }));
+  } catch (e) {
+    console.error('Failed to remove HR candidate from localStorage', e);
+  }
+}
+
+export function saveReviewToHR(params: {
+  candidateId: string;
+  displayName: string;
+  email?: string | null;
+  role: string;
+  rci?: number | null;
+  coverage?: number | null;
+  hasMeaningfulConflict?: boolean;
+  manifest?: CandidateManifest;
+  dossier?: Dossier;
+  graph?: CEGGraph;
+}): HRCandidate {
+  const hrCandidate: HRCandidate = {
+    id: params.candidateId,
+    display_name: params.displayName || 'Candidate',
+    primary_email: params.email || undefined,
+    role: params.role,
+    has_completed_dossier: true,
+    rci: params.rci ?? undefined,
+    coverage: params.coverage ?? undefined,
+    has_meaningful_conflict: params.hasMeaningfulConflict ?? false,
+    created_at: params.dossier?.generated_at || new Date().toISOString(),
+    source: 'live',
+    manifest: params.manifest,
+    dossier: params.dossier,
+    graph: params.graph,
+  };
+  saveHRCandidate(hrCandidate);
+  return hrCandidate;
 }
 
 // Only this sample is associated with the repository's exported mock dossier.
@@ -39,10 +116,13 @@ export const SAMPLE_CANDIDATES: HRCandidate[] = [
     primary_email: '2329027@kiit.ac.in',
     role: MOCK_DOSSIER.role,
     has_completed_dossier: true,
+    rci: MOCK_DOSSIER.rci,
     coverage: MOCK_DOSSIER.coverage,
     has_meaningful_conflict: Object.values(MOCK_DOSSIER.capability_conflicts).some((item) => item.has_meaningful_conflict),
     created_at: MOCK_DOSSIER.generated_at,
     source: 'sample',
+    dossier: MOCK_DOSSIER,
+    graph: MOCK_GRAPH,
   },
   {
     id: 'hr-sample-archi', display_name: 'Archi Srivastava', primary_email: '2329100@kiit.ac.in', role: 'frontend',
