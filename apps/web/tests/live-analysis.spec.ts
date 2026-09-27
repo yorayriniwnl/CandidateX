@@ -50,7 +50,7 @@ test('invalid upload is visible and a failed rerun keeps the prior dossier clear
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
   await expect(page.getByRole('region', { name: 'Live candidate dossier' })).toBeVisible();
-  await page.getByRole('button', { name: /New evaluation/ }).click();
+  await page.getByRole('button', { name: /Run another analysis/ }).click();
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
@@ -82,15 +82,13 @@ test('DOCX sections, public-link failures, skill filters and detailed export', a
   await expect(page.getByRole('checkbox', { name: /http:\/\/127\.0\.0\.1\/private/ })).toBeChecked();
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
-  await expect(page.getByRole('heading', { name: 'What the resume actually claims' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Education claims, separated from verification' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Academic record' }).getByText('B.Tech Computer Science', { exact: true })).toBeVisible();
+  await page.getByText('Detailed résumé review & job requirements', { exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Skills and supporting evidence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Certificates and credentials' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Python Programming Certificate' })).toBeVisible();
   await expect(page.getByText('security blocked', { exact: true })).toBeVisible();
   await page.getByLabel('Find a skill').fill('Docker');
-  await expect(page.locator('summary').filter({ hasText: 'Docker · not observed · Currently learning' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Detailed resume analysis', exact: true }).locator('summary').filter({ hasText: 'Docker' })).toContainText('Currently learning');
   await page.getByLabel('Show skills without repository evidence').check();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export dossier JSON' }).click();

@@ -13,6 +13,10 @@ import { GlassInput } from '@/components/ui/GlassInput';
 import { GlassSelect } from '@/components/ui/GlassSelect';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { PlatformHeader } from '../../components/navigation/PlatformHeader';
+import { StudioHeading } from '../../components/studio/StudioHeading';
+import { StudioFooter } from '../../components/studio/StudioFooter';
+import { Instrument } from '../../components/studio/Instrument';
 
 const INITIAL: DemoInput = {
   candidate_id: 'd3333333-3333-4333-8333-333333333333', scenario: 'consistent', role: 'backend',
@@ -60,7 +64,7 @@ export default function ResearchDemonstration() {
       const next = await demoRequest<DemoResult>('run', input);
       if (next.dossier.candidate_id !== input.candidate_id || next.graph.analysis_run_id !== next.dossier.analysis_run_id) throw new Error('Result identity mismatch. No dossier displayed.');
       setResult(next);
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }), 100);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The run failed. No result substituted.'); }
     finally { inFlight.current = false; setBusy(false); }
   }
@@ -86,35 +90,24 @@ export default function ResearchDemonstration() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function inspect(cap: CapabilityKey) { setSelected(cap); inspector.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  function inspect(cap: CapabilityKey) { setSelected(cap); inspector.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#030712] text-slate-100 pb-16 font-sans">
-      <nav className="border-b border-white/[0.06] backdrop-blur-md bg-white/[0.02] flex justify-between items-center gap-5 px-6 py-4 text-sm mb-12 shadow-sm" aria-label="Research navigation">
-        <div>
-          <span className="tracking-tighter text-2xl font-extrabold mr-2">CandidateX</span> 
-          <span className="font-mono text-indigo-400 uppercase tracking-widest text-xs hidden sm:inline">/ Research demonstration</span>
+    <div className="studio-surface">
+      <PlatformHeader surface="research" />
+      <main className="studio-page">
+        <div className="studio-research-hero">
+          <StudioHeading eyebrow="03 / THE RESEARCH LAB" title="From evidence to interview." description="Look inside the intelligence. Change the evidence, explore the uncertainty, and discover why the same work means something different for every role." />
+          <div><Instrument stage={2} /></div>
         </div>
-        <div className="flex gap-5">
-          <a href="#method" className="text-indigo-200 hover:text-indigo-100">The method</a>
-          <a href="#benchmarks" className="text-indigo-200 hover:text-indigo-100">Experiments</a>
-          <Link href="/workspace" className="text-indigo-200 hover:text-indigo-100">Prototype workspace</Link>
-        </div>
-      </nav>
+        <nav className="studio-research-nav" aria-label="Research navigation"><a href="#method">The method</a><a href="#benchmarks">Experiments</a><Link href="/workspace">Prototype workspace</Link></nav>
 
-      <div className="px-4 md:px-8 lg:px-16">
-        <header className="py-4 md:py-8 max-w-4xl mb-8">
-          <div className="font-mono text-indigo-400 uppercase tracking-widest text-xs mb-4">Candidate Capability Intelligence · Interactive research prototype</div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tight font-bold mb-6">From evidence to interview.</h1>
-          <p className="text-slate-400 leading-relaxed text-base md:text-lg max-w-3xl">Explore how the same technical evidence changes meaning for a different role. Separate capability from coverage, inspect each observation, and turn uncertainty into a focused interview.</p>
-        </header>
-
-        <GlassCard variant="subtle" glow="indigo" className="mb-8">
+        <GlassCard variant="subtle" glow="indigo" className="mb-8 text-xs leading-7">
           <strong className="text-indigo-300">Controlled synthetic demonstration.</strong> <span className="text-slate-300">All candidate observations and source-review counts on this page are simulated. Calculations run through the CCI backend. No real person is assessed and no external repository is fetched.</span>
         </GlassCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8 items-start">
-          <GlassCard variant="strong" className="flex flex-col gap-5 lg:sticky lg:top-6">
+          <GlassCard variant="strong" className="studio-research-inputs flex flex-col gap-5 lg:sticky">
             <div>
               <div className="font-mono text-indigo-400 uppercase tracking-widest text-xs mb-2">01 / Set the conditions</div>
               <h2 className="text-xl font-bold">One candidate. Different evidence.</h2>
@@ -167,7 +160,7 @@ export default function ResearchDemonstration() {
             <AnimatePresence mode="wait">
               {!result && (
                 <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                  <GlassCard className="min-h-[380px] flex flex-col justify-center p-8 md:p-12">
+                  <GlassCard className="studio-research-empty min-h-[410px] flex flex-col justify-center p-8 md:p-12">
                     <div className="font-mono text-indigo-400 uppercase tracking-widest text-xs mb-4">02 / Observe the mechanism</div>
                     <h2 className="text-2xl font-bold mb-4">{busy ? 'Calculating the dossier…' : 'A score should have an explanation.'}</h2>
                     {busy ? (
@@ -535,7 +528,8 @@ export default function ResearchDemonstration() {
             )}
           </GlassCard>
         </footer>
-      </div>
+        <StudioFooter />
+      </main>
     </div>
   );
 }

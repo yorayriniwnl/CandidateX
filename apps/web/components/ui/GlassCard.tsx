@@ -13,9 +13,9 @@ interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
 }
 
 const glassStyles = {
-  default: 'bg-white/[0.03] backdrop-blur-xl border border-white/[0.06]',
-  strong: 'bg-white/[0.06] backdrop-blur-2xl border border-white/[0.10]',
-  subtle: 'bg-white/[0.015] backdrop-blur-lg border border-white/[0.04]',
+  default: 'bg-[#100c17]/90 border border-[#b599d1]/15 shadow-[inset_0_1px_0_#ffffff04,0_8px_32px_#00000014]',
+  strong: 'bg-[#171020]/95 backdrop-blur-xl border border-[#b599d1]/25 shadow-[inset_0_1px_0_#ffffff06,0_16px_45px_#00000020]',
+  subtle: 'bg-[#b99bde]/[0.025] border border-[#b599d1]/10',
 };
 
 const glowStyles = {
@@ -33,7 +33,7 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
     children,
     variant = 'default',
     glow = 'none',
-    hoverLift = true,
+    hoverLift = false,
     noPadding = false,
     animateDelay,
     className = '',

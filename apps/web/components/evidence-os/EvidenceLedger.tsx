@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CapabilityKey } from '../../types/cci';
 import type { LiveResult } from '../../lib/live-analysis';
 import { publicUrl } from '../../lib/live-analysis';
 import { EvidenceStatus } from './EvidenceStatus';
 import { capabilityName, dateTime, percent, score, titleWords } from './format';
 import styles from './evidence-os.module.css';
+import resultStyles from './result.module.css';
 
 const PAGE_SIZE = 40;
 type SortField = 'label' | 'capability' | 'source' | 'support' | 'confidence' | 'date' | 'revision';
@@ -93,7 +94,7 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const selected = records.find(record => record.evidence_id === selectedEvidenceId) ?? null;
+
 
   function sortValue(record: LiveEvidence, field: SortField): string | number {
     if (field === 'label') return record.provenance.raw_support_text || record.provenance.artifact_path || record.evidence_id;
@@ -135,16 +136,7 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
   }
 
   return (
-    <section id="evidence" className={styles.contentSection} aria-labelledby="evidence-title">
-      <div className={styles.sectionHeader}>
-        <div>
-          <p className={styles.sectionEyebrow}>02 / STATIC OBSERVATIONS</p>
-          <h2 id="evidence-title">Evidence ledger</h2>
-          <p>Each record links an observation to its capability and source locator. Evidence existence is not mastery.</p>
-        </div>
-        <span className={styles.sectionCount}>{records.length} records</span>
-      </div>
-
+    <div className={resultStyles.ledger}>
       <div className={styles.filterBar}>
         <label className={styles.searchField}>
           <span>Search evidence</span>
@@ -164,6 +156,7 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
             {sourceFamilies.map(source => <option key={source} value={source}>{titleWords(source)}</option>)}
           </select>
         </label>
+        <details className={resultStyles.advancedFilters}><summary>More filters</summary><div className={styles.filterBar}>
         <label className={styles.compactField}>
           <span>Source locator</span>
           <select aria-label="Filter by source" value={sourceFilter} onChange={event => { onSourceFilterChange(event.target.value); setPage(0); }}>
@@ -200,8 +193,9 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
           <span>Observed before</span>
           <input aria-label="Observed before" type="date" value={observedBefore} onChange={event => setObservedBefore(event.target.value)} />
         </label>
-      </div>
+      </div></details></div>
 
+      <button className={styles.textButton} type="button" onClick={clearFilters}>Reset filters</button>
       <p className={styles.tableSummary} aria-live="polite">Showing {filtered.length === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} matching records.</p>
       {records.length === 0 ? <div className={styles.emptyState}><EvidenceStatus status="unknown" label="No evidence records returned" /><p>The live response contains no static observations. Capability estimates remain unknown where the dossier says they are unknown.</p></div>
         : filtered.length === 0 ? <div className={styles.emptyState}><p>No evidence records match these filters.</p><button className={styles.textButton} type="button" onClick={clearFilters}>Clear filters</button></div>
@@ -224,7 +218,7 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
               const verification = record.provenance.verification_status || (record.is_positive_support ? 'supporting observation' : 'contradicting observation');
               return <tr key={record.evidence_id} className={selectedEvidenceId === record.evidence_id ? styles.selectedRow : ''}>
                 <td><button className={styles.evidenceRowSelect} type="button" aria-pressed={selectedEvidenceId === record.evidence_id} onClick={() => onSelectEvidence(record.evidence_id)}>
-                  <span>{record.provenance.raw_support_text || record.provenance.artifact_path || 'Static observation'}</span><code>{record.evidence_id}</code>
+                  <span>{record.provenance.raw_support_text || record.provenance.artifact_path || 'Static observation'}</span><code>{record.provenance.artifact_path || record.evidence_id}</code>
                 </button></td>
                 <td>{capabilityName(record.target_capability)}</td>
                 <td><span className={styles.sourceKind}>{titleWords(record.source_family)}</span><small className={styles.tableSubtext}>{record.source_locator}</small></td>
@@ -232,8 +226,8 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
                 <td className={styles.numericCell}>{percent(record.confidence)}</td>
                 <td className={styles.numericCell}>{owns === undefined ? 'Not returned' : `${percent(owns)} heuristic`}<small>not authorship proof</small></td>
                 <td className={styles.numericCell}>{dateTime(record.provenance.observed_at)}</td>
-                <td><code className={styles.idText}>{record.immutable_revision}</code></td>
-                <td><EvidenceStatus status={verification} label={verification} /></td>
+                <td><code className={styles.idText} title={record.immutable_revision}>{record.immutable_revision.slice(0, 10)}</code></td>
+                <td><EvidenceStatus status={verification} label={verification === 'live_static_inspection' ? 'Static observation' : verification} /></td>
               </tr>;
             })}</tbody>
           </table>
@@ -244,23 +238,41 @@ export function EvidenceLedger({ result, sourceFilter, onSourceFilterChange, cap
         <span>Page {page + 1} of {pageCount}</span>
         <button className={styles.secondaryButton} type="button" disabled={page + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Next</button>
       </div>}
-      {selected && <EvidenceRecordDetail record={selected} />}
-    </section>
+    </div>
   );
 }
 
-function EvidenceRecordDetail({ record }: { record: LiveEvidence }) {
+export function EvidenceInspector({ record, onClose }: { record: LiveEvidence; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [copied, setCopied] = useState('');
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialog.current?.showModal();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = overflow; previous?.focus(); };
+  }, []);
+  async function copyPath() {
+    try { await navigator.clipboard.writeText(record.provenance.artifact_path); setCopied('Path copied'); }
+    catch { setCopied('Copy unavailable. Select the artifact path below.'); }
+  }
   const verification = record.provenance.verification_status || (record.is_positive_support ? 'supporting observation' : 'contradicting observation');
-  const artifactUrl = publicUrl(record.provenance.artifact_url);
+  const artifactUrl = publicUrl(record.provenance.artifact_url) ?? publicUrl(record.source_locator);
   return (
+    <dialog ref={dialog} className={resultStyles.drawer} aria-label="Evidence inspector" onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if(event.clientX < rect.left) onClose(); } }}>
     <aside className={styles.evidenceDetail} aria-label="Selected evidence provenance">
+      <div className={resultStyles.drawerTop}><span>Evidence inspector</span><button type="button" onClick={onClose} autoFocus aria-label="Close evidence inspector">×</button></div>
       <div className={styles.inspectorHeader}>
         <div><p className={styles.sectionEyebrow}>EVIDENCE RECORD / PROVENANCE</p><h3>{record.provenance.artifact_path || record.source_locator}</h3></div>
-        <EvidenceStatus status={verification} label={verification} />
+        <EvidenceStatus status={verification} label={verification === 'live_static_inspection' ? 'Static observation' : verification} />
       </div>
       <p className={styles.rawObservation}>{record.provenance.raw_support_text || 'No observation text was returned for this record.'}</p>
       {artifactUrl && <a className={styles.inlineLink} href={artifactUrl} target="_blank" rel="noreferrer">Open inspected artifact <span aria-hidden="true">↗</span></a>}
+      <div className={resultStyles.copyLine}>{record.provenance.artifact_path && <button type="button" onClick={copyPath}>Copy artifact path</button>}<span role="status">{copied}</span></div>
       <dl className={styles.inspectorFacts}>
+        <div><dt>Ownership estimate</dt><dd>{record.confidence_factors.ownership_score == null ? 'Unavailable' : percent(record.confidence_factors.ownership_score)} · repository heuristic</dd></div>
+        <div><dt>Evidence quality</dt><dd>{record.confidence_factors.artifact_integrity == null ? 'Unavailable' : `${percent(record.confidence_factors.artifact_integrity)} artifact integrity`}</dd></div>
+        <div><dt>Signal families</dt><dd>Unavailable in this response</dd></div>
         <div><dt>Capability</dt><dd>{capabilityName(record.target_capability)}</dd></div>
         <div><dt>Source family</dt><dd>{titleWords(record.source_family)}</dd></div>
         <div><dt>Source locator</dt><dd>{record.source_locator}</dd></div>
@@ -291,6 +303,6 @@ function EvidenceRecordDetail({ record }: { record: LiveEvidence }) {
         <p>Ownership is a repository-level heuristic. It does not prove authorship of each inspected line.</p>
         <dl>{Object.entries(record.confidence_factors).map(([name, value]) => <div key={name}><dt>{titleWords(name)}</dt><dd>{typeof value === 'number' && Number.isFinite(value) ? value.toFixed(3) : 'Not returned'}</dd></div>)}</dl>
       </details>
-    </aside>
+    </aside></dialog>
   );
 }

@@ -4,8 +4,10 @@ import type { CanonicalRole } from '../../types/cci';
 import { roleName } from './format';
 import type { EvaluationStep } from './EvaluationSteps';
 import styles from './evidence-os.module.css';
+import { Braces, Cloud, Database, Layers3, Network, PanelsTopLeft } from 'lucide-react';
 
 const ROLES: CanonicalRole[] = ['backend', 'frontend', 'fullstack', 'ml_engineer', 'devops_cloud', 'data_engineer'];
+const ROLE_ICONS = [Braces, PanelsTopLeft, Layers3, Network, Cloud, Database];
 
 export function RoleStep({ role, jd, busy, onRoleChange, onJdChange, onContinue }: {
   role: CanonicalRole;
@@ -20,6 +22,10 @@ export function RoleStep({ role, jd, busy, onRoleChange, onJdChange, onContinue 
       <div className={styles.sectionEyebrow}>02 / Role context</div>
       <h2 id="role-step-title">Set the role context.</h2>
       <p className={styles.sectionIntro}>The role changes how observed evidence is organized. A job description is optional.</p>
+
+      <div className={styles.roleCards} role="group" aria-label="Choose a role lens">
+        {ROLES.map((option, index) => { const Icon = ROLE_ICONS[index]; return <button type="button" key={option} disabled={busy} aria-pressed={role === option} onClick={() => onRoleChange(option)}><Icon size={18} strokeWidth={1.3} aria-hidden="true" /><span>{roleName(option)}</span><i aria-hidden="true" /></button>; })}
+      </div>
 
       <div className={styles.roleControls}>
         <div className={styles.fieldBlock}>

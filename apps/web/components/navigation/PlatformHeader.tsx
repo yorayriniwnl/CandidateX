@@ -21,8 +21,20 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
     setMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        document.querySelector<HTMLButtonElement>('.platform-menu-toggle')?.focus();
+      }
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [menuOpen]);
+
   return (
-    <header className="platform-header">
+    <header className="platform-header" data-surface={surface}>
       <div className="platform-header__inner">
         <Link href="/" className="platform-brand" aria-label="CandidateX home">
           <span className="platform-brand__mark" aria-hidden="true"><Sparkles size={16} /></span>

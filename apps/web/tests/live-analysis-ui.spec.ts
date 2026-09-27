@@ -328,12 +328,13 @@ test('leads with readable capability actions and keeps audit fields expandable',
   const table = page.getByRole('table', { name: 'Role emphasis and observed evidence by capability' });
   await expect(table.getByRole('columnheader', { name: 'Estimate' })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: '95% interval' })).toBeVisible();
-  await expect(table.getByRole('columnheader', { name: 'Conflict' })).toBeVisible();
-  await expect(page.getByText('Uncertainty and conflict diagnostics')).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Uncertainty', exact: true })).toBeVisible();
+  await page.getByText('Detailed résumé review & job requirements', { exact: true }).click();
   await expect(page.getByRole('heading', { name: 'What the job description is supported by' })).toBeVisible();
   await page.screenshot({ path: 'test-results/evidence-os-result.png', fullPage: true });
 
-  await page.getByText('Uncertainty and conflict diagnostics').click();
+  await page.getByText('Show methodology', { exact: true }).click();
   await expect(page.getByText('Standard error', { exact: true })).toBeVisible();
 });
 
@@ -386,6 +387,7 @@ test('loads the returned 3D evidence graph on demand and opens its matching evid
   await page.goto('/analyze');
   await uploadAndAnalyze(page);
 
+  await page.getByText(/Explore evidence connections/).click();
   const graph = page.getByRole('region', { name: 'Candidate evidence graph' });
   await expect(graph.getByText('8 nodes · 9 relationships')).toBeVisible();
   await expect(graph.locator('canvas')).toHaveCount(0);
@@ -407,15 +409,16 @@ test('opens a traceable dossier rail across capabilities, claims, sources, gaps,
 
   const dossier = page.getByRole('region', { name: 'Live candidate dossier' });
   const navigation = dossier.getByRole('navigation', { name: 'Dossier sections' });
-  for (const section of ['overview', 'capabilities', 'evidence', 'claims', 'sources', 'conflicts', 'interview', 'evidence-graph', 'audit']) {
+  for (const section of ['overview', 'capabilities', 'evidence', 'claims', 'sources', 'conflicts', 'interview', 'audit']) {
     await expect(navigation.locator(`a[href="#${section}"]`)).toBeVisible();
   }
+  await page.getByText(/Explore evidence connections/).click();
   await expect(dossier.getByRole('heading', { name: 'Candidate evidence graph' })).toBeVisible();
-  await expect(dossier.getByRole('heading', { name: 'Claims and corroboration' })).toBeVisible();
-  await expect(dossier.getByRole('heading', { name: 'Source coverage' })).toBeVisible();
-  await expect(dossier.getByRole('heading', { name: 'Unknowns and conflicts' })).toBeVisible();
+  await expect(dossier.getByRole('heading', { name: 'Claim verification' })).toBeVisible();
+  await expect(dossier.getByRole('heading', { name: 'Repository intelligence' })).toBeVisible();
+  await expect(dossier.getByRole('heading', { name: 'Uncertainty', exact: true })).toBeVisible();
   await expect(dossier.getByRole('heading', { name: 'Interview plan' })).toBeVisible();
-  await expect(dossier.getByRole('heading', { name: 'Audit and limitations' })).toBeVisible();
+  await expect(dossier.getByRole('heading', { name: 'Methodology', exact: true })).toBeVisible();
   await page.locator('#capabilities').screenshot({ path: 'test-results/evidence-os-capability.png' });
   await page.locator('#evidence').screenshot({ path: 'test-results/evidence-os-ledger.png' });
   await page.locator('#sources').screenshot({ path: 'test-results/evidence-os-receipt.png' });
@@ -424,4 +427,130 @@ test('opens a traceable dossier rail across capabilities, claims, sources, gaps,
   await page.evaluate(() => window.scrollTo(0, 0));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/evidence-os-mobile.png' });
+});
+
+test('evidence opens without moving the report, traps focus and returns focus on Escape', async ({ page }) => {
+  await mockLiveApi(page, mockedGraphAnalyze);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  const trigger = page.getByRole('region', { name: 'Observed engineering signals' }).getByRole('button').first();
+  await trigger.scrollIntoViewIfNeeded();
+  const scrollBefore = await page.evaluate(() => scrollY);
+  await trigger.click();
+  const drawer = page.getByRole('dialog', { name: 'Evidence inspector' });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toContainText('app/main.py');
+  await expect(drawer.getByRole('button', { name: 'Close evidence inspector' })).toBeFocused();
+  expect(await page.evaluate(() => scrollY)).toBe(scrollBefore);
+  await page.keyboard.press('Shift+Tab');
+  expect(await drawer.evaluate(el => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => scrollY)).toBe(scrollBefore);
+});
+
+test('ledger stays unmounted until requested and combines search and confidence filters', async ({ page }) => {
+  await mockLiveApi(page, mockedGraphAnalyze);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  await expect(page.getByLabel('Search evidence', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /Inspect all evidence/ }).click();
+  await page.getByLabel('Search evidence', { exact: true }).fill('app/main.py');
+  await expect(page.getByText('of 1 matching records.', { exact: false })).toBeVisible();
+  await page.getByText('More filters', { exact: true }).click();
+  await page.getByLabel('Confidence minimum (0 to 1)', { exact: true }).fill('0.9');
+  await expect(page.getByText('No evidence records match these filters.')).toBeVisible();
+  await page.getByRole('button', { name: 'Reset filters' }).click();
+  await expect(page.getByText('of 1 matching records.', { exact: false })).toBeVisible();
+});
+
+test('not-observed claims stay neutral and do not imply a false claim', async ({ page }) => {
+  const body = structuredClone(mockedGraphAnalyze);
+  body.analysis.skills[0].status = 'not_observed';
+  await mockLiveApi(page, body);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  const claims = page.locator('#claims');
+  const status = claims.locator('span[title]').filter({ hasText: 'Not Observed' });
+  await expect(status).toHaveAttribute('title', /does not mean the claim is false/);
+  await expect(status).toHaveClass(/status_unknown/);
+  await claims.getByRole('button', { name: /Built and maintained/ }).click();
+  await claims.getByRole('button', { name: /app\/main.py/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('FastAPI route implementation observed.');
+});
+
+for (const width of [1440, 1280, 1024, 390]) {
+  test(`completed dossier and drawer fit a ${width}px viewport`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setViewportSize({ width, height: 900 });
+    await mockLiveApi(page, mockedGraphAnalyze);
+    await page.goto('/analyze');
+    await uploadAndAnalyze(page);
+    await expect(page.locator('#overview')).toContainText('1 / 1');
+    await page.getByRole('region', { name: 'Observed engineering signals' }).getByRole('button').first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('overview claim counts match the full verification list, including unassessed declarations', async ({ page }) => {
+  const body = structuredClone({ ...mockedGraphAnalyze, analysis: { ...mockedGraphAnalyze.analysis, quantified_claims_to_verify: ['Served 10,000 users'] } });
+  body.intake.manifest.claimed_skills.push('Rust');
+  await mockLiveApi(page, body);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  await expect(page.locator('#overview')).toContainText('4 of 4 reviewed claims need follow-up.');
+  const claims = page.locator('#claims');
+  await expect(claims.getByRole('button', { name: /Rust/ })).toBeVisible();
+  await claims.getByRole('button', { name: /Rust/ }).click();
+  await expect(claims).toContainText('No claim assessment was returned for this skill.');
+  await expect(claims.getByRole('button', { name: /Served 10,000 users/ })).toBeVisible();
+});
+
+test('detailed requirement review opens exact evidence and retains filters across disclosure', async ({ page }) => {
+  const body = structuredClone(mockedGraphAnalyze) as any;
+  body.analysis.role_fit.requirement_matches = [{
+    requirement_id: 'python-api', normalized_name: 'Python APIs', source_text: 'Build Python APIs',
+    priority: 'mandatory', capability_mappings: ['backend_engineering'], status: 'observed',
+    evidence_ids: ['evidence-ui-3d', 'missing-record'], matching_technologies: ['FastAPI'],
+    explanation: 'The returned route supports this requirement.',
+  }];
+  await mockLiveApi(page, body);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  await expect(page.getByRole('region', { name: 'Detailed resume analysis', exact: true })).toHaveCount(0);
+  const disclosure = page.getByText('Detailed résumé review & job requirements', { exact: true });
+  await disclosure.click();
+  const requirements = page.getByRole('region', { name: 'Role requirement fit', exact: true });
+  await requirements.locator('summary').filter({ hasText: 'Build Python APIs' }).click();
+  await expect(requirements).toContainText('Referenced evidence record unavailable');
+  await requirements.getByRole('button', { name: /app\/main.py/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('FastAPI route implementation observed.');
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Find a skill').fill('no match');
+  await expect(page.getByText('No skills match this view.')).toBeVisible();
+  await disclosure.click();
+  await disclosure.click();
+  await expect(page.getByLabel('Find a skill')).toHaveValue('no match');
+  await page.getByLabel('Find a skill').fill('Python');
+  await page.setViewportSize({ width: 390, height: 844 });
+  const review = page.getByRole('region', { name: 'Detailed resume analysis', exact: true });
+  await review.locator('summary').filter({ hasText: 'Python' }).click();
+  await expect(review.getByRole('link', { name: /app\/main.py/ })).toHaveAttribute('href', 'https://github.com/example/api');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('capability drill-down opens the ledger with the matching capability filter', async ({ page }) => {
+  await mockLiveApi(page, mockedGraphAnalyze);
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  await page.locator('#capabilities').getByRole('button', { name: /Backend Engineering/ }).click();
+  await page.getByRole('button', { name: 'Inspect all 1 capability records' }).click();
+  await expect(page.getByLabel('Filter by capability', { exact: true })).toHaveValue('backend_engineering');
+  await expect(page.locator('#evidence')).toContainText('of 1 matching records.');
 });

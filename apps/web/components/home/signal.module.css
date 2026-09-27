@@ -1,0 +1,47 @@
+.engine { position: relative; width: 100%; min-width: 0; }
+.heading { display: flex; align-items: center; gap: 13px; padding: 0 14px; color: #a29bb5; font: 500 9px/1.4 var(--font-mono), monospace; letter-spacing: .13em; text-transform: uppercase; }
+.instrumentNumber { color: #d0c1ff; padding-right: 13px; border-right: 1px solid #a99ac333; }
+.edition { margin-left: auto; color: #756e89; font-size: 8px; letter-spacing: .08em; }
+.stage { position: relative; width: 100%; aspect-ratio: 1.3; isolation: isolate; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; mix-blend-mode: screen; opacity: 0; transition: opacity 900ms ease; mask-image: radial-gradient(ellipse, #000 47%, #000e 64%, transparent 76%); }
+.engine[data-ready=true] canvas { opacity: 1; }
+.aura { position: absolute; inset: 6%; background: radial-gradient(ellipse at 50% 52%, #9774e624, #6955b30b 48%, transparent 70%); pointer-events: none; }
+.crosshair { position: absolute; inset: 12% 16%; border: 1px solid #9d8ebe0b; border-radius: 50%; }
+.crosshair::before, .crosshair::after { content: ''; position: absolute; background: #a494c614; }
+.crosshair::before { width: 1px; height: 130%; left: 50%; top: -15%; }
+.crosshair::after { height: 1px; width: 130%; top: 50%; left: -15%; }
+.axisTop, .axisBottom { position: absolute; left: 50%; transform: translateX(-50%); color: #807290; font: 500 7px/1 var(--font-mono), monospace; letter-spacing: .2em; }
+.axisTop { top: 6%; }.axisBottom { bottom: 5%; }
+.fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
+.engine[data-ready=true] .fallback { display: none; }
+.labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.nodeLabel { position: absolute; display: flex; align-items: center; gap: 6px; border: 1px solid #a896d020; padding: 7px 8px; border-radius: 4px; background: #0a0813d9; color: #a29bb4; font: 400 9px/1.3 var(--font-mono), monospace; white-space: nowrap; will-change: transform; }
+.nodeLabel i { height: 3px; width: 3px; border-radius: 50%; background: #8f83ad; }
+.nodeLabel svg { color: #756a8b; }
+.nodeLabel[data-active=true] { border-color: #c6b2ff50; color: #e2d7ff; }
+.nodeLabel[data-active=true] i { background: #bd9eff; box-shadow: 0 0 8px #af83ff; }
+.nodeLabel[data-node='0'] { left: 2%; top: 29%; }
+.nodeLabel[data-node='1'] { right: 1%; top: 28%; }
+.nodeLabel[data-node='2'] { left: 3%; bottom: 26%; }
+.nodeLabel[data-node='3'] { right: 1%; bottom: 25%; }
+.engine[data-ready=true] .nodeLabel { top: 0; left: 0; right: auto; bottom: auto; }
+.console { position: relative; margin: -6px 24px 0; }
+.controls { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #afa0ce22; }
+.stages { display: grid; grid-template-columns: repeat(4, 1fr); flex: 1; gap: 3px; }
+.stages button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 43px; padding: 0 8px; color: #8e869e; background: transparent; border: 0; cursor: pointer; font-size: 11px; transition: color 180ms, background 180ms; }
+.stages button span { font: 500 8px/1 var(--font-mono), monospace; color: #6c617e; }
+.stages button::after { content: ''; position: absolute; bottom: -1px; left: 8px; right: 8px; height: 1px; background: #c8adff; transform: scaleX(0); transition: transform 200ms ease; box-shadow: 0 0 12px #a988ff; }
+.stages button[aria-pressed=true] { color: #e3d5ff; background: linear-gradient(0deg, #a88cfa0b, transparent); }
+.stages button[aria-pressed=true] span { color: #bfa5fa; }
+.stages button[aria-pressed=true]::after { transform: scaleX(1); }
+.stages button:hover { color: #eee8fa; }
+.motionButton { display: grid; place-items: center; flex: 0 0 32px; height: 32px; border: 1px solid #b7a0d22b; border-radius: 50%; background: #baa7ee08; color: #baaccf; cursor: pointer; }
+.motionButton:hover { background: #baa7ee18; }
+.controls button:focus-visible { outline: 2px solid #bca2ff; outline-offset: 4px; border-radius: 3px; }
+.caption { min-height: 90px; padding: 18px 8px 0; }
+.caption strong { color: #c9c1d7; font-size: 12px; font-weight: 500; }
+.caption p { margin: 6px 0 0; max-width: 470px; color: #8a829b; font-size: 11px; line-height: 1.7; }
+@media (min-width: 1600px) { .nodeLabel { font-size: 10px; padding: 9px; } }
+@media (max-width: 1080px) { .heading { padding: 0; font-size: 8px; gap: 8px; }.edition { display: none; }.console { margin-inline: 8px; }.stages button { font-size: 10px; gap: 5px; padding-inline: 4px; }.nodeLabel { font-size: 8px; gap: 4px; padding: 6px; } }
+@media (max-width: 760px) { .heading { padding: 0 8px; }.edition { display: block; }.stage { aspect-ratio: 1.15; }.console { margin-top: -8px; }.caption { min-height: 93px; }.stages button { min-height: 45px; }.controls { gap: 6px; }.nodeLabel { font-size: 7px; }.nodeLabel svg { display: none; } }
+@media (prefers-reduced-motion: reduce) { .stage canvas, .stages button, .stages button::after { transition: none; }.nodeLabel { will-change: auto; } }

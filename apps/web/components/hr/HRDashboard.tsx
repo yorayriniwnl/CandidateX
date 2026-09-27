@@ -13,6 +13,8 @@ import { GlassSelect } from '@/components/ui/GlassSelect';
 import { GlowBadge } from '@/components/ui/GlowBadge';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StudioHeading } from '../studio/StudioHeading';
+import { StudioFooter } from '../studio/StudioFooter';
 
 export function HRDashboard() {
   const [candidates, setCandidates] = useState<HRCandidate[]>([]);
@@ -56,33 +58,13 @@ export function HRDashboard() {
 
   function clearFilters() { setQuery(''); setRole('all'); setStatus('all'); }
 
-  return <div className="min-h-screen bg-[#030712] text-slate-100">
-    <header className="border-b border-white/[0.06] bg-[#0a0f1e]/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 lg:px-8">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-            <Users className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span className="text-xl font-bold tracking-tight text-white">Candidate<span className="text-indigo-400">X</span></span>
-          <span className="hidden border-l border-white/10 pl-3 text-sm text-slate-400 sm:block">For hiring teams</span>
-        </div>
-        <GlassButton variant="primary" onClick={() => setAdding(true)} icon={<Plus className="h-4 w-4" />}>
-          Add Candidate
-        </GlassButton>
-      </div>
-    </header>
-    <main className="mx-auto max-w-7xl space-y-7 px-6 py-8 lg:px-8 lg:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-indigo-400">Your hiring workspace</p>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Hiring Dashboard</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Find a candidate, review their evidence, and prepare for the next conversation.</p>
-        </div>
-        <GlassButton disabled={mode === 'loading'} onClick={() => { setSelected(null); setAttempt((value) => value + 1); }} icon={<RefreshCw className={`h-4 w-4 ${mode === 'loading' ? 'animate-spin' : ''}`} />}>
-          Refresh list
-        </GlassButton>
-      </div>
-      
+  return <div className="studio-hr">
+    <main className="studio-page space-y-7">
+      <StudioHeading eyebrow="01 / THE CANDIDATE WORKSPACE" title="Hiring Dashboard" description="A fuller picture of the people behind the profiles. Explore their evidence and prepare for the next conversation.">
+        <GlassButton variant="secondary" disabled={mode === 'loading'} onClick={() => { setSelected(null); setAttempt(value => value + 1); }} icon={<RefreshCw className={`h-3.5 w-3.5 ${mode === 'loading' ? 'animate-spin' : ''}`} />}>Refresh list</GlassButton>
+        <GlassButton variant="primary" onClick={() => setAdding(true)} icon={<Plus className="h-3.5 w-3.5" />}>Add Candidate</GlassButton>
+      </StudioHeading>
+
       <AnimatePresence>
         {mode === 'sample' && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}>
@@ -101,7 +83,7 @@ export function HRDashboard() {
         )}
       </AnimatePresence>
 
-      <section aria-label="Hiring summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Hiring summary" className="studio-hr-metrics grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map(({ title, value, detail, icon: Icon, delay }) => (
           <GlassCard key={title} animateDelay={delay} hoverLift className="p-5 flex flex-col justify-between">
             <div>
@@ -125,7 +107,7 @@ export function HRDashboard() {
         aria-labelledby="hr-candidates-heading" 
       >
         <GlassCard noPadding className="overflow-hidden">
-          <div className="border-b border-white/[0.06] p-5 sm:p-6 bg-[#0a0f1e]/40">
+          <div className="studio-table-toolbar border-b border-white/[0.06] p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 id="hr-candidates-heading" className="text-lg font-semibold text-white">Candidates</h2>
@@ -170,7 +152,7 @@ export function HRDashboard() {
             <div tabIndex={0} role="region" aria-label="Candidate table — scroll horizontally to see all columns" className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-indigo-500">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <caption className="sr-only">Candidates with evaluation status, evidence status, alerts, and a quick-view action</caption>
-                <thead className="bg-[#0a0f1e]/80 text-xs text-slate-400 border-b border-white/[0.06]">
+                <thead className="studio-table-head text-xs text-slate-400 border-b border-white/[0.06]">
                   <tr>
                     {['Candidate', 'Role', 'Evaluation', 'Evidence', 'Alerts', 'Action'].map((heading) => (
                       <th key={heading} scope="col" className="px-5 py-4 font-semibold">{heading}</th>
@@ -188,8 +170,9 @@ export function HRDashboard() {
                         className="group hover:bg-white/[0.04] transition-colors"
                       >
                         <th scope="row" className="min-w-[180px] max-w-[260px] break-words px-5 py-4 font-normal">
-                          <p className="font-semibold text-slate-200 group-hover:text-white transition-colors">{candidate.display_name}</p>
+                          <div className="flex items-center gap-3"><span className="studio-candidate-avatar" aria-hidden="true">{candidate.display_name.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')}</span><div><p className="font-medium text-slate-200 group-hover:text-white transition-colors">{candidate.display_name}</p>
                           <p className="mt-1 text-xs leading-5 text-slate-500">{candidate.source === 'sample' ? 'Sample candidate' : candidate.source === 'draft' ? 'Local draft · not shared' : candidate.primary_email || 'No email provided'}</p>
+                          </div></div>
                         </th>
                         <td className="px-5 py-4 text-slate-400">{roleLabel(candidate.role)}</td>
                         <td className="px-5 py-4">
@@ -230,6 +213,7 @@ export function HRDashboard() {
         </GlassCard>
       </motion.section>
       <p className="text-center text-xs leading-5 text-slate-500">Evidence helps you ask better questions. Hiring decisions always remain with your team.</p>
+      <StudioFooter />
     </main>
     {adding && <AddCandidateDialog onClose={() => setAdding(false)} onAdd={(candidate) => {
       setDrafts((previous) => [candidate, ...previous]); setAdding(false); clearFilters();

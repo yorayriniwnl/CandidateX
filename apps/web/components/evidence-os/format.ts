@@ -41,3 +41,17 @@ export function dateTime(value?: string): string {
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
+
+/** Translate returned technical labels without changing the underlying observation. */
+export function readableAnalysisText(text: string): string {
+  return text.replace(/\b(?:backend_engineering|frontend_engineering|database_engineering|devops_cloud|testing_quality|software_architecture|documentation_communication|algorithms_problem_solving|machine_learning)\b/g,
+    key => capabilityName(key).toLowerCase());
+}
+
+export function readableInterviewRationale(text: string): string {
+  const coverageGap = text.match(/^Large evidence coverage gap \(1 - Cov_k = ([\d.]+)\) for a high-priority role capability \(w_k=([\d.]+)\)\.$/);
+  if (coverageGap) {
+    return `Evidence covers ${Math.round((1 - Number(coverageGap[1])) * 100)}% of this capability's evidence target. This capability carries ${Math.round(Number(coverageGap[2]) * 100)}% of the target role's weight.`;
+  }
+  return readableAnalysisText(text);
+}

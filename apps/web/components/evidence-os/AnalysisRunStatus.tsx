@@ -3,7 +3,7 @@ import styles from './evidence-os.module.css';
 export function AnalysisRunStatus({ phase }: { phase: 'upload' | 'analyze' }) {
   return (
     <div className={styles.runStatus} role="status" aria-live="polite" aria-busy="true">
-      <span className={styles.runSpinner} aria-hidden="true" />
+      <span className={styles.runInstrument} aria-hidden="true"><i /><i /><i /><b /></span>
       <div>
         <strong>{phase === 'upload' ? 'Reading the resume' : 'Waiting for the live analysis response'}</strong>
         <p>{phase === 'upload'

@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { PlatformHeader } from '../../components/navigation/PlatformHeader';
+import { StudioHeading } from '../../components/studio/StudioHeading';
+import { StudioFooter } from '../../components/studio/StudioFooter';
+import styles from './workspace.module.css';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Users,
@@ -122,241 +126,46 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen flex font-[family-name:var(--font-sans)]">
-      {/* ============================================================
-          Sidebar Navigation
-          ============================================================ */}
-      <aside
-        className={`
-          fixed top-0 left-0 h-screen z-40
-          glass-strong border-r border-white/[0.06]
-          flex flex-col transition-all duration-300 ease-in-out
-          ${sidebarExpanded ? 'w-[220px]' : 'w-[68px]'}
-        `}
-      >
-        {/* Logo */}
-        <div className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-brand-500/25 shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          {sidebarExpanded && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="text-sm font-bold text-white tracking-tight whitespace-nowrap">CandidateX</div>
-              <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">v1.0.0</div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Nav Items */}
-        <nav className="flex-1 px-2.5 py-2 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = activeTab === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setActiveTab(item.key)}
-                className={`
-                  w-full flex items-center gap-3 rounded-xl transition-all duration-200 group relative
-                  ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
-                  ${isActive
-                    ? 'bg-brand-500/15 text-white shadow-glow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                  }
-                `}
-              >
-                {/* Active indicator bar */}
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebar-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand-400 rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.5)]"
-                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                  />
-                )}
-                <span className={`shrink-0 ${isActive ? 'text-brand-400' : ''}`}>
-                  {item.icon}
-                </span>
-                {sidebarExpanded && (
-                  <div className="text-left min-w-0">
-                    <div className="text-sm font-medium truncate">{item.label}</div>
-                    <div className="text-[10px] text-slate-500 truncate">{item.description}</div>
-                  </div>
-                )}
-
-                {/* Tooltip for collapsed state */}
-                {!sidebarExpanded && (
-                  <div className="absolute left-full ml-2 px-2.5 py-1.5 glass-strong rounded-lg text-xs text-white whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl">
-                    {item.label}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Bottom actions */}
-        <div className="p-2.5 space-y-1 border-t border-white/[0.04]">
-          <button
-            type="button"
-            onClick={() => setIsHowItWorksOpen(true)}
-            className={`
-              w-full flex items-center gap-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-all duration-200
-              ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
-            `}
-          >
-            <HelpCircle className="w-5 h-5 shrink-0" />
-            {sidebarExpanded && <span className="text-sm font-medium">How It Works</span>}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSidebarExpanded(!sidebarExpanded)}
-            className={`
-              w-full flex items-center gap-3 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-all duration-200
-              ${sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'}
-            `}
-          >
-            {sidebarExpanded ? <ChevronLeft className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />}
-            {sidebarExpanded && <span className="text-sm font-medium">Collapse</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* ============================================================
-          Main Content Area
-          ============================================================ */}
-      <div
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
-          sidebarExpanded ? 'ml-[220px]' : 'ml-[68px]'
-        }`}
-      >
-        {/* Top Command Bar */}
-        <header className="sticky top-0 z-30 glass-strong border-b border-white/[0.04]">
-          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Search trigger */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-slate-500 text-sm cursor-default">
-                <Search className="w-3.5 h-3.5" />
-                <span className="text-xs">Search candidates...</span>
-                <kbd className="ml-4 px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-slate-500 border border-white/[0.08]">
-                  Ctrl+K
-                </kbd>
-              </div>
+    <div className="studio-surface">
+      <PlatformHeader surface="workspace" />
+      <div className="studio-page">
+        <StudioHeading eyebrow="02 / THE PROTOTYPE WORKSPACE" title="A different perspective." description="Bring the people, the evidence, and the questions into one considered workspace.">
+          <GlowBadge variant={isBackendOnline ? 'success' : 'warning'} size="sm">{isBackendOnline === null ? 'Checking API...' : isBackendOnline ? 'API connected' : 'API unavailable'}</GlowBadge>
+          {manifest?.full_name && <button type="button" className={styles.candidatePill} onClick={() => setActiveTab('dossier')}><span>{manifest.full_name.charAt(0)}</span>{manifest.full_name}</button>}
+        </StudioHeading>
+        <div className={styles.shell} data-collapsed={!sidebarExpanded}>
+          <aside className={styles.rail} aria-label="Workspace tools">
+            <div className={styles.railHeading}><span>CX / WORKSPACE</span><span>02</span></div>
+            <nav className={styles.tools} aria-label="Workspace views">
+              {NAV_ITEMS.map(item => <button key={item.key} type="button" onClick={() => setActiveTab(item.key)} aria-pressed={activeTab === item.key} aria-label={`${item.label} ${item.description}`} title={sidebarExpanded ? undefined : item.label}>
+                <span className={styles.toolIcon}>{item.icon}</span><span className={styles.toolCopy}><strong>{item.label}</strong><span>{item.description}</span></span><i />
+              </button>)}
+            </nav>
+            <div className={styles.railFoot}><span className={styles.railOrb} aria-hidden="true"><i /><i /><i /></span><p>Every signal.<br /><strong>A clearer picture.</strong></p></div>
+            <div className={styles.railActions}>
+              <button type="button" onClick={() => setIsHowItWorksOpen(true)} aria-label="How It Works"><HelpCircle size={15} /><span>How it works</span></button>
+              <button className={styles.collapseButton} type="button" onClick={() => setSidebarExpanded(value => !value)} aria-label={sidebarExpanded ? 'Collapse workspace tools' : 'Expand workspace tools'}>{sidebarExpanded ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}<span>Collapse</span></button>
             </div>
-
-            <div className="flex items-center gap-3">
-              {/* Active candidate pill */}
-              {manifest?.full_name && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('dossier')}
-                  className="flex items-center gap-2 px-3 py-1.5 glass rounded-full text-xs transition-all hover:bg-white/[0.06] group"
-                >
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-400 to-violet-400 flex items-center justify-center text-[10px] font-bold text-white">
-                    {manifest.full_name.charAt(0)}
-                  </div>
-                  <span className="text-slate-400 group-hover:text-slate-200 transition-colors">
-                    {manifest.full_name}
-                  </span>
-                </button>
-              )}
-
-              {/* Backend status */}
-              <GlowBadge
-                variant={isBackendOnline === null ? 'neutral' : isBackendOnline ? 'success' : 'warning'}
-                size="sm"
-                pulse={isBackendOnline === true}
-              >
-                {isBackendOnline === null ? 'Checking API...' : isBackendOnline ? 'API connected' : 'API unavailable'}
-              </GlowBadge>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content with Transitions */}
-        <main className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
-          <SystemNotice />
-          <div className="mb-5 rounded-xl border border-indigo-400/30 bg-indigo-950/40 p-4 text-sm text-indigo-100">
-            Prototype workspace. URL and CV declarations alone produce unknown capabilities; automated acquisition is not enabled here.
-            {' '}<a href="/research-demo" className="underline">Open the executable paper demonstration</a>.
-          </div>
-          {loadError && <div role="alert" className="mb-5 rounded-xl border border-red-400/40 p-4 text-red-200">{loadError}</div>}
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {activeTab === 'directory' && (
-                <CandidateDirectory
-                  onSelectCandidate={handleSelectCandidateFromDirectory}
-                  onNewCandidate={() => setActiveTab('new_eval')}
-                  isBackendOnline={isBackendOnline}
-                  initialSelectedForComparison={comparisonCandidateIds}
-                  onCompareCandidates={(ids) => {
-                    setComparisonCandidateIds(ids);
-                    setActiveTab('compare');
-                  }}
-                />
-              )}
-
-              {activeTab === 'new_eval' && (
-                <EvaluationWizard
-                  currentRole={currentRole}
-                  pipelineStageIndex={pipelineStageIndex}
-                  isPipelineRunning={isPipelineRunning}
-                  isPipelineComplete={isPipelineComplete}
-                  onJobComplete={handleJobComplete}
-                  onCandidateSubmit={handleCandidateSubmit}
-                  onViewDossier={() => setActiveTab('dossier')}
-                />
-              )}
-
-              {activeTab === 'dossier' && currentDossier && currentGraph && (
-                <DossierView
-                  initialDossier={currentDossier}
-                  graph={currentGraph}
-                  candidateName={manifest?.full_name || 'Candidate'}
-                  onSelectCandidate={handleSelectCandidateFromDirectory}
-                />
-              )}
-
-              {activeTab === 'dossier' && !currentDossier && <p role="status" className="p-6 text-slate-300">No candidate dossier selected or available.</p>}
-              {activeTab === 'compare' && (
-                <CandidateComparison
-                  onSelectCandidateDossier={handleSelectCandidateFromDirectory}
-                  isBackendOnline={isBackendOnline}
-                  selectedCandidateIds={comparisonCandidateIds}
-                  onSelectedIdsChange={setComparisonCandidateIds}
-                />
-              )}
-
-              {activeTab === 'research' && (
-                <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-
-        {/* Footer */}
-        <footer className="border-t border-white/[0.04] py-4 text-center text-xs text-slate-600">
-          <span className="text-gradient-brand font-semibold">CandidateX</span>
-          {' '}&mdash; AI-Powered Capability Intelligence for Technical Hiring
-        </footer>
+          </aside>
+          <main className={styles.content}>
+            <SystemNotice />
+            <div className={styles.prototype}><span>RESEARCH PROTOTYPE</span><p>URL and CV declarations alone produce unknown capabilities; automated acquisition is not enabled here. <a href="/research-demo">Explore the executable paper demonstration.</a></p></div>
+            {loadError && <div role="alert" className={styles.error}>{loadError}</div>}
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} variants={pageVariants} initial="initial" animate="animate" exit="exit" className={styles.view}>
+                {activeTab === 'directory' && <CandidateDirectory onSelectCandidate={handleSelectCandidateFromDirectory} onNewCandidate={() => setActiveTab('new_eval')} isBackendOnline={isBackendOnline} initialSelectedForComparison={comparisonCandidateIds} onCompareCandidates={ids => { setComparisonCandidateIds(ids); setActiveTab('compare'); }} />}
+                {activeTab === 'new_eval' && <EvaluationWizard currentRole={currentRole} pipelineStageIndex={pipelineStageIndex} isPipelineRunning={isPipelineRunning} isPipelineComplete={isPipelineComplete} onJobComplete={handleJobComplete} onCandidateSubmit={handleCandidateSubmit} onViewDossier={() => setActiveTab('dossier')} />}
+                {activeTab === 'dossier' && currentDossier && currentGraph && <DossierView initialDossier={currentDossier} graph={currentGraph} candidateName={manifest?.full_name || 'Candidate'} onSelectCandidate={handleSelectCandidateFromDirectory} />}
+                {activeTab === 'dossier' && !currentDossier && <div className={styles.empty}><div className={styles.emptyIcon}><Award size={32} strokeWidth={1} /></div><span>THE CANDIDATE DOSSIER</span><h2>A person behind every profile.</h2><p role="status">No candidate dossier selected or available.</p><button type="button" onClick={() => setActiveTab('directory')}>Explore candidates <ChevronRight size={14} /></button></div>}
+                {activeTab === 'compare' && <CandidateComparison onSelectCandidateDossier={handleSelectCandidateFromDirectory} isBackendOnline={isBackendOnline} selectedCandidateIds={comparisonCandidateIds} onSelectedIdsChange={setComparisonCandidateIds} />}
+                {activeTab === 'research' && <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
+        <StudioFooter />
       </div>
-
-      {/* How It Works Modal */}
-      <HowItWorksModal
-        isOpen={isHowItWorksOpen}
-        onClose={() => setIsHowItWorksOpen(false)}
-      />
+      <HowItWorksModal isOpen={isHowItWorksOpen} onClose={() => setIsHowItWorksOpen(false)} />
     </div>
   );
 }

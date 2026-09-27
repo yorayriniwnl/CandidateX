@@ -6,6 +6,7 @@ import { publicUrl } from '../../lib/live-analysis';
 import { EvidenceStatus } from './EvidenceStatus';
 import { dateTime, humanStatus, percent, titleWords } from './format';
 import styles from './evidence-os.module.css';
+import report from './result.module.css';
 
 export function SourceCoverage({ result, onInspectEvidence }: {
   result: LiveResult;
@@ -17,9 +18,9 @@ export function SourceCoverage({ result, onInspectEvidence }: {
     <section id="sources" className={styles.contentSection} aria-labelledby="sources-title">
       <div className={styles.sectionHeader}>
         <div>
-          <p className={styles.sectionEyebrow}>04 / ACQUISITION RECEIPTS</p>
-          <h2 id="sources-title">Source coverage</h2>
-          <p>Every receipt reports what the current run returned. A selected URL is not evidence that acquisition succeeded.</p>
+          <p className={styles.sectionEyebrow}>04 / SOURCE INTELLIGENCE</p>
+          <h2 id="sources-title">Repository intelligence</h2>
+          <p>Engineering context from inspected files, with acquisition gaps preserved.</p>
         </div>
         <span className={styles.sectionCount}>{observed} observed / {result.sources.length} receipts · {repositories} {repositories === 1 ? 'repository' : 'repositories'} inspected</span>
       </div>
@@ -45,11 +46,21 @@ function SourceReceiptCard({ source, onInspectEvidence }: { source: SourceReceip
       <div className={styles.receiptSummary}>
         <div className={styles.receiptIdentity}>
           <span className={styles.sourceKind}>{kind}</span>
-          <h3>{source.url}</h3>
+          <h3>{source.url.replace(/^https?:\/\/(www\.)?github.com\//, '')}</h3>
           <p>{source.detail}</p>
         </div>
         <div className={styles.receiptStatus}><EvidenceStatus status={source.status} label={humanStatus(source.status)} /></div>
       </div>
+      <dl className={report.repoSummary}>
+        <div><dt>Primary language</dt><dd>{repo?.primary_language || languages[0]?.[0] || 'Unavailable'}</dd></div>
+        <div><dt>Ownership estimate</dt><dd>{source.ownership_score == null ? 'Unknown' : percent(source.ownership_score, 0)}</dd></div>
+        <div><dt>Evidence</dt><dd>{source.evidence_count ?? 'Unavailable'}</dd></div>
+        <div><dt>Files inspected</dt><dd>{source.files_inspected ?? 'Unavailable'}</dd></div>
+        <div><dt>Last activity</dt><dd>{repo?.pushed_at ? dateTime(repo.pushed_at) : 'Unavailable'}</dd></div>
+      </dl>
+      <p className={report.footnote}>Ownership is a recent-commit heuristic, not proof of authorship.</p>
+      {repo && <RepositoryReview review={repo} source={source} />}
+      <details className={styles.diagnosticDetails}><summary>Acquisition receipt & source metadata</summary>
       <dl className={styles.receiptFacts}>
         <div><dt>Fetched</dt><dd>{dateTime(source.fetched_at)}</dd></div>
         <div><dt>Revision</dt><dd><code>{source.commit_sha ?? 'Not returned'}</code></dd></div>
@@ -74,7 +85,6 @@ function SourceReceiptCard({ source, onInspectEvidence }: { source: SourceReceip
         </div>)}</div>
       </details>}
 
-      {repo && <RepositoryReview review={repo} source={source} />}
       {(source.title || source.excerpt) && <details className={styles.diagnosticDetails}>
         <summary>Public page text · not independently verified</summary>
         <p>{source.title || 'Untitled page'}</p>
@@ -86,6 +96,7 @@ function SourceReceiptCard({ source, onInspectEvidence }: { source: SourceReceip
         <summary>Expanded repository URLs · {source.expanded_repositories.length}</summary>
         <ul>{source.expanded_repositories.map(repository => <li key={repository}><code>{repository}</code></li>)}</ul>
       </details>}
+      </details>
       <div className={styles.receiptActions}>
         {url ? <a className={styles.inlineLink} href={url} target="_blank" rel="noreferrer">Open supplied source <span aria-hidden="true">↗</span></a> : <span className={styles.muted}>Source URL is not a safe HTTP(S) link.</span>}
         <button className={styles.textButton} type="button" onClick={() => onInspectEvidence(source.url)}>Inspect evidence from this source <span aria-hidden="true">→</span></button>
@@ -99,8 +110,15 @@ function RepositoryReview({ review, source }: { review: NonNullable<SourceReceip
   const languages = Object.entries(review.languages_by_inspected_file).sort((a, b) => b[1] - a[1]);
   return (
     <details className={styles.repositoryReview}>
-      <summary>Repository intelligence · inspected files only</summary>
+      <summary>Engineering fingerprint & technical details</summary>
       <p className={styles.repositoryScope}>Signals below describe inspected files and returned metadata. A configuration or dependency does not prove candidate mastery or ownership.</p>
+      {review.engineering_signals.length > 0 && <div className={styles.repoBlock}>
+        <h4>Engineering fingerprint</h4><ul className={report.fingerprint}>{review.engineering_signals.map((signal, index) => <li key={`${signal.name}-${index}`}>
+          <EvidenceStatus status={signal.status} label={`${titleWords(signal.name)} · ${signal.status === 'not_observed_in_scan' ? 'Not observed in bounded scan' : humanStatus(signal.status)}`} />
+          <span>{signal.paths.length > 0 ? signal.paths.slice(0, 5).join(' · ') : 'No path returned'}</span>
+        </li>)}</ul>
+      </div>}
+      <div className={report.unavailableGrid}><div><h4>Architecture</h4><p>Module topology, dependencies and cycles are unavailable in this response.</p></div><div><h4>Review targets</h4><p>No structured review targets were supplied. This is not a security clearance.</p><small>Review target, not confirmed vulnerability.</small></div></div>
       <div className={styles.repoMetaStrip}>
         <span>{review.stars} stars returned</span><span>{review.forks} forks returned</span><span>{review.license || 'License not returned'}</span>
         <span>Open issues: {review.open_issues}</span><span>Last push: {dateTime(review.pushed_at ?? undefined)}</span>
@@ -118,21 +136,15 @@ function RepositoryReview({ review, source }: { review: NonNullable<SourceReceip
           : <p>No categories returned.</p>}
       </div>
       {technologies.length > 0 && <div className={styles.repoBlock}>
-        <h4>Technology declarations observed</h4>
+        <details className={styles.diagnosticDetails}><summary>Technology declarations observed</summary>
         <ul className={styles.technologyList}>{technologies.map((technology, index) => <li key={`${technology.name}-${technology.path}-${index}`}>
           <strong>{technology.name}</strong><span>{technology.basis}</span><code>{technology.path}</code>
           {technology.attribution_observed !== undefined && <span>{technology.attribution_observed ? 'Repository-level attribution signal returned' : 'Attribution not established'}</span>}
-        </li>)}</ul>
+        </li>)}</ul></details>
       </div>}
       {review.dependencies.length > 0 && <div className={styles.repoBlock}>
-        <h4>Dependency declarations</h4><ul className={styles.dependencyList}>{review.dependencies.slice(0, 30).map((dependency, index) => <li key={`${dependency.path}-${dependency.name}-${index}`}><code>{dependency.name}{dependency.version ? ` ${dependency.version}` : ''}</code><span>{dependency.path}</span></li>)}</ul>
-        {review.dependencies.length > 30 && <p>Showing 30 of {review.dependencies.length} dependency declarations.</p>}
-      </div>}
-      {review.engineering_signals.length > 0 && <div className={styles.repoBlock}>
-        <h4>Engineering signals</h4><ul className={styles.signalList}>{review.engineering_signals.map((signal, index) => <li key={`${signal.name}-${index}`}>
-          <EvidenceStatus status={signal.status} label={`${signal.name} · ${humanStatus(signal.status)}`} />
-          <span>{signal.paths.length > 0 ? signal.paths.slice(0, 5).join(' · ') : 'No path returned'}</span>
-        </li>)}</ul>
+        <details className={styles.diagnosticDetails}><summary>Dependency declarations</summary><ul className={styles.dependencyList}>{review.dependencies.slice(0, 30).map((dependency, index) => <li key={`${dependency.path}-${dependency.name}-${index}`}><code>{dependency.name}{dependency.version ? ` ${dependency.version}` : ''}</code><span>{dependency.path}</span></li>)}</ul>
+        {review.dependencies.length > 30 && <p>Showing 30 of {review.dependencies.length} dependency declarations.</p>}</details>
       </div>}
       {review.readme_excerpt && <details className={styles.readmeExcerpt}><summary>README excerpt</summary><blockquote>{review.readme_excerpt}</blockquote></details>}
       {review.limitations.length > 0 && <div className={styles.limitationList}><h4>Repository inspection limits</h4><ul>{review.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul></div>}

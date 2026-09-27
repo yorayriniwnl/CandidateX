@@ -1,113 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, ChartNoAxesColumnIncreasing, FileCheck2, GitBranch, Layers3, ListFilter, MessageSquare, ScanLine, type LucideIcon } from 'lucide-react';
 import type { CapabilityKey } from '../../types/cci';
 import type { LiveResult } from '../../lib/live-analysis';
-import { AuditSection, ClaimsSection, ConflictAndUnknownReview, InterviewPlan } from './DossierSections';
-import { CapabilityMatrix, ExecutiveSummary } from './DossierOverview';
-import { EvidenceLedger } from './EvidenceLedger';
+import { AuditSection, InterviewPlan } from './DossierSections';
+import { CapabilityMatrix, ExecutiveSummary, ObservedSignals, ResultHeader } from './DossierOverview';
+import { ClaimVerification, UncertaintyPanel } from './VerificationSections';
+import { EvidenceLedger, EvidenceInspector } from './EvidenceLedger';
 import { EvidenceGraphSection } from '../dossier/EvidenceGraphSection';
 import { SourceCoverage } from './SourceCoverage';
-import { DetailedAnalysis } from '../../app/analyze/DetailedAnalysis';
-import { EvidenceStrengthPanel } from '../../app/analyze/ConfidencePanel';
-import styles from './evidence-os.module.css';
+import { ResumeReview } from './ResumeReview';
+import { resultClaims } from '../../lib/result-claims';
+import styles from './result.module.css';
+import legacy from './evidence-os.module.css';
 
 const SECTIONS = [
-  { id: 'overview', label: 'Overview', detail: 'Decision summary' },
-  { id: 'capabilities', label: 'Capabilities', detail: 'Role context × evidence' },
-  { id: 'evidence', label: 'Evidence', detail: 'Static observations' },
-  { id: 'claims', label: 'Claims', detail: 'Declarations × sources' },
-  { id: 'sources', label: 'Sources', detail: 'Acquisition receipts' },
-  { id: 'conflicts', label: 'Unknowns & conflicts', detail: 'Gaps to investigate' },
-  { id: 'interview', label: 'Interview', detail: 'Technical follow-up' },
-  { id: 'evidence-graph', label: 'Graph', detail: 'Evidence provenance' },
-  { id: 'audit', label: 'Audit', detail: 'Run metadata' },
+  ['overview', 'Overview'], ['capabilities', 'Capabilities'], ['claims', 'Claims'], ['sources', 'Repositories'],
+  ['evidence', 'Evidence'], ['conflicts', 'Uncertainty'], ['interview', 'Interview plan'], ['audit', 'Methodology'],
 ];
+const sectionIcons: Record<string, LucideIcon> = { overview: ScanLine, capabilities: ChartNoAxesColumnIncreasing, claims: FileCheck2, sources: GitBranch, evidence: ListFilter, conflicts: Layers3, interview: MessageSquare, audit: BookOpen };
 
 export function LiveDossier({ result, onNewEvaluation }: { result: LiveResult; onNewEvaluation: () => void }) {
-  const firstObserved = Object.values(result.dossier.capability_estimates).find(item => item.is_observed && item.estimate !== null)?.capability_key;
-  const firstCapability = firstObserved ?? Object.values(result.dossier.capability_estimates)[0]?.capability_key ?? 'backend_engineering';
-  const [selectedCapability, setSelectedCapability] = useState<CapabilityKey>(firstCapability);
+  const [selectedCapability, setSelectedCapability] = useState<CapabilityKey | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState('all');
   const [capabilityFilter, setCapabilityFilter] = useState<CapabilityKey | 'all'>('all');
-  const estimates = Object.values(result.dossier.capability_estimates);
-  const observedCount = estimates.filter(item => item.is_observed && item.estimate !== null).length;
-  const conflicts = Object.values(result.dossier.capability_conflicts).filter(item => item.has_meaningful_conflict).length;
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [reviewLoaded, setReviewLoaded] = useState(false);
+  const claims = useMemo(() => resultClaims(result), [result]);
+  const [active, setActive] = useState('overview');
+  const selectedEvidence = result.dossier.evidence_records.find(e=>e.evidence_id===selectedEvidenceId);
 
-  function scrollTo(sectionId: string) {
-    const target = document.getElementById(sectionId);
-    if (!target) return;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  useEffect(() => {
+    const update = () => {
+      const sections = SECTIONS.map(([id]) => document.getElementById(id)).filter((e): e is HTMLElement => !!e);
+      const current = [...sections].reverse().find(e => e.getBoundingClientRect().top <= 170);
+      setActive(current?.id ?? 'overview');
+    };
+    window.addEventListener('scroll', update, { passive: true }); update();
+    return () => window.removeEventListener('scroll', update);
+  }, []);
+  useEffect(() => { document.getElementById('result-start')?.scrollIntoView({block:'start'}); }, [result.dossier.analysis_run_id]);
+
+  function scrollTo(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
+  function selectCapability(key: CapabilityKey) { setSelectedCapability(key); scrollTo('capabilities'); }
+  function inspectSource(source: string) { setSourceFilter(source); setCapabilityFilter('all'); setLedgerOpen(true); scrollTo('evidence'); }
 
-  function selectEvidence(evidenceId: string) {
-    setCapabilityFilter('all');
-    setSourceFilter('all');
-    setSelectedEvidenceId(evidenceId);
-    scrollTo('evidence');
-  }
-
-  function inspectCapabilityEvidence(capability: CapabilityKey, evidenceId: string) {
-    setCapabilityFilter(capability);
-    setSourceFilter('all');
-    setSelectedEvidenceId(evidenceId);
-    scrollTo('evidence');
-  }
-
-  function selectCapability(capability: CapabilityKey) {
-    setSelectedCapability(capability);
-    scrollTo('capabilities');
-  }
-
-  function inspectSource(source: string) {
-    setSourceFilter(source);
-    setCapabilityFilter('all');
-    scrollTo('evidence');
-  }
-
-  return (
-    <section className={styles.dossierShell} aria-label="Live candidate dossier">
-      <div className={styles.dossierToolbar}>
-        <div><span>LIVE DOSSIER</span><code>{result.dossier.analysis_run_id}</code></div>
-        <button className={styles.textButton} type="button" onClick={onNewEvaluation}>New evaluation <span aria-hidden="true">＋</span></button>
-      </div>
-      <div className={styles.dossierLayout}>
-        <aside className={styles.dossierRail}>
-          <div className={styles.stickySummary}>
-            <span className={styles.sectionEyebrow}>CANDIDATE SNAPSHOT</span>
-            <strong>{result.intake.manifest.display_name}</strong>
-            <span>{result.dossier.role.replaceAll('_', ' ')}</span>
-            <dl>
-              <div><dt>RCI</dt><dd>{result.dossier.rci == null ? 'UNKNOWN' : result.dossier.rci.toFixed(1)}</dd></div>
-              <div><dt>Coverage</dt><dd>{(result.dossier.coverage * 100).toFixed(1)}%</dd></div>
-              <div><dt>Observed</dt><dd>{observedCount} / {estimates.length}</dd></div>
-              <div><dt>Conflicts</dt><dd>{conflicts}</dd></div>
-            </dl>
-          </div>
-          <nav aria-label="Dossier sections" className={styles.sectionNav}>
-            {SECTIONS.map((section, index) => <a key={section.id} href={`#${section.id}`}>
-              <span className={styles.navIndex}>{String(index + 1).padStart(2, '0')}</span>
-              <span><strong>{section.label}</strong><small>{section.detail}</small></span>
-            </a>)}
-          </nav>
-        </aside>
-
-        <div className={styles.dossierContent}>
-          <ExecutiveSummary result={result} />
-          <EvidenceStrengthPanel result={result} />
-          <CapabilityMatrix result={result} selected={selectedCapability} onSelect={setSelectedCapability} onInspectEvidence={inspectCapabilityEvidence} />
-          <EvidenceLedger result={result} sourceFilter={sourceFilter} onSourceFilterChange={setSourceFilter} capabilityFilter={capabilityFilter} onCapabilityFilterChange={setCapabilityFilter} selectedEvidenceId={selectedEvidenceId} onSelectEvidence={setSelectedEvidenceId} />
-          <ClaimsSection result={result} />
-          <DetailedAnalysis analysis={result.analysis} />
-          <SourceCoverage result={result} onInspectEvidence={inspectSource} />
-          <ConflictAndUnknownReview result={result} onSelectCapability={selectCapability} onSelectEvidence={selectEvidence} />
-          <InterviewPlan result={result} onSelectEvidence={selectEvidence} />
-          <EvidenceGraphSection graph={result.graph} onSelectCapability={selectCapability} onSelectEvidence={selectEvidence} />
-          <AuditSection result={result} />
-        </div>
-      </div>
+  return <section id="result-start" className={`${styles.report} ${legacy.resultReport}`} aria-label="Live candidate dossier">
+    <ResultHeader result={result} onNewEvaluation={onNewEvaluation} />
+    <nav className={styles.navigation} aria-label="Dossier sections">{SECTIONS.map(([id, label]) => { const Icon = sectionIcons[id]; return <a href={`#${id}`} key={id} aria-current={active===id ? 'location' : undefined}><Icon size={14} strokeWidth={1.6} aria-hidden="true" />{label}</a>; })}</nav>
+    <ExecutiveSummary result={result} claims={claims} />
+    <CapabilityMatrix result={result} selected={selectedCapability} onSelect={setSelectedCapability} onInspectEvidence={(_,id)=>setSelectedEvidenceId(id)} onInspectCapability={key => { setCapabilityFilter(key); setSourceFilter('all'); setLedgerOpen(true); scrollTo('evidence'); }} />
+    <ObservedSignals result={result} onInspect={setSelectedEvidenceId} />
+    <ClaimVerification result={result} rows={claims} onInspect={setSelectedEvidenceId} />
+    <details className={styles.disclosure} onToggle={event => { if (event.currentTarget.open) setReviewLoaded(true); }}><summary>Detailed résumé review & job requirements</summary>{reviewLoaded && <ResumeReview result={result} onInspect={setSelectedEvidenceId} />}</details>
+    <SourceCoverage result={result} onInspectEvidence={inspectSource} />
+    <section id="evidence" className={styles.section}><div className={styles.sectionHeading}><div><span className={styles.eyebrow}>05 / Trace every conclusion</span><h2>Evidence ledger</h2><p>{result.dossier.evidence_records.length} records · Source artifacts, confidence factors and exact locations.</p></div><button className={styles.secondary} aria-expanded={ledgerOpen} onClick={()=>setLedgerOpen(v=>!v)}>{ledgerOpen ? 'Close evidence ledger' : 'Inspect all evidence'} <span aria-hidden="true">{ledgerOpen ? '−' : '+'}</span></button></div>
+      {ledgerOpen && <EvidenceLedger result={result} sourceFilter={sourceFilter} onSourceFilterChange={setSourceFilter} capabilityFilter={capabilityFilter} onCapabilityFilterChange={setCapabilityFilter} selectedEvidenceId={selectedEvidenceId} onSelectEvidence={setSelectedEvidenceId} />}
     </section>
-  );
+    <UncertaintyPanel result={result} onSelectCapability={selectCapability} onInspect={setSelectedEvidenceId} />
+    <InterviewPlan result={result} onSelectEvidence={setSelectedEvidenceId} />
+    <details className={styles.disclosure}><summary>Explore evidence connections · {result.graph.nodes.length} nodes</summary><EvidenceGraphSection graph={result.graph} onSelectCapability={selectCapability} onSelectEvidence={setSelectedEvidenceId} /></details>
+    <section id="audit" className={styles.section}><div className={styles.sectionHeading}><div><span className={styles.eyebrow}>08 / Research & provenance</span><h2>Methodology</h2><p>Static inspection of supplied sources. Identity and account association are declarations; results do not establish mastery or job performance.</p></div></div><details className={styles.disclosure}><summary>Run metadata, versions & limitations</summary><AuditSection result={result} /></details></section>
+    {selectedEvidence && <EvidenceInspector record={selectedEvidence} onClose={()=>setSelectedEvidenceId(null)} />}
+  </section>;
 }

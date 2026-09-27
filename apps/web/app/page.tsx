@@ -1,22 +1,9 @@
-import { ArrowRight, SearchCheck } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Fingerprint, ScanSearch, MessagesSquare } from 'lucide-react';
 import Link from 'next/link';
-import { ExperienceCard } from '../components/home/ExperienceCard';
 import { SignalConstellation } from '../components/home/SignalConstellation';
+import { EvidenceWalkthrough } from '../components/home/EvidenceWalkthrough';
 import { PlatformHeader } from '../components/navigation/PlatformHeader';
 import styles from './home.module.css';
-
-const EXPERIENCES = [
-  {
-    title: 'Live Evidence',
-    eyebrow: 'For a real candidate',
-    description: 'Upload a resume, review supplied public links, and follow the evidence into a focused technical interview.',
-    href: '/analyze',
-    icon: SearchCheck,
-    accent: 'violet' as const,
-    tag: 'Primary workflow',
-    featured: true,
-  },
-];
 
 export default function HomePage() {
   return (
@@ -25,94 +12,56 @@ export default function HomePage() {
       <main className={styles.homeMain}>
         <section className={styles.hero} aria-labelledby="home-title">
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Candidate capability intelligence / v1</p>
-            <h1 id="home-title">
-              Candidate intelligence,
-              <span>with receipts.</span>
-            </h1>
-            <p className={styles.heroDescription}>
-              Trace technical claims through public evidence, capability signals, and the questions that make a human interview sharper. CandidateX supports hiring judgment; it never makes the decision for you.
-            </p>
-            <div className={styles.heroCredit} aria-label="CandidateX attribution">
-              <span className={styles.heroCreditLabel}>Made by</span>
-              <strong>Archi Srivastava &amp; Ayush Roy</strong>
-              <span className={styles.heroCreditDivider} aria-hidden="true">·</span>
-              <span className={styles.heroCreditLabel}>Under the guidance of</span>
-              <strong>Dr. Debachudamani Prusti</strong>
-            </div>
+            <p className={styles.eyebrow}><span className={styles.statusDot} /> Human potential. Real evidence.</p>
+            <h1 id="home-title">Candidate<br />intelligence,<br /><span>with receipts.</span></h1>
+            <p className={styles.heroDescription}>Go beyond what a résumé says. Connect the claims, explore the work, and walk into every interview with better questions.</p>
             <div className={styles.heroActions}>
-              <Link href="/analyze" className={styles.primaryAction}>
-                Start with live evidence <ArrowRight size={17} aria-hidden="true" />
-              </Link>
-              <Link href="#loop-title" className={styles.secondaryAction}>
-                See the evidence loop <ArrowUpRightIcon />
-              </Link>
+              <Link href="/analyze" className={styles.primaryAction}>Start with live evidence <span><ArrowUpRight size={17} aria-hidden="true" /></span></Link>
+              <Link href="#loop-title" className={styles.secondaryAction}>Explore the process <ArrowDown size={14} aria-hidden="true" /></Link>
             </div>
-            <div className={styles.heroMeta} aria-label="Product principles">
-              <span className={styles.heroMetaItem}><strong>12</strong> capabilities</span>
-              <span className={styles.heroMetaItem}><strong>6</strong> role lenses</span>
-              <span className={styles.heroMetaItem}><strong>0</strong> autonomous decisions</span>
-            </div>
+            <p className={styles.heroNote}><span /> Evidence informs. People decide.</p>
           </div>
-          <div className={styles.heroVisual}>
-            <SignalConstellation />
-            <p className={styles.visualCaption}>Claims → evidence → capability → interview</p>
-          </div>
+          <div className={styles.heroVisual}><SignalConstellation /></div>
+          <div className={styles.heroFootnote}><span>INTELLIGENCE, MADE TRACEABLE.</span><a href="#loop-title">Follow the evidence <ArrowDown size={12} aria-hidden="true" /></a><span>EST. IN CURIOSITY / BUILT FOR CLARITY</span></div>
         </section>
 
-        <section className={styles.modesSection} aria-labelledby="modes-title">
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.sectionEyebrow}>One product surface</p>
-              <h2 id="modes-title">One clear workflow.</h2>
-            </div>
-            <p>Start with the candidate evidence, then carry the same trace into a sharper human interview.</p>
-          </div>
-          <div className={styles.experienceGrid} aria-label="CandidateX product surfaces">
-            {EXPERIENCES.map((experience) => <ExperienceCard key={experience.href} {...experience} />)}
-          </div>
-        </section>
+        <div className={styles.principleRail} aria-label="Product principles">
+          <p>A fuller picture.<br /><strong>A sharper conversation.</strong></p>
+          <div><strong>12<span> /</span></strong><span>Capability dimensions</span></div>
+          <div><strong>06<span> /</span></strong><span>Role-specific lenses</span></div>
+          <div><strong>Human<span> /</span></strong><span>The final judgment. Always.</span></div>
+        </div>
 
         <section className={styles.loopSection} aria-labelledby="loop-title">
-          <p className={styles.sectionEyebrow}>The operating loop</p>
           <div className={styles.sectionHeading}>
-            <h2 id="loop-title">Make the conversation count.</h2>
-            <p>Move from a declaration to an interview you can defend.</p>
+            <div><p className={styles.sectionEyebrow}>01 / THE EVIDENCE LOOP</p><h2 id="loop-title">From a claim.<br /><span>To a conversation.</span></h2></div>
+            <p>There is a story behind every skill.<br />Follow one thread from a résumé to the question worth asking.</p>
           </div>
-          <div className={styles.loopGrid}>
-            <LoopItem number="01" title="Bring context" description="Start with the resume, role, and sources the candidate actually supplied." />
-            <LoopItem number="02" title="Trace the signal" description="Inspect artifacts, confidence, coverage, conflicts, and what remains unknown." />
-            <LoopItem number="03" title="Prepare the conversation" description="Turn uncertainty into evidence-linked questions for a human interviewer." />
+          <EvidenceWalkthrough />
+        </section>
+
+        <section className={styles.trustSection} aria-labelledby="trust-title">
+          <div className={styles.trustIntro}><p className={styles.sectionEyebrow}>02 / BUILT WITH INTENTION</p><h2 id="trust-title">Powerful intelligence.<br /><span>Considered boundaries.</span></h2></div>
+          <div className={styles.trustGrid}>
+            <article><Fingerprint size={25} strokeWidth={1.2} aria-hidden="true" /><span className={styles.trustNumber}>01</span><h3>The person comes first.</h3><p>Evidence supports an interviewer’s judgment. CandidateX never makes the hiring decision.</p></article>
+            <article><ScanSearch size={25} strokeWidth={1.2} aria-hidden="true" /><span className={styles.trustNumber}>02</span><h3>Unknown stays unknown.</h3><p>A missing signal is a reason to ask. Unobserved capability is never quietly turned into a zero.</p></article>
+            <article><MessagesSquare size={25} strokeWidth={1.2} aria-hidden="true" /><span className={styles.trustNumber}>03</span><h3>Every question has a why.</h3><p>Follow the evidence, the gaps, and the context behind each interview probe. Candidate code is inspected, never executed.</p></article>
           </div>
         </section>
 
-        <section className={styles.trustStrip} aria-label="CandidateX guardrails">
-          <div className={styles.trustItem}><strong>Human decision support</strong><span>Evidence and probes help an interviewer reason. The system does not rank people autonomously.</span></div>
-          <div className={styles.trustItem}><strong>Missing stays unknown</strong><span>Unobserved capability is not silently turned into a zero or a false negative.</span></div>
-          <div className={styles.trustItem}><strong>Static analysis only</strong><span>Candidate code is inspected without executing untrusted repositories or test suites.</span></div>
+        <section className={styles.closing} aria-labelledby="closing-title">
+          <div className={styles.closingOrbit} aria-hidden="true"><span /><span /><span /></div>
+          <p className={styles.sectionEyebrow}>LOOK CLOSER. ASK BETTER.</p>
+          <h2 id="closing-title">Meet the capability<br /><span>behind the claim.</span></h2>
+          <Link href="/analyze" className={styles.primaryAction}>Begin your first analysis <span><ArrowRight size={17} aria-hidden="true" /></span></Link>
+          <p className={styles.closingNote}>Bring a résumé. Start a more informed conversation.</p>
         </section>
-
-        <footer className={styles.footer}>
-          <span>CandidateX · Research-informed technical interview preparation.</span>
-          <nav className={styles.footerNav} aria-label="Footer navigation">
-            <Link href="/analyze">Live Evidence</Link>
-          </nav>
-        </footer>
       </main>
+      <footer className={styles.footer}>
+        <div className={styles.footerTop}><Link href="/" className={styles.footerBrand}>Candidate<span>X</span></Link><p>Research-informed intelligence.<br />Human-led decisions.</p><Link href="/analyze" className={styles.footerLink}>Live Evidence <ArrowUpRight size={14} aria-hidden="true" /></Link></div>
+        <div className={styles.footerBottom}><p><span>Under the Guidance of</span><strong>Dr. Debachudamani Prusti</strong><span>Prepared by</span><strong>Ayush Roy &amp; Archi Srivastava</strong></p><span>WITH EVIDENCE. WITH CARE.</span></div>
+        <div className={styles.footerCompany}><span>COMPANY</span><strong>Yor Ayrin - iwnl Private Limited.</strong></div>
+      </footer>
     </div>
   );
-}
-
-function LoopItem({ number, title, description }: { number: string; title: string; description: string }) {
-  return (
-    <article className={styles.loopItem}>
-      <span className={styles.loopNumber}>{number}</span>
-      <h3>{title}</h3>
-      <p>{description}</p>
-    </article>
-  );
-}
-
-function ArrowUpRightIcon() {
-  return <ArrowRight size={17} aria-hidden="true" />;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 
 interface AnimatedCounterProps {
   value: number;
@@ -20,11 +21,13 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   className = '',
 }) => {
   const [displayValue, setDisplayValue] = useState(0);
+  const reducedMotion = useReducedMotion();
   const rafRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const startValueRef = useRef<number>(0);
 
   useEffect(() => {
+    if (reducedMotion || duration <= 0) { setDisplayValue(value); return; }
     startValueRef.current = displayValue;
     startTimeRef.current = performance.now();
 
@@ -44,7 +47,7 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, duration]);
+  }, [value, duration, reducedMotion]);
 
   const formatted = decimals > 0
     ? displayValue.toFixed(decimals)

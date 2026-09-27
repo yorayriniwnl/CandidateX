@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { ResumeIntake } from '../../lib/live-analysis';
 import type { EvaluationStep } from './EvaluationSteps';
 import styles from './evidence-os.module.css';
+import { FileText, Upload, ShieldCheck } from 'lucide-react';
 
 function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -55,7 +56,7 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
           onUpload(event.dataTransfer.files?.[0]);
         }}
       >
-        <span className={styles.uploadMark} aria-hidden="true">↑</span>
+        <span className={styles.uploadSculpture} aria-hidden="true"><span /><span /><FileText size={31} strokeWidth={1} /><i><Upload size={12} /></i></span>
         <span className={styles.dropTitle}>{intake ? 'Replace resume' : 'Drop a resume here or browse'}</span>
         <span className={styles.dropNote}>PDF or DOCX · up to 3 MB · digital text only</span>
         <input
@@ -70,7 +71,7 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
           }}
         />
       </label>
-      <p className={styles.privacyNote}>The document is processed for this request and is not saved. Scanned images need OCR before upload.</p>
+      <p className={styles.privacyNote}><ShieldCheck size={13} aria-hidden="true" />The document is processed for this request and is not saved. Scanned images need OCR before upload.</p>
 
       {intake && manifest && (
         <div className={styles.intakeSummary}>

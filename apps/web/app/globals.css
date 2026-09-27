@@ -587,116 +587,6 @@ body {
 .surface-badge--sample .surface-badge__dot { color: var(--source-cyan); background: var(--source-cyan); }
 .surface-badge--synthetic .surface-badge__dot { color: var(--uncertainty-amber); background: var(--uncertainty-amber); }
 
-.signal-constellation {
-  position: relative;
-  width: min(100%, 540px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, rgba(138, 116, 255, 0.12), transparent 43%);
-}
-
-.signal-constellation__halo,
-.signal-constellation__orbit {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.signal-constellation__halo--one {
-  inset: 19%;
-  background: radial-gradient(circle, rgba(98, 236, 218, 0.14), transparent 68%);
-  filter: blur(24px);
-}
-
-.signal-constellation__halo--two {
-  inset: 4%;
-  background: radial-gradient(circle at 58% 34%, rgba(156, 130, 255, 0.18), transparent 60%);
-  filter: blur(42px);
-}
-
-.signal-constellation__orbit {
-  border: 1px solid rgba(164, 153, 255, 0.16);
-  transform: rotate(-18deg);
-}
-
-.signal-constellation__orbit--one { inset: 14%; }
-.signal-constellation__orbit--two { inset: 27%; transform: rotate(32deg) scaleX(1.22); }
-
-.signal-constellation__line {
-  position: absolute;
-  height: 1px;
-  transform-origin: left center;
-  background: linear-gradient(90deg, rgba(181, 166, 255, 0.08), rgba(181, 166, 255, 0.58), rgba(82, 230, 222, 0.08));
-}
-
-.signal-constellation__line--one { top: 47%; left: 17%; width: 68%; transform: rotate(-21deg); }
-.signal-constellation__line--two { top: 44%; left: 25%; width: 58%; transform: rotate(28deg); }
-.signal-constellation__line--three { top: 56%; left: 29%; width: 47%; transform: rotate(-3deg); }
-
-.signal-node {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(207, 207, 242, 0.2);
-  border-radius: 999px;
-  padding: 7px 10px 7px 8px;
-  color: #ced2eb;
-  background: rgba(10, 12, 24, 0.74);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
-  font: 600 10px/1 var(--font-mono), monospace;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  backdrop-filter: blur(12px);
-}
-
-.signal-node__pulse {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #a99bff;
-  box-shadow: 0 0 15px #a99bff;
-}
-
-.signal-node--candidate { top: 14%; left: 12%; }
-.signal-node--candidate .signal-node__pulse { background: var(--source-cyan); box-shadow: 0 0 15px var(--source-cyan); }
-.signal-node--evidence { top: 26%; right: 4%; }
-.signal-node--evidence .signal-node__pulse { background: var(--verified-lime); box-shadow: 0 0 15px var(--verified-lime); }
-.signal-node--capability { bottom: 13%; right: 13%; }
-.signal-node--capability .signal-node__pulse { background: var(--intelligence-violet); box-shadow: 0 0 15px var(--intelligence-violet); }
-.signal-node--interview { bottom: 18%; left: 3%; }
-.signal-node--interview .signal-node__pulse { background: var(--uncertainty-amber); box-shadow: 0 0 15px var(--uncertainty-amber); }
-
-.signal-constellation__core {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  width: 92px;
-  height: 92px;
-  place-items: center;
-  border: 1px solid rgba(206, 198, 255, 0.52);
-  border-radius: 50%;
-  color: #eeeaff;
-  background: radial-gradient(circle at 38% 28%, rgba(218, 211, 255, 0.3), rgba(92, 76, 195, 0.46) 46%, rgba(12, 11, 28, 0.86));
-  box-shadow: 0 0 0 12px rgba(154, 137, 255, 0.045), 0 0 70px rgba(137, 116, 255, 0.42), inset 0 0 20px rgba(233, 230, 255, 0.14);
-  transform: translate(-50%, -50%);
-}
-
-.signal-constellation__core-ring {
-  position: absolute;
-  inset: -17px;
-  border: 1px dashed rgba(161, 151, 255, 0.36);
-  border-radius: 50%;
-  animation: observatory-spin 22s linear infinite;
-}
-
-.signal-constellation__core-mark {
-  font: 700 15px/1 var(--font-mono), monospace;
-  letter-spacing: 0.16em;
-  margin-left: 0.16em;
-}
-
 .experience-card {
   position: relative;
   display: flex;
@@ -804,10 +694,6 @@ body {
   outline-offset: 3px;
 }
 
-@keyframes observatory-spin {
-  to { transform: rotate(360deg); }
-}
-
 @media (max-width: 1320px) {
   .platform-context__descriptor { display: none; }
 }
@@ -863,6 +749,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .signal-constellation__core-ring { animation: none; }
   .experience-card, .platform-header__cta, .platform-navigation__link { transition: none; }
 }

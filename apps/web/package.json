@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:home": "playwright test --config playwright.home.config.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -35,6 +35,7 @@ export interface EngineeringFingerprint {
   interpretation: string;
 }
 export interface RepositoryReview {
+  primary_language?: string | null;
   description: string | null; stars: number; forks: number; open_issues: number; is_fork: boolean; archived: boolean;
   license: string | null; topics: string[]; pushed_at: string | null; languages_by_inspected_file: Record<string, number>;
   file_categories: Record<string, number>; dependencies: { name: string; version: string; path: string }[];
