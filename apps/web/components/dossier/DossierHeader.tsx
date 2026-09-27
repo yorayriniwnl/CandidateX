@@ -12,16 +12,20 @@ import {
   Printer,
   Download,
   FileText,
+  FileCode,
+  Table,
+  Archive,
   ChevronDown,
   Users,
 } from 'lucide-react';
 import { Dossier } from '../../types/cci';
-import { downloadDossier } from '../../lib/api';
+import { downloadDossier, ExportFormat, ExportScope } from '../../lib/api';
 import { GlassCard } from '../ui/GlassCard';
 import { GlowBadge } from '../ui/GlowBadge';
 import { RadialGauge } from '../ui/RadialGauge';
 import { AnimatedCounter } from '../ui/AnimatedCounter';
 import { GlassButton } from '../ui/GlassButton';
+import { PhotoLightboxModal } from '../ui/PhotoLightboxModal';
 
 const CANONICAL_CANDIDATE_LIST = [
   { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'Backend (Senior)' },
@@ -35,14 +39,17 @@ const CANONICAL_CANDIDATE_LIST = [
 export const DossierHeader: React.FC<{
   dossier: Dossier;
   candidateName?: string;
+  candidatePicture?: string | null;
   onOpenWeightsModal?: () => void;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ dossier, candidateName = 'Ayush Roy', onOpenWeightsModal, onSelectCandidate }) => {
+}> = ({ dossier, candidateName = 'Ayush Roy', candidatePicture, onOpenWeightsModal, onSelectCandidate }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isCandidateMenuOpen, setIsCandidateMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const coveragePercent = Math.round(dossier.coverage * 100);
   const isLowCoverage = dossier.coverage < 0.30 || dossier.is_insufficient_evidence;
+  const picture = candidatePicture || (dossier as any).picture || (dossier as any).manifest?.picture;
 
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const candidateMenuRef = useRef<HTMLDivElement>(null);
@@ -60,15 +67,51 @@ export const DossierHeader: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleDownload = async (format: 'html' | 'markdown' | 'json') => {
+  const handleDownload = async (
+    format: ExportFormat,
+    scope: ExportScope = 'report'
+  ) => {
     try {
       setIsExporting(true);
       setIsExportMenuOpen(false);
-      await downloadDossier(dossier.candidate_id, format, candidateName);
+      await downloadDossier(dossier.candidate_id, format, candidateName, scope);
     } catch (err) {
-      console.warn('Direct API export failed, falling back to print:', err);
-      if (format === 'html') {
+      console.warn('Direct API export failed, falling back to client-side fallback:', err);
+      if (format === 'html' && scope === 'report') {
         window.print();
+      } else {
+        const cleanName = candidateName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const scopeSuffix =
+          scope === 'audit' ? 'full_audit' : scope === 'full' ? 'report_and_full_audit' : 'technical_report';
+        let content = '';
+        let mimeType = 'text/plain';
+        const ext = format === 'markdown' ? 'md' : format;
+
+        if (format === 'json') {
+          content = JSON.stringify(
+            scope === 'full'
+              ? { candidate_id: dossier.candidate_id, report: dossier, full_audit: { run_id: dossier.analysis_run_id, evidence: (dossier as any).evidence_records } }
+              : dossier,
+            null,
+            2
+          );
+          mimeType = 'application/json';
+        } else if (format === 'csv') {
+          content = 'Evidence ID,Target Capability,Polarity,Confidence\n' +
+            (((dossier as any).evidence_records || []) as any[]).map((e: any) => `"${e.evidence_id}","${e.target_capability}","${e.is_positive_support ? 'POSITIVE' : 'NEGATIVE'}","${e.confidence}"`).join('\n');
+          mimeType = 'text/csv';
+        } else {
+          content = `# ${candidateName} — ${scope === 'audit' ? 'Full Audit' : 'Technical Report'}\n\nRole: ${dossier.role}\nRCI: ${dossier.rci ?? 'UNKNOWN'}\nCoverage: ${Math.round(dossier.coverage * 100)}%\n\nEvidence Records: ${(dossier as any).evidence_records?.length || 0}`;
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `${cleanName}_${scopeSuffix}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
       }
     } finally {
       setIsExporting(false);
@@ -120,6 +163,31 @@ export const DossierHeader: React.FC<{
             label="RCI"
             showPercentage={true}
           />
+          {picture && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="p-0 border-0 bg-transparent rounded-2xl cursor-pointer hover:scale-105 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 shrink-0"
+                title="Click to view full photo (large view, unrestricted)"
+                aria-label={`View full photo of ${candidateName}`}
+              >
+                <img
+                  src={picture}
+                  alt={candidateName}
+                  className="w-14 h-14 rounded-2xl object-cover border border-purple-500/40 shadow-glow-sm"
+                  data-testid="dossier-header-picture"
+                />
+              </button>
+              <PhotoLightboxModal
+                isOpen={isPhotoModalOpen}
+                onClose={() => setIsPhotoModalOpen(false)}
+                src={picture}
+                name={candidateName}
+                subtitle="Candidate Profile Photo"
+              />
+            </>
+          )}
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h1 className="text-2xl font-black tracking-tight text-gradient bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
@@ -187,7 +255,7 @@ export const DossierHeader: React.FC<{
         </div>
 
         <div className="flex items-center gap-2.5 relative self-end md:self-center">
-          {/* Export Brief Dropdown */}
+          {/* Export Report and Audit Dropdown */}
           <div className="relative" ref={exportMenuRef}>
             <GlassButton
               variant="primary"
@@ -196,40 +264,128 @@ export const DossierHeader: React.FC<{
               loading={isExporting}
               icon={<ChevronDown className="w-3 h-3 opacity-80" />}
               iconPosition="right"
+              aria-label="Export report and audit options"
             >
               <Download className="w-3.5 h-3.5 mr-2" />
-              {isExporting ? 'Exporting...' : 'Export Brief'}
+              {isExporting ? 'Exporting...' : 'Export Report & Audit'}
             </GlassButton>
 
             {isExportMenuOpen && (
-              <div className="absolute right-0 mt-2 w-52 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200 backdrop-blur-2xl">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsExportMenuOpen(false);
-                    window.print();
-                  }}
-                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
-                >
-                  <Printer className="w-3.5 h-3.5 text-brand-400" />
-                  <span>Print / Save as PDF</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDownload('html')}
-                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors border-t border-white/[0.06]"
-                >
-                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Download HTML Brief</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDownload('markdown')}
-                  className="w-full px-3 py-2 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Download Markdown</span>
-                </button>
+              <div className="absolute right-0 mt-2 w-64 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-2 z-50 text-xs text-slate-200 backdrop-blur-2xl divide-y divide-white/[0.06] max-h-[85vh] overflow-y-auto">
+                {/* 1. Report Options */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider flex items-center justify-between">
+                    <span>Technical Report</span>
+                    <span className="text-[9px] text-brand-400">Brief</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      window.print();
+                    }}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <span>Print / Save as PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('html', 'report')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Download HTML Report</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('markdown', 'report')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span>Download Markdown Report</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('json', 'report')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Download JSON Report</span>
+                  </button>
+                </div>
+
+                {/* 2. Full Audit Options */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider flex items-center justify-between">
+                    <span>Full Audit Log</span>
+                    <span className="text-[9px] text-emerald-400">Governance</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('html', 'audit')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Download Full Audit (HTML)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('markdown', 'audit')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>Download Full Audit (Markdown)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('json', 'audit')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>Download Full Audit (JSON)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('csv', 'audit')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <Table className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <span>Download Audit Trail (CSV)</span>
+                  </button>
+                </div>
+
+                {/* 3. Combined Package */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider flex items-center justify-between">
+                    <span>Complete Package</span>
+                    <span className="text-[9px] text-purple-400">Report + Audit</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('html', 'full')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>Export Package (HTML)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('markdown', 'full')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                    <span>Export Package (Markdown)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload('json', 'full')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    <span>Export Package (JSON)</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

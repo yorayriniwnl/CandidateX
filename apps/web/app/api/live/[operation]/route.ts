@@ -4,10 +4,11 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest, context: { params: Promise<{ operation: string }> }) {
   const { operation } = await context.params;
-  if (!['intake', 'analyze'].includes(operation)) return Response.json({ detail: 'Unknown operation.' }, { status: 404 });
+  if (!['intake', 'analyze', 'parse-jd', 'fetch-link'].includes(operation)) return Response.json({ detail: 'Unknown operation.' }, { status: 404 });
   const base = process.env.CCI_API_URL || (process.env.VERCEL ? '' : 'http://127.0.0.1:8000');
   if (!base) return Response.json({ detail: 'Live analysis backend is not configured.' }, { status: 503 });
-  const limit = operation === 'intake' ? 3 * 1024 * 1024 : 128 * 1024;
+  const isFileUpload = operation === 'intake' || operation === 'parse-jd';
+  const limit = isFileUpload ? 3 * 1024 * 1024 : 1024 * 1024;
   const reader = request.body?.getReader();
   if (!reader) return Response.json({ detail: 'Request body is required.' }, { status: 400 });
   const chunks: Uint8Array[] = [];
@@ -28,8 +29,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ op
     for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     const upstream = await fetch(`${base.replace(/\/$/, '')}/api/v1/live/${operation}`, {
       method: 'POST', body,
-      headers: { 'Content-Type': operation === 'intake' ? 'application/octet-stream' : 'application/json',
-        'X-Filename': request.headers.get('X-Filename') || 'resume.pdf' },
+      headers: { 'Content-Type': isFileUpload ? 'application/octet-stream' : 'application/json',
+        'X-Filename': request.headers.get('X-Filename') || (operation === 'parse-jd' ? 'job_description.pdf' : 'resume.pdf') },
       cache: 'no-store', signal: AbortSignal.timeout(55000),
     });
     if (!upstream.headers.get('content-type')?.includes('application/json')) {

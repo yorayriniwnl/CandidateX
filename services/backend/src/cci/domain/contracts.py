@@ -93,6 +93,7 @@ class CandidateManifest(BaseModel):
         ..., min_length=1, description="Candidate name as stated on CV"
     )
     email: str | None = Field(None, description="Candidate contact email")
+    picture: str | None = Field(None, description="Extracted candidate photo/picture data URI from CV")
     github_urls: list[str] = Field(
         default_factory=list, description="Supplied GitHub profiles or repos"
     )
@@ -113,6 +114,9 @@ class CandidateManifest(BaseModel):
     )
     linkedin_urls: list[str] = Field(
         default_factory=list, description="Supplied LinkedIn profile URLs"
+    )
+    shared_document_urls: list[str] = Field(
+        default_factory=list, description="Shared documents or cloud drive links (e.g. Google Drive, Dropbox, OneDrive)"
     )
     claimed_skills: list[str] = Field(
         default_factory=list, description="Self-reported technical skills"

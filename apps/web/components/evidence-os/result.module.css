@@ -8,6 +8,11 @@
 .identity { display: flex; align-items: center; gap: 18px; min-width: 0; }
 .identity > div { min-width: 0; }
 .monogram { display: grid; place-items: center; width: 60px; height: 60px; flex: 0 0 auto; border: 1px solid #58516d; border-radius: 18px; background: linear-gradient(145deg, #363148, #191d2a); box-shadow: inset 0 1px #ffffff12, 0 8px 24px #0003; color: #e5defb; font-size: 21px; letter-spacing: -.04em; }
+.candidatePhoto { width: 60px; height: 60px; flex: 0 0 auto; border: 1.5px solid #8e6fad99; border-radius: 18px; object-fit: cover; box-shadow: inset 0 1px #ffffff18, 0 8px 24px #0004; background: #191d2a; display: block; transition: border-color 160ms ease; }
+.candidatePhotoButton { padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 18px; transition: transform 160ms ease; flex: 0 0 auto; display: block; }
+.candidatePhotoButton:hover { transform: scale(1.04); }
+.candidatePhotoButton:hover .candidatePhoto { border-color: #d2b3f5; }
+.candidatePhotoButton:focus-visible { outline: 2px solid #b795dc; outline-offset: 4px; }
 .titleRow p .roleTag { display: inline-flex; color: #d5d0ed; margin-right: 10px; }
 .eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #ac96bc; font-size: 10px; font-weight: 550; letter-spacing: .12em; text-transform: uppercase; }
 .eyebrow > span { color: #897196; }
@@ -22,6 +27,13 @@
 .actions .primary { background: #ccc5fa; border-color: #ddd7ff; color: #252039; font-weight: 650; box-shadow: inset 0 1px #fff5, 0 2px 8px #0003; }
 .actions .primary:hover { background: #ded8ff; border-color: #e9e5ff; }
 .primary span { margin-left: 16px; }
+.exportDropdown { position: relative; display: inline-block; }
+.exportMenu { position: absolute; right: 0; top: calc(100% + 8px); width: 260px; background: #160e22f8; border: 1px solid #ad8ecd44; border-radius: 10px; box-shadow: 0 12px 36px #0009, inset 0 1px #ffffff12; padding: 6px 0; z-index: 60; backdrop-filter: blur(20px); max-height: 80vh; overflow-y: auto; text-align: left; }
+.exportMenuSection { padding: 4px 0; }
+.exportMenuSection + .exportMenuSection { border-top: 1px solid #ffffff0d; }
+.exportMenuHeader { display: flex; align-items: center; justify-content: space-between; padding: 6px 14px 4px; font-size: 9px; font-family: var(--font-mono), monospace; text-transform: uppercase; letter-spacing: .12em; color: #b79cc8; font-weight: 600; }
+.exportMenuItem { display: flex !important; align-items: center; gap: 9px; width: 100% !important; padding: 8px 14px !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; color: #d9d0e8 !important; font-size: 11px !important; text-align: left; cursor: pointer; transition: background 120ms ease, color 120ms ease; min-height: unset !important; box-shadow: none !important; }
+.exportMenuItem:hover { background: #2c1b3f !important; color: #ffffff !important; }
 .metadata { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 18px; color: #9f8bab; font-size: 11px; }
 .metadata b { font-weight: 550; color: #d2dae4; }
 .metadata > span:last-child { margin-left: auto; }
@@ -207,6 +219,8 @@
 .credentialRow { padding: 16px 0; border-top: 1px solid var(--rule); }
 .credentialRow > div { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; }
 .credentialRow h3 { margin: 0; font-size: 13px; font-weight: 550; }
+.photoCard { display: flex; align-items: center; gap: 18px; padding: 14px 18px; margin-bottom: 16px; background: #1a1226; border: 1px solid #7c5c9940; border-radius: 12px; }
+.reviewPhoto { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; border: 1.5px solid #8e6fad99; background: #130d1d; flex-shrink: 0; display: block; }
 .declarationRows, .verificationSteps { padding: 0 0 0 18px; color: #adbcd0; font-size: 12px; line-height: 1.7; }
 .declarationRows li, .verificationSteps li { margin-block: 10px; overflow-wrap: anywhere; }
 .declarationRows p { margin: 0 0 6px; }

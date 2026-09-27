@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import type { ResumeIntake } from '../../lib/live-analysis';
 import type { EvaluationStep } from './EvaluationSteps';
 import styles from './evidence-os.module.css';
-import { FileText, Upload, ShieldCheck } from 'lucide-react';
+import { FileText, Upload, ShieldCheck, ZoomIn } from 'lucide-react';
+import { PhotoLightboxModal } from '../ui/PhotoLightboxModal';
 
 function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -20,6 +21,7 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
   onContinue: (step: EvaluationStep) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const manifest = intake?.manifest;
   const sourceCount = manifest
@@ -39,11 +41,6 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
       <div className={styles.sectionEyebrow}>01 / Resume intake</div>
       <h2 id="resume-step-title">Start with the candidate’s document.</h2>
       <p className={styles.sectionIntro}>Extract declarations and public source links. Nothing on this screen is independently verified.</p>
-
-      <div className={styles.demoNotice} role="note" aria-label="Research demo data notice">
-        <strong>Research demo · synthetic data only</strong>
-        <span>Do not upload real candidate resumes. Results are not validated for employment decisions.</span>
-      </div>
 
       <label
         className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''} ${busy ? styles.dropzoneDisabled : ''}`}
@@ -76,10 +73,43 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
       {intake && manifest && (
         <div className={styles.intakeSummary}>
           <div className={styles.summaryHeading}>
-            <div>
-              <div className={styles.sectionEyebrow}>RESUME INGESTED · DECLARED INPUTS</div>
-              <h3>{manifest.display_name}</h3>
-              <p>{fileName || intake.filename}{manifest.email ? ` · ${manifest.email}` : ''}</p>
+            <div className={styles.summaryIdentity}>
+              {(manifest.picture || intake.picture) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoModalOpen(true)}
+                    className={styles.resumePhotoButton}
+                    title="Click to view full photo (large view, unrestricted)"
+                    aria-label={`View full photo of ${manifest.display_name}`}
+                  >
+                    <div className={styles.resumePhotoWrapper}>
+                      <img
+                        src={(manifest.picture || intake.picture)!}
+                        alt={`${manifest.display_name} photo`}
+                        className={styles.resumePhoto}
+                        data-testid="resume-picture"
+                      />
+                      <span className={styles.photoBadge}>Resume Photo</span>
+                      <span className={styles.photoZoomOverlay} aria-hidden="true">
+                        <ZoomIn size={16} />
+                      </span>
+                    </div>
+                  </button>
+                  <PhotoLightboxModal
+                    isOpen={photoModalOpen}
+                    onClose={() => setPhotoModalOpen(false)}
+                    src={(manifest.picture || intake.picture)!}
+                    name={manifest.display_name}
+                    subtitle="Resume Profile Photo"
+                  />
+                </>
+              )}
+              <div>
+                <div className={styles.sectionEyebrow}>RESUME INGESTED · DECLARED INPUTS</div>
+                <h3>{manifest.display_name}</h3>
+                <p>{fileName || intake.filename}{manifest.email ? ` · ${manifest.email}` : ''}</p>
+              </div>
             </div>
             <span className={styles.docFingerprint}>SHA-256<br /><code>{intake.document_sha256.slice(0, 16)}…</code></span>
           </div>

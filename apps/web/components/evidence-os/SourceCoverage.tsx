@@ -92,6 +92,17 @@ function SourceReceiptCard({ source, onInspectEvidence }: { source: SourceReceip
         {source.excerpt && <blockquote>{source.excerpt}</blockquote>}
         {source.verification && <p>Acquisition label: {humanStatus(source.verification)}. Public page text does not authenticate a credential or employment claim.</p>}
       </details>}
+      {source.files && source.files.length > 0 && <details className={styles.diagnosticDetails} open>
+        <summary>Fetched files & verified artifacts ({source.files.length} {source.files.length === 1 ? 'file' : 'files'})</summary>
+        <div className={styles.inventoryList}>
+          {source.files.map((file, fi) => (
+            <div key={`${file.name}-${fi}`}>
+              <strong>{file.name}</strong>
+              <span>{file.type ? titleWords(file.type) : 'File'}{file.size ? ` · ${(file.size / 1024).toFixed(1)} KB` : ''}</span>
+            </div>
+          ))}
+        </div>
+      </details>}
       {source.expanded_repositories && source.expanded_repositories.length > 0 && <details className={styles.diagnosticDetails}>
         <summary>Expanded repository URLs · {source.expanded_repositories.length}</summary>
         <ul>{source.expanded_repositories.map(repository => <li key={repository}><code>{repository}</code></li>)}</ul>

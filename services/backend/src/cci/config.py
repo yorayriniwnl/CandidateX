@@ -53,6 +53,10 @@ class Settings(BaseSettings):
 
     # Optional External Integrations
     GITHUB_TOKEN: str | None = None
+    GOOGLE_SERVICE_ACCOUNT_KEY: str | None = None
+    GOOGLE_DRIVE_API_KEY: str | None = None
+    CLOUD_FILE_EXTRACTION_ENABLED: bool = True
+    CLOUD_FILE_MAX_SIZE_MB: int = 10
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

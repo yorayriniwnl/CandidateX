@@ -17,9 +17,14 @@ import {
   Sliders,
   User,
   X,
+  Download,
+  FileCode,
+  FileText,
+  Table,
+  Printer,
 } from 'lucide-react';
 import { AuditEventItem, CapabilityKey, HiringRecommendation } from '../../types/cci';
-import { fetchCandidateAuditTrail } from '../../lib/api';
+import { fetchCandidateAuditTrail, downloadDossier, ExportFormat } from '../../lib/api';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlowBadge } from '@/components/ui/GlowBadge';
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -71,6 +76,59 @@ export const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [eventTypeFilter, setEventTypeFilter] = useState<'all' | 'override' | 'interview'>('all');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportMenuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleExportAudit = async (format: ExportFormat) => {
+    try {
+      setIsExporting(true);
+      setIsExportMenuOpen(false);
+      await downloadDossier(candidateId, format, 'candidate', 'audit');
+    } catch (err) {
+      console.warn('Backend audit export failed, falling back to local events export:', err);
+      if (format === 'html') {
+        window.print();
+      } else {
+        let content = '';
+        let mimeType = 'text/plain';
+        const ext = format === 'markdown' ? 'md' : format;
+
+        if (format === 'json') {
+          content = JSON.stringify(events, null, 2);
+          mimeType = 'application/json';
+        } else if (format === 'csv') {
+          content = 'Event ID,Timestamp,Event Type,User ID,Justification / Notes\n' +
+            events.map(e => `"${e.id}","${e.created_at}","${e.event_type}","${e.user_id || ''}","${(e.details?.justification || e.details?.overall_notes || '').replace(/"/g, '""')}"`).join('\n');
+          mimeType = 'text/csv';
+        } else {
+          content = `# Candidate Audit Trail & Governance Log\n\nCandidate ID: ${candidateId}\nTotal Events: ${events.length}\n\n` +
+            events.map((e, i) => `### Event ${i + 1}: ${e.event_type} (${e.created_at})\n- ID: ${e.id}\n- Details: ${JSON.stringify(e.details)}`).join('\n\n');
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `candidate_${candidateId.slice(0, 8)}_audit.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const loadAuditTrail = useCallback(
     async (isManualRefresh = false) => {
@@ -181,6 +239,61 @@ export const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({
             <span className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.06] rounded text-xs font-mono text-slate-300">
               {filteredEvents.length} Event(s)
             </span>
+
+            {/* Export Full Audit Button & Menu */}
+            <div className="relative" ref={exportMenuRef}>
+              <GlassButton
+                variant="primary"
+                size="sm"
+                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                loading={isExporting}
+                icon={<Download className="w-3.5 h-3.5 mr-1" />}
+                aria-label="Export Full Audit"
+              >
+                {isExporting ? 'Exporting...' : 'Export Audit'}
+              </GlassButton>
+
+              {isExportMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 glass-strong border border-white/[0.12] rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200 backdrop-blur-2xl">
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider border-b border-white/[0.06] mb-1">
+                    Export Full Audit
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleExportAudit('json')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>Download Audit Log (JSON)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportAudit('csv')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <Table className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <span>Download Audit Log (CSV)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportAudit('markdown')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>Download Audit Report (MD)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportAudit('html')}
+                    className="w-full px-3 py-1.5 text-left hover:bg-white/[0.06] flex items-center gap-2 transition-colors text-slate-200 hover:text-white border-t border-white/[0.06]"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <span>Print / Save as PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <GlassButton
               variant="ghost"
               size="sm"

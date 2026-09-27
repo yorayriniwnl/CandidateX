@@ -40,7 +40,7 @@ def build_report(intake, sources):
                             'No matching technology was observed in the bounded scan. This is not a claim that the candidate lacks the skill.')})
 
     credentials = []
-    credential_sources = [s for s in sources if s.get('kind') == 'credential' or classify_url(s['url']) == 'credential']
+    credential_sources = [s for s in sources if s.get('kind') == 'credential' or classify_url(s['url']) == 'credential' or s.get('inferred_kind') == 'credential']
     for claim in intake.resume_review.sections.get('certifications', []):
         # Topic overlap associates review candidates only, never authenticates a credential.
         tokens = [t.lower() for t in re.findall(r'[A-Za-z]{4,}', claim)
@@ -62,8 +62,34 @@ def build_report(intake, sources):
     for project in intake.manifest.project_claims:
         text = f"{project.get('title', '')} {project.get('description', '')}"
         refs = [s['url'] for s in sources if s['url'].removeprefix('https://').removeprefix('http://').lower() in text.lower()]
-        projects.append({**project, 'source_urls': refs, 'status': 'linked_sources' if refs else 'declaration_only',
-                         'explanation': 'Links connect this project to acquisition receipts; impact, performance and contribution claims still require separate verification.'})
+        unverified_storage = [
+            r for r in refs
+            if any(s['url'] == r and (s.get('kind') == 'cloud_storage' or classify_url(s['url']) == 'cloud_storage')
+                   and s.get('inferred_kind') != 'project'
+                   and not s.get('files')
+                   and s.get('verification') != 'cloud_file_verified'
+                   for s in sources)
+        ]
+        fetched_storage = [s for s in sources if s['url'] in refs and (s.get('files') or s.get('verification') == 'cloud_file_verified')]
+        if unverified_storage and not any(s.get('repository_review') for s in sources if s['url'] in refs):
+            projects.append({
+                **project,
+                'source_urls': refs,
+                'status': 'linked_unverified_storage',
+                'explanation': 'Supplied link points to cloud storage (e.g. Google Drive/OneDrive). File contents and purpose have not been verified as a project file; separate technical review is required.',
+            })
+        else:
+            explanation = (
+                f"Cloud files fetched and inspected ({sum(len(s.get('files', [])) for s in fetched_storage)} files). Code and project artifacts observed."
+                if fetched_storage else
+                'Links connect this project to acquisition receipts; impact, performance and contribution claims still require separate verification.'
+            )
+            projects.append({
+                **project,
+                'source_urls': refs,
+                'status': 'linked_sources' if refs else 'declaration_only',
+                'explanation': explanation,
+            })
     sections = intake.resume_review.sections
     numeric_claims = [line for lines in sections.values() for line in lines if re.search(r'\d+(?:\.\d+)?\s*%|\b\d+[+-]?\s+(?:users|tests|projects|applications|points)\b', line, re.I)]
     actions = []

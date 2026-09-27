@@ -56,3 +56,14 @@ def test_platform_classification():
     assert classify_url("https://alice-portfolio.vercel.app") == "deployment"
     assert classify_url("https://alice-api.fly.dev") == "deployment"
     assert classify_url("https://alice-blog.me.dev") == "portfolio"
+
+    # Cloud storage detection
+    assert classify_url("https://drive.google.com/file/d/12345/view") == "cloud_storage"
+    assert classify_url("https://docs.google.com/document/d/12345/edit") == "cloud_storage"
+    assert classify_url("https://dropbox.com/s/12345/file.pdf") == "cloud_storage"
+    assert classify_url("https://1drv.ms/b/s!12345") == "cloud_storage"
+    assert classify_url("https://mycompany.sharepoint.com/sites/doc.pdf") == "cloud_storage"
+
+    # Fallbacks: generic public link is not claimed as project
+    assert classify_url("https://example.com/some/article") == "public_link"
+    assert classify_url("https://gitlab.com/alice/project") == "project"

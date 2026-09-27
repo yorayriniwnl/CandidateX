@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { publicUrl, type LiveResult } from '../../lib/live-analysis';
 import { EvidenceStatus } from './EvidenceStatus';
 import { titleWords } from './format';
+import { PhotoLightboxModal } from '../ui/PhotoLightboxModal';
 import styles from './result.module.css';
 
 function SourceLink({ url, children }: { url: string; children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export function ResumeReview({ result, onInspect }: { result: LiveResult; onInsp
   const { analysis } = result;
   const [query, setQuery] = useState('');
   const [gapsOnly, setGapsOnly] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const skills = useMemo(() => analysis.skills.filter(skill =>
     skill.skill.toLowerCase().includes(query.trim().toLowerCase()) && (!gapsOnly || !skill.evidence.length)),
   [analysis.skills, query, gapsOnly]);
@@ -77,6 +79,40 @@ export function ResumeReview({ result, onInspect }: { result: LiveResult; onInsp
 
     <section aria-label="Resume declarations">
       <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>Candidate declarations</span><h2>Projects, experience and education</h2><p>Statements extracted from the résumé, with their returned verification status.</p></div></div>
+      {(result.intake.manifest.picture || result.intake.picture) && (
+        <>
+          <article
+            className={styles.photoCard}
+            data-testid="review-photo-card"
+            onClick={() => setPhotoModalOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhotoModalOpen(true); } }}
+            title="Click to view full photo (large view, unrestricted)"
+            aria-label={`View full photo of ${result.intake.manifest.display_name}`}
+            style={{ cursor: 'pointer' }}
+          >
+            <img
+              src={(result.intake.manifest.picture || result.intake.picture)!}
+              alt={result.intake.manifest.display_name}
+              className={styles.reviewPhoto}
+              data-testid="review-resume-picture"
+            />
+            <div>
+              <span className={styles.eyebrow}>Candidate Photo</span>
+              <h3 style={{ margin: '4px 0 2px', fontSize: '15px' }}>{result.intake.manifest.display_name}</h3>
+              <p className={styles.footnote} style={{ margin: 0 }}>Click to expand · Extracted directly from resume document</p>
+            </div>
+          </article>
+          <PhotoLightboxModal
+            isOpen={photoModalOpen}
+            onClose={() => setPhotoModalOpen(false)}
+            src={(result.intake.manifest.picture || result.intake.picture)!}
+            name={result.intake.manifest.display_name}
+            subtitle="Resume Profile Photo"
+          />
+        </>
+      )}
       {analysis.projects.map((project, index) => <details className={styles.reviewRow} key={index}>
         <summary><span>{project.title || 'Untitled project'}</span><EvidenceStatus status={project.status} /></summary><p>{project.description}</p><p>{project.explanation}</p>
         <div className={styles.artifactList}>{project.source_urls.map(url => <SourceLink key={url} url={url}>{url}</SourceLink>)}</div>

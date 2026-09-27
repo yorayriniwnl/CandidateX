@@ -33,6 +33,10 @@ PLATFORM_PATTERNS = {
         r"^https?://([a-zA-Z0-9-]+\.)*(vercel\.app|netlify\.app|herokuapp\.com|fly\.dev|railway\.app|render\.com|pages\.dev)(/.*)?$",
         re.IGNORECASE,
     ),
+    "cloud_storage": re.compile(
+        r"^https?://(?:www\.)?(?:drive\.google\.com|docs\.google\.com|dropbox\.com|dl\.dropboxusercontent\.com|onedrive\.live\.com|1drv\.ms|[a-zA-Z0-9-]+\.sharepoint\.com|box\.com|app\.box\.com|icloud\.com)(?:/.*)?$",
+        re.IGNORECASE,
+    ),
 }
 
 
@@ -116,7 +120,7 @@ def deduplicate_urls(urls: list[str]) -> list[str]:
 
 def classify_url(url: str) -> str:
     """Classifies a canonical URL into one of:
-    github, linkedin, coding_profile, credential, deployment, portfolio, project
+    github, linkedin, coding_profile, credential, deployment, portfolio, cloud_storage, project, public_link
     """
     for category, pattern in PLATFORM_PATTERNS.items():
         if pattern.match(url):
@@ -125,11 +129,25 @@ def classify_url(url: str) -> str:
     # Fallback heuristics
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
-    if re.search(r'/(?:certificates?|certifications?|credentials?|verify|badges)(?:[/. -]|$)', parsed.path, re.I):
+    path = parsed.path.lower()
+
+    if re.search(r'/(?:certificates?|certifications?|credentials?|verify|badges)(?:[/. -]|$)', path, re.I):
         return 'credential'
+
+    # Cloud storage or document sharing domains
+    if any(storage in domain for storage in ("drive.google", "docs.google", "dropbox", "onedrive", "1drv.ms", "sharepoint", "box.com", "icloud")):
+        return "cloud_storage"
 
     # Portfolio / personal domain indicator
     if any(term in domain for term in ("portfolio", "blog", "me.", "dev.", "site")):
         return "portfolio"
 
-    return "project"
+    # Git repository hostings
+    if any(git_host in domain for git_host in ("gitlab.com", "bitbucket.org", "codeberg.org", "sourceforge.net")):
+        return "project"
+
+    # Specific code or project indicators in path
+    if re.search(r'/(?:projects?|repos?|code|apps?)(?:[/. -]|$)', path, re.I):
+        return "project"
+
+    return "public_link"

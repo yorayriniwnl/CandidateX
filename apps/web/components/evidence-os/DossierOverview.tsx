@@ -1,12 +1,38 @@
 'use client';
 
-import { useMemo } from 'react';
-import { ArrowDownToLine, ArrowUpRight, Braces, CheckCheck, Cloud, Code2, Database, FileText, GitBranch, Layers3, Network, RotateCcw, ShieldCheck, Users, Waypoints } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  ArrowDownToLine,
+  ArrowUpRight,
+  Braces,
+  CheckCheck,
+  ChevronDown,
+  Cloud,
+  Code2,
+  Database,
+  Download,
+  FileCode,
+  FileText,
+  GitBranch,
+  Home,
+  Layers3,
+  Network,
+  Printer,
+  RotateCcw,
+  ShieldCheck,
+  Table,
+  Users,
+  Waypoints,
+} from 'lucide-react';
 import type { CapabilityKey } from '../../types/cci';
 import { getAnalysisConfidence, getSourceHealth, type LiveResult } from '../../lib/live-analysis';
 import { needsClaimVerification, type ResultClaim } from '../../lib/result-claims';
+import { exportLiveEvaluation } from '../../lib/live-export';
+import type { ExportFormat, ExportScope } from '../../lib/api';
 import { EvidenceStatus } from './EvidenceStatus';
 import { capabilityName, dateTime, percent, roleName, score, titleWords, readableAnalysisText } from './format';
+import { PhotoLightboxModal } from '../ui/PhotoLightboxModal';
 import styles from './result.module.css';
 
 export const strengthLabels = { insufficient: 'Insufficient evidence', limited: 'Limited support', moderate: 'Moderate support', well_supported: 'Well supported' };
@@ -19,18 +45,253 @@ const capabilityIcons = {
 };
 
 export function ResultHeader({ result, onNewEvaluation }: { result: LiveResult; onNewEvaluation: () => void }) {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const repositories = result.sources.filter(s => s.repository_review || (s.files_inspected ?? 0) > 0).length;
   const initials = result.intake.manifest.display_name.trim().split(/\s+/).slice(0, 2).map(name => Array.from(name)[0]).join('');
+
   function exportDossier() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
     const anchor = document.createElement('a');
     anchor.href = url; anchor.download = `candidatex-${result.dossier.analysis_run_id}.json`; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  async function handleExportAction(scope: ExportScope, format: ExportFormat) {
+    try {
+      setIsExporting(true);
+      setIsExportMenuOpen(false);
+      await exportLiveEvaluation(result, format, scope);
+    } catch (err) {
+      console.error('Export error:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return <header className={styles.header}>
     <div className={styles.eyebrow}>Candidate intelligence <span>/</span> Technical dossier <EvidenceStatus status={result.status} label={result.status === 'partial' ? 'Completed with gaps' : result.status} /></div>
-    <div className={styles.titleRow}><div className={styles.identity}><span className={styles.monogram} aria-hidden="true">{initials}</span><div><h1>{result.intake.manifest.display_name}</h1><p><span className={styles.roleTag}>{roleName(result.dossier.role)}</span><span>Target role</span></p></div></div>
-      <div className={styles.actions}><button type="button" onClick={onNewEvaluation}><RotateCcw size={14} aria-hidden="true" />Run another analysis</button><button className={styles.primary} type="button" aria-label="Export dossier JSON" onClick={exportDossier}><ArrowDownToLine size={15} aria-hidden="true" />Export dossier</button></div>
+    <div className={styles.titleRow}>
+      <div className={styles.identity}>
+        {(result.intake.manifest.picture || result.intake.picture) ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setPhotoModalOpen(true)}
+              className={styles.candidatePhotoButton}
+              title="Click to view full photo (large view, unrestricted)"
+              aria-label={`View full photo of ${result.intake.manifest.display_name}`}
+            >
+              <img
+                src={(result.intake.manifest.picture || result.intake.picture)!}
+                alt={result.intake.manifest.display_name}
+                className={styles.candidatePhoto}
+                data-testid="dossier-candidate-picture"
+              />
+            </button>
+            <PhotoLightboxModal
+              isOpen={photoModalOpen}
+              onClose={() => setPhotoModalOpen(false)}
+              src={(result.intake.manifest.picture || result.intake.picture)!}
+              name={result.intake.manifest.display_name}
+              subtitle="Candidate Profile Photo"
+            />
+          </>
+        ) : (
+          <span className={styles.monogram} aria-hidden="true">{initials}</span>
+        )}
+        <div>
+          <h1>{result.intake.manifest.display_name}</h1>
+          <p>
+            <span className={styles.roleTag}>{roleName(result.dossier.role)}</span>
+            {result.dossier.rci != null && (
+              <span className={styles.roleTag} style={{ marginLeft: '6px', background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.35)', color: '#a5b4fc', fontWeight: 600 }}>
+                Score: {result.dossier.rci.toFixed(1)} / 100
+              </span>
+            )}
+            <span>Target role</span>
+          </p>
+        </div>
+      </div>
+      <div className={styles.actions}>
+        <Link
+          href="/hr"
+          className={styles.secondary}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          title="Land to Candidates"
+          data-testid="landing-btn-candidates"
+        >
+          <Users size={14} aria-hidden="true" />
+          Candidates
+        </Link>
+        <Link
+          href="/"
+          className={styles.secondary}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          title="Land to Home"
+          data-testid="landing-btn-home"
+        >
+          <Home size={14} aria-hidden="true" />
+          Home
+        </Link>
+        <button type="button" onClick={onNewEvaluation}>
+          <RotateCcw size={14} aria-hidden="true" />Run another analysis
+        </button>
+        <button className={styles.primary} type="button" aria-label="Export dossier JSON" onClick={exportDossier}>
+          <ArrowDownToLine size={15} aria-hidden="true" />Export dossier
+        </button>
+        <div className={styles.exportDropdown} ref={exportMenuRef}>
+          <button
+            type="button"
+            className={styles.secondary}
+            onClick={() => setIsExportMenuOpen(prev => !prev)}
+            aria-haspopup="true"
+            aria-expanded={isExportMenuOpen}
+            aria-label="Export report and audit options"
+            disabled={isExporting}
+          >
+            <Download size={14} aria-hidden="true" />
+            {isExporting ? 'Exporting...' : 'Export Report & Audit'}
+            <ChevronDown size={13} aria-hidden="true" />
+          </button>
+          {isExportMenuOpen && (
+            <div className={styles.exportMenu} role="menu">
+              <div className={styles.exportMenuSection}>
+                <div className={styles.exportMenuHeader}>
+                  <span>Technical Report</span>
+                  <span style={{ color: '#c084fc' }}>Brief</span>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => { setIsExportMenuOpen(false); window.print(); }}
+                >
+                  <Printer size={13} aria-hidden="true" />
+                  Print / Save as PDF
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('report', 'html')}
+                >
+                  <FileText size={13} aria-hidden="true" />
+                  Download HTML Report
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('report', 'markdown')}
+                >
+                  <FileText size={13} aria-hidden="true" />
+                  Download Markdown Report
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('report', 'json')}
+                >
+                  <FileCode size={13} aria-hidden="true" />
+                  Download JSON Report
+                </button>
+              </div>
+
+              <div className={styles.exportMenuSection}>
+                <div className={styles.exportMenuHeader}>
+                  <span>Full Audit Log</span>
+                  <span style={{ color: '#34d399' }}>Governance</span>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('audit', 'html')}
+                >
+                  <ShieldCheck size={13} aria-hidden="true" />
+                  Download Full Audit (HTML)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('audit', 'markdown')}
+                >
+                  <ShieldCheck size={13} aria-hidden="true" />
+                  Download Full Audit (Markdown)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('audit', 'json')}
+                >
+                  <FileCode size={13} aria-hidden="true" />
+                  Download Full Audit (JSON)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('audit', 'csv')}
+                >
+                  <Table size={13} aria-hidden="true" />
+                  Download Evidence Ledger (CSV)
+                </button>
+              </div>
+
+              <div className={styles.exportMenuSection}>
+                <div className={styles.exportMenuHeader}>
+                  <span>Complete Package</span>
+                  <span style={{ color: '#a78bfa' }}>All-in-One</span>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('full', 'html')}
+                >
+                  <Layers3 size={13} aria-hidden="true" />
+                  Report + Audit Bundle (HTML)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('full', 'markdown')}
+                >
+                  <Layers3 size={13} aria-hidden="true" />
+                  Report + Audit Bundle (MD)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.exportMenuItem}
+                  onClick={() => handleExportAction('full', 'json')}
+                >
+                  <FileCode size={13} aria-hidden="true" />
+                  Complete Bundle (JSON)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
     <div className={styles.metadata}><span><b>{percent(result.dossier.coverage, 0)}</b> evidence coverage</span><span><b data-testid="source-receipts-count">{result.sources.length}</b> {result.sources.length === 1 ? 'source' : 'sources'}</span><span><b data-testid="repositories-inspected-count">{repositories}</b> {repositories === 1 ? 'repository' : 'repositories'} inspected</span><span>Last analyzed <time dateTime={result.dossier.generated_at}>{dateTime(result.dossier.generated_at)}</time></span></div>
   </header>;

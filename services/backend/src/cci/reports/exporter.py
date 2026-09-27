@@ -7,6 +7,7 @@ and prioritized interview inquiry probes.
 
 import html
 from datetime import datetime, timezone
+from typing import Any
 
 from cci.domain.contracts import Dossier
 
@@ -855,3 +856,883 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
 </html>
 """
     return html_content
+
+
+def _normalize_event(event: Any) -> dict[str, Any]:
+    """Normalizes an audit event whether it is a dict, Pydantic model, or ORM object."""
+    if isinstance(event, dict):
+        return event
+    if hasattr(event, "model_dump"):
+        return event.model_dump()
+    if hasattr(event, "__dict__"):
+        return {k: v for k, v in event.__dict__.items() if not k.startswith("_")}
+    return {}
+
+
+def _prop(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _extract_evidence_fields(rec: Any) -> dict[str, Any]:
+    prov = _prop(rec, "provenance") or {}
+    decomp = _prop(rec, "confidence_decomposition") or {}
+    ev_id = str(_prop(rec, "evidence_id", ""))
+    target_cap = _prop(rec, "target_capability")
+    cap_val = _prop(target_cap, "value", str(target_cap)) if target_cap else "unknown"
+    is_pos = bool(_prop(rec, "is_positive_support", True))
+    conf = float(_prop(rec, "confidence", 0.0) or 0.0)
+    supp = float(_prop(rec, "support_score", 0.0) or 0.0)
+
+    art = _prop(prov, "artifact_path") or ""
+    line_start = _prop(prov, "line_start")
+    line_end = _prop(prov, "line_end")
+    raw_support = _prop(prov, "raw_support_text") or ""
+    commit_or_hash = _prop(prov, "commit_or_file_hash") or ""
+
+    source_rel = float(_prop(decomp, "source_reliability", 1.0) or 1.0)
+    struct_int = float(_prop(decomp, "structural_integrity", 1.0) or 1.0)
+    recency = float(_prop(decomp, "recency_weight", 1.0) or 1.0)
+    depth = float(_prop(decomp, "semantic_depth", 1.0) or 1.0)
+    verif = float(_prop(decomp, "verification_multiplier", 1.0) or 1.0)
+
+    return {
+        "evidence_id": ev_id,
+        "capability": cap_val,
+        "is_positive": is_pos,
+        "confidence": conf,
+        "support_score": supp,
+        "artifact_path": art,
+        "line_start": line_start,
+        "line_end": line_end,
+        "raw_support_text": raw_support,
+        "commit_or_hash": commit_or_hash,
+        "source_reliability": source_rel,
+        "structural_integrity": struct_int,
+        "recency_weight": recency,
+        "semantic_depth": depth,
+        "verification_multiplier": verif,
+    }
+
+
+def _extract_conflict_fields(conf: Any) -> tuple[float, float, float, bool]:
+    diag = float(_prop(conf, "contradiction_diagnostic", 0.0) or 0.0)
+    pos = float(_prop(conf, "positive_support_sum", 0.0) or 0.0)
+    neg = float(_prop(conf, "negative_support_sum", 0.0) or 0.0)
+    has_conf = bool(_prop(conf, "has_meaningful_conflict", False))
+    return diag, pos, neg, has_conf
+
+
+
+def generate_audit_markdown(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a comprehensive Markdown Full Audit & Governance Log."""
+    gen_time = (
+        dossier.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if hasattr(dossier, "generated_at") and dossier.generated_at
+        else datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
+    events = [_normalize_event(e) for e in (audit_events or [])]
+
+    lines = [
+        f"# Candidate Full Audit & Governance Log: {candidate_name}",
+        f"**Candidate ID:** `{dossier.candidate_id}` | **Analysis Run ID:** `{dossier.analysis_run_id}`",
+        f"**Generated:** {gen_time} | **Evidence Mode:** `{dossier.evidence_mode}`",
+        f"**Platform:** Candidate Capability Intelligence (CCI) v0.1.0-audit",
+        "",
+        "> [!IMPORTANT]",
+        "> **Platform Invariant: Cryptographic Audit Trail & Human Decision Support.**",
+        "> All capability adjustments, justifications, interviewer scorecards, and raw artifact traces are recorded immutably.",
+        "> Static inspection guarantees zero untrusted code execution. Unobserved capabilities evaluate strictly to `UNKNOWN`.",
+        "",
+        "---",
+        "",
+        "## 1. Runtime Provenance & System Subsystem Versions",
+        "",
+        f"- **Dossier ID:** `{dossier.dossier_id}`",
+        f"- **Target Role:** `{dossier.role.value}`",
+        f"- **Scenario:** `{dossier.scenario or 'standard'}`",
+        f"- **Sufficiency Status:** `{'INSUFFICIENT' if dossier.is_insufficient_evidence else 'ROBUST'}` (Coverage: {dossier.coverage * 100:.1f}%)",
+        "",
+        "### Subsystem Component Versions",
+        "",
+        "| Subsystem Component | Version / Identifier |",
+        "| :--- | :--- |",
+    ]
+
+    for comp, ver in dossier.versions.items():
+        lines.append(f"| **{comp.replace('_', ' ').title()}** | `{ver}` |")
+
+    lines.extend(
+        [
+            "",
+            "### Formal System Limitations",
+            "",
+        ]
+    )
+    for lim in dossier.system_limitations:
+        lines.append(f"- {lim}")
+
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 2. Immutable Governance Audit Trail",
+            "",
+            f"Total recorded governance events: **{len(events)}**",
+            "",
+        ]
+    )
+
+    if not events:
+        lines.append("*No override or interview feedback events recorded yet for this candidate.*")
+    else:
+        lines.extend(
+            [
+                "| Timestamp | Event Type | Actor / ID | Summary / Justification | Key Impact / Recommendation |",
+                "| :--- | :---: | :--- | :--- | :--- |",
+            ]
+        )
+        for ev in events:
+            ev_id = str(ev.get("id", ""))[:8]
+            ev_type = ev.get("event_type", "unknown")
+            created = ev.get("created_at", "")[:19].replace("T", " ")
+            details = ev.get("details", {}) or {}
+
+            if ev_type == "recruiter_weight_override":
+                type_label = "Role Weight Override"
+                justification = details.get("justification", "No justification provided")
+                prev_rci = f"{details.get('previous_rci'):.1f}" if details.get("previous_rci") is not None else "N/A"
+                new_rci = f"{details.get('rescored_rci'):.1f}" if details.get("rescored_rci") is not None else "N/A"
+                impact = f"RCI: {prev_rci} → {new_rci}"
+                actor = str(ev.get("user_id") or "Recruiter")[:8]
+                lines.append(f"| {created} | `{type_label}` | `{actor}` (`{ev_id}`) | {justification} | {impact} |")
+            elif ev_type == "interviewer_probe_feedback":
+                type_label = "Interviewer Scorecard"
+                interviewer = details.get("interviewer_name", "Interviewer")
+                rec = details.get("overall_recommendation", "N/A").upper().replace("_", " ")
+                evals_count = len(details.get("probe_evaluations", [])) or details.get("evaluations_count", 0)
+                notes = details.get("overall_notes") or f"{evals_count} probes evaluated"
+                lines.append(f"| {created} | `{type_label}` | {interviewer} (`{ev_id}`) | {notes} | **{rec}** |")
+            else:
+                lines.append(f"| {created} | `{ev_type}` | `{ev_id}` | Governance Event | Recorded |")
+
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 3. Grounding Evidence Ledger & Verification Traces",
+            "",
+            f"Total empirical evidence records: **{len(dossier.evidence_records)}**",
+            "",
+            "| ID | Capability | Polarity | Confidence | Support | Artifact Source | Location / Line |",
+            "| :--- | :--- | :---: | :---: | :---: | :--- | :--- |",
+        ]
+    )
+
+    for rec in dossier.evidence_records:
+        f = _extract_evidence_fields(rec)
+        rec_id = f["evidence_id"][:8]
+        cap = f["capability"].replace("_", " ").title()
+        polarity = "POSITIVE" if f["is_positive"] else "NEGATIVE"
+        conf = f"{f['confidence']:.2f}"
+        supp = f"{f['support_score']:.2f}"
+        art = f["artifact_path"] or "N/A"
+        loc = (
+            f"L{f['line_start']}-L{f['line_end']}"
+            if f["line_start"]
+            else "Repository Root"
+        )
+        lines.append(f"| `{rec_id}` | {cap} | `{polarity}` | `{conf}` | `{supp}` | `{art}` | `{loc}` |")
+
+    lines.extend(
+        [
+            "",
+            "### Detailed Evidence Provenance & Confidence Decomposition",
+            "",
+        ]
+    )
+
+    for idx, rec in enumerate(dossier.evidence_records[:20], 1):
+        f = _extract_evidence_fields(rec)
+        rec_id = f["evidence_id"]
+        cap = f["capability"].replace("_", " ").title()
+        polarity = "Supporting" if f["is_positive"] else "Contradicting"
+        lines.extend(
+            [
+                f"#### Record {idx}: `{rec_id[:12]}` — {cap} ({polarity})",
+                f"- **Artifact Path:** `{f['artifact_path']}`",
+                f"- **File/Commit Hash:** `{f['commit_or_hash'] or 'untracked'}`",
+                f"- **Confidence:** `{f['confidence']:.3f}` | **Support Score:** `{f['support_score']:.3f}`",
+                f"- **Decomposition:** Source Reliability: `{f['source_reliability']:.2f}` | Integrity: `{f['structural_integrity']:.2f}` | Recency: `{f['recency_weight']:.2f}` | Depth: `{f['semantic_depth']:.2f}` | Verification: `{f['verification_multiplier']:.2f}`",
+            ]
+        )
+        if f["raw_support_text"]:
+            cleaned_support = f["raw_support_text"].strip().replace("\n", " ")
+            lines.append(f"- **Verbatim Observation:** *\"{cleaned_support[:300]}\"*")
+        lines.append("")
+
+    if len(dossier.evidence_records) > 20:
+        lines.append(f"*... and {len(dossier.evidence_records) - 20} additional evidence records archived in full JSON export.*")
+        lines.append("")
+
+    lines.extend(
+        [
+            "---",
+            "",
+            "## 4. Contradiction Diagnostics & Discrepancy Audit",
+            "",
+            "| Capability | Diagnostic $D_k$ | Positive Support ($P_k$) | Contradictory Support ($N_k$) | Status |",
+            "| :--- | :---: | :---: | :---: | :--- |",
+        ]
+    )
+
+    for cap_key, conflict in dossier.capability_conflicts.items():
+        cap_name = _prop(cap_key, "value", str(cap_key)).replace("_", " ").title()
+        diag, pos, neg, has_conf = _extract_conflict_fields(conflict)
+        flag = "DISCREPANCY FLAGGED" if has_conf else "CONSISTENT"
+        lines.append(
+            f"| **{cap_name}** | `{diag:+.2f}` | "
+            f"{pos:.2f} | {neg:.2f} | `{flag}` |"
+        )
+
+    lines.extend(["", "---", "", "## 5. Declared Claims Corroboration Audit", ""])
+    if not dossier.claims_corroboration:
+        lines.append("*No candidate self-claims were submitted or extracted.*")
+    else:
+        lines.extend(
+            [
+                "| Declared Resume Claim | Status | Corroborating Records |",
+                "| :--- | :---: | :--- |",
+            ]
+        )
+        for cl in dossier.claims_corroboration:
+            c_text = cl.get("claim_text", "")
+            st = str(cl.get("status", "unknown")).upper()
+            grounded = len(cl.get("grounding_evidence_ids", []))
+            lines.append(f"| {c_text} | `{st}` | {grounded} record(s) |")
+
+    lines.extend(
+        [
+            "",
+            "---",
+            "*Generated by Candidate Capability Intelligence (CCI) Platform — Comprehensive Governance & Audit Engine.*",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def generate_audit_html(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a standalone, printable HTML Full Audit & Governance Log."""
+    gen_time = (
+        dossier.generated_at.strftime("%B %d, %Y - %H:%M UTC")
+        if hasattr(dossier, "generated_at") and dossier.generated_at
+        else datetime.now(timezone.utc).strftime("%B %d, %Y - %H:%M UTC")
+    )
+    cand_safe = html.escape(candidate_name)
+    events = [_normalize_event(e) for e in (audit_events or [])]
+
+    # Events rows
+    event_rows = []
+    for ev in events:
+        ev_id = html.escape(str(ev.get("id", ""))[:8])
+        ev_type = ev.get("event_type", "unknown")
+        created = html.escape(ev.get("created_at", "")[:19].replace("T", " "))
+        details = ev.get("details", {}) or {}
+
+        if ev_type == "recruiter_weight_override":
+            justification = html.escape(str(details.get("justification", "—")))
+            prev_rci = f"{details.get('previous_rci'):.1f}" if details.get("previous_rci") is not None else "N/A"
+            new_rci = f"{details.get('rescored_rci'):.1f}" if details.get("rescored_rci") is not None else "N/A"
+            actor = html.escape(str(ev.get("user_id") or "Recruiter")[:8])
+            event_rows.append(f"""
+            <tr>
+                <td class="mono">{created}</td>
+                <td><span class="badge badge-warning">WEIGHT OVERRIDE</span></td>
+                <td class="mono">{actor} ({ev_id})</td>
+                <td>{justification}</td>
+                <td class="mono">RCI: {prev_rci} → {new_rci}</td>
+            </tr>
+            """)
+        elif ev_type == "interviewer_probe_feedback":
+            interviewer = html.escape(str(details.get("interviewer_name", "Interviewer")))
+            rec = html.escape(str(details.get("overall_recommendation", "N/A")).upper().replace("_", " "))
+            evals_count = len(details.get("probe_evaluations", [])) or details.get("evaluations_count", 0)
+            notes = html.escape(str(details.get("overall_notes") or f"{evals_count} probes evaluated"))
+            rec_badge = "badge-observed" if "HIRE" in rec and "NO" not in rec else "badge-conflict"
+            event_rows.append(f"""
+            <tr>
+                <td class="mono">{created}</td>
+                <td><span class="badge badge-info">SCORECARD</span></td>
+                <td class="mono">{interviewer} ({ev_id})</td>
+                <td>{notes}</td>
+                <td><span class="badge {rec_badge}">{rec}</span></td>
+            </tr>
+            """)
+        else:
+            event_rows.append(f"""
+            <tr>
+                <td class="mono">{created}</td>
+                <td><span class="badge badge-unknown">{html.escape(ev_type)}</span></td>
+                <td class="mono">{ev_id}</td>
+                <td>Governance event</td>
+                <td>Recorded</td>
+            </tr>
+            """)
+
+    if not event_rows:
+        event_rows.append("""
+        <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 18px;">
+                No override or interview feedback events recorded yet for this candidate.
+            </td>
+        </tr>
+        """)
+
+    # Evidence rows
+    evidence_rows = []
+    for rec in dossier.evidence_records:
+        f = _extract_evidence_fields(rec)
+        rec_id = html.escape(f["evidence_id"][:8])
+        cap = html.escape(f["capability"].replace("_", " ").title())
+        is_pos = f["is_positive"]
+        polarity_badge = (
+            '<span class="badge badge-observed">SUPPORTING</span>'
+            if is_pos
+            else '<span class="badge badge-conflict">CONTRADICTING</span>'
+        )
+        art = html.escape(f["artifact_path"] or "—")
+        loc = (
+            f"L{f['line_start']}-L{f['line_end']}"
+            if f["line_start"]
+            else "Root"
+        )
+        evidence_rows.append(f"""
+        <tr>
+            <td class="mono">{rec_id}</td>
+            <td><strong>{cap}</strong></td>
+            <td>{polarity_badge}</td>
+            <td class="mono">{f['confidence']:.2f}</td>
+            <td class="mono">{f['support_score']:.2f}</td>
+            <td class="mono" style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{art}">{art}</td>
+            <td class="mono text-muted">{loc}</td>
+            <td class="mono text-sub" style="font-size: 11px;">R:{f['source_reliability']:.1f} I:{f['structural_integrity']:.1f} D:{f['semantic_depth']:.1f}</td>
+        </tr>
+        """)
+
+    # Conflict rows
+    conflict_rows = []
+    for cap_key, conf in dossier.capability_conflicts.items():
+        cap_name = html.escape(_prop(cap_key, "value", str(cap_key)).replace("_", " ").title())
+        diag, pos, neg, has_conf = _extract_conflict_fields(conf)
+        flag_badge = (
+            '<span class="badge badge-alert">⚠️ Flagged</span>'
+            if has_conf
+            else '<span class="badge badge-clear">Consistent</span>'
+        )
+        conflict_rows.append(f"""
+        <tr>
+            <td><strong>{cap_name}</strong></td>
+            <td class="mono">{diag:+.2f}</td>
+            <td class="mono text-emerald">{pos:.2f}</td>
+            <td class="mono text-rose">{neg:.2f}</td>
+            <td>{flag_badge}</td>
+        </tr>
+        """)
+
+    # Version items
+    version_items = "".join(
+        f'<div class="metric-card"><div class="metric-label">{html.escape(k.replace("_", " ").title())}</div><div class="mono" style="font-size: 13px; color: var(--accent-indigo);">{html.escape(str(v))}</div></div>'
+        for k, v in dossier.versions.items()
+    )
+
+    # Limitations items
+    limitations_items = "".join(
+        f"<li>{html.escape(lim)}</li>" for lim in dossier.system_limitations
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Audit & Governance Log — {cand_safe}</title>
+    <style>
+        :root {{
+            --bg-primary: #0b0f19;
+            --bg-card: #111827;
+            --bg-sub: #1f2937;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-sub: #6b7280;
+            --accent-indigo: #6366f1;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-amber: #f59e0b;
+            --accent-sky: #0ea5e9;
+            --border-color: #374151;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 24px;
+        }}
+        .container {{ max-width: 1100px; margin: 0 auto; }}
+        .action-bar {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+        }}
+        .btn {{
+            background: var(--accent-indigo);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .header-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }}
+        .header-title-row {{
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }}
+        h1 {{ font-size: 24px; font-weight: 800; }}
+        .badge {{
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }}
+        .badge-warning {{ background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.3); }}
+        .badge-info {{ background: rgba(14, 165, 233, 0.15); color: var(--accent-sky); border: 1px solid rgba(14, 165, 233, 0.3); }}
+        .badge-observed {{ background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }}
+        .badge-conflict {{ background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }}
+        .badge-unknown {{ background: rgba(107, 114, 128, 0.15); color: var(--text-muted); border: 1px solid var(--border-color); }}
+        .badge-alert {{ background: rgba(244, 63, 94, 0.2); color: #fda4af; font-weight: 700; }}
+        .badge-clear {{ background: rgba(16, 185, 129, 0.1); color: #6ee7b7; }}
+        .section-title {{
+            font-size: 16px;
+            font-weight: 700;
+            margin: 28px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }}
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }}
+        .metric-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }}
+        .metric-label {{
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }}
+        th, td {{
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        th {{
+            background: var(--bg-sub);
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+        }}
+        .mono {{ font-family: var(--font-mono); font-size: 12px; }}
+        .text-muted {{ color: var(--text-muted); }}
+        .text-sub {{ color: var(--text-sub); }}
+        .text-emerald {{ color: var(--accent-emerald); }}
+        .text-rose {{ color: var(--accent-rose); }}
+        ul.limitations-list {{
+            list-style: disc;
+            padding-left: 20px;
+            color: var(--text-muted);
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }}
+        footer {{
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-sub);
+            font-size: 11px;
+            text-align: center;
+        }}
+        @media print {{
+            body {{ background: white !important; color: black !important; padding: 0 !important; }}
+            .action-bar {{ display: none !important; }}
+            .header-card, .metric-card, table {{
+                background: white !important;
+                border: 1px solid #ccc !important;
+                color: black !important;
+            }}
+            th {{ background: #f3f4f6 !important; color: black !important; }}
+            td {{ color: black !important; }}
+            .badge {{ border: 1px solid #999 !important; color: black !important; background: transparent !important; }}
+            footer {{ color: #666 !important; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="action-bar">
+            <div>
+                <strong>Candidate Capability Intelligence</strong>
+                <span class="mono text-muted" style="margin-left: 8px;">Full Audit & Governance Log</span>
+            </div>
+            <button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>
+
+        <div class="header-card">
+            <div class="header-title-row">
+                <div>
+                    <h1>Full Audit Log: {cand_safe}</h1>
+                    <p class="mono text-muted" style="margin-top: 4px;">Candidate ID: {dossier.candidate_id} • Run: {dossier.analysis_run_id} • Generated: {gen_time}</p>
+                </div>
+                <div>
+                    <span class="badge badge-observed">APPEND-ONLY AUDIT LOG</span>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Target Role</div>
+                    <div class="mono" style="font-weight: 700; color: var(--text-main);">{html.escape(dossier.role.value)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Evidence Mode</div>
+                    <div class="mono" style="color: var(--accent-sky);">{html.escape(dossier.evidence_mode)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Governance Events</div>
+                    <div class="mono" style="font-size: 16px; font-weight: 700;">{len(events)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Grounding Evidence</div>
+                    <div class="mono" style="font-size: 16px; font-weight: 700;">{len(dossier.evidence_records)}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">1. Subsystem Versions & Runtime Provenance</div>
+        <div class="metrics-grid">
+            {version_items}
+        </div>
+
+        <div class="section-title">2. System Limitations & Formal Invariants</div>
+        <ul class="limitations-list">
+            {limitations_items}
+        </ul>
+
+        <div class="section-title">3. Immutable Governance Audit Trail</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event Type</th>
+                    <th>Actor / ID</th>
+                    <th>Summary / Justification</th>
+                    <th>Impact / Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(event_rows)}
+            </tbody>
+        </table>
+
+        <div class="section-title">4. Grounding Evidence Ledger (All Records)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Capability</th>
+                    <th>Polarity</th>
+                    <th>Conf</th>
+                    <th>Supp</th>
+                    <th>Artifact Path</th>
+                    <th>Location</th>
+                    <th>Decomposition</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(evidence_rows)}
+            </tbody>
+        </table>
+
+        <div class="section-title">5. Contradiction Diagnostics Audit</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Capability</th>
+                    <th>Diagnostic D_k</th>
+                    <th>Positive (P_k)</th>
+                    <th>Contradictory (N_k)</th>
+                    <th>Discrepancy Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(conflict_rows)}
+            </tbody>
+        </table>
+
+        <footer>
+            Candidate Capability Intelligence (CCI) Platform • Cryptographic Audit Trail & Governance Log • Confidential
+        </footer>
+    </div>
+</body>
+</html>
+"""
+
+
+def generate_audit_json(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a complete JSON Full Audit package."""
+    events = [_normalize_event(e) for e in (audit_events or [])]
+    data = {
+        "candidate_id": str(dossier.candidate_id),
+        "candidate_name": candidate_name,
+        "analysis_run_id": str(dossier.analysis_run_id),
+        "dossier_id": str(dossier.dossier_id),
+        "generated_at": dossier.generated_at.isoformat() if dossier.generated_at else None,
+        "evidence_mode": dossier.evidence_mode,
+        "scenario": dossier.scenario,
+        "role": dossier.role.value,
+        "coverage": dossier.coverage,
+        "is_insufficient_evidence": dossier.is_insufficient_evidence,
+        "rci": dossier.rci,
+        "versions": dossier.versions,
+        "system_limitations": dossier.system_limitations,
+        "audit_events": events,
+        "evidence_records": [
+            rec.model_dump(mode="json") if hasattr(rec, "model_dump") else rec
+            for rec in dossier.evidence_records
+        ],
+        "capability_conflicts": {
+            k.value: conf.model_dump(mode="json") if hasattr(conf, "model_dump") else conf
+            for k, conf in dossier.capability_conflicts.items()
+        },
+        "claims_corroboration": dossier.claims_corroboration,
+        "override_history": dossier.override_history,
+    }
+    import json
+    return json.dumps(data, indent=2, default=str)
+
+
+def generate_audit_csv(
+    audit_events: list[Any] | None = None,
+    dossier: Dossier | None = None,
+) -> str:
+    """Generates an RFC 4180 CSV export of governance events and evidence records."""
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # 1. Audit events table
+    writer.writerow(["# CANDIDATE GOVERNANCE AUDIT TRAIL"])
+    writer.writerow([
+        "Event ID",
+        "Timestamp",
+        "Event Type",
+        "Actor / ID",
+        "Justification / Notes",
+        "Previous RCI",
+        "Rescored RCI",
+        "Overall Recommendation",
+    ])
+    for ev in (audit_events or []):
+        norm = _normalize_event(ev)
+        details = norm.get("details", {}) or {}
+        writer.writerow([
+            norm.get("id", ""),
+            norm.get("created_at", ""),
+            norm.get("event_type", ""),
+            norm.get("user_id") or details.get("interviewer_name") or "",
+            details.get("justification") or details.get("overall_notes") or "",
+            details.get("previous_rci", ""),
+            details.get("rescored_rci", ""),
+            details.get("overall_recommendation", ""),
+        ])
+
+    if dossier and dossier.evidence_records:
+        writer.writerow([])
+        writer.writerow(["# GROUNDING EVIDENCE LEDGER"])
+        writer.writerow([
+            "Evidence ID",
+            "Target Capability",
+            "Polarity",
+            "Confidence",
+            "Support Score",
+            "Artifact Path",
+            "Line Start",
+            "Line End",
+            "Source Reliability",
+            "Structural Integrity",
+            "Semantic Depth",
+            "Raw Support Text",
+        ])
+        for rec in dossier.evidence_records:
+            f = _extract_evidence_fields(rec)
+            writer.writerow([
+                f["evidence_id"],
+                f["capability"],
+                "POSITIVE" if f["is_positive"] else "NEGATIVE",
+                f"{f['confidence']:.3f}",
+                f"{f['support_score']:.3f}",
+                f["artifact_path"],
+                f["line_start"] or "",
+                f["line_end"] or "",
+                f"{f['source_reliability']:.2f}",
+                f"{f['structural_integrity']:.2f}",
+                f"{f['semantic_depth']:.2f}",
+                (f["raw_support_text"] or "").replace("\n", " ")[:200],
+            ])
+
+    return output.getvalue()
+
+
+def generate_combined_report_and_audit_markdown(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a combined Technical Intelligence Report and Full Audit Markdown package."""
+    report_md = generate_markdown_brief(dossier, candidate_name)
+    audit_md = generate_audit_markdown(dossier, audit_events, candidate_name)
+    return (
+        f"{report_md}\n\n"
+        f"---\n\n"
+        f"# PART II: COMPLETE GOVERNANCE & PROVENANCE AUDIT\n\n"
+        f"{audit_md}\n"
+    )
+
+
+def generate_combined_report_and_audit_html(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a unified printable HTML bundle containing both Report and Full Audit."""
+    # Build complete HTML by appending audit sections inside the report container
+    audit_html_full = generate_audit_html(dossier, audit_events, candidate_name)
+    # Extract inner container of audit HTML to integrate into report
+    container_start = audit_html_full.find('<div class="container">')
+    container_end = audit_html_full.rfind('</div>')
+    audit_inner = (
+        audit_html_full[container_start + len('<div class="container">'):container_end]
+        if container_start != -1 and container_end != -1
+        else ""
+    )
+
+    report_html = generate_html_brief(dossier, candidate_name)
+    insertion_point = report_html.rfind('<footer>')
+    if insertion_point != -1 and audit_inner:
+        combined = (
+            report_html[:insertion_point]
+            + '<div style="margin-top: 60px; padding-top: 30px; border-top: 3px double var(--border-color);">'
+            + '<h2 style="font-size: 20px; font-weight: 800; margin-bottom: 20px; color: var(--accent-indigo);">PART II: FULL AUDIT & GOVERNANCE LOG</h2>'
+            + audit_inner
+            + '</div>'
+            + report_html[insertion_point:]
+        )
+        return combined
+    return report_html
+
+
+def generate_combined_report_and_audit_json(
+    dossier: Dossier,
+    audit_events: list[Any] | None = None,
+    candidate_name: str = "Candidate",
+) -> str:
+    """Generates a unified JSON bundle containing both Report dossier and Full Audit."""
+    import json
+    events = [_normalize_event(e) for e in (audit_events or [])]
+    dossier_data = dossier.model_dump(mode="json")
+    data = {
+        "candidate_id": str(dossier.candidate_id),
+        "candidate_name": candidate_name,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "report": dossier_data,
+        "full_audit": {
+            "analysis_run_id": str(dossier.analysis_run_id),
+            "generated_at": dossier.generated_at.isoformat() if dossier.generated_at else None,
+            "evidence_mode": dossier.evidence_mode,
+            "versions": dossier.versions,
+            "system_limitations": dossier.system_limitations,
+            "audit_events": events,
+            "evidence_records_count": len(dossier.evidence_records),
+            "evidence_records": [
+                rec.model_dump(mode="json") if hasattr(rec, "model_dump") else rec
+                for rec in dossier.evidence_records
+            ],
+            "capability_conflicts": {
+                k.value: conf.model_dump(mode="json") if hasattr(conf, "model_dump") else conf
+                for k, conf in dossier.capability_conflicts.items()
+            },
+            "claims_corroboration": dossier.claims_corroboration,
+            "override_history": dossier.override_history,
+        },
+    }
+    return json.dumps(data, indent=2, default=str)

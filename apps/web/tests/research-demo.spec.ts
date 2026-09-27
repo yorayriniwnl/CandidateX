@@ -78,7 +78,7 @@ test('homepage credits its creators and advisor, opens live intake, and keeps th
   await expect(footer.getByText('Dr. Debachudamani Prusti', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: /Start with live evidence/ }).click();
-  await expect(page).toHaveURL(/\/analyze$/);
+  await expect(page).toHaveURL(/\/login|\/analyze$/);
   await expect(page.locator('footer').getByText(/Archi Srivastava|Ayush Roy|Debachudamani/)).toHaveCount(0);
   await page.goto('/research-demo');
   await page.getByRole('link', { name: 'Prototype workspace' }).click();

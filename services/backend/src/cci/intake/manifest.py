@@ -167,6 +167,7 @@ def build_candidate_manifest(
     credential_urls: list[str] = []
     deployment_urls: list[str] = []
     portfolio_urls: list[str] = []
+    shared_document_urls: list[str] = []
     project_links: list[str] = []
 
     for url in canonical_urls:
@@ -183,8 +184,12 @@ def build_candidate_manifest(
             deployment_urls.append(url)
         elif cat == "portfolio":
             portfolio_urls.append(url)
-        else:
+        elif cat == "cloud_storage":
+            shared_document_urls.append(url)
+        elif cat == "project":
             project_links.append(url)
+        else:
+            shared_document_urls.append(url)
 
     # 4. Structured extraction from parsed text
     name = display_name_override or extract_candidate_name(document.raw_text)
@@ -199,6 +204,7 @@ def build_candidate_manifest(
     return CandidateManifest(
         display_name=name,
         email=email,
+        picture=document.picture,
         github_urls=github_urls,
         project_links=project_links,
         deployment_urls=deployment_urls,
@@ -206,6 +212,7 @@ def build_candidate_manifest(
         coding_profile_urls=coding_profile_urls,
         credential_urls=credential_urls,
         linkedin_urls=linkedin_urls,
+        shared_document_urls=shared_document_urls,
         claimed_skills=claimed_skills,
         project_claims=project_claims,
         experience_claims=experience_claims,

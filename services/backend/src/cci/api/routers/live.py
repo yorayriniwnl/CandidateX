@@ -7,8 +7,10 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from cci.live.contracts import MAX_UPLOAD, LiveAnalysisRequest
-from cci.live.intake import parse_resume
+from cci.live.intake import parse_resume, parse_jd_document
+from cci.live.public_links import fetch_cloud_file_data
 from cci.live.service import analyze_resume
+from cci.security.ssrf import SSRFSecurityError
 
 router = APIRouter(prefix='/api/v1/live', tags=['Live Resume Analysis'])
 
@@ -38,10 +40,25 @@ async def intake(request: Request, response: Response):
         raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF or DOCX.') from exc
 
 
+@router.post('/parse-jd')
+async def parse_jd_endpoint(request: Request, response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    filename = unquote(request.headers.get('X-Filename', 'job_description.pdf'))
+    if not filename.lower().endswith(('.pdf', '.docx', '.doc', '.txt', '.md')):
+        raise HTTPException(415, 'Upload a PDF, DOCX, DOC, or TXT document.')
+    body = await limited_body(request, MAX_UPLOAD)
+    try:
+        return await run_in_threadpool(parse_jd_document, body, filename)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF, DOCX, or TXT.') from exc
+
+
 @router.post('/analyze')
 async def analyze(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
-    body = await limited_body(request, 128 * 1024)
+    body = await limited_body(request, 1024 * 1024)
     try:
         payload = LiveAnalysisRequest.model_validate_json(body)
     except (ValidationError, ValueError) as exc:
@@ -50,3 +67,22 @@ async def analyze(request: Request, response: Response):
         return await run_in_threadpool(analyze_resume, payload)
     except RuntimeError as exc:
         raise HTTPException(500, 'The analysis failed. No sample result was substituted.') from exc
+
+
+@router.post('/fetch-link')
+async def fetch_link(request: Request, response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    body = await limited_body(request, 64 * 1024)
+    try:
+        payload = json.loads(body.decode('utf-8'))
+        url = payload.get('url', '').strip()
+        if not url:
+            raise HTTPException(422, 'Provide a URL to fetch.')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(400, 'Invalid JSON payload.')
+    try:
+        return await run_in_threadpool(fetch_cloud_file_data, url)
+    except SSRFSecurityError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(500, f'Failed to fetch link: {exc}') from exc

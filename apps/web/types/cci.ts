@@ -109,7 +109,9 @@ export interface AnalysisConfidenceSummary {
 export interface CandidateManifest {
   candidate_id: string;
   full_name?: string;
+  display_name?: string;
   primary_email?: string;
+  picture?: string | null;
   github_usernames: string[];
   github_repositories: string[];
   deployment_urls: string[];

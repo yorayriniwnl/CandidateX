@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChartNoAxesColumnIncreasing, FileCheck2, GitBranch, Layers3, ListFilter, MessageSquare, ScanLine, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { BookOpen, ChartNoAxesColumnIncreasing, FileCheck2, GitBranch, Home, Layers3, ListFilter, MessageSquare, ScanLine, Users, type LucideIcon } from 'lucide-react';
 import type { CapabilityKey } from '../../types/cci';
 import type { LiveResult } from '../../lib/live-analysis';
 import { AuditSection, InterviewPlan } from './DossierSections';
@@ -66,5 +67,27 @@ export function LiveDossier({ result, onNewEvaluation }: { result: LiveResult; o
     <details className={styles.disclosure}><summary>Explore evidence connections · {result.graph.nodes.length} nodes</summary><EvidenceGraphSection graph={result.graph} onSelectCapability={selectCapability} onSelectEvidence={setSelectedEvidenceId} /></details>
     <section id="audit" className={styles.section}><div className={styles.sectionHeading}><div><span className={styles.eyebrow}>08 / Research & provenance</span><h2>Methodology</h2><p>Static inspection of supplied sources. Identity and account association are declarations; results do not establish mastery or job performance.</p></div></div><details className={styles.disclosure}><summary>Run metadata, versions & limitations</summary><AuditSection result={result} /></details></section>
     {selectedEvidence && <EvidenceInspector record={selectedEvidence} onClose={()=>setSelectedEvidenceId(null)} />}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '36px 0 24px', borderTop: '1px solid var(--rule)', marginTop: '24px', flexWrap: 'wrap' }}>
+      <Link
+        href="/hr"
+        className={styles.secondary}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+        title="Land to Candidates"
+        data-testid="bottom-landing-btn-candidates"
+      >
+        <Users size={14} aria-hidden="true" />
+        Candidates
+      </Link>
+      <Link
+        href="/"
+        className={styles.secondary}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+        title="Land to Home"
+        data-testid="bottom-landing-btn-home"
+      >
+        <Home size={14} aria-hidden="true" />
+        Home
+      </Link>
+    </div>
   </section>;
 }

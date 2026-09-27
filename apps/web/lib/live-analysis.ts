@@ -5,12 +5,24 @@ export interface ResumeIntake {
   candidate_id: string;
   manifest: {
     display_name: string; email: string | null; claimed_skills: string[];
+    picture?: string | null;
     github_urls: string[]; linkedin_urls: string[]; coding_profile_urls: string[];
     credential_urls: string[]; deployment_urls: string[]; portfolio_urls: string[]; project_links: string[];
+    shared_document_urls?: string[];
     project_claims: { title: string; description: string; technologies: string[] }[];
   };
+  picture?: string | null;
   filename: string; document_sha256: string; text_preview: string; warnings: string[]; storage: string;
   resume_review: { sections: Record<string, string[]>; learning_skills: string[]; observations: string[] };
+}
+
+export interface ParsedJobDescription {
+  text: string;
+  filename: string;
+  char_count: number;
+  raw_char_count?: number;
+  truncated?: boolean;
+  warnings?: string[];
 }
 export interface TechnologyEvidence { name: string; path: string; basis: string; url: string; attribution_observed?: boolean; }
 export interface EngineeringFingerprint {
@@ -52,8 +64,32 @@ export interface SourceReceipt {
   inventory_truncated?: boolean; repository_review?: RepositoryReview;
   title?: string; description?: string; excerpt?: string; final_url?: string; http_status?: number;
   content_sha256?: string; verification?: string;
+  inferred_kind?: string;
   acquisition_method?: string;
   discovered_links?: { url: string; kind: string; discovery_reason: string }[];
+  files?: FetchedFileItem[];
+  file_count?: number;
+  total_size?: number;
+  technologies?: string[];
+}
+export interface FetchedFileItem {
+  name: string;
+  size: number;
+  type: string;
+}
+export interface FetchedLinkResult {
+  url: string;
+  status: string;
+  title?: string;
+  files?: FetchedFileItem[];
+  file_count?: number;
+  total_size?: number;
+  technologies?: string[];
+  excerpt?: string;
+  inferred_kind?: string;
+  detail?: string;
+  fetched_at?: string;
+  content_sha256?: string;
 }
 export interface SourceHealth {
   supplied_sources: number;
@@ -233,4 +269,8 @@ export function publicUrl(value?: string): string | undefined {
   if (!value) return undefined;
   try { const parsed = new URL(value); return ['https:', 'http:'].includes(parsed.protocol) && !parsed.username && !parsed.password ? value : undefined; }
   catch { return undefined; }
+}
+
+export async function fetchLinkData(url: string): Promise<FetchedLinkResult> {
+  return await liveRequest<FetchedLinkResult>('fetch-link', JSON.stringify({ url }));
 }

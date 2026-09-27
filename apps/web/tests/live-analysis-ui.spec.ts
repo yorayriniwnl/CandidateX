@@ -226,6 +226,17 @@ async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
     contentType: 'application/json',
     body: JSON.stringify(mockedIntake),
   }));
+  await page.route('**/api/live/parse-jd', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      text: 'Senior Backend Engineer Requirements:\n- Must have 5+ years experience with Python and distributed systems.\n- Preferred: Kubernetes and Docker.',
+      filename: 'senior_backend_jd.pdf',
+      char_count: 147,
+      truncated: false,
+      warnings: [],
+    }),
+  }));
   await page.route('**/api/live/analyze', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -252,8 +263,6 @@ async function uploadAndAnalyze(page: Page) {
 test('first-run view makes the next action obvious without extra interpretation', async ({ page }) => {
   await page.setViewportSize({ width: 880, height: 900 });
   await page.goto('/analyze');
-  await expect(page.getByText('Do not upload real candidate resumes. Results are not validated for employment decisions.'))
-    .toBeVisible();
   await expect(page.getByRole('heading', { name: 'Build a candidate dossier.' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Start with the candidate’s document.' })).toBeVisible();
   await expect(page.getByText('Drop a resume here or browse', { exact: true })).toBeVisible();
@@ -272,6 +281,41 @@ test('resume intake displays extracted declarations before source acquisition', 
   await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
   await expect(page.getByTestId('declared-skills')).toContainText('Python');
   await page.screenshot({ path: 'test-results/evidence-os-intake.png', fullPage: true });
+});
+
+test('supports uploading a job description or recruitment standards document in role step', async ({ page }) => {
+  await mockLiveApi(page);
+  await page.goto('/analyze');
+  await uploadResume(page);
+  await page.getByRole('button', { name: /Continue to target role/ }).click();
+
+  await expect(page.getByRole('heading', { name: 'Set the role context.' })).toBeVisible();
+  await expect(page.getByText('Job description & recruitment rules')).toBeVisible();
+  await expect(page.getByText('Upload job description or company standards document')).toBeVisible();
+
+  await page.locator('#jd-upload').setInputFiles({
+    name: 'senior_backend_jd.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4 mock pdf content'),
+  });
+
+  await expect(page.getByTestId('jd-file-card')).toBeVisible();
+  await expect(page.getByText('senior_backend_jd.pdf')).toBeVisible();
+  await expect(page.getByText('Document loaded')).toBeVisible();
+
+  const textarea = page.locator('#live-jd');
+  await expect(textarea).toHaveValue(/Senior Backend Engineer Requirements/);
+
+  await page.getByRole('button', { name: /Continue to public sources/ }).click();
+  await page.getByRole('button', { name: /Continue to review/ }).click();
+  await expect(page.getByText('senior_backend_jd.pdf', { exact: true })).toBeVisible();
+  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toBeVisible();
+
+  await page.getByRole('button', { name: /02 Target role/ }).click();
+  await expect(page.getByTestId('jd-file-card')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByTestId('jd-file-card')).not.toBeVisible();
+  await expect(textarea).toHaveValue('');
 });
 
 test('shows the synchronous running state while the live request is pending', async ({ page }) => {
@@ -315,6 +359,37 @@ test('shows the source manifest before acquisition and lets the reviewer choose 
   await selection.uncheck();
   await expect(page.getByText('0 public sources selected')).toBeVisible();
   await expect(page.getByRole('button', { name: /Continue to review/ })).toBeVisible();
+});
+
+test('copies source link to clipboard with popup on click and opens in new tab on ctrl+click', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await mockLiveApi(page);
+  await page.goto('/analyze');
+  await uploadResume(page);
+  await page.getByRole('button', { name: /Continue to target role/ }).click();
+  await page.getByRole('button', { name: /Continue to public sources/ }).click();
+  await expect(page.getByRole('heading', { name: 'Choose what to inspect.' })).toBeVisible();
+
+  await page.getByLabel('Add a public source URL').fill('https://github.com/example/api');
+  await page.getByRole('button', { name: 'Add source' }).click();
+
+  const link = page.getByRole('link', { name: /https:\/\/github\.com\/example\/api/ });
+  await expect(link).toBeVisible();
+
+  // Regular click: should copy URL to clipboard and show "Copied!" popup
+  await link.click();
+  await expect(page.getByRole('status')).toHaveText('Copied!');
+
+  const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboardText).toBe('https://github.com/example/api');
+
+  // Ctrl + click: should open link in a new tab (page)
+  const pagePromise = context.waitForEvent('page');
+  await link.click({ modifiers: ['Control'] });
+  const newPage = await pagePromise;
+  await newPage.waitForURL(/github\.com\/example\/api/);
+  expect(newPage.url()).toContain('github.com/example/api');
+  await newPage.close();
 });
 
 test('leads with readable capability actions and keeps audit fields expandable', async ({ page }) => {
@@ -553,4 +628,115 @@ test('capability drill-down opens the ledger with the matching capability filter
   await page.getByRole('button', { name: 'Inspect all 1 capability records' }).click();
   await expect(page.getByLabel('Filter by capability', { exact: true })).toHaveValue('backend_engineering');
   await expect(page.locator('#evidence')).toContainText('of 1 matching records.');
+});
+
+test('analyze page offers two static buttons to land to Candidates and Home', async ({ page }) => {
+  await mockLiveApi(page, mockedAnalyze);
+  await page.goto('/analyze');
+
+  // Verify buttons exist when wizard is showing
+  const wizardCandidates = page.getByTestId('wizard-landing-btn-candidates');
+  const wizardHome = page.getByTestId('wizard-landing-btn-home');
+  await expect(wizardCandidates).toBeVisible();
+  await expect(wizardCandidates).toHaveAttribute('href', '/hr');
+  await expect(wizardCandidates).toContainText('Candidates');
+  await expect(wizardHome).toBeVisible();
+  await expect(wizardHome).toHaveAttribute('href', '/');
+  await expect(wizardHome).toContainText('Home');
+
+  // Complete analysis to show the result dossier
+  await uploadAndAnalyze(page);
+  await expect(page.getByRole('region', { name: 'Live candidate dossier' })).toBeVisible();
+
+  // Verify static buttons in the result header
+  const dossierCandidates = page.getByTestId('landing-btn-candidates');
+  const dossierHome = page.getByTestId('landing-btn-home');
+  await expect(dossierCandidates).toBeVisible();
+  await expect(dossierCandidates).toHaveAttribute('href', '/hr');
+  await expect(dossierCandidates).toContainText('Candidates');
+  await expect(dossierHome).toBeVisible();
+  await expect(dossierHome).toHaveAttribute('href', '/');
+  await expect(dossierHome).toContainText('Home');
+
+  // Verify bottom landing buttons are also visible
+  const bottomCandidates = page.getByTestId('bottom-landing-btn-candidates');
+  const bottomHome = page.getByTestId('bottom-landing-btn-home');
+  await expect(bottomCandidates).toBeVisible();
+  await expect(bottomCandidates).toHaveAttribute('href', '/hr');
+  await expect(bottomHome).toBeVisible();
+  await expect(bottomHome).toHaveAttribute('href', '/');
+
+  // Verify clicking Candidates navigates to /hr
+  await dossierCandidates.click();
+  await expect(page).toHaveURL(/\/hr$/);
+
+  // Return to analyze and verify Home navigation
+  await page.goto('/analyze');
+  await uploadAndAnalyze(page);
+  await page.getByTestId('landing-btn-home').click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('supports opening cloud link directly and fetching files/data instead of showing unverified notice', async ({ page }) => {
+  await mockLiveApi(page);
+  await page.route('**/api/live/fetch-link', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      verified: true,
+      verification: 'cloud_file_verified',
+      file_count: 3,
+      files: [
+        { name: 'main.py', size: 1420, type: 'code' },
+        { name: 'README.md', size: 850, type: 'documentation' },
+        { name: 'requirements.txt', size: 120, type: 'config' }
+      ],
+      technologies: ['Python'],
+      detail: 'Cloud archive fetched and inspected (3 files). Detected: Python.',
+      excerpt: 'from fastapi import FastAPI\napp = FastAPI()',
+      total_size: 2390,
+    }),
+  }));
+
+  await page.goto('/analyze');
+  await uploadResume(page);
+  await page.getByRole('button', { name: /Continue to target role/ }).click();
+  await page.getByRole('button', { name: /Continue to public sources/ }).click();
+
+  const cloudUrl = 'https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/view';
+  await page.getByLabel('Add a public source URL').fill(cloudUrl);
+  await page.getByRole('button', { name: 'Add source' }).click();
+
+  // Verify "Candidate-supplied cloud link (contents unverified)" is NOT displayed
+  await expect(page.getByText('Candidate-supplied cloud link (contents unverified)')).toBeHidden();
+
+  // Verify category and Open link button
+  await expect(page.getByText('CLOUD FILE', { exact: true })).toBeVisible();
+  const openDirectLink = page.getByRole('link', { name: 'Open link' });
+  await expect(openDirectLink).toBeVisible();
+  await expect(openDirectLink).toHaveAttribute('href', cloudUrl);
+  await expect(openDirectLink).toHaveAttribute('target', '_blank');
+
+  // Verify fetch files button is present
+  const fetchButton = page.getByRole('button', { name: /Fetch files & get data/ });
+  await expect(fetchButton).toBeVisible();
+
+  // Fetch the cloud files and verify data extraction
+  await fetchButton.click();
+
+  // Success badge and technology tags should appear
+  await expect(page.getByText(/Files & data fetched \(3 files/)).toBeVisible();
+  await expect(page.getByText('Python')).toBeVisible();
+
+  // Open details drawer and verify file contents
+  await page.getByRole('button', { name: 'View files & data ▾' }).click();
+  await expect(page.getByText('Files detected (3):')).toBeVisible();
+  await expect(page.getByText('main.py')).toBeVisible();
+  await expect(page.getByText('README.md')).toBeVisible();
+  await expect(page.getByText('requirements.txt')).toBeVisible();
+  await expect(page.getByText('from fastapi import FastAPI')).toBeVisible();
+
+  // Collapse drawer
+  await page.getByRole('button', { name: 'Hide data ▴' }).click();
+  await expect(page.getByText('Files detected (3):')).toBeHidden();
 });

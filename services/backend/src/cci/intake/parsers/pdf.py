@@ -19,10 +19,11 @@ class ParsedDocument:
     embedded_urls: list[str] = field(default_factory=list)
     visible_urls: list[str] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
+    picture: str | None = None
 
 
 def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
-    """Extracts text and embedded hyperlink annotations from digital PDF.
+    """Extracts text, embedded hyperlink annotations, and picture from digital PDF.
 
     Strict invariant: no OCR is performed in v1, and no URLs are invented.
     """
@@ -48,6 +49,10 @@ def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
         for match in URL_REGEX.finditer(page_text):
             visible_urls.append(match.group(0).strip())
 
+    # 3. Extract candidate picture if present
+    from cci.intake.parsers.image import extract_picture_from_pdf
+    picture = extract_picture_from_pdf(doc)
+
     doc.close()
 
     full_text = "\n".join(text_chunks)
@@ -55,4 +60,5 @@ def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
         raw_text=full_text,
         embedded_urls=embedded_urls,
         visible_urls=visible_urls,
+        picture=picture,
     )

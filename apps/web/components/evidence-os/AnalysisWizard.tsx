@@ -7,9 +7,10 @@ import { ResumeStep } from './ResumeStep';
 import { RoleStep } from './RoleStep';
 import { SourceManifestStep, type SourceSelection } from './SourceManifestStep';
 import { ReviewStep } from './ReviewStep';
+import Link from 'next/link';
 import styles from './evidence-os.module.css';
 import { Instrument } from '../studio/Instrument';
-import { ArrowUpRight, Check, FileText, GitBranch, Layers3, MessageSquare } from 'lucide-react';
+import { ArrowUpRight, Check, FileText, GitBranch, Home, Layers3, MessageSquare, Users } from 'lucide-react';
 
 const CONTEXT = [
   ['Potential starts with context.', 'A document is the beginning of a story. Let the work behind it bring the person into focus.'],
@@ -18,13 +19,50 @@ const CONTEXT = [
   ['A clearer view starts here.', 'Your inputs become a connected evidence trail, with capability signals and questions for the conversation ahead.'],
 ];
 
-export function AnalysisWizard({ step, intake, fileName, fileSize, role, jd, sources, identity, busy, phase, error, sourceError, previousRun, onStepChange, onUpload, onRemoveResume, onRoleChange, onJdChange, onToggleSource, onAddSource, onIdentityChange, onAnalyze }: {
+export function AnalysisWizard({
+  step,
+  intake,
+  fileName,
+  fileSize,
+  role,
+  jd,
+  jdFileName,
+  jdFileSize,
+  jdLoading,
+  jdError,
+  jdWarning,
+  sources,
+  identity,
+  busy,
+  phase,
+  error,
+  sourceError,
+  previousRun,
+  onStepChange,
+  onUpload,
+  onRemoveResume,
+  onRoleChange,
+  onJdChange,
+  onJdUpload,
+  onJdRemove,
+  onToggleSource,
+  onAddSource,
+  onIdentityChange,
+  onAnalyze,
+  onFetchLink,
+  onFetchAllCloud,
+}: {
   step: EvaluationStep;
   intake: ResumeIntake | null;
   fileName: string;
   fileSize: number;
   role: CanonicalRole;
   jd: string;
+  jdFileName?: string;
+  jdFileSize?: number;
+  jdLoading?: boolean;
+  jdError?: string;
+  jdWarning?: string;
   sources: SourceSelection[];
   identity: string;
   busy: boolean;
@@ -37,10 +75,14 @@ export function AnalysisWizard({ step, intake, fileName, fileSize, role, jd, sou
   onRemoveResume: () => void;
   onRoleChange: (role: CanonicalRole) => void;
   onJdChange: (jd: string) => void;
+  onJdUpload?: (file?: File) => void;
+  onJdRemove?: () => void;
   onToggleSource: (url: string, selected: boolean) => void;
   onAddSource: (url: string) => void;
   onIdentityChange: (identity: string) => void;
   onAnalyze: () => void;
+  onFetchLink?: (url: string) => void;
+  onFetchAllCloud?: () => void;
 }) {
   const maximumStep = intake ? 3 : 0;
 
@@ -51,6 +93,48 @@ export function AnalysisWizard({ step, intake, fileName, fileSize, role, jd, sou
           <p className={styles.kicker}>NEW EVALUATION / LIVE</p>
           <h1 id="evaluation-title">Build a candidate dossier.</h1>
           <p>Bring the context. Connect the evidence. Prepare a sharper interview.</p>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+            <Link
+              href="/hr"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '7px',
+                background: '#ffffff05',
+                border: '1px solid #ad8ecd39',
+                color: '#d4dbe6',
+                fontSize: '12px',
+                textDecoration: 'none',
+              }}
+              title="Land to Candidates"
+              data-testid="wizard-landing-btn-candidates"
+            >
+              <Users size={13} aria-hidden="true" />
+              Candidates
+            </Link>
+            <Link
+              href="/"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '7px',
+                background: '#ffffff05',
+                border: '1px solid #ad8ecd39',
+                color: '#d4dbe6',
+                fontSize: '12px',
+                textDecoration: 'none',
+              }}
+              title="Land to Home"
+              data-testid="wizard-landing-btn-home"
+            >
+              <Home size={13} aria-hidden="true" />
+              Home
+            </Link>
+          </div>
         </div>
         {previousRun && <div className={styles.previousRun} role="status">
           <span>LAST COMPLETED RUN</span><code>{previousRun.dossier.analysis_run_id}</code>
@@ -65,10 +149,59 @@ export function AnalysisWizard({ step, intake, fileName, fileSize, role, jd, sou
       {phase !== 'idle' && <AnalysisRunStatus phase={phase} />}
       {phase === 'analyze' && !previousRun && <PendingAnalysisSkeleton />}
 
-      {step === 0 && <ResumeStep intake={intake} fileName={fileName} fileSize={fileSize} busy={busy} onUpload={onUpload} onRemove={onRemoveResume} onContinue={onStepChange} />}
-      {step === 1 && <RoleStep role={role} jd={jd} busy={busy} onRoleChange={onRoleChange} onJdChange={onJdChange} onContinue={onStepChange} />}
-      {step === 2 && <SourceManifestStep sources={sources} identity={identity} busy={busy} addError={sourceError} onToggle={onToggleSource} onAdd={onAddSource} onIdentityChange={onIdentityChange} onContinue={onStepChange} />}
-      {step === 3 && <ReviewStep role={role} jd={jd} sources={sources} busy={busy} onContinue={onStepChange} onAnalyze={onAnalyze} />}
+      {step === 0 && (
+        <ResumeStep
+          intake={intake}
+          fileName={fileName}
+          fileSize={fileSize}
+          busy={busy}
+          onUpload={onUpload}
+          onRemove={onRemoveResume}
+          onContinue={onStepChange}
+        />
+      )}
+      {step === 1 && (
+        <RoleStep
+          role={role}
+          jd={jd}
+          jdFileName={jdFileName}
+          jdFileSize={jdFileSize}
+          jdLoading={jdLoading}
+          jdError={jdError}
+          jdWarning={jdWarning}
+          busy={busy}
+          onRoleChange={onRoleChange}
+          onJdChange={onJdChange}
+          onJdUpload={onJdUpload}
+          onJdRemove={onJdRemove}
+          onContinue={onStepChange}
+        />
+      )}
+      {step === 2 && (
+        <SourceManifestStep
+          sources={sources}
+          identity={identity}
+          busy={busy}
+          addError={sourceError}
+          onToggle={onToggleSource}
+          onAdd={onAddSource}
+          onIdentityChange={onIdentityChange}
+          onContinue={onStepChange}
+          onFetchLink={onFetchLink}
+          onFetchAllCloud={onFetchAllCloud}
+        />
+      )}
+      {step === 3 && (
+        <ReviewStep
+          role={role}
+          jd={jd}
+          jdFileName={jdFileName}
+          sources={sources}
+          busy={busy}
+          onContinue={onStepChange}
+          onAnalyze={onAnalyze}
+        />
+      )}
       </div>
       <aside className={styles.guide} aria-label="Evaluation context">
         <div className={styles.guideTop}><span>CX / EVIDENCE ENGINE</span><span>0{step + 1} — 04</span></div>

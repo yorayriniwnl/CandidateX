@@ -4,9 +4,18 @@ import type { EvaluationStep } from './EvaluationSteps';
 import type { SourceSelection } from './SourceManifestStep';
 import styles from './evidence-os.module.css';
 
-export function ReviewStep({ role, jd, sources, busy, onContinue, onAnalyze }: {
+export function ReviewStep({
+  role,
+  jd,
+  jdFileName,
+  sources,
+  busy,
+  onContinue,
+  onAnalyze,
+}: {
   role: CanonicalRole;
   jd: string;
+  jdFileName?: string;
   sources: SourceSelection[];
   busy: boolean;
   onContinue: (step: EvaluationStep) => void;
@@ -20,11 +29,32 @@ export function ReviewStep({ role, jd, sources, busy, onContinue, onAnalyze }: {
       <p className={styles.sectionIntro}>Confirm the role and supplied sources before CandidateX starts the live request.</p>
       <dl className={styles.reviewGrid}>
         <div><dt>Target role</dt><dd>{roleName(role)}</dd></div>
-        <div><dt>Job description</dt><dd>{jd.trim() ? `${jd.length.toLocaleString()} characters` : 'Not supplied'}</dd></div>
+        <div>
+          <dt>Job description & standards</dt>
+          <dd>
+            {jdFileName ? (
+              <>
+                <span>{jdFileName}</span>
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>
+                  {jd.length.toLocaleString()} characters
+                </span>
+              </>
+            ) : jd.trim() ? (
+              `${jd.length.toLocaleString()} characters`
+            ) : (
+              'Not supplied'
+            )}
+          </dd>
+        </div>
         <div><dt>Public source selection</dt><dd>{selected.length} public {selected.length === 1 ? 'source' : 'sources'} selected</dd></div>
         <div><dt>Analysis mode</dt><dd>Live static inspection · synchronous request</dd></div>
       </dl>
-      {jd.trim() && <div className={styles.reviewText}><span>JOB DESCRIPTION PREVIEW</span><p>{jd.trim()}</p></div>}
+      {jd.trim() && (
+        <div className={styles.reviewText}>
+          <span>{jdFileName ? `REQUIREMENTS PREVIEW (${jdFileName.toUpperCase()})` : 'JOB DESCRIPTION PREVIEW'}</span>
+          <p>{jd.trim()}</p>
+        </div>
+      )}
       <div className={styles.reviewSources}>
         <h3>Sources selected for this request</h3>
         {selected.length === 0 ? <p>No public sources were selected for this run. Resume declarations alone do not establish capability.</p> : (

@@ -42,6 +42,7 @@ class ResumeReview(BaseModel):
 class ResumeIntake(BaseModel):
     candidate_id: UUID = Field(default_factory=uuid4)
     manifest: CandidateManifest
+    picture: str | None = Field(default=None, description="Extracted resume picture data URI")
     document_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     filename: str = Field(max_length=240)
     text_preview: str = Field(default='', max_length=12000)

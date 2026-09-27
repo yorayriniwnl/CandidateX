@@ -33,3 +33,17 @@ def test_build_candidate_manifest_from_pdf():
     assert any("python" in s.lower() for s in manifest.claimed_skills)
     assert any("fastapi" in s.lower() for s in manifest.claimed_skills)
     assert any("docker" in s.lower() for s in manifest.claimed_skills)
+
+
+def test_manifest_cloud_storage_links_not_claimed_as_projects():
+    from cci.intake.parsers import ParsedDocument
+    doc = ParsedDocument(
+        raw_text="Bob Smith\nSkills\nPython, Docker\nCertificates\nhttps://drive.google.com/file/d/abc123cert/view\nProjects\nhttps://drive.google.com/file/d/xyz789proj/view\n",
+        embedded_urls=("https://drive.google.com/file/d/abc123cert/view", "https://drive.google.com/file/d/xyz789proj/view"),
+        visible_urls=("https://drive.google.com/file/d/abc123cert/view", "https://drive.google.com/file/d/xyz789proj/view"),
+    )
+    manifest = build_candidate_manifest(doc)
+    assert len(manifest.project_links) == 0
+    assert len(manifest.shared_document_urls) == 2
+    assert "https://drive.google.com/file/d/abc123cert/view" in manifest.shared_document_urls
+    assert "https://drive.google.com/file/d/xyz789proj/view" in manifest.shared_document_urls

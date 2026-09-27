@@ -43,3 +43,48 @@ def test_docx_relationship_hyperlink_extraction():
 
     # CRITICAL TEST: Embedded relationship hyperlink
     assert any("bob-demo.fly.dev" in u for u in parsed.embedded_urls)
+
+
+def test_pdf_picture_extraction():
+    """Verify that PyMuPDF extracts embedded candidate photos as base64 data URIs."""
+    from tests.golden.cv.fixtures import create_golden_pdf_with_picture
+    from cci.intake.manifest import build_candidate_manifest
+
+    pdf_bytes = create_golden_pdf_with_picture()
+    parsed = parse_pdf_document(pdf_bytes)
+
+    assert "Carol Candidate" in parsed.raw_text
+    assert parsed.picture is not None
+    assert parsed.picture.startswith("data:image/")
+    assert ";base64," in parsed.picture
+
+    # Verify manifest reflects the extracted picture
+    manifest = build_candidate_manifest(parsed)
+    assert manifest.display_name == "Carol Candidate"
+    assert manifest.picture == parsed.picture
+
+
+def test_docx_picture_extraction():
+    """Verify that DOCX parser extracts embedded media as base64 data URIs."""
+    from tests.golden.cv.fixtures import create_golden_docx_with_picture
+    from cci.intake.manifest import build_candidate_manifest
+
+    docx_bytes = create_golden_docx_with_picture()
+    parsed = parse_docx_document(docx_bytes)
+
+    assert "Dave Developer" in parsed.raw_text
+    assert parsed.picture is not None
+    assert parsed.picture.startswith("data:image/")
+    assert ";base64," in parsed.picture
+
+    # Verify manifest reflects the extracted picture
+    manifest = build_candidate_manifest(parsed)
+    assert manifest.display_name == "Dave Developer"
+    assert manifest.picture == parsed.picture
+
+
+def test_document_without_picture_returns_none():
+    """Verify that documents without pictures have picture=None."""
+    pdf_bytes = create_golden_pdf_with_hidden_links()
+    parsed = parse_pdf_document(pdf_bytes)
+    assert parsed.picture is None

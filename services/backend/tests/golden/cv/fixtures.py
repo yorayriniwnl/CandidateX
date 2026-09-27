@@ -86,3 +86,52 @@ def create_golden_docx_with_links() -> bytes:
     stream = io.BytesIO()
     doc.save(stream)
     return stream.getvalue()
+
+
+def create_sample_image_bytes(width: int = 120, height: int = 120, color: str = "blue") -> bytes:
+    """Helper to generate valid JPEG image bytes in memory."""
+    from PIL import Image
+
+    img = Image.new("RGB", (width, height), color=color)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+
+def create_golden_pdf_with_picture() -> bytes:
+    """Generates a valid digital PDF with a candidate profile picture and text."""
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+
+    # Insert photo in top-right header area
+    img_bytes = create_sample_image_bytes(140, 140, color="indigo")
+    page.insert_image(fitz.Rect(450, 50, 550, 150), stream=img_bytes)
+
+    # Header text
+    page.insert_text((50, 60), "Carol Candidate", fontsize=18)
+    page.insert_text((50, 80), "Email: carol@example.com", fontsize=10)
+    page.insert_text((50, 100), "https://github.com/caroldev", fontsize=10)
+    page.insert_text((50, 130), "Skills\nPython, Docker, React", fontsize=10)
+
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+def create_golden_docx_with_picture() -> bytes:
+    """Generates a valid digital DOCX with a candidate profile picture and text."""
+    doc = docx.Document()
+    doc.add_heading("Dave Developer", level=1)
+    doc.add_paragraph("Email: dave@example.com")
+    doc.add_paragraph("GitHub: https://github.com/davedev")
+
+    # Add embedded picture
+    img_bytes = create_sample_image_bytes(150, 150, color="teal")
+    doc.add_picture(io.BytesIO(img_bytes))
+
+    doc.add_heading("Skills", level=2)
+    doc.add_paragraph("Python, FastAPI, Postgres")
+
+    stream = io.BytesIO()
+    doc.save(stream)
+    return stream.getvalue()

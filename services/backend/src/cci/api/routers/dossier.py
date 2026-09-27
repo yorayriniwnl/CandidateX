@@ -8,7 +8,17 @@ from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CapabilityKey
 from cci.graph.ceg import CandidateEvidenceGraph
-from cci.reports.exporter import generate_html_brief, generate_markdown_brief
+from cci.reports.exporter import (
+    generate_audit_csv,
+    generate_audit_html,
+    generate_audit_json,
+    generate_audit_markdown,
+    generate_combined_report_and_audit_html,
+    generate_combined_report_and_audit_json,
+    generate_combined_report_and_audit_markdown,
+    generate_html_brief,
+    generate_markdown_brief,
+)
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 router = APIRouter(prefix="/api/v1/dossier", tags=["Dossier & Evidence Graph"])
@@ -66,20 +76,17 @@ def get_candidate_dossier(candidate_id: UUID) -> DossierResponse:
     return DossierResponse(dossier=dossier)
 
 
-@router.get(
-    "/{candidate_id}/export",
-    summary="Export candidate technical intelligence brief (HTML, Markdown, JSON)",
-    status_code=status.HTTP_200_OK,
-)
-def export_candidate_dossier(
-    candidate_id: UUID,
-    format: str = Query(
-        "html",
-        pattern="^(html|markdown|json)$",
-        description="Export format: html, markdown, or json",
-    ),
-) -> Response:
-    """Exports a formatted, printable technical brief for hiring managers and interviewers."""
+def _fetch_candidate_audit_events(candidate_id: UUID) -> list[Any]:
+    """Fetches candidate audit events from the overrides audit trail."""
+    try:
+        from cci.api.routers.overrides import get_candidate_audit_trail
+        return get_candidate_audit_trail(candidate_id)
+    except Exception:
+        return []
+
+
+def _resolve_candidate_dossier_and_name(candidate_id: UUID) -> tuple[Dossier, str]:
+    """Retrieves dossier and candidate display name from memory or DB."""
     dossier = _DOSSIER_STORE.get(candidate_id)
     cand_name = "Candidate"
     if not dossier:
@@ -105,19 +112,92 @@ def export_candidate_dossier(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dossier not found for candidate ID {candidate_id}",
         )
+    return dossier, cand_name
 
-    if format == "html":
-        content = generate_html_brief(dossier, candidate_name=cand_name)
-        return Response(content=content, media_type="text/html")
-    elif format == "markdown":
-        content = generate_markdown_brief(dossier, candidate_name=cand_name)
-        return Response(content=content, media_type="text/markdown")
+
+@router.get(
+    "/{candidate_id}/export",
+    summary="Export candidate report, full audit, or combined package (HTML, Markdown, JSON, CSV)",
+    status_code=status.HTTP_200_OK,
+)
+def export_candidate_dossier(
+    candidate_id: UUID,
+    format: str = Query(
+        "html",
+        pattern="^(html|markdown|json|csv)$",
+        description="Export format: html, markdown, json, or csv",
+    ),
+    scope: str = Query(
+        "report",
+        pattern="^(report|audit|full|both)$",
+        description="Scope: report (Technical Brief), audit (Full Audit & Governance), or full (Combined Report & Audit)",
+    ),
+) -> Response:
+    """Exports candidate technical intelligence report, full audit trail, or combined bundle."""
+    dossier, cand_name = _resolve_candidate_dossier_and_name(candidate_id)
+
+    if scope == "report":
+        if format == "html":
+            content = generate_html_brief(dossier, candidate_name=cand_name)
+            return Response(content=content, media_type="text/html")
+        elif format == "markdown":
+            content = generate_markdown_brief(dossier, candidate_name=cand_name)
+            return Response(content=content, media_type="text/markdown")
+        elif format == "csv":
+            content = generate_audit_csv([], dossier=dossier)
+            return Response(content=content, media_type="text/csv")
+        else:
+            return Response(
+                content=dossier.model_dump_json(indent=2),
+                media_type="application/json",
+            )
+    elif scope == "audit":
+        audit_events = _fetch_candidate_audit_events(candidate_id)
+        if format == "html":
+            content = generate_audit_html(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="text/html")
+        elif format == "markdown":
+            content = generate_audit_markdown(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="text/markdown")
+        elif format == "csv":
+            content = generate_audit_csv(audit_events=audit_events, dossier=dossier)
+            return Response(content=content, media_type="text/csv")
+        else:
+            content = generate_audit_json(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="application/json")
     else:
-        # json
-        return Response(
-            content=dossier.model_dump_json(indent=2),
-            media_type="application/json",
-        )
+        # full / both
+        audit_events = _fetch_candidate_audit_events(candidate_id)
+        if format == "html":
+            content = generate_combined_report_and_audit_html(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="text/html")
+        elif format == "markdown":
+            content = generate_combined_report_and_audit_markdown(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="text/markdown")
+        elif format == "csv":
+            content = generate_audit_csv(audit_events=audit_events, dossier=dossier)
+            return Response(content=content, media_type="text/csv")
+        else:
+            content = generate_combined_report_and_audit_json(dossier, audit_events=audit_events, candidate_name=cand_name)
+            return Response(content=content, media_type="application/json")
+
+
+@router.get(
+    "/{candidate_id}/export-audit",
+    summary="Export candidate full audit & governance log (HTML, Markdown, JSON, CSV)",
+    status_code=status.HTTP_200_OK,
+)
+def export_candidate_audit(
+    candidate_id: UUID,
+    format: str = Query(
+        "html",
+        pattern="^(html|markdown|json|csv)$",
+        description="Export format: html, markdown, json, or csv",
+    ),
+) -> Response:
+    """Exports candidate full audit trail, runtime provenance, and evidence ledger."""
+    return export_candidate_dossier(candidate_id, format=format, scope="audit")
+
 
 
 @router.get(

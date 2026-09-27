@@ -126,3 +126,64 @@ def test_live_claims_do_not_treat_unrelated_backend_evidence_as_java_verificatio
         'github_urls': ['https://github.com/example/api'], 'github_identity': 'example'}).json()
     assert data['dossier']['claims_corroboration']
     assert all(c['status'] == 'unknown' and not c['grounding_evidence_ids'] for c in data['dossier']['claims_corroboration'])
+
+
+def test_parse_jd_endpoint_docx():
+    document = docx.Document()
+    document.add_paragraph('Job Title: Senior Backend Engineer')
+    document.add_paragraph('Requirements:')
+    document.add_paragraph('Must have: 5+ years Python, FastAPI, PostgreSQL')
+    stream = io.BytesIO()
+    document.save(stream)
+    response = client.post(
+        '/api/v1/live/parse-jd',
+        content=stream.getvalue(),
+        headers={'X-Filename': 'backend_jd.docx', 'Content-Type': 'application/octet-stream'}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert 'Senior Backend Engineer' in data['text']
+    assert 'FastAPI' in data['text']
+    assert data['filename'] == 'backend_jd.docx'
+    assert data['char_count'] > 20
+    assert not data['truncated']
+
+
+def test_parse_jd_endpoint_txt():
+    jd_content = "Hiring Standards & Rules:\n1. Must have strong Go and distributed systems experience.\n2. Nice to have: Kubernetes."
+    response = client.post(
+        '/api/v1/live/parse-jd',
+        content=jd_content.encode('utf-8'),
+        headers={'X-Filename': 'recruitment_rules.txt', 'Content-Type': 'application/octet-stream'}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert 'Hiring Standards' in data['text']
+    assert data['filename'] == 'recruitment_rules.txt'
+
+
+def test_parse_jd_endpoint_pdf():
+    import pymupdf
+    pdf_doc = pymupdf.open()
+    page = pdf_doc.new_page()
+    page.insert_text((50, 72), "Company Recruitment Standard:\nSenior Engineers must demonstrate code quality and TDD.")
+    stream = io.BytesIO()
+    pdf_doc.save(stream)
+    pdf_doc.close()
+    response = client.post(
+        '/api/v1/live/parse-jd',
+        content=stream.getvalue(),
+        headers={'X-Filename': 'standards.pdf', 'Content-Type': 'application/octet-stream'}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert 'Company Recruitment Standard' in data['text']
+
+
+def test_parse_jd_endpoint_unsupported_extension():
+    response = client.post(
+        '/api/v1/live/parse-jd',
+        content=b'executable or invalid',
+        headers={'X-Filename': 'rules.exe', 'Content-Type': 'application/octet-stream'}
+    )
+    assert response.status_code == 415

@@ -43,8 +43,9 @@ export const DossierView: React.FC<{
   initialDossier: Dossier;
   graph: CEGGraph;
   candidateName?: string;
+  candidatePicture?: string | null;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ initialDossier, graph: initialGraph, candidateName = 'Ayush Roy', onSelectCandidate }) => {
+}> = ({ initialDossier, graph: initialGraph, candidateName = 'Ayush Roy', candidatePicture, onSelectCandidate }) => {
   const [graph, setGraph] = useState<CEGGraph>(initialGraph);
   const [dossier, setDossier] = useState<Dossier>(initialDossier);
   const [activeSubTab, setActiveSubTab] = useState<DossierSubTab>('overview');
@@ -93,6 +94,7 @@ export const DossierView: React.FC<{
       <DossierHeader
         dossier={dossier}
         candidateName={candidateName}
+        candidatePicture={candidatePicture}
         onOpenWeightsModal={() => setIsWeightsModalOpen(true)}
         onSelectCandidate={onSelectCandidate}
       />

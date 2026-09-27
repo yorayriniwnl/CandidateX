@@ -14,7 +14,7 @@ from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
 from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.enums import CapabilityKey
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(
@@ -338,3 +338,74 @@ def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
     # Sort descending by created_at
     results.sort(key=lambda x: x.created_at, reverse=True)
     return results
+
+
+@router.get(
+    "/audit/{candidate_id}/export",
+    summary="Export candidate audit trail and governance log (JSON, CSV, Markdown, HTML)",
+    status_code=status.HTTP_200_OK,
+)
+def export_candidate_audit_trail(
+    candidate_id: UUID,
+    format: str = Query(
+        "json",
+        pattern="^(json|csv|markdown|html)$",
+        description="Export format: json, csv, markdown, or html",
+    ),
+) -> Response:
+    """Exports the candidate audit trail in structured formats."""
+    from cci.reports.exporter import (
+        generate_audit_csv,
+        generate_audit_html,
+        generate_audit_json,
+        generate_audit_markdown,
+    )
+    from cci.api.routers.dossier import _DOSSIER_STORE
+
+    events = get_candidate_audit_trail(candidate_id)
+    dossier = _DOSSIER_STORE.get(candidate_id)
+    cand_name = "Candidate"
+    if not dossier:
+        try:
+            from cci.db.repository import (
+                get_candidate_by_id,
+                get_dossier_by_candidate_id,
+            )
+            from cci.db.session import SessionLocal
+
+            with SessionLocal() as db:
+                dossier = get_dossier_by_candidate_id(db, candidate_id)
+                cand = get_candidate_by_id(db, candidate_id)
+                if cand:
+                    cand_name = cand.display_name
+        except Exception:
+            pass
+
+    if format == "csv":
+        content = generate_audit_csv(audit_events=events, dossier=dossier)
+        return Response(content=content, media_type="text/csv")
+    elif format == "html" and dossier:
+        content = generate_audit_html(
+            dossier, audit_events=events, candidate_name=cand_name
+        )
+        return Response(content=content, media_type="text/html")
+    elif format == "markdown" and dossier:
+        content = generate_audit_markdown(
+            dossier, audit_events=events, candidate_name=cand_name
+        )
+        return Response(content=content, media_type="text/markdown")
+    else:
+        # JSON fallback
+        if dossier:
+            content = generate_audit_json(
+                dossier, audit_events=events, candidate_name=cand_name
+            )
+        else:
+            import json
+
+            content = json.dumps(
+                [e.model_dump(mode="json") for e in events],
+                indent=2,
+                default=str,
+            )
+        return Response(content=content, media_type="application/json")

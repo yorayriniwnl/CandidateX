@@ -55,9 +55,13 @@ def parse_docx_document(docx_bytes: bytes) -> ParsedDocument:
             if not footer.is_linked_to_previous:
                 collect(footer)
 
+    from cci.intake.parsers.image import extract_picture_from_docx
+    picture = extract_picture_from_docx(docx_bytes)
+
     full_text = "\n".join(text_chunks)
     return ParsedDocument(
         raw_text=full_text,
         embedded_urls=embedded_urls,
         visible_urls=visible_urls,
+        picture=picture,
     )

@@ -22,6 +22,7 @@ import {
   ProbePriority,
 } from '../../types/cci';
 import { submitInterviewFeedback } from '../../lib/api';
+import { getSavedHRCandidates, saveHRCandidate } from '../hr/hr-data';
 import { GlassModal } from '@/components/ui/GlassModal';
 import { GlassInput } from '@/components/ui/GlassInput';
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -222,6 +223,16 @@ export const InterviewScorecardModal: React.FC<InterviewScorecardModalProps> = (
       setSuccessResponse(res);
       // Clear draft on success
       localStorage.removeItem(draftKey);
+      try {
+        const saved = getSavedHRCandidates();
+        const existing = saved.find(c => c.id === candidateId);
+        if (existing) {
+          saveHRCandidate({
+            ...existing,
+            created_at: res.recorded_at || existing.created_at,
+          });
+        }
+      } catch {}
       if (onFeedbackSubmitted) {
         onFeedbackSubmitted(res);
       }

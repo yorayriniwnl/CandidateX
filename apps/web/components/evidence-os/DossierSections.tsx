@@ -1,7 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
+import { ChevronDown, Download, FileCode, FileText, ShieldCheck, Table } from 'lucide-react';
 import type { LiveResult } from '../../lib/live-analysis';
+import { exportLiveEvaluation } from '../../lib/live-export';
+import type { ExportFormat } from '../../lib/api';
 import { capabilityName, dateTime, readableAnalysisText, readableInterviewRationale } from './format';
 import styles from './evidence-os.module.css';
 
@@ -54,12 +57,96 @@ export function InterviewPlan({ result, onSelectEvidence }: { result: LiveResult
 }
 
 export function AuditSection({ result }: { result: LiveResult }) {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const limitations = result.dossier.system_limitations;
+
+  async function handleExportAudit(format: ExportFormat) {
+    try {
+      setIsExporting(true);
+      setIsExportMenuOpen(false);
+      await exportLiveEvaluation(result, format, 'audit');
+    } catch (err) {
+      console.error('Failed to export audit:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <section className={styles.contentSection} aria-labelledby="audit-title">
       <div className={styles.sectionHeader}>
-        <div><p className={styles.sectionEyebrow}>08 / RUN PROVENANCE</p><h2 id="audit-title">Audit and limitations</h2>
+        <div>
+          <p className={styles.sectionEyebrow}>08 / RUN PROVENANCE</p>
+          <h2 id="audit-title">Audit and limitations</h2>
           <p>Request-scoped analysis metadata returned by the live service.</p>
+        </div>
+        <div className={styles.auditExportWrapper} ref={exportMenuRef}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => setIsExportMenuOpen(v => !v)}
+            aria-haspopup="true"
+            aria-expanded={isExportMenuOpen}
+            aria-label="Export full audit options"
+            disabled={isExporting}
+          >
+            <Download size={13} aria-hidden="true" />
+            {isExporting ? 'Exporting...' : 'Export Full Audit'}
+            <ChevronDown size={12} aria-hidden="true" />
+          </button>
+          {isExportMenuOpen && (
+            <div className={styles.auditExportMenu} role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.auditExportMenuItem}
+                onClick={() => handleExportAudit('json')}
+              >
+                <FileCode size={13} aria-hidden="true" />
+                Full Audit (JSON)
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.auditExportMenuItem}
+                onClick={() => handleExportAudit('csv')}
+              >
+                <Table size={13} aria-hidden="true" />
+                Evidence Ledger (CSV)
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.auditExportMenuItem}
+                onClick={() => handleExportAudit('markdown')}
+              >
+                <FileText size={13} aria-hidden="true" />
+                Full Audit (Markdown)
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.auditExportMenuItem}
+                onClick={() => handleExportAudit('html')}
+              >
+                <ShieldCheck size={13} aria-hidden="true" />
+                Full Audit (HTML / Print)
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <dl className={styles.auditGrid}>
