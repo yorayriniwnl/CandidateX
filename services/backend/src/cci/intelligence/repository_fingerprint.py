@@ -60,7 +60,7 @@ REVIEW_TARGET_PATTERNS: dict[str, dict[str, object]] = {
             r"\beval\s*\(",
             r"\bexec\s*\(",
             r"\bos\.system\s*\(",
-            r"\bsubprocess\.(?:run|Popen|call)\s*\([^\\n]*shell\s*=\s*True",
+            r"\bsubprocess\.(?:run|Popen|call)\s*\([^\n]*shell\s*=\s*True",
             r"\bchild_process\.(?:exec|execSync)\s*\(",
         ),
         "why": "Dynamic command or code execution deserves manual review for injection and trust-boundary handling.",
@@ -106,7 +106,7 @@ REVIEW_TARGET_PATTERNS: dict[str, dict[str, object]] = {
         "patterns": (
             r"\bDEBUG\s*=\s*True\b",
             r"\bdebug\s*:\s*true\b",
-            r"\bapp\.run\s*\([^\\n]*debug\s*=\s*True",
+            r"\bapp\.run\s*\([^\n]*debug\s*=\s*True",
         ),
         "why": "Development diagnostics should be reviewed before production deployment.",
     },
