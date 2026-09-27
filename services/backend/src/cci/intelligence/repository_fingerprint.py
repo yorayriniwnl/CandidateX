@@ -8,6 +8,7 @@ as proof that a practice is missing from the full repository.
 from __future__ import annotations
 
 from collections import defaultdict
+import posixpath
 import re
 from typing import Iterable
 
@@ -83,6 +84,170 @@ ARCHITECTURE_SEGMENTS = {
 
 def _matches(patterns: tuple[str, ...], text: str) -> bool:
     return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+
+_SOURCE_EXTENSIONS = (".py", ".ts", ".tsx", ".js", ".jsx")
+
+
+def _resolve_relative_reference(source_path: str, reference: str, available: set[str]) -> str | None:
+    source_dir = posixpath.dirname(source_path)
+    reference = reference.split("?", 1)[0].split("#", 1)[0]
+
+    if reference.startswith("."):
+        if source_path.endswith(".py"):
+            match = re.match(r"^(\.+)(.*)$", reference)
+            if not match:
+                return None
+            dots, tail = match.groups()
+            base = source_dir
+            for _ in range(max(0, len(dots) - 1)):
+                base = posixpath.dirname(base)
+            relative = tail.lstrip(".").replace(".", "/")
+            stem = posixpath.normpath(posixpath.join(base, relative))
+        else:
+            stem = posixpath.normpath(posixpath.join(source_dir, reference))
+    else:
+        return None
+
+    candidates = [stem]
+    candidates.extend(stem + ext for ext in _SOURCE_EXTENSIONS)
+    candidates.extend(posixpath.join(stem, "index" + ext) for ext in _SOURCE_EXTENSIONS)
+    for candidate in candidates:
+        normalized = candidate.lstrip("./")
+        if normalized in available:
+            return normalized
+    return None
+
+
+def _extract_local_references(path: str, text: str) -> list[str]:
+    references: list[str] = []
+    if path.endswith(".py"):
+        for match in re.finditer(r"^\s*from\s+([.][A-Za-z0-9_.]*)\s+import\s+", text, flags=re.MULTILINE):
+            references.append(match.group(1))
+    elif path.endswith((".ts", ".tsx", ".js", ".jsx")):
+        patterns = (
+            r"(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['\"](\.{1,2}/[^'\"]+)['\"]",
+            r"require\(\s*['\"](\.{1,2}/[^'\"]+)['\"]\s*\)",
+            r"import\(\s*['\"](\.{1,2}/[^'\"]+)['\"]\s*\)",
+        )
+        for pattern in patterns:
+            references.extend(match.group(1) for match in re.finditer(pattern, text))
+    return references
+
+
+def _find_cycles(adjacency: dict[str, set[str]], limit: int = 20) -> list[list[str]]:
+    cycles: list[list[str]] = []
+    seen_cycles: set[tuple[str, ...]] = set()
+    state: dict[str, int] = {}
+    stack: list[str] = []
+
+    def canonical_cycle(nodes: list[str]) -> tuple[str, ...]:
+        ring = nodes[:-1] if len(nodes) > 1 and nodes[0] == nodes[-1] else nodes
+        if not ring:
+            return tuple()
+        rotations = [tuple(ring[i:] + ring[:i]) for i in range(len(ring))]
+        reverse = list(reversed(ring))
+        rotations.extend(tuple(reverse[i:] + reverse[:i]) for i in range(len(reverse)))
+        return min(rotations)
+
+    def visit(node: str) -> None:
+        if len(cycles) >= limit:
+            return
+        state[node] = 1
+        stack.append(node)
+        for target in adjacency.get(node, set()):
+            if state.get(target, 0) == 0:
+                visit(target)
+            elif state.get(target) == 1 and target in stack:
+                idx = stack.index(target)
+                raw = stack[idx:] + [target]
+                key = canonical_cycle(raw)
+                if key and key not in seen_cycles:
+                    seen_cycles.add(key)
+                    cycles.append(raw)
+        stack.pop()
+        state[node] = 2
+
+    for node in adjacency:
+        if state.get(node, 0) == 0:
+            visit(node)
+        if len(cycles) >= limit:
+            break
+    return cycles
+
+
+def _module_topology(snapshots: list[dict[str, str]]) -> dict[str, object]:
+    sources = {
+        item.get("path", ""): item.get("text", "")[:65_536]
+        for item in snapshots
+        if item.get("category") == "source" and item.get("path", "").endswith(_SOURCE_EXTENSIONS)
+    }
+    available = set(sources)
+    adjacency: dict[str, set[str]] = {path: set() for path in sources}
+
+    for path, text in sources.items():
+        for reference in _extract_local_references(path, text):
+            target = _resolve_relative_reference(path, reference, available)
+            if target and target != path:
+                adjacency[path].add(target)
+
+    incoming: dict[str, int] = {path: 0 for path in sources}
+    edge_count = 0
+    cross_directory_edges = 0
+    for source, targets in adjacency.items():
+        for target in targets:
+            incoming[target] += 1
+            edge_count += 1
+            if source.split("/", 1)[0] != target.split("/", 1)[0]:
+                cross_directory_edges += 1
+
+    # Undirected connected components are useful for spotting disconnected subsystems.
+    undirected: dict[str, set[str]] = {path: set() for path in sources}
+    for source, targets in adjacency.items():
+        for target in targets:
+            undirected[source].add(target)
+            undirected[target].add(source)
+
+    components = 0
+    visited: set[str] = set()
+    for node in undirected:
+        if node in visited:
+            continue
+        components += 1
+        queue = [node]
+        visited.add(node)
+        while queue:
+            current = queue.pop()
+            for neighbor in undirected[current]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+    fan_out = sorted(
+        ({"path": path, "edges": len(targets)} for path, targets in adjacency.items() if targets),
+        key=lambda item: (-int(item["edges"]), str(item["path"])),
+    )
+    fan_in = sorted(
+        ({"path": path, "edges": count} for path, count in incoming.items() if count),
+        key=lambda item: (-int(item["edges"]), str(item["path"])),
+    )
+    cycles = _find_cycles(adjacency)
+
+    return {
+        "nodes": len(sources),
+        "edges": edge_count,
+        "connected_components": components,
+        "cross_directory_edges": cross_directory_edges,
+        "cycles_detected": len(cycles),
+        "cycles": cycles,
+        "highest_fan_out": fan_out[:8],
+        "highest_fan_in": fan_in[:8],
+        "limitations": (
+            "Topology covers only inspected Python/TypeScript/JavaScript relative imports. "
+            "Dynamic imports, aliases, generated code, package-level resolution and unscanned files may be absent."
+        ),
+    }
 
 
 def build_repository_fingerprint(
@@ -161,6 +326,7 @@ def build_repository_fingerprint(
 
     observed_count = len(observed)
     possible_count = len(PRACTICE_PATTERNS)
+    topology = _module_topology(list(snapshots))
     return {
         "files_considered": scanned,
         "practice_breadth": {
@@ -172,6 +338,7 @@ def build_repository_fingerprint(
         "not_observed_in_bounded_scan": missing,
         "architecture_boundaries": boundaries,
         "signal_hotspots": hotspots[:12],
+        "module_topology": topology,
         "interpretation": (
             "Descriptive static fingerprint of the bounded inspected file set. "
             "Observed means a concrete file or configuration signal was found; "
