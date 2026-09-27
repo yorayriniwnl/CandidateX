@@ -71,6 +71,22 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
           {review.engineering_fingerprint.module_topology.cycles.map((cycle, index) => <p className={live.sourceUrl} key={index}>{cycle.join(' → ')}</p>)}
           <p className={styles.muted}>A cycle is an architecture review target, not proof of poor engineering; context and framework conventions still matter.</p>
         </details>}
+        <details className={styles.evidence} open={review.engineering_fingerprint.review_targets.count > 0}>
+          <summary>Static engineering review targets · {review.engineering_fingerprint.review_targets.count}</summary>
+          <p className={styles.muted}>{review.engineering_fingerprint.review_targets.interpretation}</p>
+          <div className={styles.factors}>
+            <span>High: {review.engineering_fingerprint.review_targets.by_severity.high}</span>
+            <span>Medium: {review.engineering_fingerprint.review_targets.by_severity.medium}</span>
+            <span>Low: {review.engineering_fingerprint.review_targets.by_severity.low}</span>
+          </div>
+          {review.engineering_fingerprint.review_targets.findings.length === 0
+            ? <p className={styles.muted}>No configured review-target pattern appeared in the inspected file set.</p>
+            : review.engineering_fingerprint.review_targets.findings.map((finding, index) => <div className={live.signal} key={finding.rule + finding.path + index}>
+                <strong>{label(finding.rule)} · {label(finding.severity)}</strong>
+                <span>{finding.path}{finding.lines.length ? ` · line${finding.lines.length === 1 ? '' : 's'} ${finding.lines.join(', ')}` : ''}</span>
+                <p className={styles.muted}>{finding.why_review}</p>
+              </div>)}
+        </details>
         {review.engineering_fingerprint.architecture_boundaries.length > 0 && <details className={styles.evidence}>
           <summary>Architecture boundaries · {review.engineering_fingerprint.architecture_boundaries.length}</summary>
           {review.engineering_fingerprint.architecture_boundaries.map(boundary => <div className={live.signal} key={boundary.name}>
