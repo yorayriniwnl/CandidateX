@@ -6,6 +6,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 from cci.analyzers.repository.indexer import categorize_file
+from cci.intelligence.repository_fingerprint import build_repository_fingerprint
 
 LANGUAGES = {'.py': 'Python', '.ts': 'TypeScript', '.tsx': 'TypeScript', '.js': 'JavaScript',
              '.jsx': 'JavaScript', '.java': 'Java', '.go': 'Go', '.rs': 'Rust', '.sql': 'SQL',
@@ -41,6 +42,7 @@ def dependency_names(path, text):
 def review_repository(root, artifacts, url, sha, metadata):
     languages, categories = Counter(), Counter()
     technologies, dependencies, signals = [], [], {}
+    snapshots = []
     readme = ''
 
     def add_technology(name, path, basis):
@@ -58,6 +60,7 @@ def review_repository(root, artifacts, url, sha, metadata):
             if category not in {'docs', 'manifests'}:
                 add_technology(LANGUAGES[suffix], path, 'source_file_extension')
         text = Path(root, path).read_text(encoding='utf-8', errors='replace')
+        snapshots.append({'path': path, 'category': category, 'text': text[:65_536]})
         for name, version in dependency_names(path, text):
             if len(dependencies) < 200:
                 dependencies.append({'name': name, 'version': version, 'path': path})
@@ -77,6 +80,7 @@ def review_repository(root, artifacts, url, sha, metadata):
         }.items():
             if match:
                 signals.setdefault(key, []).append(path)
+    fingerprint = build_repository_fingerprint(snapshots)
     return {'description': metadata.get('description'), 'primary_language': metadata.get('language'),
         'stars': metadata.get('stargazers_count', 0), 'forks': metadata.get('forks_count', 0),
         'open_issues': metadata.get('open_issues_count', 0), 'is_fork': bool(metadata.get('fork')),
@@ -85,6 +89,7 @@ def review_repository(root, artifacts, url, sha, metadata):
         'pushed_at': metadata.get('pushed_at'), 'homepage': metadata.get('homepage'),
         'languages_by_inspected_file': dict(languages), 'file_categories': dict(categories),
         'dependencies': dependencies, 'technologies': technologies, 'readme_excerpt': readme,
+        'engineering_fingerprint': fingerprint,
         'engineering_signals': [{'name': key, 'status': 'files_observed' if signals.get(key) else 'not_observed_in_scan',
                                 'paths': signals.get(key, [])[:12]} for key in
                                ('tests', 'ci', 'infrastructure', 'database', 'documentation', 'api_schema')],
