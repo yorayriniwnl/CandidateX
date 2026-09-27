@@ -27,6 +27,11 @@ export interface EngineeringFingerprint {
     highest_fan_in: { path: string; edges: number }[];
     limitations: string;
   };
+  review_targets: {
+    count: number; by_severity: { high: number; medium: number; low: number };
+    findings: { rule: string; severity: string; path: string; lines: number[]; why_review: string; status: string }[];
+    interpretation: string;
+  };
   interpretation: string;
 }
 export interface RepositoryReview {
