@@ -41,6 +41,33 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
       <h3>Languages in inspected files</h3><div className={styles.factors}>{Object.entries(review.languages_by_inspected_file).map(([language, count]) => <span key={language}>{language}: {count} files</span>)}</div>
       <h3>Engineering signals</h3>{review.engineering_signals.map(signal => <div key={signal.name} className={live.signal}><strong>{label(signal.name)}</strong><span>{label(signal.status)}</span>
         {signal.paths.map(path => <code className={live.sourceUrl} key={path}>{path}</code>)}</div>)}
+      {review.engineering_fingerprint && <div className={styles.evidence}>
+        <div className={styles.eyebrow}>Deterministic engineering fingerprint</div>
+        <h3>{review.engineering_fingerprint.practice_breadth.observed} / {review.engineering_fingerprint.practice_breadth.possible} practice families observed</h3>
+        <p className={styles.muted}>{review.engineering_fingerprint.interpretation}</p>
+        <div className={styles.factors}>
+          {review.engineering_fingerprint.observed_practices.map(practice =>
+            <span key={practice.name}>{label(practice.name)} · {practice.occurrence_files} file{practice.occurrence_files === 1 ? '' : 's'}</span>)}
+        </div>
+        {review.engineering_fingerprint.architecture_boundaries.length > 0 && <details className={styles.evidence}>
+          <summary>Architecture boundaries · {review.engineering_fingerprint.architecture_boundaries.length}</summary>
+          {review.engineering_fingerprint.architecture_boundaries.map(boundary => <div className={live.signal} key={boundary.name}>
+            <strong>{label(boundary.name)}</strong><span>{boundary.occurrence_files} file{boundary.occurrence_files === 1 ? '' : 's'}</span>
+            {boundary.paths.slice(0, 4).map(path => <code className={live.sourceUrl} key={path}>{path}</code>)}
+          </div>)}
+        </details>}
+        {review.engineering_fingerprint.signal_hotspots.length > 0 && <details className={styles.evidence}>
+          <summary>Signal-dense files · {review.engineering_fingerprint.signal_hotspots.length}</summary>
+          {review.engineering_fingerprint.signal_hotspots.map(hotspot => <p className={live.sourceUrl} key={hotspot.path}>
+            <strong>{hotspot.path}</strong> · {hotspot.signal_family_count} signal families · {hotspot.signal_families.map(label).join(', ')}
+          </p>)}
+        </details>}
+        {review.engineering_fingerprint.not_observed_in_bounded_scan.length > 0 && <details className={styles.evidence}>
+          <summary>Not observed in this bounded scan · {review.engineering_fingerprint.not_observed_in_bounded_scan.length}</summary>
+          <p className={styles.muted}>These are scan gaps, not claims that the repository or candidate lacks the practice.</p>
+          <div className={styles.factors}>{review.engineering_fingerprint.not_observed_in_bounded_scan.map(item => <span key={item}>{label(item)}</span>)}</div>
+        </details>}
+      </div>}
       <details className={styles.evidence}><summary>Dependency declarations · {review.dependencies.length}</summary>{review.dependencies.map((dependency, i) =>
         <p className={live.sourceUrl} key={i}><strong>{dependency.name}</strong> {dependency.version} · {dependency.path}</p>)}</details>
       {review.readme_excerpt && <details className={styles.evidence}><summary>README excerpt · repository-authored text</summary><pre className={live.extracted}>{review.readme_excerpt}</pre></details>}
