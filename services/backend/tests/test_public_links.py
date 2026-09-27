@@ -85,3 +85,23 @@ def test_public_digital_certificate_pdf_text_is_inspected():
     assert result['status'] == 'observed'
     assert 'Example Candidate' in result['excerpt']
     assert result['verification'] == 'public_page_observed'
+
+def test_html_discovery_retains_canonical_outbound_links():
+    transport = httpx.MockTransport(lambda req: httpx.Response(
+        200,
+        headers={'content-type': 'text/html'},
+        text='''<html><head><title>Portfolio</title></head><body>
+        <a href="/projects/candidatex?utm_source=cv#demo">CandidateX</a>
+        <a href="https://github.com/example/project">Source</a>
+        <a href="https://github.com/example/project#readme">Duplicate source</a>
+        <a href="mailto:person@example.com">Email</a>
+        <p>Public portfolio evidence.</p>
+        </body></html>''',
+    ))
+    result = links.inspect_link('https://example.com/portfolio', time.monotonic() + 5, transport)
+    assert result['status'] == 'observed'
+    discovered = result['discovered_links']
+    assert discovered == [
+        {'url': 'https://example.com/projects/candidatex', 'kind': 'project', 'discovery_reason': 'public_page_link'},
+        {'url': 'https://github.com/example/project', 'kind': 'github', 'discovery_reason': 'public_page_link'},
+    ]

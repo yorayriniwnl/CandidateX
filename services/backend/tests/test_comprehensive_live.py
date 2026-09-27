@@ -124,3 +124,32 @@ def test_bare_portfolio_urls_do_not_extract_email_domains():
     from cci.intake.parsers.pdf import URL_REGEX
     matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | ayushroy.dev@gmail.com | person@sub.example.com | issuer.org/verify/abc | https://issuer.org?credential=123')]
     assert matches == ['example.dev', 'issuer.org/verify/abc', 'https://issuer.org?credential=123']
+
+def test_report_builds_stable_claim_ledger_and_academic_record():
+    document = docx.Document()
+    for line in [
+        'Example Candidate',
+        'Technical Skills',
+        'Python, FastAPI',
+        'Education',
+        'B.Tech Computer Science | Example University | CGPA: 8.4/10 | 2023 - 2027',
+        'Projects',
+        'Evidence Portal',
+        'Built 12 deployed projects and reduced latency by 40%.',
+    ]:
+        document.add_paragraph(line)
+    data = io.BytesIO()
+    document.save(data)
+    intake = parse_resume(data.getvalue(), 'resume.docx')
+    report = build_report(intake, [])
+
+    assert report['claims']
+    assert len({claim['claim_id'] for claim in report['claims']}) == len(report['claims'])
+    assert any(claim['category'] == 'skill' and claim['claim'] == 'FastAPI' for claim in report['claims'])
+    assert any(claim['is_quantified'] for claim in report['claims'] if claim['category'] == 'project')
+
+    academic = report['academic_records'][0]
+    assert academic['status'] == 'self_reported'
+    assert academic['degree_text'].lower().replace(' ', '').startswith('b.tech')
+    assert academic['claimed_cgpa'] == {'value': 8.4, 'scale': 10.0}
+    assert academic['years'] == ['2023', '2027']

@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone
 
 from cci.intake.canonicalizer import classify_url
+from cci.live.claims import build_academic_records, build_claim_ledger
 
 SKILL_ALIASES = {'nextjs': 'nextjs', 'reactjs': 'react', 'html5': 'html', 'css3': 'css',
     'tailwindcss': 'tailwindcss', 'golang': 'go', 'scikitlearn': 'scikitlearn', 'cicd': 'cicd'}
@@ -73,12 +74,33 @@ def build_report(intake, sources):
     if credentials:
         actions.append('Confirm certificates with their issuer, including recipient, credential ID and dates.')
     actions.append('Use the skill evidence paths and project claims to request a walkthrough of the candidate’s actual contribution.')
+    claims = build_claim_ledger(intake)
+    academic_records = build_academic_records(intake)
+    source_statuses = {}
+    source_kinds = {}
+    discovered_links = []
+    seen_discovered = set()
+    for source in sources:
+        status = source.get('status', 'unknown')
+        kind = source.get('kind') or classify_url(source.get('url', ''))
+        source_statuses[status] = source_statuses.get(status, 0) + 1
+        source_kinds[kind] = source_kinds.get(kind, 0) + 1
+        for discovered in source.get('discovered_links', []):
+            url = discovered.get('url')
+            if url and url not in seen_discovered:
+                seen_discovered.add(url)
+                discovered_links.append(discovered)
+
     return {'generated_at': datetime.now(timezone.utc).isoformat(), 'skills': skills, 'credentials': credentials,
         'projects': projects, 'experience': [{'claim': line, 'status': 'self_reported'} for line in sections.get('experience', [])],
         'education': [{'claim': line, 'status': 'self_reported'} for line in sections.get('education', [])],
+        'academic_records': academic_records, 'claims': claims,
         'achievements': [{'claim': line, 'status': 'self_reported'} for line in sections.get('achievements', [])],
         'quantified_claims_to_verify': list(dict.fromkeys(numeric_claims))[:30], 'next_steps': actions,
+        'discovered_links': discovered_links,
+        'source_coverage': {'by_status': source_statuses, 'by_kind': source_kinds,
+                            'discovered_links': len(discovered_links)},
         'coverage': {'supplied_sources': len(sources), 'observed_sources': sum(s['status'] == 'observed' for s in sources),
                      'skills_declared': len(skills), 'skills_with_repository_matches': sum(bool(s['evidence']) for s in skills),
                      'credential_claims': len(credentials)},
-        'method': 'Deterministic document extraction, bounded public acquisition, and exact technology matching. No generated biography or inferred employment verification.'}
+        'method': 'Deterministic document extraction, bounded public acquisition, and exact technology matching. Resume claims remain declarations unless separate evidence supports them; public-page link discovery is retained for follow-up analysis.'}
