@@ -58,8 +58,8 @@ def test_supplementary_ablation_is_not_labeled_as_paper_headline_result() -> Non
     assert data["roles_count"] == 6
     role_breakdown = {row["role"]: row for row in data["role_breakdown"]}
     assert len(role_breakdown) == 6
-    assert role_breakdown["backend"]["full_cci_mae"] == pytest.approx(1.935)
-    assert role_breakdown["data_engineer"]["full_cci_mae"] == pytest.approx(1.982)
+    assert role_breakdown["backend"]["full_cci_mae"] == pytest.approx(1.9355)
+    assert role_breakdown["data_engineer"]["full_cci_mae"] == pytest.approx(1.9822)
     assert role_breakdown["backend"]["no_decay_mae"] is None
     assert "per-role ablation comparison metrics were not archived" in data["notes"]
     assert "Supplementary implementation ablation" in data["notes"]

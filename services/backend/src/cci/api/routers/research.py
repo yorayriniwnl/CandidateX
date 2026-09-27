@@ -116,12 +116,12 @@ SUPPLEMENTARY_ABLATION_ROWS = [
 ]
 
 RECORDED_ROLE_BREAKDOWN = [
-    {"role": "backend", "display_name": "Backend", "full_cci_mae": 1.935},
-    {"role": "frontend", "display_name": "Frontend", "full_cci_mae": 1.900},
-    {"role": "fullstack", "display_name": "Full-stack", "full_cci_mae": 1.894},
-    {"role": "ml_engineer", "display_name": "ML Engineer", "full_cci_mae": 1.986},
-    {"role": "devops_cloud", "display_name": "DevOps / Cloud", "full_cci_mae": 1.957},
-    {"role": "data_engineer", "display_name": "Data Engineer", "full_cci_mae": 1.982},
+    {"role": "backend", "display_name": "Backend", "full_cci_mae": 1.9355},
+    {"role": "frontend", "display_name": "Frontend", "full_cci_mae": 1.9002},
+    {"role": "fullstack", "display_name": "Full-stack", "full_cci_mae": 1.8942},
+    {"role": "ml_engineer", "display_name": "ML Engineer", "full_cci_mae": 1.9863},
+    {"role": "devops_cloud", "display_name": "DevOps / Cloud", "full_cci_mae": 1.9574},
+    {"role": "data_engineer", "display_name": "Data Engineer", "full_cci_mae": 1.9822},
 ]
 
 

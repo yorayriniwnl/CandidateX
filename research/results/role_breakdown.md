@@ -4,11 +4,11 @@ Repository implementation diagnostics for the six canonical engineering roles. T
 
 | Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\rho$ ↑ |
 |:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|
-| **Backend** | 800 | 1.935 | 2.444 | 0.940 |
-| **Frontend** | 800 | 1.900 | 2.381 | 0.936 |
-| **Full-stack** | 800 | 1.894 | 2.389 | 0.940 |
-| **ML Engineer** | 800 | 1.986 | 2.506 | 0.934 |
-| **DevOps / Cloud** | 800 | 1.957 | 2.574 | 0.935 |
-| **Data Engineer** | 800 | 1.982 | 2.512 | 0.945 |
+| **Backend** | 800 | 1.9355 | 2.4436 | 0.9398 |
+| **Frontend** | 800 | 1.9002 | 2.3812 | 0.9358 |
+| **Full-stack** | 800 | 1.8942 | 2.3887 | 0.9402 |
+| **ML Engineer** | 800 | 1.9863 | 2.5059 | 0.9342 |
+| **DevOps / Cloud** | 800 | 1.9574 | 2.5739 | 0.9347 |
+| **Data Engineer** | 800 | 1.9822 | 2.5122 | 0.9451 |
 
 Synthetic implementation evidence only. External human-reviewed validation is required before making real-world hiring-validity claims.
