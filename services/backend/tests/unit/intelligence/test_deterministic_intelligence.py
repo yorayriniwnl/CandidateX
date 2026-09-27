@@ -95,3 +95,37 @@ def test_repository_fingerprint_maps_practices_and_boundaries():
     assert {"api", "security", "tests"}.issubset(boundaries)
     assert fingerprint["practice_breadth"]["observed"] >= 6
     assert fingerprint["signal_hotspots"]
+
+
+def test_module_topology_resolves_relative_imports_and_cycles():
+    fingerprint = build_repository_fingerprint(
+        [
+            {
+                "path": "src/a.py",
+                "category": "source",
+                "text": "from .b import run\n\ndef start():\n    return run()\n",
+            },
+            {
+                "path": "src/b.py",
+                "category": "source",
+                "text": "from .a import start\n\ndef run():\n    return start\n",
+            },
+            {
+                "path": "web/client.ts",
+                "category": "source",
+                "text": "import { api } from './api';\nexport const run = () => api();",
+            },
+            {
+                "path": "web/api.ts",
+                "category": "source",
+                "text": "export const api = () => 1;",
+            },
+        ]
+    )
+
+    topology = fingerprint["module_topology"]
+    assert topology["nodes"] == 4
+    assert topology["edges"] == 3
+    assert topology["cycles_detected"] == 1
+    assert topology["highest_fan_in"]
+    assert topology["highest_fan_out"]
