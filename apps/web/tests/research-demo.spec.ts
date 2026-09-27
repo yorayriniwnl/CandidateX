@@ -71,11 +71,11 @@ test('mobile controls and evidence table fit within the viewport', async ({ page
   await page.screenshot({ path: 'test-results/research-demo-mobile.png' });
 });
 
-test('homepage shows the full attribution, opens live intake, and keeps the footer clear', async ({ page }) => {
+test('homepage credits its creators and advisor, opens live intake, and keeps that footer clear on intake', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Archi Srivastava & Ayush Roy', { exact: true })).toBeVisible();
-  await expect(page.getByText('Dr. Debachudamani Prusti', { exact: true })).toBeVisible();
-  await expect(page.locator('footer').getByText(/Archi Srivastava|Ayush Roy|Debachudamani/)).toHaveCount(0);
+  const footer = page.locator('footer');
+  await expect(footer.getByText('Ayush Roy & Archi Srivastava', { exact: true })).toBeVisible();
+  await expect(footer.getByText('Dr. Debachudamani Prusti', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: /Start with live evidence/ }).click();
   await expect(page).toHaveURL(/\/analyze$/);

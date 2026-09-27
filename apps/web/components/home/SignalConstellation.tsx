@@ -80,7 +80,7 @@ export function SignalConstellation() {
         <span>The evidence engine</span>
         <span className={styles.edition}>Interactive illustration</span>
       </div>
-      <div className={styles.stage} ref={host} aria-hidden="true">
+      <div className={styles.stage} ref={host} aria-hidden="true" data-testid="signal-scene">
         <div className={styles.aura} />
         <div className={styles.crosshair} />
         <span className={styles.axisTop}>CONTEXT IN</span>

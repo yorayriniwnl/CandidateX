@@ -4,6 +4,7 @@ test('engine stages explain the process and still work with reduced motion', asy
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const engine = page.getByTestId('signal-observatory');
+  await engine.getByTestId('signal-scene').scrollIntoViewIfNeeded();
   await expect(engine).toHaveAttribute('data-ready', 'true');
   const before = await engine.locator('canvas').screenshot();
   await engine.getByRole('button', { name: '04 Interview' }).click();
@@ -34,9 +35,9 @@ test('the example follows a claim through evidence to an interview using the key
 
 test('home remains within the viewport and the mobile menu works', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto('/');
     await expect(page.getByTestId('signal-observatory')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `overflow at ${width}`).toBe(true);
     if (width === 390) {

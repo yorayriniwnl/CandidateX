@@ -17,7 +17,16 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   workers: 1,
-  use: { baseURL: webUrl, trace: 'retain-on-failure' },
+  use: {
+    baseURL: webUrl,
+    trace: 'retain-on-failure',
+    launchOptions: {
+      // GitHub's headless Chromium needs an explicit software WebGL renderer.
+      args: process.env.CI
+        ? ['--use-gl=angle', '--use-angle=swiftshader-webgl', '--enable-unsafe-swiftshader']
+        : [],
+    },
+  },
   webServer: [
     {
       command: 'python -m uvicorn cci.main:app --app-dir ../../services/backend/src --host 127.0.0.1 --port ' + apiPort,
