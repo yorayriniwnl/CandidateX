@@ -1,69 +1,58 @@
 #!/usr/bin/env python3
-"""Candidate Capability Intelligence (CCI) - Paper Experiment Reproduction Engine.
+"""Candidate Capability Intelligence (CCI) supplementary implementation ablation.
 
-FORMAL CONFERENCE PAPER REPRODUCIBILITY:
-Executes the comprehensive Monte Carlo candidate cohort simulation and ablation study
-across 16 deterministic pseudo-random seeds x 300 candidates across the 6 canonical
-engineering roles (N = 4,800 total candidates).
+This module exercises the repository implementation across deterministic synthetic,
+role-specific cohorts. It is useful for regression testing and architecture ablations,
+but it is NOT an exact regeneration of the submitted paper benchmark.
 
-EVALUATION MODES:
-1. FULL_CCI: Full 6-factor confidence c_{e,k} = (a * o * t * v * x * r)^{1/6},
-   recency decay exp(-lambda_k * delta_t), ownership discounting o_e,
-   calibrated Beta-Binomial source reliability r_s, and softmax role weights w_k.
-2. NO_RECENCY_DECAY: lambda_k = 0 -> t_{e,k} = 1.0 (ignores staleness & skill progression).
-3. NO_OWNERSHIP_DISCOUNT: o_e = 1.0 (ignores forks and multi-author team code).
-4. UNIFORM_WEIGHTS: w_k = 1/12 (ignores job-specific role capability requirements).
-5. UNCALIBRATED_SOURCES: r_s = 1.0 (treats unverified resume claims identically to git commits).
+The submitted paper reports a different controlled benchmark design:
+16 seeds x 300 candidates per seed x 6 target roles = 28,800 candidate-role
+evaluations, plus separate missingness, corruption, negative-control, and randomized
+regime experiments. Those publication values are preserved in
+``research/paper_benchmark_manifest.json`` with explicit provenance.
 
-STATISTICAL VERIFICATION:
-- Paired Wilcoxon signed-rank tests comparing Full CCI error distributions against each ablation.
-- Non-parametric Cliff's delta effect size estimation.
-- Generates publication-ready Markdown, LaTeX, and JSON artifacts.
+This repository harness currently samples candidates independently per role and reports
+4,800 candidate-role samples at the default settings (16 seeds x 6 roles x 50 samples).
+Keeping the two evidence layers separate prevents accidental academic overclaiming.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from scipy import stats
 
-# Ensure backend package is importable regardless of working directory
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_SRC = REPO_ROOT / "services" / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
 from cci.domain.enums import CanonicalRole, CapabilityKey
-from cci.research.ablation import (
-    AblationMode,
-    evaluate_candidate_ablation,
-    run_ablation_evaluation,
-)
-from cci.research.simulation import (
-    ROLE_CAPABILITY_PROFILES,
-    SimulatedCandidate,
-    generate_synthetic_cohort,
-)
+from cci.research.ablation import AblationMode, evaluate_candidate_ablation
+from cci.research.simulation import ROLE_CAPABILITY_PROFILES, generate_synthetic_cohort
 from cci.research.statistics import (
-    calculate_cliffs_delta,
     compute_wilcoxon_comparison,
     format_latex_ablation_table,
     format_markdown_ablation_table,
 )
 from cci.scoring.weights import compute_softmax_weights
 
+PAPER_REPORTED_CANDIDATE_ROLE_EVALUATIONS = 28_800
+PAPER_MANIFEST_PATH = REPO_ROOT / "research" / "paper_benchmark_manifest.json"
+
 
 def get_role_weights(role: CanonicalRole) -> Dict[CapabilityKey, float]:
-    """Computes target role softmax weights for a canonical engineering role."""
+    """Compute target role softmax weights for a canonical engineering role."""
     raw_importances = {k: 1.0 for k in CapabilityKey}
-    prof = ROLE_CAPABILITY_PROFILES.get(role, {})
-    for k, (mean_val, _) in prof.items():
-        raw_importances[k] = mean_val / 50.0
+    profile = ROLE_CAPABILITY_PROFILES.get(role, {})
+    for capability, (mean_value, _) in profile.items():
+        raw_importances[capability] = mean_value / 50.0
     return compute_softmax_weights(raw_importances, temperature=1.0)
 
 
@@ -72,129 +61,177 @@ def run_full_simulation_study(
     candidates_per_role: int = 50,
     roles: Optional[List[CanonicalRole]] = None,
 ) -> Dict[str, Any]:
-    """Runs the complete paper simulation across all seeds, roles, and ablation modes."""
+    """Run the repository supplementary implementation ablation harness.
+
+    ``total_candidates`` is retained for backward compatibility with existing UI/tests,
+    but the actual unit is a role-specific candidate sample, i.e. a candidate-role
+    evaluation generated independently inside each role cohort.
+    """
     if roles is None:
         roles = list(CanonicalRole)
 
-    total_candidates_planned = len(seeds) * len(roles) * candidates_per_role
-    print(f"================================================================================")
-    print(f"CCI PAPER REPRODUCIBILITY ENGINE: MONTE CARLO EXPERIMENT SUITE")
-    print(f"Seeds: {len(seeds)} (values: {seeds[0]}..{seeds[-1]}) | Roles: {len(roles)} | Per-Role: {candidates_per_role}")
-    print(f"Total Cohort Size: N = {total_candidates_planned:,} simulated candidates")
-    print(f"================================================================================")
+    total_samples_planned = len(seeds) * len(roles) * candidates_per_role
+    print("=" * 80)
+    print("CCI SUPPLEMENTARY IMPLEMENTATION ABLATION HARNESS")
+    print(
+        f"Seeds: {len(seeds)} | Roles: {len(roles)} | "
+        f"Role-specific samples/seed: {candidates_per_role}"
+    )
+    print(f"Planned candidate-role samples: N = {total_samples_planned:,}")
+    print(
+        "Publication benchmark is separate: "
+        f"{PAPER_REPORTED_CANDIDATE_ROLE_EVALUATIONS:,} candidate-role evaluations."
+    )
+    print("=" * 80)
 
-    # Precompute role weights
-    role_weights_map = {r: get_role_weights(r) for r in roles}
-    uniform_weights = {k: 1.0 / 12.0 for k in CapabilityKey}
+    role_weights_map = {role: get_role_weights(role) for role in roles}
+    uniform_weights = {capability: 1.0 / len(CapabilityKey) for capability in CapabilityKey}
 
-    # Tracking metrics per ablation mode across the entire cohort
-    mode_estimates: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
-    mode_true_rcis: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
-    mode_errors: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
-    mode_cap_errors: Dict[AblationMode, List[float]] = {m: [] for m in AblationMode}
+    mode_estimates: Dict[AblationMode, List[float]] = {mode: [] for mode in AblationMode}
+    mode_true_rcis: Dict[AblationMode, List[float]] = {mode: [] for mode in AblationMode}
+    mode_errors: Dict[AblationMode, List[float]] = {mode: [] for mode in AblationMode}
+    mode_cap_errors: Dict[AblationMode, List[float]] = {mode: [] for mode in AblationMode}
 
-    # Per-role tracking for Full CCI
     role_metrics: Dict[str, Dict[str, List[float]]] = {
-        r.value: {"errors": [], "est": [], "true": []} for r in roles
+        role.value: {"errors": [], "est": [], "true": []} for role in roles
     }
 
-    t0 = time.time()
-    candidates_processed = 0
+    started = time.time()
+    samples_processed = 0
 
-    for seed_idx, seed in enumerate(seeds, 1):
+    for seed in seeds:
         for role in roles:
-            cohort = generate_synthetic_cohort(role=role, count=candidates_per_role, seed=seed)
+            cohort = generate_synthetic_cohort(
+                role=role,
+                count=candidates_per_role,
+                seed=seed,
+            )
             target_weights = role_weights_map[role]
 
-            for cand in cohort:
-                candidates_processed += 1
-
+            for candidate in cohort:
+                samples_processed += 1
                 for mode in AblationMode:
-                    eval_w = uniform_weights if mode == AblationMode.UNIFORM_WEIGHTS else target_weights
+                    evaluation_weights = (
+                        uniform_weights
+                        if mode == AblationMode.UNIFORM_WEIGHTS
+                        else target_weights
+                    )
                     rci_est, rci_true, q_hats = evaluate_candidate_ablation(
-                        candidate=cand,
+                        candidate=candidate,
                         mode=mode,
-                        role_weights=eval_w,
+                        role_weights=evaluation_weights,
                         true_weights=target_weights,
                     )
 
-                    if rci_est is not None:
-                        err = abs(rci_est - rci_true)
-                        mode_estimates[mode].append(rci_est)
-                        mode_true_rcis[mode].append(rci_true)
-                        mode_errors[mode].append(err)
+                    if rci_est is None:
+                        continue
 
-                        # Track capability-level errors
-                        for cap_key, q_val in q_hats.items():
-                            true_q = cand.ground_truth_capabilities[cap_key]
-                            mode_cap_errors[mode].append(abs(q_val - true_q))
+                    error = abs(rci_est - rci_true)
+                    mode_estimates[mode].append(rci_est)
+                    mode_true_rcis[mode].append(rci_true)
+                    mode_errors[mode].append(error)
 
-                        # Role-specific tracking for baseline
-                        if mode == AblationMode.FULL_CCI:
-                            role_metrics[role.value]["errors"].append(err)
-                            role_metrics[role.value]["est"].append(rci_est)
-                            role_metrics[role.value]["true"].append(rci_true)
+                    for capability, estimated_capability in q_hats.items():
+                        true_capability = candidate.ground_truth_capabilities[capability]
+                        mode_cap_errors[mode].append(
+                            abs(estimated_capability - true_capability)
+                        )
 
-    elapsed_time = time.time() - t0
-    print(f"Simulation completed in {elapsed_time:.2f} seconds ({candidates_processed:,} evaluations per mode).")
-    print(f"================================================================================")
+                    if mode == AblationMode.FULL_CCI:
+                        role_metrics[role.value]["errors"].append(error)
+                        role_metrics[role.value]["est"].append(rci_est)
+                        role_metrics[role.value]["true"].append(rci_true)
 
-    # Compute aggregate metrics per mode
+    elapsed_time = time.time() - started
+    print(
+        f"Supplementary ablation completed in {elapsed_time:.2f}s "
+        f"({samples_processed:,} candidate-role samples per mode)."
+    )
+
     ablation_summary: Dict[str, Dict[str, float]] = {}
     for mode in AblationMode:
-        est = mode_estimates[mode]
-        tru = mode_true_rcis[mode]
-        errs = mode_errors[mode]
-        cap_errs = mode_cap_errors[mode]
+        estimates = mode_estimates[mode]
+        truths = mode_true_rcis[mode]
+        errors = mode_errors[mode]
+        capability_errors = mode_cap_errors[mode]
 
-        mae = float(np.mean(errs)) if errs else 0.0
-        rmse = float(np.sqrt(np.mean([(e - t) ** 2 for e, t in zip(est, tru)]))) if errs else 0.0
-        spearman_rho, _ = stats.spearmanr(est, tru) if len(est) > 1 else (0.0, 0.0)
-        kendall_tau, _ = stats.kendalltau(est, tru) if len(est) > 1 else (0.0, 0.0)
-        cap_mae = float(np.mean(cap_errs)) if cap_errs else 0.0
+        mae = float(np.mean(errors)) if errors else 0.0
+        rmse = (
+            float(np.sqrt(np.mean([(estimate - truth) ** 2 for estimate, truth in zip(estimates, truths)])))
+            if errors
+            else 0.0
+        )
+        spearman_rho, _ = (
+            stats.spearmanr(estimates, truths) if len(estimates) > 1 else (0.0, 0.0)
+        )
+        kendall_tau, _ = (
+            stats.kendalltau(estimates, truths) if len(estimates) > 1 else (0.0, 0.0)
+        )
+        capability_mae = float(np.mean(capability_errors)) if capability_errors else 0.0
 
         ablation_summary[mode.value] = {
             "rci_mae": round(mae, 4),
             "rci_rmse": round(rmse, 4),
             "spearman_rho": round(float(spearman_rho), 4),
             "kendall_tau": round(float(kendall_tau), 4),
-            "capability_mae": round(cap_mae, 4),
-            "sample_count": len(errs),
+            "capability_mae": round(capability_mae, 4),
+            "sample_count": len(errors),
         }
 
-    # Statistical tests: Wilcoxon signed-rank & Cliff's delta vs Full CCI
-    statistical_tests: Dict[str, Dict[str, Any]] = {}
     full_errors = mode_errors[AblationMode.FULL_CCI]
-
+    statistical_tests: Dict[str, Dict[str, Any]] = {}
     for mode in AblationMode:
         if mode == AblationMode.FULL_CCI:
             continue
-        ablated_errs = mode_errors[mode]
-        comp = compute_wilcoxon_comparison(full_errors, ablated_errs)
-        statistical_tests[mode.value] = comp
+        statistical_tests[mode.value] = compute_wilcoxon_comparison(
+            full_errors,
+            mode_errors[mode],
+        )
 
-    # Per-role summary for Full CCI
     per_role_summary: Dict[str, Dict[str, float]] = {}
-    for r_name, data in role_metrics.items():
-        r_errs = data["errors"]
-        r_est = data["est"]
-        r_true = data["true"]
-        r_mae = float(np.mean(r_errs)) if r_errs else 0.0
-        r_rmse = float(np.sqrt(np.mean([(e - t) ** 2 for e, t in zip(r_est, r_true)]))) if r_errs else 0.0
-        rho, _ = stats.spearmanr(r_est, r_true) if len(r_est) > 1 else (0.0, 0.0)
-        per_role_summary[r_name] = {
-            "rci_mae": round(r_mae, 4),
-            "rci_rmse": round(r_rmse, 4),
-            "spearman_rho": round(float(rho), 4),
-            "sample_count": len(r_errs),
+    for role_name, data in role_metrics.items():
+        role_errors = data["errors"]
+        role_estimates = data["est"]
+        role_truths = data["true"]
+        role_mae = float(np.mean(role_errors)) if role_errors else 0.0
+        role_rmse = (
+            float(
+                np.sqrt(
+                    np.mean(
+                        [
+                            (estimate - truth) ** 2
+                            for estimate, truth in zip(role_estimates, role_truths)
+                        ]
+                    )
+                )
+            )
+            if role_errors
+            else 0.0
+        )
+        role_rho, _ = (
+            stats.spearmanr(role_estimates, role_truths)
+            if len(role_estimates) > 1
+            else (0.0, 0.0)
+        )
+        per_role_summary[role_name] = {
+            "rci_mae": round(role_mae, 4),
+            "rci_rmse": round(role_rmse, 4),
+            "spearman_rho": round(float(role_rho), 4),
+            "sample_count": len(role_errors),
         }
 
     return {
         "metadata": {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+            "evidence_layer": "supplementary_implementation_ablation",
+            "evaluation_unit": "candidate_role_sample",
+            "paper_exact_reproduction": False,
+            "paper_manifest": str(PAPER_MANIFEST_PATH.relative_to(REPO_ROOT)),
+            "paper_reported_candidate_role_evaluations": PAPER_REPORTED_CANDIDATE_ROLE_EVALUATIONS,
             "total_candidates": len(full_errors),
+            "total_evaluations": len(full_errors),
             "seeds": seeds,
-            "roles": [r.value for r in roles],
+            "roles": [role.value for role in roles],
             "candidates_per_role": candidates_per_role,
             "execution_time_seconds": round(elapsed_time, 2),
         },
@@ -204,12 +241,14 @@ def run_full_simulation_study(
     }
 
 
-def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]) -> str:
-    """Formats a Markdown table detailing Full CCI performance per canonical role."""
+def format_role_breakdown_markdown(
+    per_role_summary: Dict[str, Dict[str, float]],
+) -> str:
+    """Format Full CCI supplementary-ablation performance by canonical role."""
     lines = [
-        "# Canonical Engineering Role Breakdown (Full CCI)",
+        "# Canonical Engineering Role Breakdown (Supplementary Implementation Ablation)",
         "",
-        "Evaluation of Full CCI model accuracy across all six canonical engineering profiles.",
+        "These are repository implementation diagnostics, not the submitted paper's headline benchmark.",
         "",
         "| Canonical Engineering Role | Sample Count ($N$) | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ |",
         "|:---------------------------|:------------------:|:---------:|:----------:|:-------------------:|",
@@ -218,105 +257,107 @@ def format_role_breakdown_markdown(per_role_summary: Dict[str, Dict[str, float]]
         role_display = role_name.replace("_", " ").title()
         lines.append(
             f"| **{role_display}** | {metrics['sample_count']:,} | "
-            f"{metrics['rci_mae']:.3f} | {metrics['rci_rmse']:.3f} | {metrics['spearman_rho']:.3f} |"
+            f"{metrics['rci_mae']:.3f} | {metrics['rci_rmse']:.3f} | "
+            f"{metrics['spearman_rho']:.3f} |"
         )
     return "\n".join(lines)
 
 
 def save_publication_artifacts(results: Dict[str, Any], output_dir: Path) -> None:
-    """Generates and writes Markdown, LaTeX, and JSON publication tables."""
+    """Write supplementary-ablation artifacts with explicit provenance labels."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ablation_summary = results["ablation_summary"]
     statistical_tests = results["statistical_tests"]
     per_role_summary = results["per_role_summary"]
+    sample_count = results["metadata"]["total_evaluations"]
 
-    # 1. table_ablation_study.md
-    md_table = format_markdown_ablation_table(ablation_summary, statistical_tests)
-    md_path = output_dir / "table_ablation_study.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write("# Paper Reproducibility: Table 1 - Model Architecture Ablation Study\n\n")
-        f.write(f"Total simulated candidates: $N = {results['metadata']['total_candidates']:,}$ across 6 canonical engineering roles.\n\n")
-        f.write(md_table)
-        f.write("\n\n*Note: Statistical significance tests ($p < 0.001$, marked ***) conducted via paired Wilcoxon signed-rank test against the Full CCI baseline.*\n")
-    print(f"[+] Saved Markdown Table: {md_path}")
+    markdown_table = format_markdown_ablation_table(
+        ablation_summary,
+        statistical_tests,
+    )
+    markdown_path = output_dir / "table_ablation_study.md"
+    markdown_path.write_text(
+        "# Repository Supplementary Implementation Ablation Study\n\n"
+        f"Candidate-role samples: $N = {sample_count:,}$.\n\n"
+        "This is not an exact regeneration of the paper benchmark. The submitted paper "
+        "reports 28,800 candidate-role evaluations under a broader controlled generator and "
+        "separate stress/negative-control experiments. See `research/paper_benchmark_manifest.json`.\n\n"
+        f"{markdown_table}\n\n"
+        "*Paired Wilcoxon tests compare each repository ablation against the Full CCI implementation baseline.*\n",
+        encoding="utf-8",
+    )
 
-    # 2. table_ablation_study.tex
-    latex_table = format_latex_ablation_table(ablation_summary, statistical_tests)
-    tex_path = output_dir / "table_ablation_study.tex"
-    with open(tex_path, "w", encoding="utf-8") as f:
-        f.write(latex_table)
-        f.write("\n")
-    print(f"[+] Saved LaTeX Table:    {tex_path}")
+    latex_path = output_dir / "table_ablation_study.tex"
+    latex_path.write_text(
+        format_latex_ablation_table(ablation_summary, statistical_tests) + "\n",
+        encoding="utf-8",
+    )
 
-    # 3. role_breakdown.md
-    role_md = format_role_breakdown_markdown(per_role_summary)
     role_path = output_dir / "role_breakdown.md"
-    with open(role_path, "w", encoding="utf-8") as f:
-        f.write(role_md)
-        f.write("\n")
-    print(f"[+] Saved Role Breakdown: {role_path}")
+    role_path.write_text(
+        format_role_breakdown_markdown(per_role_summary) + "\n",
+        encoding="utf-8",
+    )
 
-    # 4. ablation_results.json
     json_path = output_dir / "ablation_results.json"
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-    print(f"[+] Saved JSON Results:   {json_path}")
+    json_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Candidate Capability Intelligence (CCI) Paper Reproducibility Engine"
+        description="CCI supplementary implementation ablation harness"
     )
     parser.add_argument(
         "--seeds",
         type=int,
         nargs="+",
         default=list(range(1, 17)),
-        help="Deterministic pseudo-random seeds (default: 1..16)",
+        help="Deterministic seeds for the supplementary harness (default: 1..16)",
     )
     parser.add_argument(
         "--candidates-per-role",
         type=int,
         default=50,
-        help="Candidates per role per seed (default: 50, yielding 300 per seed)",
+        help="Role-specific samples per seed (default: 50; 4,800 samples across six roles)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default=str(REPO_ROOT / "research" / "results"),
-        help="Directory where output markdown, LaTeX, and JSON tables are written",
+        help="Output directory for supplementary ablation artifacts",
     )
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Run a rapid evaluation (2 seeds, 10 candidates per role) for verification",
+        help="Run a rapid 2-seed x 10-samples-per-role verification pass",
     )
-
     args = parser.parse_args()
 
-    if args.quick:
-        seeds = [42, 100]
-        cand_per_role = 10
-    else:
-        seeds = args.seeds
-        cand_per_role = args.candidates_per_role
+    seeds = [42, 100] if args.quick else args.seeds
+    candidates_per_role = 10 if args.quick else args.candidates_per_role
 
-    out_dir = Path(args.output_dir)
     results = run_full_simulation_study(
         seeds=seeds,
-        candidates_per_role=cand_per_role,
+        candidates_per_role=candidates_per_role,
     )
+    save_publication_artifacts(results, Path(args.output_dir))
 
-    save_publication_artifacts(results, out_dir)
-
-    summary_table = format_markdown_ablation_table(results["ablation_summary"], results["statistical_tests"])
+    summary_table = format_markdown_ablation_table(
+        results["ablation_summary"],
+        results["statistical_tests"],
+    )
     try:
         print(summary_table)
     except UnicodeEncodeError:
-        safe_table = summary_table.replace("↓", "v").replace("↑", "^").replace("$\\rho$", "rho").replace("$\\tau$", "tau")
-        print(safe_table.encode("ascii", errors="replace").decode("ascii", errors="replace"))
-    print("=" * 80 + "\n")
+        safe_table = (
+            summary_table.replace("↓", "v")
+            .replace("↑", "^")
+            .replace("$\\rho$", "rho")
+            .replace("$\\tau$", "tau")
+        )
+        print(safe_table.encode("ascii", errors="replace").decode("ascii"))
+    print("=" * 80)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,33 @@
+{
+  "title": "Submitted-paper synthetic benchmark provenance",
+  "benchmark_type": "controlled_synthetic_mechanism_validation",
+  "provenance": "reported_in_submitted_paper_not_regenerated_by_repository_ablation_harness",
+  "source": "Candidate_Capability_Intelligence_Conference_Paper_Submission_Ready_Final(5).docx",
+  "paper_section": "5.3-6.6",
+  "seeds": 16,
+  "candidates_per_seed": 300,
+  "roles": [
+    "backend",
+    "frontend",
+    "fullstack",
+    "ml_engineer",
+    "devops_cloud",
+    "data_engineer"
+  ],
+  "capability_dimensions": 12,
+  "source_families": 7,
+  "candidate_role_evaluations": 28800,
+  "primary_results": {
+    "spearman_rho": {"mean": 0.928, "sd": 0.013},
+    "kendall_tau": {"mean": 0.774, "sd": 0.019},
+    "ndcg_at_20": {"mean": 0.970, "sd": 0.011}
+  },
+  "role_agnostic_spearman_rho": 0.849,
+  "source_dropout_60pct_spearman_rho": 0.716,
+  "candidate_shuffle_spearman_rho": {"mean": -0.006, "sd": 0.057},
+  "generator_regimes": 40,
+  "generator_regime_additional_evaluations": 288000,
+  "generator_regime_spearman_rho": {"mean": 0.919, "sd": 0.010},
+  "interpretation": "These values validate controlled mechanism behavior in a synthetic benchmark. They are not real-world hiring accuracy and require external validation with consented candidates and blinded interviewers.",
+  "repository_ablation_relationship": "The repository's current 4,800-sample role-specific ablation harness is supplementary implementation evidence and is intentionally reported separately rather than relabeled as the paper benchmark."
+}
