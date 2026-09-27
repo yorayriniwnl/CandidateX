@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
+import { AnalyzeLink } from '../navigation/AnalyzeLink';
 import styles from './studio.module.css';
 
 export function StudioFooter() {
-  return <footer className={styles.footer}><Link href="/">Candidate<span>X</span></Link><p>Evidence informs. People decide.</p><Link href="/analyze">Start with evidence <ArrowUpRight size={12} aria-hidden="true" /></Link></footer>;
+  return <footer className={styles.footer}><Link href="/">Candidate<span>X</span></Link><p>Evidence informs. People decide.</p><AnalyzeLink targetHref="/analyze">Start with evidence <ArrowUpRight size={12} aria-hidden="true" /></AnalyzeLink></footer>;
 }

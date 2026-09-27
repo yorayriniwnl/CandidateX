@@ -1,13 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
-// Homepage checks need no candidate data or backend service.
 export default defineConfig({
   testDir: './tests',
-  testMatch: /home.*\.spec\.ts/,
+  testMatch: /login\.spec\.ts/,
   workers: 1,
-  timeout: 45000,
+  timeout: 30000,
   expect: { timeout: 10000 },
-  outputDir: '../../artifacts/home-redesign/test-results',
   use: {
     baseURL: 'http://127.0.0.1:3000',
     viewport: { width: 1440, height: 1000 },

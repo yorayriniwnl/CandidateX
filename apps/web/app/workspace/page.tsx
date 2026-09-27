@@ -33,7 +33,9 @@ import {
   triggerPipelineRun,
   fetchCandidateDossier,
   fetchCandidateGraph,
+  saveCandidateBackend,
 } from '../../lib/api';
+import { saveReviewToHR } from '../../components/hr/hr-data';
 import { CanonicalRole, CandidateManifest, NormalizedRequirement, Dossier, CEGGraph } from '../../types/cci';
 
 type TabKey = 'directory' | 'new_eval' | 'dossier' | 'compare' | 'research';
@@ -95,6 +97,46 @@ export default function HomePage() {
       if (sequence !== requestSequence.current) return;
       if (dossier.candidate_id !== candidate.candidate_id || graph.analysis_run_id !== dossier.analysis_run_id) throw new Error('Result identity mismatch.');
       setCurrentDossier(dossier); setCurrentGraph(graph); setPipelineStageIndex(9); setIsPipelineComplete(true);
+
+      // Auto-save candidate profile to HR at the end of the review
+      try {
+        const candidateId = candidate.candidate_id;
+        const candidateName = candidate.full_name || 'Candidate';
+        const candidateRole = dossier.role || currentRole;
+        const score = dossier.rci;
+        const coverage = dossier.coverage;
+        const hasConflict = dossier.capability_conflicts
+          ? Object.values(dossier.capability_conflicts).some(item => item.has_meaningful_conflict)
+          : false;
+
+        saveReviewToHR({
+          candidateId,
+          displayName: candidateName,
+          email: candidate.primary_email,
+          role: candidateRole,
+          rci: score,
+          coverage,
+          hasMeaningfulConflict: hasConflict,
+          manifest: candidate,
+          dossier,
+          graph,
+        });
+
+        saveCandidateBackend({
+          id: candidateId,
+          display_name: candidateName,
+          primary_email: candidate.primary_email,
+          role: candidateRole,
+          rci: score ?? undefined,
+          coverage,
+          has_meaningful_conflict: hasConflict,
+          has_completed_dossier: true,
+          created_at: dossier.generated_at || new Date().toISOString(),
+          manifest: candidate,
+        }).catch(() => {});
+      } catch (saveErr) {
+        console.error('Failed to auto-save workspace candidate to HR', saveErr);
+      }
     } catch (error) {
       if (sequence === requestSequence.current) setLoadError(error instanceof Error ? error.message : 'Analysis unavailable. No sample dossier substituted.');
     } finally { if (sequence === requestSequence.current) setIsPipelineRunning(false); }
@@ -155,7 +197,7 @@ export default function HomePage() {
               <motion.div key={activeTab} variants={pageVariants} initial="initial" animate="animate" exit="exit" className={styles.view}>
                 {activeTab === 'directory' && <CandidateDirectory onSelectCandidate={handleSelectCandidateFromDirectory} onNewCandidate={() => setActiveTab('new_eval')} isBackendOnline={isBackendOnline} initialSelectedForComparison={comparisonCandidateIds} onCompareCandidates={ids => { setComparisonCandidateIds(ids); setActiveTab('compare'); }} />}
                 {activeTab === 'new_eval' && <EvaluationWizard currentRole={currentRole} pipelineStageIndex={pipelineStageIndex} isPipelineRunning={isPipelineRunning} isPipelineComplete={isPipelineComplete} onJobComplete={handleJobComplete} onCandidateSubmit={handleCandidateSubmit} onViewDossier={() => setActiveTab('dossier')} />}
-                {activeTab === 'dossier' && currentDossier && currentGraph && <DossierView initialDossier={currentDossier} graph={currentGraph} candidateName={manifest?.full_name || 'Candidate'} onSelectCandidate={handleSelectCandidateFromDirectory} />}
+                {activeTab === 'dossier' && currentDossier && currentGraph && <DossierView initialDossier={currentDossier} graph={currentGraph} candidateName={manifest?.full_name || 'Candidate'} candidatePicture={manifest?.picture} onSelectCandidate={handleSelectCandidateFromDirectory} />}
                 {activeTab === 'dossier' && !currentDossier && <div className={styles.empty}><div className={styles.emptyIcon}><Award size={32} strokeWidth={1} /></div><span>THE CANDIDATE DOSSIER</span><h2>A person behind every profile.</h2><p role="status">No candidate dossier selected or available.</p><button type="button" onClick={() => setActiveTab('directory')}>Explore candidates <ChevronRight size={14} /></button></div>}
                 {activeTab === 'compare' && <CandidateComparison onSelectCandidateDossier={handleSelectCandidateFromDirectory} isBackendOnline={isBackendOnline} selectedCandidateIds={comparisonCandidateIds} onSelectedIdsChange={setComparisonCandidateIds} />}
                 {activeTab === 'research' && <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />}

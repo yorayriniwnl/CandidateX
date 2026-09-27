@@ -1,0 +1,673 @@
+.loginSurface {
+  min-height: 100vh;
+  overflow: clip;
+  color: #eeeaf6;
+  background: radial-gradient(ellipse at 50% -5%, #603b7e28, transparent 40%),
+              radial-gradient(ellipse at 85% 60%, #4030631f, transparent 35%),
+              radial-gradient(ellipse at 15% 90%, #301f4a14, transparent 30%),
+              #08070c;
+  display: flex;
+  flex-direction: column;
+}
+
+.loginMain {
+  width: min(1360px, calc(100% - 80px));
+  margin: 0 auto;
+  padding: 44px 0 68px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.loginGrid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.15fr 0.95fr;
+  gap: 72px;
+  align-items: center;
+}
+
+/* Left Narrative Column */
+.narrative {
+  position: relative;
+  z-index: 2;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  color: #ab9fbe;
+  font: 500 9px/1.6 var(--font-mono), monospace;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.statusDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c6b1ef;
+  box-shadow: 0 0 14px #cda9ff66;
+  animation: pulseDot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.narrativeTitle {
+  margin: 0 0 22px;
+  font-size: clamp(3.2rem, 5vw, 4.8rem);
+  font-weight: 550;
+  letter-spacing: -.075em;
+  line-height: 1.02;
+  color: #ede5f5;
+}
+
+.narrativeTitle span {
+  background: linear-gradient(100deg, #f1deff 0%, #bea1ee 42%, #8b7cb7 100%);
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.narrativeDescription {
+  max-width: 480px;
+  color: #a49aad;
+  font-size: 15px;
+  line-height: 1.85;
+  margin: 0 0 36px;
+}
+
+.principlesList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 520px;
+  margin: 0 0 36px;
+}
+
+.principleItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 18px;
+  background: #110d1970;
+  border: 1px solid #b79bd318;
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  transition: border-color 200ms, background 200ms;
+}
+
+.principleItem:hover {
+  border-color: #b79bd330;
+  background: #17112285;
+}
+
+.principleIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #251936;
+  border: 1px solid #baa1e32d;
+  color: #d6beed;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.principleText {
+  flex: 1;
+}
+
+.principleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.principleNumber {
+  font: 400 8px/1 var(--font-mono), monospace;
+  color: #887498;
+  letter-spacing: .08em;
+}
+
+.principleHeading {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e4d7fa;
+  margin: 0;
+}
+
+.principleBody {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #9c8ea9;
+}
+
+.securityFootprint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #b59ad70a;
+  border: 1px solid #b79bd31f;
+  border-radius: 999px;
+  color: #9281a5;
+  font: 400 8px/1.4 var(--font-mono), monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.securityFootprint svg {
+  color: #bd9ee0;
+}
+
+/* Right Auth Card Column */
+.authContainer {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.authContainer::before {
+  content: '';
+  position: absolute;
+  width: 440px;
+  height: 440px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, #7952a920, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.authCard {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 460px;
+  background: #110d19ee;
+  border: 1px solid #b599d128;
+  box-shadow: 0 28px 70px #00000085, inset 0 1px 0 #ffffff0e;
+  backdrop-filter: blur(28px);
+  border-radius: 22px;
+  padding: 34px 30px;
+}
+
+/* Role Segmented Switcher */
+.roleSwitcher {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 4px;
+  background: #090710;
+  border: 1px solid #b79bd318;
+  border-radius: 11px;
+  margin-bottom: 22px;
+}
+
+.roleTab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #9888a7;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.roleTab:hover {
+  color: #ddd0ea;
+}
+
+.roleTab[aria-selected="true"] {
+  background: #bba0d518;
+  border-color: #b99cd038;
+  color: #f3e9ff;
+  box-shadow: 0 2px 10px #79509d18;
+}
+
+.cardHead {
+  margin-bottom: 20px;
+}
+
+.cardTitle {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -.05em;
+  color: #eee6f7;
+}
+
+.cardSubtitle {
+  margin: 0;
+  color: #9d8fa9;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Quick Fill Demo Bar */
+.demoBar {
+  background: #18112399;
+  border: 1px solid #b79bd322;
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-bottom: 20px;
+}
+
+.demoBarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.demoBarLabel {
+  font: 500 8px/1 var(--font-mono), monospace;
+  color: #a18bb5;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.demoBarBadge {
+  font: 400 8px/1 var(--font-mono), monospace;
+  color: #c4a6e8;
+  background: #c4a6e814;
+  border: 1px solid #c4a6e828;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.demoButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.demoPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: #251b34;
+  border: 1px solid #bba0d533;
+  color: #e2d2f7;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 160ms;
+}
+
+.demoPill:hover {
+  background: #34234b;
+  border-color: #caa5f5;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.demoPill svg {
+  color: #c8a6f0;
+}
+
+/* Social SSO Buttons */
+.ssoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.ssoButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 42px;
+  border-radius: 11px;
+  background: #150f1f;
+  border: 1px solid #b79bd320;
+  color: #e5d8f2;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.ssoButton:hover {
+  background: #20172e;
+  border-color: #ba98df60;
+  color: #ffffff;
+}
+
+.ssoButton svg {
+  flex-shrink: 0;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #7b6e8a;
+  font: 400 8px/1 var(--font-mono), monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #b79bd318;
+}
+
+/* Form Styles */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 450;
+  color: #bfaecf;
+}
+
+.forgotLink {
+  font-size: 10px;
+  color: #c5a4eb;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 160ms;
+}
+
+.forgotLink:hover {
+  color: #f1e4ff;
+  text-decoration: underline;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  color: #8c7b9e;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.inputControl {
+  width: 100%;
+  height: 44px;
+  padding: 0 42px 0 42px;
+  background: #0b0812;
+  border: 1px solid #b99cc62a;
+  border-radius: 11px;
+  color: #eee5f7;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 200ms, background 200ms, box-shadow 200ms;
+}
+
+.inputControl::placeholder {
+  color: #695b77;
+}
+
+.inputControl:focus {
+  border-color: #ba98df80;
+  background: #140e1e;
+  box-shadow: 0 0 0 3px #b58ace18;
+}
+
+.inputControl[aria-invalid="true"] {
+  border-color: #f28aa366;
+  box-shadow: 0 0 0 3px #f28aa312;
+}
+
+.trailingAction {
+  position: absolute;
+  right: 11px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #8c7b9e;
+  cursor: pointer;
+  transition: color 160ms, background 160ms;
+}
+
+.iconButton:hover {
+  color: #e4d7fa;
+  background: #b59ad718;
+}
+
+.fieldError {
+  font-size: 10px;
+  color: #fca5b9;
+  margin-top: 2px;
+}
+
+/* Checkbox Row */
+.optionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 6px;
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #a494b4;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxInput {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  accent-color: #c1a0e2;
+  cursor: pointer;
+}
+
+/* Primary Submit Action (CandidateX Signature) */
+.submitAction {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 8px 6px 20px;
+  min-height: 48px;
+  width: 100%;
+  background: #e4d7fa;
+  color: #291d37;
+  border: 1px solid #eaddff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 0 28px #b48cec15, inset 0 1px #fff8;
+  cursor: pointer;
+  transition: transform 200ms, box-shadow 200ms, background 200ms;
+  margin-top: 6px;
+}
+
+.submitAction > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #c2acde;
+  transition: background 200ms;
+  flex-shrink: 0;
+}
+
+.submitAction:hover:not(:disabled) {
+  background: #f0e6ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 35px #b48cec2c;
+}
+
+.submitAction:hover:not(:disabled) > span {
+  background: #d8c1fa;
+}
+
+.submitAction:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Alert Boxes */
+.alertBox {
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 11px;
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.alertError {
+  border: 1px solid #f28aa338;
+  background: #f28aa30e;
+  color: #fca5b9;
+}
+
+.alertSuccess {
+  border: 1px solid #6ee7b738;
+  background: #6ee7b70e;
+  color: #a7f3d0;
+}
+
+.cardFooter {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #b79bd318;
+  text-align: center;
+  color: #8c7d9a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.cardFooterLink {
+  color: #ccafe9;
+  font-weight: 500;
+  text-decoration: none;
+  margin-left: 4px;
+  transition: color 160ms;
+}
+
+.cardFooterLink:hover {
+  color: #f4ecff;
+  text-decoration: underline;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1080px) {
+  .loginMain {
+    width: calc(100% - 48px);
+  }
+  .loginGrid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .narrative {
+    text-align: left;
+  }
+  .narrativeDescription {
+    max-width: 600px;
+  }
+  .principlesList {
+    max-width: 100%;
+  }
+  .authContainer {
+    justify-content: flex-start;
+  }
+  .authCard {
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 640px) {
+  .loginMain {
+    width: calc(100% - 32px);
+    padding: 24px 0 48px;
+  }
+  .narrativeTitle {
+    font-size: clamp(2.4rem, 9vw, 3.4rem);
+  }
+  .authCard {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+  .ssoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusDot {
+    animation: none;
+  }
+  .submitAction,
+  .submitAction > span,
+  .demoPill,
+  .ssoButton {
+    transition: none;
+  }
+}

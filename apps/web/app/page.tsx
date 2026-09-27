@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SignalConstellation } from '../components/home/SignalConstellation';
 import { EvidenceWalkthrough } from '../components/home/EvidenceWalkthrough';
 import { PlatformHeader } from '../components/navigation/PlatformHeader';
+import { AnalyzeLink } from '../components/navigation/AnalyzeLink';
 import styles from './home.module.css';
 
 export default function HomePage() {
@@ -16,7 +17,7 @@ export default function HomePage() {
             <h1 id="home-title">Candidate<br />intelligence,<br /><span>with receipts.</span></h1>
             <p className={styles.heroDescription}>Go beyond what a résumé says. Connect the claims, explore the work, and walk into every interview with better questions.</p>
             <div className={styles.heroActions}>
-              <Link href="/analyze" className={styles.primaryAction}>Start with live evidence <span><ArrowUpRight size={17} aria-hidden="true" /></span></Link>
+              <AnalyzeLink targetHref="/analyze" className={styles.primaryAction}>Start with live evidence <span><ArrowUpRight size={17} aria-hidden="true" /></span></AnalyzeLink>
               <Link href="#loop-title" className={styles.secondaryAction}>Explore the process <ArrowDown size={14} aria-hidden="true" /></Link>
             </div>
             <p className={styles.heroNote}><span /> Evidence informs. People decide.</p>
@@ -53,14 +54,36 @@ export default function HomePage() {
           <div className={styles.closingOrbit} aria-hidden="true"><span /><span /><span /></div>
           <p className={styles.sectionEyebrow}>LOOK CLOSER. ASK BETTER.</p>
           <h2 id="closing-title">Meet the capability<br /><span>behind the claim.</span></h2>
-          <Link href="/analyze" className={styles.primaryAction}>Begin your first analysis <span><ArrowRight size={17} aria-hidden="true" /></span></Link>
+          <AnalyzeLink targetHref="/analyze" className={styles.primaryAction}>Begin your first analysis <span><ArrowRight size={17} aria-hidden="true" /></span></AnalyzeLink>
           <p className={styles.closingNote}>Bring a résumé. Start a more informed conversation.</p>
         </section>
       </main>
       <footer className={styles.footer}>
-        <div className={styles.footerTop}><Link href="/" className={styles.footerBrand}>Candidate<span>X</span></Link><p>Research-informed intelligence.<br />Human-led decisions.</p><Link href="/analyze" className={styles.footerLink}>Live Evidence <ArrowUpRight size={14} aria-hidden="true" /></Link></div>
-        <div className={styles.footerBottom}><p><span>Under the Guidance of</span><strong>Dr. Debachudamani Prusti</strong><span>Prepared by</span><strong>Ayush Roy &amp; Archi Srivastava</strong></p><span>WITH EVIDENCE. WITH CARE.</span></div>
-        <div className={styles.footerCompany}><span>COMPANY</span><strong>Yor Ayrin - iwnl Private Limited.</strong></div>
+        <div className={styles.footerMain}>
+          <div className={styles.footerIdentity}>
+            <Link href="/" className={styles.footerBrand}>Candidate<span>X</span></Link>
+            <p>Research-informed intelligence.<br />Human-led decisions.</p>
+          </div>
+          <nav className={styles.footerColumn} aria-label="Product">
+            <h2>Product</h2>
+            <AnalyzeLink targetHref="/analyze">Live Evidence</AnalyzeLink>
+            <Link href="/research-demo">Research Demo</Link>
+          </nav>
+          <nav className={styles.footerColumn} aria-label="Explore">
+            <h2>Explore</h2>
+            <Link href="#loop-title">The Evidence Loop</Link>
+            <Link href="#trust-title">Our Principles</Link>
+          </nav>
+          <div className={styles.footerColumn}>
+            <h2>Project Credits</h2>
+            <p><span>Under the Guidance of</span><strong>Dr. Debachudamani Prusti</strong></p>
+            <p><span>Prepared by</span><strong>Ayush Roy &amp; Archi Srivastava</strong></p>
+          </div>
+        </div>
+        <div className={styles.footerBottom}>
+          <p className={styles.footerCompany}><span>COMPANY</span><strong>Yor Ayrin - iwnl Private Limited.</strong></p>
+          <span>WITH EVIDENCE. WITH CARE.</span>
+        </div>
       </footer>
     </div>
   );

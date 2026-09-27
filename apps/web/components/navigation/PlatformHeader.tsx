@@ -6,6 +6,8 @@ import { ArrowUpRight, Menu, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NAVIGATION_ITEMS, SURFACE_COPY, type Surface, type SurfaceStatus } from './navigation';
 import { SurfaceBadge } from './SurfaceBadge';
+import { AnalyzeLink } from './AnalyzeLink';
+import { getStoredUser, clearStoredUser, type AuthUser } from '../../lib/auth';
 
 export type PlatformHeaderProps = {
   surface: Surface;
@@ -32,6 +34,19 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
     document.addEventListener('keydown', close);
     return () => document.removeEventListener('keydown', close);
   }, [menuOpen]);
+
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setCurrentUser(getStoredUser());
+    const onAuthChange = () => setCurrentUser(getStoredUser());
+    window.addEventListener('cx-auth-change', onAuthChange);
+    window.addEventListener('storage', onAuthChange);
+    return () => {
+      window.removeEventListener('cx-auth-change', onAuthChange);
+      window.removeEventListener('storage', onAuthChange);
+    };
+  }, []);
 
   return (
     <header className="platform-header" data-surface={surface}>
@@ -81,10 +96,33 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
 
         {status && <SurfaceBadge status={status} />}
 
-        <Link href="/analyze" className="platform-header__cta">
+        {currentUser ? (
+          <div className="hidden md:flex items-center gap-2.5 text-xs">
+            <span className="text-[#a491b8]">{currentUser.email.split('@')[0]}</span>
+            <button
+              type="button"
+              onClick={() => {
+                clearStoredUser();
+                setCurrentUser(null);
+              }}
+              className="text-[#8e7b9f] hover:text-[#e4d7fa] transition-colors text-[11px]"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : surface !== 'login' ? (
+          <Link
+            href="/login"
+            className="hidden md:inline-flex items-center text-[11px] text-[#a89bb8] hover:text-[#efe6f8] px-2 py-1 transition-colors"
+          >
+            Sign in
+          </Link>
+        ) : null}
+
+        <AnalyzeLink targetHref="/analyze" className="platform-header__cta">
           Start an analysis
           <ArrowUpRight size={15} aria-hidden="true" />
-        </Link>
+        </AnalyzeLink>
       </div>
     </header>
   );

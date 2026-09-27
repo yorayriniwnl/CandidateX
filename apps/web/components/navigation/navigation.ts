@@ -1,4 +1,4 @@
-export type Surface = 'home' | 'live' | 'candidates' | 'workspace' | 'research';
+export type Surface = 'home' | 'live' | 'candidates' | 'workspace' | 'research' | 'login';
 export type SurfaceStatus = 'live';
 
 export const NAVIGATION_ITEMS = [
@@ -17,6 +17,7 @@ export const SURFACE_COPY: Record<Surface, { label: string; descriptor: string }
   candidates: { label: 'Candidates', descriptor: 'Your hiring workspace' },
   workspace: { label: 'Workspace', descriptor: 'Research prototype' },
   research: { label: 'Research', descriptor: 'Inside the intelligence' },
+  login: { label: 'Authentication', descriptor: 'Secure access to CandidateX' },
 };
 
 export const STATUS_COPY: Record<SurfaceStatus, { label: string; detail: string }> = {

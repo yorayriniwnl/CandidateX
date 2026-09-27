@@ -20,6 +20,8 @@ export function SignalConstellation() {
   const [paused, setPaused] = useState(false);
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(0);
+  const [surprise, setSurprise] = useState<{ id: number; name: string; label: string } | null>(null);
+  const surpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef(0);
   const pausedRef = useRef(false);
 
@@ -43,7 +45,19 @@ export function SignalConstellation() {
       loading = true;
       void import('./signal-scene').then(({ createSignalScene }) => {
         if (disposed) return;
-        scene.current = createSignalScene(element, Array.from(labels.current!.children) as HTMLElement[], () => { if (!disposed) setReady(false); });
+        scene.current = createSignalScene(
+          element,
+          Array.from(labels.current!.children) as HTMLElement[],
+          () => { if (!disposed) setReady(false); },
+          info => {
+            if (disposed) return;
+            if (surpriseTimer.current) clearTimeout(surpriseTimer.current);
+            setSurprise({ id: Date.now(), ...info });
+            surpriseTimer.current = setTimeout(() => {
+              if (!disposed) setSurprise(null);
+            }, 2600);
+          }
+        );
         scene.current.setStage(activeRef.current);
         scene.current.setPaused(pausedRef.current);
         scene.current.setVisible(visible);
@@ -55,6 +69,7 @@ export function SignalConstellation() {
     observer.observe(element);
     return () => {
       disposed = true;
+      if (surpriseTimer.current) clearTimeout(surpriseTimer.current);
       observer.disconnect();
       preference.removeEventListener('change', updatePreference);
       scene.current?.dispose();
@@ -81,6 +96,14 @@ export function SignalConstellation() {
         <span className={styles.edition}>Interactive illustration</span>
       </div>
       <div className={styles.stage} ref={host} aria-hidden="true" data-testid="signal-scene">
+        {surprise && (
+          <div className={styles.surpriseHud} key={surprise.id} data-testid="signal-surprise-badge" role="status">
+            <div className={styles.surprisePill}>
+              <span className={styles.surpriseTag}>⚡ {surprise.name}</span>
+              <span className={styles.surpriseDetail}>{surprise.label}</span>
+            </div>
+          </div>
+        )}
         <div className={styles.aura} />
         <div className={styles.crosshair} />
         <span className={styles.axisTop}>CONTEXT IN</span>
