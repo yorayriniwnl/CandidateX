@@ -129,3 +129,34 @@ def test_module_topology_resolves_relative_imports_and_cycles():
     assert topology["cycles_detected"] == 1
     assert topology["highest_fan_in"]
     assert topology["highest_fan_out"]
+
+
+def test_review_targets_are_descriptive_and_bounded():
+    fingerprint = build_repository_fingerprint(
+        [
+            {
+                "path": "src/security.py",
+                "category": "source",
+                "text": "result = eval(user_input)\nrequests.get(url, verify=False)\n",
+            },
+            {
+                "path": "src/db.py",
+                "category": "source",
+                "text": 'cursor.execute(f"SELECT * FROM users WHERE id={user_id}")\n',
+            },
+            {
+                "path": "README.md",
+                "category": "docs",
+                "text": "eval(user_input) is mentioned only in documentation",
+            },
+        ]
+    )
+
+    targets = fingerprint["review_targets"]
+    rules = {finding["rule"] for finding in targets["findings"]}
+    assert "dynamic_code_execution" in rules
+    assert "tls_verification_disabled" in rules
+    assert "raw_sql_construction" in rules
+    assert targets["by_severity"]["high"] >= 2
+    assert all(finding["path"] != "README.md" for finding in targets["findings"])
+    assert "not confirmed vulnerabilities" in targets["interpretation"]
