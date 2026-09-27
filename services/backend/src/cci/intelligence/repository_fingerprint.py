@@ -255,6 +255,7 @@ def build_repository_fingerprint(
 ) -> dict[str, object]:
     """Build a bounded engineering-practice map from already-inspected files."""
 
+    snapshots = list(snapshots)
     practice_paths: dict[str, list[str]] = defaultdict(list)
     boundary_paths: dict[str, list[str]] = defaultdict(list)
     hotspots: list[dict[str, object]] = []
@@ -326,7 +327,7 @@ def build_repository_fingerprint(
 
     observed_count = len(observed)
     possible_count = len(PRACTICE_PATTERNS)
-    topology = _module_topology(list(snapshots))
+    topology = _module_topology(snapshots)
     return {
         "files_considered": scanned,
         "practice_breadth": {
