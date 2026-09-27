@@ -49,6 +49,28 @@ export function SourceDetails({ source }: { source: SourceReceipt }) {
           {review.engineering_fingerprint.observed_practices.map(practice =>
             <span key={practice.name}>{label(practice.name)} · {practice.occurrence_files} file{practice.occurrence_files === 1 ? '' : 's'}</span>)}
         </div>
+        <h3>Static module topology</h3>
+        <div className={styles.metrics}>
+          <div className={styles.metric}><span>Modules</span><strong>{review.engineering_fingerprint.module_topology.nodes}</strong><span>inspected Python / TS / JS files</span></div>
+          <div className={styles.metric}><span>Local edges</span><strong>{review.engineering_fingerprint.module_topology.edges}</strong><span>resolved relative imports</span></div>
+          <div className={styles.metric}><span>Components</span><strong>{review.engineering_fingerprint.module_topology.connected_components}</strong><span>connected source groups</span></div>
+          <div className={styles.metric}><span>Cycles</span><strong>{review.engineering_fingerprint.module_topology.cycles_detected}</strong><span>within the bounded scan</span></div>
+        </div>
+        {(review.engineering_fingerprint.module_topology.highest_fan_out.length > 0 || review.engineering_fingerprint.module_topology.highest_fan_in.length > 0) && <details className={styles.evidence}>
+          <summary>Dependency hotspots</summary>
+          {review.engineering_fingerprint.module_topology.highest_fan_out.map(item => <p className={live.sourceUrl} key={'out-' + item.path}>
+            Fan-out {item.edges} · <strong>{item.path}</strong>
+          </p>)}
+          {review.engineering_fingerprint.module_topology.highest_fan_in.map(item => <p className={live.sourceUrl} key={'in-' + item.path}>
+            Fan-in {item.edges} · <strong>{item.path}</strong>
+          </p>)}
+          <p className={styles.muted}>{review.engineering_fingerprint.module_topology.limitations}</p>
+        </details>}
+        {review.engineering_fingerprint.module_topology.cycles.length > 0 && <details className={styles.evidence}>
+          <summary>Dependency cycles · {review.engineering_fingerprint.module_topology.cycles_detected}</summary>
+          {review.engineering_fingerprint.module_topology.cycles.map((cycle, index) => <p className={live.sourceUrl} key={index}>{cycle.join(' → ')}</p>)}
+          <p className={styles.muted}>A cycle is an architecture review target, not proof of poor engineering; context and framework conventions still matter.</p>
+        </details>}
         {review.engineering_fingerprint.architecture_boundaries.length > 0 && <details className={styles.evidence}>
           <summary>Architecture boundaries · {review.engineering_fingerprint.architecture_boundaries.length}</summary>
           {review.engineering_fingerprint.architecture_boundaries.map(boundary => <div className={live.signal} key={boundary.name}>
