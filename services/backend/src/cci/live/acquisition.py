@@ -29,6 +29,7 @@ from cci.scoring.recency import calculate_elapsed_years, compute_recency_factor
 from cci.scoring.reliability import compute_source_reliability
 from cci.security.repository_workspace import SafeRepositoryWorkspace
 from cci.live.repository_review import review_repository
+from cci.intelligence.evidence_quality import assess_evidence_quality
 
 HTTP_TRANSPORT = None  # Injectable only in tests; never configurable by request input.
 IGNORED = {'node_modules', 'vendor', 'dist', 'build', '.git', '.next', 'coverage', '__pycache__', '.venv', 'venv'}
@@ -163,6 +164,25 @@ def acquire_repository(fetcher, url, identity):
         raw += run_db_test_infra_intelligence(workspace.root, url, sha, artifacts)
         by_path = {a.relative_path: a for a in artifacts}
         records, seen, per_group = [], set(), Counter()
+        context_cache = {}
+
+        def observation_context(artifact_path):
+            if not artifact_path:
+                return ""
+            if artifact_path in context_cache:
+                return context_cache[artifact_path]
+            try:
+                candidate = Path(workspace.root, artifact_path)
+                if not candidate.exists() or not candidate.is_file():
+                    context_cache[artifact_path] = ""
+                else:
+                    context_cache[artifact_path] = candidate.read_text(
+                        encoding="utf-8", errors="replace"
+                    )[:65_536]
+            except (OSError, UnicodeError):
+                context_cache[artifact_path] = ""
+            return context_cache[artifact_path]
+
         for observation in raw:
             artifact = by_path.get(observation.artifact_path)
             # Structural observations spanning paths use the actual snapshot hash.
@@ -174,9 +194,16 @@ def acquire_repository(fetcher, url, identity):
                 continue
             seen.add(fingerprint)
             per_group[group] += 1
+            quality = assess_evidence_quality(
+                artifact_category=artifact.category if artifact else "repository_structure",
+                artifact_path=observation.artifact_path,
+                raw_support_text=observation.raw_support_text,
+                symbol_or_line=observation.symbol_or_line,
+                context_text=observation_context(observation.artifact_path),
+            )
             factors = EvidenceConfidenceFactors(artifact_integrity=1.0, ownership_score=ownership,
                 recency_factor=compute_recency_factor(calculate_elapsed_years(observed_date), observation.target_capability),
-                verification_level=.55, depth_specificity=.5,
+                verification_level=quality.verification_level, depth_specificity=quality.depth_specificity,
                 source_reliability=compute_source_reliability(observation.source_family).posterior_mean)
             records.append(EvidenceRecord(evidence_id=uuid5(NAMESPACE_URL, fingerprint), fingerprint=fingerprint,
                 source_family=observation.source_family, source_locator=url, immutable_revision=sha,
@@ -188,7 +215,8 @@ def acquire_repository(fetcher, url, identity):
                     'extractor_version': observation.extractor_version, 'verification_status': 'live_static_inspection',
                     'observed_at': datetime.now(timezone.utc).isoformat(), 'commit_date': observed_date.isoformat(),
                     'artifact_url': f'{url}/blob/{sha}/{quote(observation.artifact_path, safe="/")}' if artifact else url,
-                    'ownership_basis': assessment.model_dump(mode='json')}))
+                    'ownership_basis': assessment.model_dump(mode='json'),
+                    'evidence_quality': quality.to_dict()}))
         receipt = {'url': url, 'status': 'observed', 'detail': 'Fetched public commit and statically inspected selected files.',
             'commit_sha': sha, 'fetched_at': datetime.now(timezone.utc).isoformat(), 'files_inspected': len(artifacts),
             'files_omitted': omitted, 'evidence_count': len(records), 'snapshot_fingerprint': snapshot.snapshot_fingerprint,

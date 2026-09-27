@@ -274,6 +274,19 @@ function EvidenceRecordDetail({ record }: { record: LiveEvidence }) {
         <div><dt>Extractor version</dt><dd>{record.provenance.extractor_version || 'Not returned'}</dd></div>
         <div><dt>Observed at</dt><dd>{dateTime(record.provenance.observed_at)}</dd></div>
       </dl>
+      {record.provenance.evidence_quality && <details className={styles.diagnosticDetails} open><summary>Deterministic evidence-quality analysis</summary>
+        <p>This context analysis adjusts depth and verification confidence without executing candidate code.</p>
+        <dl>
+          <div><dt>Quality band</dt><dd>{titleWords(record.provenance.evidence_quality.quality_band)}</dd></div>
+          <div><dt>Depth specificity</dt><dd>{record.provenance.evidence_quality.depth_specificity.toFixed(3)}</dd></div>
+          <div><dt>Verification level</dt><dd>{record.provenance.evidence_quality.verification_level.toFixed(3)}</dd></div>
+          <div><dt>Signal families</dt><dd>{record.provenance.evidence_quality.signal_families.length ? record.provenance.evidence_quality.signal_families.map(titleWords).join(', ') : 'No additional contextual families'}</dd></div>
+        </dl>
+        {Object.keys(record.provenance.evidence_quality.context_metrics).length > 0 && <dl>
+          {Object.entries(record.provenance.evidence_quality.context_metrics).map(([name, value]) => <div key={name}><dt>{titleWords(name)}</dt><dd>{value}</dd></div>)}
+        </dl>}
+        {record.provenance.evidence_quality.rationale.map((item, index) => <p key={index}>{item}</p>)}
+      </details>}
       <details className={styles.diagnosticDetails}><summary>Confidence factors and ownership basis</summary>
         <p>Ownership is a repository-level heuristic. It does not prove authorship of each inspected line.</p>
         <dl>{Object.entries(record.confidence_factors).map(([name, value]) => <div key={name}><dt>{titleWords(name)}</dt><dd>{typeof value === 'number' && Number.isFinite(value) ? value.toFixed(3) : 'Not returned'}</dd></div>)}</dl>

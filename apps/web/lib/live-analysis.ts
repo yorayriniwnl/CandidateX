@@ -13,12 +13,33 @@ export interface ResumeIntake {
   resume_review: { sections: Record<string, string[]>; learning_skills: string[]; observations: string[] };
 }
 export interface TechnologyEvidence { name: string; path: string; basis: string; url: string; attribution_observed?: boolean; }
+export interface EngineeringFingerprint {
+  files_considered: number;
+  practice_breadth: { observed: number; possible: number; ratio: number };
+  observed_practices: { name: string; status: string; paths: string[]; occurrence_files: number }[];
+  not_observed_in_bounded_scan: string[];
+  architecture_boundaries: { name: string; paths: string[]; occurrence_files: number }[];
+  signal_hotspots: { path: string; signal_family_count: number; signal_families: string[] }[];
+  module_topology: {
+    nodes: number; edges: number; connected_components: number; cross_directory_edges: number;
+    cycles_detected: number; cycles: string[][];
+    highest_fan_out: { path: string; edges: number }[];
+    highest_fan_in: { path: string; edges: number }[];
+    limitations: string;
+  };
+  review_targets: {
+    count: number; by_severity: { high: number; medium: number; low: number };
+    findings: { rule: string; severity: string; path: string; lines: number[]; why_review: string; status: string }[];
+    interpretation: string;
+  };
+  interpretation: string;
+}
 export interface RepositoryReview {
   description: string | null; stars: number; forks: number; open_issues: number; is_fork: boolean; archived: boolean;
   license: string | null; topics: string[]; pushed_at: string | null; languages_by_inspected_file: Record<string, number>;
   file_categories: Record<string, number>; dependencies: { name: string; version: string; path: string }[];
   technologies: TechnologyEvidence[]; readme_excerpt: string;
-  engineering_signals: { name: string; status: string; paths: string[] }[]; limitations: string[];
+  engineering_signals: { name: string; status: string; paths: string[] }[]; engineering_fingerprint?: EngineeringFingerprint; limitations: string[];
 }
 export interface SourceReceipt {
   url: string; status: string; detail: string; commit_sha?: string; fetched_at?: string;

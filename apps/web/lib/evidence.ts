@@ -21,6 +21,14 @@ export interface Evidence {
     extractor_version: string;
     verification_status: string;
     observed_at: string;
+    evidence_quality?: {
+      depth_specificity: number;
+      verification_level: number;
+      quality_band: string;
+      signal_families: string[];
+      context_metrics: Record<string, number>;
+      rationale: string[];
+    };
   };
 }
 
