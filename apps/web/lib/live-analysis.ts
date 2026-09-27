@@ -20,6 +20,13 @@ export interface EngineeringFingerprint {
   not_observed_in_bounded_scan: string[];
   architecture_boundaries: { name: string; paths: string[]; occurrence_files: number }[];
   signal_hotspots: { path: string; signal_family_count: number; signal_families: string[] }[];
+  module_topology: {
+    nodes: number; edges: number; connected_components: number; cross_directory_edges: number;
+    cycles_detected: number; cycles: string[][];
+    highest_fan_out: { path: string; edges: number }[];
+    highest_fan_in: { path: string; edges: number }[];
+    limitations: string;
+  };
   interpretation: string;
 }
 export interface RepositoryReview {
