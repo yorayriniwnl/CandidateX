@@ -76,7 +76,7 @@ export const InterviewProbesPanel: React.FC<{
           <div>
             <h2 className="text-base font-semibold text-slate-100">Prioritized Technical Interview Probes</h2>
             <p className="text-xs text-slate-400">
-              Ranked 1..12 by information value I_k = w_k · (1 - Cov_k) + α · s_k + β · C_k
+              Paper Eq. (11): I_k = w_k · [α(1 - Cov_k) + β · CIwidth_k + γ · Conf_k]
             </p>
           </div>
         </div>
@@ -274,8 +274,8 @@ export const InterviewProbesPanel: React.FC<{
       </div>
 
       <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-white/[0.06]">
-        <span>* Questions are grounded directly in extracted repository evidence and CV declarations.</span>
-        <span>Interviewers remain the ultimate evaluators of candidate technical depth.</span>
+        <span>* Probe priority directs interviewer attention; it is not a hire/reject score.</span>
+        <span>Interviewers remain the final evaluators.</span>
       </div>
     </GlassCard>
   );

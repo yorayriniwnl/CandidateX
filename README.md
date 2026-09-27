@@ -142,7 +142,7 @@ $$RCI(C, J) = \frac{\sum_{k \in \text{observed}} w_k q_k}{\sum_{k \in \text{obse
 
 ## Paper Reproducibility & Ablation Studies
 
-The public runner is a **separate executable prototype experiment**, as disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 distinct candidates per role, or 4,800 candidates per ablation mode. The manuscript headline study evaluates each candidate against all six roles for 28,800 pairs and reports rho 0.928; original per-seed outputs and exact calibration are unavailable. The repository's rho approximately 0.943 is not a reproduction of that result.
+The public runner is a **supplementary implementation ablation**, a separate executable prototype experiment disclosed in manuscript Section 2.6. It uses 16 seeds x six roles x 50 role-specific samples per role, or 4,800 samples per ablation mode. The submitted paper reports 28,800 candidate-role evaluations and rho 0.928; original per-seed outputs and exact calibration are unavailable. This runner is **not an exact regeneration of the paper benchmark**; its rho of approximately 0.943 is a separate result.
 
 ```powershell
 python research/run_paper_experiments.py --output-dir reports/research-demo-verification

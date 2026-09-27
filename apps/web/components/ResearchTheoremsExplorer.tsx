@@ -176,7 +176,7 @@ const DEFAULT_THEOREMS: TheoremMetadata[] = [
 const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   {
     model_name: 'FULL_CCI',
-    display_name: 'Full CCI (Proposed Architecture)',
+    display_name: 'Full CCI',
     mae: 1.943,
     rmse: 2.469,
     spearman_rho: 0.943,
@@ -186,39 +186,39 @@ const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   },
   {
     model_name: 'NO_RECENCY_DECAY',
-    display_name: 'Ablation A: Without Recency Decay',
+    display_name: 'Without recency decay',
     mae: 1.975,
     rmse: 2.505,
     spearman_rho: 0.943,
     kendall_tau: 0.794,
-    statistical_significance: 'p < 0.001 (***)',
+    statistical_significance: 'One-sided paired Wilcoxon p=2.04e-72; ablation error higher.',
   },
   {
     model_name: 'NO_OWNERSHIP_DISCOUNT',
-    display_name: 'Ablation B: Without Ownership Discount',
+    display_name: 'Without ownership discount',
     mae: 2.219,
     rmse: 2.813,
     spearman_rho: 0.933,
     kendall_tau: 0.775,
-    statistical_significance: 'p < 0.001 (***)',
+    statistical_significance: 'One-sided paired Wilcoxon p<0.001; ablation error higher.',
   },
   {
     model_name: 'UNIFORM_WEIGHTS',
-    display_name: 'Ablation C: Uniform Role Weights (1/12)',
+    display_name: 'Uniform role weights',
     mae: 3.172,
     rmse: 3.761,
     spearman_rho: 0.939,
     kendall_tau: 0.785,
-    statistical_significance: 'p < 0.001 (***)',
+    statistical_significance: 'One-sided paired Wilcoxon p<0.001; ablation error higher.',
   },
   {
     model_name: 'UNCALIBRATED_SOURCES',
-    display_name: 'Ablation D: Uncalibrated Sources',
+    display_name: 'Uncalibrated sources',
     mae: 1.922,
     rmse: 2.446,
     spearman_rho: 0.942,
     kendall_tau: 0.792,
-    statistical_significance: 'p = 1.000',
+    statistical_significance: 'One-sided p=1.000; two-sided difference favors uncalibrated sources.',
   },
 ];
 
@@ -285,7 +285,7 @@ export const ResearchTheoremsExplorer: React.FC<{
       ablationData?.latex_table ||
       `\\begin{table}[t]
 \\centering
-\\caption{Model Architecture Ablation Study ($N = 4,800$, 6 roles, 16 seeds).}
+\\caption{Supplementary implementation ablation ($N = 4,800$ role-specific samples per mode; 6 roles, 16 seeds).}
 \\label{tab:ablation_study}
 \\begin{tabular}{lcccc}
 \\toprule
@@ -297,7 +297,7 @@ w/o Ownership Discount & 2.219$^{\\ast\\ast\\ast}$ & 2.813 & 0.933 & 0.775 \\\\
 Uniform Role Weights (1/12) & 3.172$^{\\ast\\ast\\ast}$ & 3.761 & 0.939 & 0.785 \\\\
 Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\\\
 \\bottomrule
-\\multicolumn{5}{l}{\\footnotesize $^{\\ast\\ast\\ast}p < 0.001$ via paired Wilcoxon signed-rank test against Full CCI.}
+\\multicolumn{5}{l}{\\footnotesize Directional paired Wilcoxon test: three ablations have higher error; uncalibrated sources had lower error than Full CCI.}
 \\end{tabular}
 \\end{table}`;
 
@@ -316,17 +316,17 @@ Uncalibrated Sources & 1.922 & 2.446 & 0.942 & 0.792 \\\\
       ablationData?.markdown_table ||
       `# Executable Prototype Experiment - Model Architecture Ablation Study
 
-Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
+Total role-specific synthetic samples: $N = 4,800$ per ablation mode across 6 canonical engineering roles. This is supplementary implementation evidence, not the submitted-paper benchmark.
 
-| Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Stat. Sig. ($p < 0.001$) |
-|:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:------------------------:|
+| Evaluation Model | RCI MAE ↓ | RCI RMSE ↓ | Spearman's $\\rho$ ↑ | Kendall's $\\tau$ ↑ | Comparison vs Full CCI |
+|:-----------------|:---------:|:----------:|:-------------------:|:-----------------:|:-----------------------|
 | **FULL_CCI** | 1.943 | 2.469 | 0.943 | 0.794 | Baseline |
-| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | Yes (***) |
-| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | Yes (***) |
-| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | 0.939 | 0.785 | Yes (***) |
-| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | p=1.000e+00 |
+| **NO_RECENCY_DECAY** | 1.975 | 2.505 | 0.943 | 0.794 | One-sided p=2.04e-72; ablation error higher |
+| **NO_OWNERSHIP_DISCOUNT** | 2.219 | 2.813 | 0.933 | 0.775 | One-sided p<0.001; ablation error higher |
+| **UNIFORM_WEIGHTS** | 3.172 | 3.761 | 0.939 | 0.785 | One-sided p<0.001; ablation error higher |
+| **UNCALIBRATED_SOURCES** | 1.922 | 2.446 | 0.942 | 0.792 | One-sided p=1; uncalibrated variant had lower error |
 
-*Note: Statistical significance tests ($p < 0.001$, marked ***) conducted via paired Wilcoxon signed-rank test against the Full CCI baseline.*
+*Directional paired Wilcoxon tests compare errors with Full CCI. These synthetic prototype results are not the manuscript benchmark and do not establish real-world hiring accuracy.*
 `;
 
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
@@ -357,7 +357,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Interactive method illustrations and the separate executable prototype experiment (4,800 simulated candidates per mode). This is not the manuscript Table 1 benchmark.
+              Interactive method illustrations and the separate executable prototype experiment (4,800 role-specific samples per mode). This is not the submitted-paper benchmark or real-world hiring validation.
             </p>
           </div>
         </div>
@@ -819,7 +819,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                   Prototype Experiment: Model Architecture Ablation Study
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Empirical benchmarks across N = 4,800 simulated candidates and 6 canonical roles (16 seeds).
+                  Supplementary implementation ablation across N = 4,800 role-specific samples per mode (6 roles, 16 seeds); not the submitted-paper benchmark.
                 </p>
               </div>
 
@@ -843,7 +843,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
               </div>
             </div>
 
-            {/* Publication Table 1 */}
+            {/* Supplementary implementation ablation table */}
             <div className="overflow-x-auto pt-1">
               <table className="w-full text-left text-xs font-mono">
                 <thead>
@@ -853,7 +853,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                     <th className="pb-3 text-center">RCI RMSE ↓</th>
                     <th className="pb-3 text-center">Spearman ρ ↑</th>
                     <th className="pb-3 text-center">Kendall τ ↑</th>
-                    <th className="pb-3 text-center">Stat. Sig. (p &lt; 0.001)</th>
+                    <th className="pb-3 text-center">Comparison vs Full CCI</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -894,8 +894,8 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
             </div>
 
             <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-800/80">
-              <span>* Paired Wilcoxon signed-rank test against Full CCI baseline. Statistically significant differences marked ***.</span>
-              <span>N = 4,800 candidates simulated across 16 deterministic seeds.</span>
+              <span>Directional paired Wilcoxon comparisons; the uncalibrated variant's lower error is shown explicitly.</span>
+              <span>N = 4,800 role-specific samples per ablation mode across 16 deterministic seeds.</span>
             </div>
           </div>
 
@@ -903,10 +903,10 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Role-by-Role Error Breakdown (RCI MAE)
+                Full CCI Error by Role (RCI MAE)
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Comparison of capability estimation errors across canonical software engineering archetypes.
+                Recorded role-specific Full CCI results for the six paper roles, including Data Engineer. Per-role ablation comparison metrics were not archived.
               </p>
             </div>
 
@@ -922,7 +922,7 @@ Total simulated candidates: $N = 4,800$ across 6 canonical engineering roles.
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {(ablationData?.role_breakdown || DEFAULT_ROLE_BREAKDOWN).map((row) => (
+                  {(ablationData?.role_breakdown ?? DEFAULT_ROLE_BREAKDOWN).map((row) => (
                     <tr key={row.role} className="hover:bg-slate-800/30">
                       <td className="py-2.5 pl-2 font-medium text-slate-100">{row.display_name}</td>
                       <td className="py-2.5 text-center text-emerald-400 font-bold">{row.full_cci_mae.toFixed(3)}</td>
