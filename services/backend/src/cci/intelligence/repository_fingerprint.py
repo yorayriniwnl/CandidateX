@@ -52,6 +52,66 @@ PRACTICE_PATTERNS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+
+REVIEW_TARGET_PATTERNS: dict[str, dict[str, object]] = {
+    "dynamic_code_execution": {
+        "severity": "high",
+        "patterns": (
+            r"\beval\s*\(",
+            r"\bexec\s*\(",
+            r"\bos\.system\s*\(",
+            r"\bsubprocess\.(?:run|Popen|call)\s*\([^\\n]*shell\s*=\s*True",
+            r"\bchild_process\.(?:exec|execSync)\s*\(",
+        ),
+        "why": "Dynamic command or code execution deserves manual review for injection and trust-boundary handling.",
+    },
+    "permissive_cors": {
+        "severity": "medium",
+        "patterns": (
+            r"allow_origins\s*=\s*\[\s*['\"]\*['\"]\s*\]",
+            r"access-control-allow-origin['\"]?\s*[:,=]\s*['\"]\*['\"]",
+            r"\bcors\s*\(\s*\{\s*origin\s*:\s*['\"]\*['\"]",
+        ),
+        "why": "Wildcard cross-origin access can be valid for public APIs but should be an explicit deployment decision.",
+    },
+    "tls_verification_disabled": {
+        "severity": "high",
+        "patterns": (
+            r"verify\s*=\s*False",
+            r"rejectUnauthorized\s*:\s*false",
+            r"NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0",
+        ),
+        "why": "Disabling certificate verification weakens transport authenticity and should be justified.",
+    },
+    "raw_sql_construction": {
+        "severity": "medium",
+        "patterns": (
+            r"(?:execute|query)\s*\(\s*f['\"]",
+            r"(?:execute|query)\s*\(\s*['\"][^'\"]*%s[^'\"]*['\"]\s*%",
+            r"(?:execute|query)\s*\(\s*['\"][^'\"]*\+\s*[A-Za-z_]",
+        ),
+        "why": "String-built SQL deserves review for parameterization and injection resistance.",
+    },
+    "broad_exception_swallow": {
+        "severity": "low",
+        "patterns": (
+            r"except\s+Exception\s*:\s*(?:pass|continue)?",
+            r"except\s*:\s*(?:pass|continue)?",
+            r"catch\s*\([^)]*\)\s*\{\s*\}",
+        ),
+        "why": "Broad or empty exception handling can hide operational failures and complicate diagnosis.",
+    },
+    "debug_or_dev_mode": {
+        "severity": "low",
+        "patterns": (
+            r"\bDEBUG\s*=\s*True\b",
+            r"\bdebug\s*:\s*true\b",
+            r"\bapp\.run\s*\([^\\n]*debug\s*=\s*True",
+        ),
+        "why": "Development diagnostics should be reviewed before production deployment.",
+    },
+}
+
 ARCHITECTURE_SEGMENTS = {
     "api",
     "domain",
@@ -250,6 +310,95 @@ def _module_topology(snapshots: list[dict[str, str]]) -> dict[str, object]:
     }
 
 
+
+def _review_targets(snapshots: list[dict[str, str]]) -> dict[str, object]:
+    findings: list[dict[str, object]] = []
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+
+    for item in snapshots:
+        path = item.get("path", "")
+        category = item.get("category", "other")
+        text = item.get("text", "")[:65_536]
+        if not path or category in {"docs", "other"}:
+            continue
+
+        lines = text.splitlines()
+        for rule, config in REVIEW_TARGET_PATTERNS.items():
+            matched_lines: list[int] = []
+            patterns = config["patterns"]
+            for line_number, line in enumerate(lines, start=1):
+                if any(re.search(pattern, line, flags=re.IGNORECASE) for pattern in patterns):
+                    matched_lines.append(line_number)
+                    if len(matched_lines) >= 6:
+                        break
+            if matched_lines:
+                findings.append(
+                    {
+                        "rule": rule,
+                        "severity": config["severity"],
+                        "path": path,
+                        "lines": matched_lines,
+                        "why_review": config["why"],
+                        "status": "review_target",
+                    }
+                )
+
+        nonempty = sum(1 for line in lines if line.strip())
+        if category == "source" and nonempty >= 700:
+            findings.append(
+                {
+                    "rule": "large_source_module",
+                    "severity": "low",
+                    "path": path,
+                    "lines": [],
+                    "why_review": (
+                        f"The inspected file contains {nonempty} non-empty lines. "
+                        "Large modules can be intentional, but are useful architecture review targets."
+                    ),
+                    "status": "review_target",
+                }
+            )
+
+        todo_lines = [
+            line_number
+            for line_number, line in enumerate(lines, start=1)
+            if re.search(r"\b(?:TODO|FIXME|HACK)\b", line)
+        ][:8]
+        if todo_lines:
+            findings.append(
+                {
+                    "rule": "explicit_technical_debt_marker",
+                    "severity": "low",
+                    "path": path,
+                    "lines": todo_lines,
+                    "why_review": "Explicit TODO/FIXME/HACK markers identify declared follow-up work in inspected code.",
+                    "status": "review_target",
+                }
+            )
+
+    findings.sort(
+        key=lambda item: (
+            severity_rank.get(str(item["severity"]), 9),
+            str(item["rule"]),
+            str(item["path"]),
+        )
+    )
+    by_severity = {
+        severity: sum(1 for finding in findings if finding["severity"] == severity)
+        for severity in ("high", "medium", "low")
+    }
+    return {
+        "count": len(findings),
+        "by_severity": by_severity,
+        "findings": findings[:40],
+        "interpretation": (
+            "Pattern-based manual review targets from the bounded static scan. "
+            "They are not confirmed vulnerabilities, do not reduce capability scores, "
+            "and require inspection in context."
+        ),
+    }
+
+
 def build_repository_fingerprint(
     snapshots: Iterable[dict[str, str]],
 ) -> dict[str, object]:
@@ -328,6 +477,7 @@ def build_repository_fingerprint(
     observed_count = len(observed)
     possible_count = len(PRACTICE_PATTERNS)
     topology = _module_topology(snapshots)
+    review_targets = _review_targets(snapshots)
     return {
         "files_considered": scanned,
         "practice_breadth": {
@@ -340,6 +490,7 @@ def build_repository_fingerprint(
         "architecture_boundaries": boundaries,
         "signal_hotspots": hotspots[:12],
         "module_topology": topology,
+        "review_targets": review_targets,
         "interpretation": (
             "Descriptive static fingerprint of the bounded inspected file set. "
             "Observed means a concrete file or configuration signal was found; "
