@@ -16,13 +16,11 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "Candidate Capability Intelligence"
     APP_ENV: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
     API_PORT: int = 8000
     API_HOST: str = "127.0.0.1"
     API_V1_PREFIX: str = "/v1"
-    SECRET_KEY: str = (
-        "cci_insecure_development_secret_key_change_in_production_min_32_bytes"
-    )
+    SECRET_KEY: str | None = None
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",

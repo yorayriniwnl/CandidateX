@@ -57,6 +57,55 @@ export interface NormalizedRequirement {
   technology_mentions: string[];
 }
 
+export type RequirementFitStatus = 'observed' | 'related' | 'unknown' | 'unresolved';
+
+export interface RequirementEvidenceMatch {
+  requirement_id: string;
+  normalized_name: string;
+  source_text: string;
+  priority: RequirementPriority;
+  capability_mappings: CapabilityKey[];
+  status: RequirementFitStatus;
+  evidence_ids: string[];
+  matching_technologies: string[];
+  explanation: string;
+}
+
+export interface RoleFitSummary {
+  requirement_matches: RequirementEvidenceMatch[];
+  mandatory_total: number;
+  mandatory_observed: number;
+  mandatory_related: number;
+  mandatory_unknown: number;
+  mandatory_unresolved: number;
+  preferred_total: number;
+  preferred_observed: number;
+  preferred_related: number;
+  preferred_unknown: number;
+  preferred_unresolved: number;
+  critical_gaps: string[];
+}
+
+export type EvidenceStrength = 'insufficient' | 'limited' | 'moderate' | 'well_supported';
+
+export interface AnalysisConfidenceSummary {
+  evidence_strength: EvidenceStrength;
+  explanation: string;
+  uncertainty_flags: string[];
+  role_coverage: number;
+  observed_capabilities: number;
+  independent_clusters: number;
+  capabilities_with_intervals: number;
+  interval_coverage: number;
+  maximum_interval_width: number | null;
+  meaningful_conflicts: number;
+  mandatory_unknown: number;
+  mandatory_unresolved: number;
+  source_failures: number;
+  source_unscanned: number;
+  unusable_evidence_records: number;
+}
+
 export interface CandidateManifest {
   candidate_id: string;
   full_name?: string;
@@ -157,6 +206,8 @@ export interface Dossier {
   capability_estimates: Record<CapabilityKey, CapabilityEstimate>;
   capability_conflicts: Record<CapabilityKey, CapabilityConflict>;
   role_requirements: NormalizedRequirement[];
+  role_fit?: RoleFitSummary;
+  analysis_confidence?: AnalysisConfidenceSummary;
   ownership_assessments: OwnershipAssessment[];
   claims_corroboration: ClaimCorroboration[];
   interview_probes: ProbePriority[];
@@ -282,4 +333,3 @@ export interface CalculationResponse {
   bounds_satisfied: boolean;
   explanation: string;
 }
-

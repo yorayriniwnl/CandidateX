@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CandidateX — Capability Intelligence",
-  description: "AI-powered technical candidate evaluation platform for engineering teams",
+  title: "CandidateX — Evidence-first hiring intelligence",
+  description: "CandidateX brings live evidence review into a human-led technical interview workflow.",
   other: {
     "darkreader-lock": "true",
     "color-scheme": "dark"
@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
-      <body className="antialiased min-h-screen bg-[#030712] text-slate-100 font-[family-name:var(--font-sans)]" suppressHydrationWarning>
+      <body className="noise-texture antialiased min-h-screen bg-[#030712] text-slate-100 font-[family-name:var(--font-sans)]" suppressHydrationWarning>
         {/* Animated Background Orbs */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true" suppressHydrationWarning>
           <div

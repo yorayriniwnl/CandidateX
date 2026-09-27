@@ -1,7 +1,8 @@
 # Comprehensive live candidate analysis
 
-The candidate uploads a real resume and reviews the extracted identity, skills, projects,
-education, experience, certifications, achievements, and links before starting acquisition.
+In the research demo, use a synthetic resume and review the extracted identity, skills, projects,
+education, experience, certifications, achievements, and links before starting acquisition. Do not
+upload real candidate data; this workflow is not validated for employment decisions.
 The report must explain each finding using supplied document text or retrieved public sources.
 
 Implementation extends the existing request-scoped live pipeline. GitHub acquisition retains
@@ -27,4 +28,4 @@ independently substantiated. Repository-level commit attribution retains its exi
 
 Validation covers DOCX reading order/header links, section/name extraction, exact technology
 matching, public-only DNS pinning and redirects, response caps, provider failures, full link
-accounting, report rendering/export, and real public production upload/acquisition.
+accounting, report rendering/export, and public-source acquisition using synthetic candidate data.

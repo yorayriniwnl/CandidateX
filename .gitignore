@@ -50,6 +50,7 @@ Thumbs.db
 
 .vercel
 .env*
+!.env.example
 
 # Browser verification artifacts
 apps/web/test-results/

@@ -1,6 +1,6 @@
-# Live resume analysis
+# Live analysis research demo
 
-The primary CandidateX workflow is `/analyze`: upload a real PDF/DOCX resume, review the extracted links and declared GitHub identity, fetch public repositories live, and inspect/export an evidence-backed dossier. `/research-demo` remains an explicitly synthetic teaching tool.
+The live-analysis demonstration is `/analyze`: use synthetic PDF/DOCX documents to review extracted links and declared GitHub identity, fetch public repositories, and inspect/export an evidence-backed dossier. **Do not upload real candidate resumes.** The public flow has no user accounts, tenant isolation, or application-level rate limits, and its results are not validated for employment decisions. `/research-demo` is a separate synthetic teaching tool.
 
 ## Data flow and implementation
 
@@ -36,7 +36,7 @@ The full legacy backend (`cci.main:app`) also includes the live endpoints for te
 
 ## Hosting
 
-Deploy `services/backend` as a Vercel FastAPI project using its `app.py`, `.python-version`, and `vercel.json`. Set the existing frontend project's server-only `CCI_API_URL` to that backend's production URL, then deploy the frontend. The production bridge returns an explicit error if the backend URL is absent; it does not fall back to localhost on Vercel.
+The hosting steps below deploy a public research demo for synthetic data only; they do not make this system ready for live hiring use. Deploy `services/backend` as a Vercel FastAPI project using its `app.py`, `.python-version`, and `vercel.json`. Set the existing frontend project's server-only `CCI_API_URL` to that backend's production URL, then deploy the frontend. The production bridge returns an explicit error if the backend URL is absent; it does not fall back to localhost on Vercel.
 
 An optional server-side `GITHUB_TOKEN` increases GitHub API limits. No browser token or user's GitHub login is required for public acquisition. Without it, shared deployment IP limits can produce rate-limit receipts; those failures never substitute synthetic results.
 
