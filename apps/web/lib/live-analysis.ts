@@ -26,6 +26,48 @@ export interface ParsedJobDescription {
   warnings?: string[];
 }
 export interface TechnologyEvidence { name: string; path: string; basis: string; url: string; attribution_observed?: boolean; }
+
+export interface EngineeringPracticeObservation {
+  name: string;
+  status: string;
+  paths: string[];
+  occurrence_files: number;
+}
+export interface ModuleTopology {
+  nodes: number;
+  edges: number;
+  connected_components: number;
+  cross_directory_edges: number;
+  cycles_detected: number;
+  cycles: string[][];
+  highest_fan_out: { path: string; edges: number }[];
+  highest_fan_in: { path: string; edges: number }[];
+  limitations: string;
+}
+export interface EngineeringReviewTarget {
+  rule: string;
+  severity: string;
+  path: string;
+  lines: number[];
+  why_review: string;
+  status: string;
+}
+export interface EngineeringFingerprint {
+  files_considered: number;
+  practice_breadth: { observed: number; possible: number; ratio: number };
+  observed_practices: EngineeringPracticeObservation[];
+  not_observed_in_bounded_scan: string[];
+  architecture_boundaries: { name: string; paths: string[]; occurrence_files: number }[];
+  signal_hotspots: { path: string; signal_family_count: number; signal_families: string[] }[];
+  module_topology: ModuleTopology;
+  review_targets: {
+    count: number;
+    by_severity: { high: number; medium: number; low: number };
+    findings: EngineeringReviewTarget[];
+    interpretation: string;
+  };
+  interpretation: string;
+}
 export interface RepositoryReview {
   primary_language?: string | null;
   description: string | null; stars: number; forks: number; open_issues: number; is_fork: boolean; archived: boolean;
@@ -33,11 +75,13 @@ export interface RepositoryReview {
   file_categories: Record<string, number>; dependencies: { name: string; version: string; path: string }[];
   technologies: TechnologyEvidence[]; readme_excerpt: string;
   engineering_signals: { name: string; status: string; paths: string[] }[]; limitations: string[];
+  engineering_fingerprint?: EngineeringFingerprint;
 }
 export interface SourceReceipt {
   url: string; status: string; detail: string; commit_sha?: string; fetched_at?: string;
   files_inspected?: number; files_omitted?: number; evidence_count?: number; ownership_score?: number;
   expanded_repositories?: string[];
+  discovered_links?: { url: string; kind: string }[];
   kind?: string; profile?: Record<string, string | number | null>; profile_error?: string;
   inventory?: { url: string; name: string; description: string | null; language: string | null; stars: number;
     fork: boolean; archived: boolean; pushed_at: string | null; inspection_status: string }[];
@@ -88,11 +132,34 @@ export interface PortfolioAnalysis {
   excerpt: string;
   explanation: string;
 }
+export interface ResumeClaim {
+  claim_id: string;
+  category: string;
+  claim: string;
+  source: string;
+  section: string;
+  status: string;
+  is_quantified: boolean;
+  normalized_subject?: string;
+  project_title?: string;
+}
+export interface AcademicRecord {
+  record_id: string;
+  raw_claim: string;
+  status: string;
+  degree_text: string | null;
+  years: string[];
+  claimed_cgpa: { value: number; scale: number | null } | null;
+  claimed_percentage: number | null;
+  evidence_sources: string[];
+  limitations: string[];
+}
 
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
   role_fit?: RoleFitSummary; analysis_confidence?: AnalysisConfidenceSummary; source_health?: SourceHealth;
+  claims?: ResumeClaim[]; academic_records?: AcademicRecord[];
   skills: { skill: string; learning: boolean; status: string; evidence: TechnologyEvidence[];
     evidence_count: number; public_mentions: string[]; explanation: string }[];
   credentials: { claim: string; status: string; explanation: string; matching_pages: {
