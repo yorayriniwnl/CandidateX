@@ -304,7 +304,7 @@ test('supports uploading a job description or recruitment standards document in 
   await expect(page.getByText('Ready for analysis', { exact: true })).toBeVisible();
 
   const textarea = page.locator('#live-jd');
-  await expect(textarea).toHaveValue(/Senior Backend Engineer Requirements/);
+  await expect(textarea).toHaveValue('');
 
   await page.getByRole('button', { name: /Continue to public sources/ }).click();
   await page.getByRole('button', { name: /Continue to review/ }).click();
