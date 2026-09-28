@@ -4,6 +4,7 @@ node_modules/
 
 # Next.js
 .next/
+.next-studio/
 out/
 build/
 dist/
@@ -55,3 +56,8 @@ Thumbs.db
 # Browser verification artifacts
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Local frontend review captures and response replays
+/artifacts/frontend-redesign/*
+!/artifacts/frontend-redesign/README.md
+/artifacts/login/*.png
