@@ -29,6 +29,8 @@ export interface CandidateSummary {
   primary_email?: string;
   has_completed_dossier: boolean;
   rci?: number | null;
+  jd_fit_score?: number | null;
+  observed_capabilities?: number;
   coverage?: number;
   role?: string;
   has_meaningful_conflict: boolean;

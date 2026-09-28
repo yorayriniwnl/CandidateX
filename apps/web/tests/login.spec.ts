@@ -7,6 +7,7 @@ test.describe('CandidateX Login Page', () => {
 
     await page.goto('/login');
     await expect(page).toHaveTitle(/Sign In \| CandidateX/);
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     // Verify PlatformHeader surface is active
     const header = page.locator('header.platform-header');
@@ -34,6 +35,7 @@ test.describe('CandidateX Login Page', () => {
 
   test('quick demo button fills credentials and submits to workspace', async ({ page }) => {
     await page.goto('/login');
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     const emailInput = page.locator('#login-email');
     const passwordInput = page.locator('#login-password');
@@ -59,6 +61,7 @@ test.describe('CandidateX Login Page', () => {
 
   test('shows validation errors when submitting invalid credentials', async ({ page }) => {
     await page.goto('/login');
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     await page.locator('#login-email').fill('unknown_user');
     await page.locator('#login-password').fill('secret');
@@ -70,6 +73,7 @@ test.describe('CandidateX Login Page', () => {
 
   test('role switcher toggles context and candidate role redirects to live evidence', async ({ page }) => {
     await page.goto('/login');
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     await page.getByRole('tab', { name: /Candidate/ }).click();
     await expect(page.getByRole('heading', { name: 'Review your evidence' })).toBeVisible();
@@ -116,6 +120,7 @@ test.describe('CandidateX Login Page', () => {
     await expect(headerCta).toBeVisible();
     await headerCta.click();
     await expect(page).toHaveURL(/\/login\?redirect=%2Fanalyze$/);
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     // 2. Return to home and click hero CTA "Start with live evidence"
     await page.goto('/');
@@ -123,6 +128,7 @@ test.describe('CandidateX Login Page', () => {
     await expect(heroBtn).toBeVisible();
     await heroBtn.click();
     await expect(page).toHaveURL(/\/login\?redirect=%2Fanalyze$/);
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
 
     // 3. Log in with fast-track demo credentials
     await page.getByRole('button', { name: 'Yorayriniwnl' }).click();
@@ -132,8 +138,38 @@ test.describe('CandidateX Login Page', () => {
     await expect(page).toHaveURL(/\/analyze$/, { timeout: 15000 });
   });
 
+  test('direct navigation to /analyze requires login and redirects unauthenticated visitors to login', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.context().clearCookies();
+
+    // Directly navigate to /analyze
+    await page.goto('/analyze');
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fanalyze$/);
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in to workspace' })).toBeVisible();
+
+    // Verify completing login on this page immediately unlocks /analyze
+    await page.getByRole('button', { name: 'Yorayriniwnl' }).click();
+    await page.getByRole('button', { name: 'Sign in to workspace' }).click();
+    await expect(page).toHaveURL(/\/analyze$/, { timeout: 15000 });
+  });
+
+  test('clicking Follow your own evidence link opens login page when unauthenticated', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.context().clearCookies();
+    await page.goto('/');
+
+    const walkthroughLink = page.getByRole('link', { name: /Follow your own evidence/ });
+    await expect(walkthroughLink).toBeVisible();
+    await walkthroughLink.click();
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fanalyze$/);
+  });
+
   test('clicking GitHub OAuth triggers auth endpoint and informs user if keys need configuring', async ({ page }) => {
     await page.goto('/login');
+    await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
     const githubBtn = page.getByRole('button', { name: 'Continue with GitHub' });
     await expect(githubBtn).toBeVisible();
     await githubBtn.click();

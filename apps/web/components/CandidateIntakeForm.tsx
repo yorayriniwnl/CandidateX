@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { CheckSquare, ExternalLink, FileUp, GitBranch, Globe, Plus, Trash2, UserCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { CheckSquare, ExternalLink, FileUp, GitBranch, Globe, Plus, Trash2, UserCheck, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { CandidateManifest } from '../types/cci';
+import { liveRequest, type ResumeIntake } from '../lib/live-analysis';
 
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassInput } from '@/components/ui/GlassInput';
@@ -137,8 +138,9 @@ export const CandidateIntakeForm: React.FC<{
   const [hasConsent, setHasConsent] = useState(true);
   const [fileName, setFileName] = useState(CANONICAL_PRESETS[0].file);
   const [declaredSkills, setDeclaredSkills] = useState<string[]>(CANONICAL_PRESETS[0].skills);
-
+  const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dataDetailsRef = useRef<HTMLDivElement>(null);
 
   const applyPreset = (preset: CandidatePreset) => {
     setCandidateId(preset.id);
@@ -190,9 +192,40 @@ export const CandidateIntakeForm: React.FC<{
     setDeploymentUrls(deploymentUrls.filter((_, i) => i !== idx));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0];
+      setFileName(file.name);
+      try {
+        setIsParsing(true);
+        const intake = await liveRequest<ResumeIntake>('intake', file, file.name);
+        if (intake?.manifest) {
+          if (intake.manifest.display_name) setCandidateName(intake.manifest.display_name);
+          if (intake.manifest.email) setCandidateEmail(intake.manifest.email);
+          if (intake.manifest.claimed_skills && intake.manifest.claimed_skills.length > 0) {
+            setDeclaredSkills(intake.manifest.claimed_skills);
+          }
+          if (intake.manifest.github_urls && intake.manifest.github_urls.length > 0) {
+            setGithubRepos(intake.manifest.github_urls);
+          }
+          if (intake.manifest.deployment_urls && intake.manifest.deployment_urls.length > 0) {
+            setDeploymentUrls(intake.manifest.deployment_urls);
+          }
+          const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          setTimeout(() => {
+            requestAnimationFrame(() => {
+              dataDetailsRef.current?.scrollIntoView({
+                behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                block: 'start',
+              });
+            });
+          }, 100);
+        }
+      } catch {
+        // Fallback gracefully
+      } finally {
+        setIsParsing(false);
+      }
     }
   };
 
@@ -264,7 +297,7 @@ export const CandidateIntakeForm: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div ref={dataDetailsRef} style={{ scrollMarginTop: '80px' }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <GlassInput
             label="Candidate Full Name"
             required
@@ -290,7 +323,14 @@ export const CandidateIntakeForm: React.FC<{
           >
             <FileUp className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
             <p className="text-sm font-medium text-slate-300">{fileName}</p>
-            <p className="text-xs text-slate-500">Embedded annotations and hyperlinks extracted deterministically</p>
+            {isParsing ? (
+              <p className="text-xs text-emerald-400 flex items-center justify-center gap-1.5 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Extracting candidate data from resume...
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">Embedded annotations and hyperlinks extracted deterministically</p>
+            )}
           </div>
           <input 
             type="file" 

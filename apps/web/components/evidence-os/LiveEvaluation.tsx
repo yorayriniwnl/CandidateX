@@ -1,7 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { isUserAuthenticated } from '../../lib/auth';
 import type { CanonicalRole } from '../../types/cci';
 import { liveRequest, publicUrl, fetchLinkData, type LiveResult, type ResumeIntake, type ParsedJobDescription } from '../../lib/live-analysis';
 import { saveCandidateBackend } from '../../lib/api';
@@ -42,6 +45,7 @@ function sourceCategory(url: string, category: string) {
     portfolio_urls: 'Portfolio',
     shared_document_urls: 'Shared file (Drive/Cloud)',
     project_links: 'Project link',
+    public_links: 'Public source',
   };
   return labels[category] ?? 'Public source';
 }
@@ -56,6 +60,7 @@ function sourceSelections(intake: ResumeIntake): SourceSelection[] {
     ['portfolio_urls', intake.manifest.portfolio_urls || []],
     ['shared_document_urls', intake.manifest.shared_document_urls || []],
     ['project_links', intake.manifest.project_links || []],
+    ['public_links', intake.manifest.public_links || []],
   ];
   const seen = new Set<string>();
   return groups.flatMap(([group, urls]) => {
@@ -89,6 +94,27 @@ function declaredGithubIdentity(intake: ResumeIntake): string {
 }
 
 export function LiveEvaluation() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserAuthenticated()) {
+      router.replace('/login?redirect=/analyze');
+    }
+
+    const handleAuthChange = () => {
+      if (!isUserAuthenticated()) {
+        router.replace('/login?redirect=/analyze');
+      }
+    };
+
+    window.addEventListener('cx-auth-change', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('cx-auth-change', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, [router]);
+
   const [intake, setIntake] = useState<ResumeIntake | null>(null);
   const [result, setResult] = useState<LiveResult | null>(null);
   const [role, setRole] = useState<CanonicalRole>('backend');
@@ -237,7 +263,14 @@ export function LiveEvaluation() {
       const data = await fetchLinkData(url);
       setSources(current => current.map(s => {
         if (s.url.toLowerCase() !== url.toLowerCase()) return s;
-        const newCategory = data.inferred_kind === 'project' ? 'Project archive (Fetched)' : 'Shared file (Fetched)';
+        const newCategory =
+          data.inferred_kind === 'project'
+            ? 'Project file (Fetched)'
+            : data.inferred_kind === 'credential'
+            ? 'Credential file (Fetched)'
+            : data.inferred_kind === 'portfolio'
+            ? 'Portfolio deck (Fetched)'
+            : 'Shared file (Fetched)';
         return {
           ...s,
           fetching: false,
@@ -352,7 +385,28 @@ export function LiveEvaluation() {
     }
   }
 
+  const handleStepChange = (newStep: EvaluationStep) => {
+    setStep(newStep);
+    if (typeof window !== 'undefined') {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const currentScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      if (currentScrollY > 80) {
+        window.scrollTo({
+          top: 0,
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        });
+      }
+    }
+  };
+
   function newEvaluation() {
+    if (typeof window !== 'undefined') {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({
+        top: 0,
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
+    }
     setIntake(null);
     setSources([]);
     setIdentity('');
@@ -377,71 +431,120 @@ export function LiveEvaluation() {
     <div className={`${styles.app} observatory-route observatory-route--live`}>
       <PlatformHeader surface="live" status="live" />
       <main className={styles.appBody}>
-        {showWizard && <AnalysisWizard
-          step={step}
-          intake={intake}
-          fileName={fileName}
-          fileSize={fileSize}
-          role={role}
-          jd={jd}
-          jdFileName={jdFileName}
-          jdFileSize={jdFileSize}
-          jdLoading={jdLoading}
-          jdError={jdError}
-          jdWarning={jdWarning}
-          sources={sources}
-          identity={identity}
-          busy={isBusy}
-          phase={phase}
-          error={error}
-          sourceError={sourceError}
-          previousRun={result}
-          onStepChange={setStep}
-          onUpload={upload}
-          onRemoveResume={removeResume}
-          onRoleChange={setRole}
-          onJdChange={setJd}
-          onJdUpload={uploadJd}
-          onJdRemove={removeJd}
-          onToggleSource={toggleSource}
-          onAddSource={addSource}
-          onIdentityChange={setIdentity}
-          onAnalyze={analyze}
-          onFetchLink={fetchLink}
-          onFetchAllCloud={fetchAllCloud}
-        />}
+        <AnimatePresence mode="wait">
+          {showWizard && (
+            <motion.div
+              key="wizard"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <AnalysisWizard
+                step={step}
+                intake={intake}
+                fileName={fileName}
+                fileSize={fileSize}
+                role={role}
+                jd={jd}
+                jdFileName={jdFileName}
+                jdFileSize={jdFileSize}
+                jdLoading={jdLoading}
+                jdError={jdError}
+                jdWarning={jdWarning}
+                sources={sources}
+                identity={identity}
+                busy={isBusy}
+                phase={phase}
+                error={error}
+                sourceError={sourceError}
+                previousRun={result}
+                onStepChange={handleStepChange}
+                onUpload={upload}
+                onRemoveResume={removeResume}
+                onRoleChange={setRole}
+                onJdChange={setJd}
+                onJdUpload={uploadJd}
+                onJdRemove={removeJd}
+                onToggleSource={toggleSource}
+                onAddSource={addSource}
+                onIdentityChange={setIdentity}
+                onAnalyze={analyze}
+                onFetchLink={fetchLink}
+                onFetchAllCloud={fetchAllCloud}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {previousRunNotice && <div className={styles.previousRunNotice} role="status" aria-live="polite">{previousRunNotice}</div>}
-        {hrSavedNotice && (
-          <div style={{
-            margin: '0.75rem auto 1.25rem',
-            maxWidth: '1200px',
-            padding: '0.75rem 1.25rem',
-            borderRadius: '12px',
-            background: 'rgba(99, 102, 241, 0.12)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            color: '#c7d2fe',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem',
-            fontSize: '0.875rem',
-            flexWrap: 'wrap'
-          }} role="status" aria-live="polite">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-              <strong style={{ color: '#818cf8' }}>✓ Saved in HR:</strong> {hrSavedNotice}
-            </span>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '1rem' }}>
-              <Link href="/hr" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
-                Candidates →
-              </Link>
-              <Link href="/" style={{ color: '#a5b4fc', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
-                Home →
-              </Link>
-            </div>
-          </div>
-        )}
-        {result && <LiveDossier key={result.dossier.analysis_run_id} result={result} onNewEvaluation={newEvaluation} />}
+        <AnimatePresence>
+          {previousRunNotice && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className={styles.previousRunNotice}
+              role="status"
+              aria-live="polite"
+            >
+              {previousRunNotice}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {hrSavedNotice && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+              style={{
+                margin: '0.75rem auto 1.25rem',
+                maxWidth: '1200px',
+                padding: '0.75rem 1.25rem',
+                borderRadius: '12px',
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                color: '#c7d2fe',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                fontSize: '0.875rem',
+                flexWrap: 'wrap'
+              }}
+              role="status"
+              aria-live="polite"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                <strong style={{ color: '#818cf8' }}>✓ Saved in HR:</strong> {hrSavedNotice}
+              </span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '1rem' }}>
+                <Link href="/hr" scroll={true} style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                  Candidates →
+                </Link>
+                <Link href="/" scroll={true} style={{ color: '#a5b4fc', fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                  Home →
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {result && (
+            <motion.div
+              key={result.dossier.analysis_run_id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <LiveDossier result={result} onNewEvaluation={newEvaluation} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       <footer className={styles.appFooter}>

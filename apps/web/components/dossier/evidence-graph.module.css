@@ -1,8 +1,8 @@
 .section {
   padding: clamp(28px, 4.2vw, 56px) 0;
-  border-top: 1px solid #202833;
-  border-bottom: 1px solid #202833;
-  color: #f4f7fa;
+  border-top: 1px solid #b193cd26;
+  border-bottom: 1px solid #b193cd26;
+  color: #eee5f6;
 }
 
 .sectionHeader {
@@ -23,7 +23,7 @@
 
 .sectionHeader h2 {
   margin: 0;
-  color: #f4f7fa;
+  color: #eee5f6;
   font-size: clamp(1.7rem, 3vw, 2.65rem);
   font-weight: 560;
   letter-spacing: -0.055em;
@@ -33,7 +33,7 @@
 .lede {
   max-width: 670px;
   margin: 12px 0 0;
-  color: #9aa5b1;
+  color: #ad9bb9;
   font-size: 14px;
   line-height: 1.65;
 }
@@ -41,14 +41,14 @@
 .count {
   flex: 0 0 auto;
   margin: 0 0 3px;
-  color: #8f9baa;
+  color: #a28ab4;
   font: 500 11px/1.5 var(--font-mono), monospace;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
 .count strong {
-  color: #f4f7fa;
+  color: #eee5f6;
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.04em;
@@ -57,8 +57,8 @@
 .empty {
   margin: 0;
   padding: 24px 0;
-  border-top: 1px solid #202833;
-  color: #9aa5b1;
+  border-top: 1px solid #b193cd26;
+  color: #ad9bb9;
   font-size: 14px;
 }
 
@@ -74,7 +74,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
-  color: #9aa5b1;
+  color: #ad9bb9;
   font-size: 11px;
 }
 
@@ -103,10 +103,10 @@
   gap: 9px;
   min-height: 42px;
   padding: 0 15px;
-  border: 1px solid #394756;
+  border: 1px solid #ad8ecd39;
   border-radius: 7px;
-  background: #10151d;
-  color: #f4f7fa;
+  background: #160f20;
+  color: #eee5f6;
   font: 600 12px/1 var(--font-mono), monospace;
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
@@ -133,7 +133,7 @@
 
 .viewer {
   overflow: hidden;
-  border: 1px solid #202833;
+  border: 1px solid #b193cd26;
   border-radius: 10px;
   background: #07090d;
 }
@@ -232,7 +232,7 @@
   text-align: center;
 }
 
-.webglFallback strong { color: #f4f7fa; font-size: 14px; }
+.webglFallback strong { color: #eee5f6; font-size: 14px; }
 .webglFallback span { max-width: 430px; font-size: 12px; line-height: 1.6; }
 
 .viewerFooter {
@@ -242,7 +242,7 @@
   gap: 16px;
   min-height: 54px;
   padding: 10px 16px;
-  border-top: 1px solid #202833;
+  border-top: 1px solid #b193cd26;
 }
 
 .viewerFooter p {
@@ -275,13 +275,13 @@
   grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1.4fr);
   gap: 18px 32px;
   padding: 18px 18px 20px;
-  border-top: 1px solid #202833;
+  border-top: 1px solid #b193cd26;
   background: #0c1016;
 }
 
 .nodeInspectorHeading h3 {
   margin: 7px 0 6px;
-  color: #f4f7fa;
+  color: #eee5f6;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.025em;
@@ -308,13 +308,13 @@
   display: grid;
   min-height: 460px;
   place-items: center;
-  color: #9aa5b1;
+  color: #ad9bb9;
   font: 11px/1.5 var(--font-mono), monospace;
 }
 
 .textEquivalent {
   margin-top: 18px;
-  border-top: 1px solid #202833;
+  border-top: 1px solid #b193cd26;
 }
 
 .textEquivalent summary {
@@ -343,7 +343,7 @@
   border: 1px solid #293441;
   border-radius: 6px;
   background: #0c1016;
-  color: #f4f7fa;
+  color: #eee5f6;
   font: 12px/1.4 var(--font-mono), monospace;
 }
 
@@ -358,7 +358,7 @@
 
 .alternativeColumns h3 {
   margin: 0 0 10px;
-  color: #9aa5b1;
+  color: #ad9bb9;
   font: 600 10px/1.4 var(--font-mono), monospace;
   letter-spacing: 0.1em;
   text-transform: uppercase;

@@ -91,13 +91,22 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
   }
 
   const summary = dossier ? summarizeDossier(dossier) : null;
-  const scoreBadge = candidate.rci != null ? ` · Score: ${candidate.rci.toFixed(1)} / 100` : dossier?.rci != null ? ` · Score: ${dossier.rci.toFixed(1)} / 100` : '';
+  const fitScore = candidate.jd_fit_score ?? candidate.rci ?? dossier?.rci;
+  const observedCount = candidate.observed_capabilities ?? (
+    dossier?.capability_estimates
+      ? Object.values(dossier.capability_estimates).filter((e) => e.is_observed && e.estimate != null).length
+      : candidate.coverage != null
+      ? Math.max(1, Math.round(candidate.coverage * 12))
+      : null
+  );
+  const scoreBadge = fitScore != null ? ` · JD Fit Score: ${fitScore.toFixed(1)} / 100` : '';
+  const observedBadge = observedCount != null ? ` · Observed: ${observedCount} / 12` : '';
   return (
     <GlassModal 
       isOpen={!!candidate} 
       onClose={onClose} 
       title={fullView ? `${candidate.display_name} · Technical dossier` : candidate.display_name}
-      subtitle={`${roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${scoreBadge}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
+      subtitle={`${roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${scoreBadge}${observedBadge}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
       size={fullView ? 'xl' : 'lg'}
     >
       {fullView ? <div className="space-y-6">
@@ -117,15 +126,26 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
           <GlassCard glow="indigo" className="p-5 border-indigo-500/20">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="text-sm font-semibold text-indigo-100">Overall candidate summary</h3>
-              {(candidate.rci != null || dossier?.rci != null) && (
-                <div className="flex items-baseline gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20">
-                  <span className="text-xs text-slate-400 font-medium">Score:</span>
-                  <span className="text-sm font-bold text-brand-400 font-mono">
-                    {((candidate.rci ?? dossier?.rci) as number).toFixed(1)}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {fitScore != null && (
+                  <div className="flex items-baseline gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20">
+                    <span className="text-xs text-slate-400 font-medium">JD Fit Score:</span>
+                    <span className="text-sm font-bold text-brand-400 font-mono">
+                      {fitScore.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
+                  </div>
+                )}
+                {observedCount != null && (
+                  <div className="flex items-baseline gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                    <span className="text-xs text-slate-400 font-medium">Observed:</span>
+                    <span className="text-sm font-bold text-indigo-400 font-mono">
+                      {observedCount}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-normal">/ 12 capabilities</span>
+                  </div>
+                )}
+              </div>
             </div>
             <p className="text-sm leading-6 text-indigo-200/80">{summary
               ? `The evaluation is complete. ${summary.strengths.length ? 'Some stated skills are supported by evidence.' : 'Review the supplied work with your technical interviewer.'} ${summary.alerts.length ? 'There are evidence gaps or mixed findings to discuss before deciding on next steps.' : 'No specific evidence alerts were reported in this evaluation.'}`

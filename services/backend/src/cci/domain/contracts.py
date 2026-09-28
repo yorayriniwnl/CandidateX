@@ -118,6 +118,9 @@ class CandidateManifest(BaseModel):
     shared_document_urls: list[str] = Field(
         default_factory=list, description="Shared documents or cloud drive links (e.g. Google Drive, Dropbox, OneDrive)"
     )
+    public_links: list[str] = Field(
+        default_factory=list, description="Other public web links from CV"
+    )
     claimed_skills: list[str] = Field(
         default_factory=list, description="Self-reported technical skills"
     )

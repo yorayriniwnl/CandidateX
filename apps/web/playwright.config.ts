@@ -19,18 +19,8 @@ export default defineConfig({
   workers: 1,
   timeout: 45000,
   expect: { timeout: 10000 },
-  use: {
-    baseURL: webUrl,
-    channel: 'chromium',
-    viewport: { width: 1440, height: 1000 },
-    trace: 'retain-on-failure',
-    launchOptions: {
-      // GitHub's headless Chromium needs an explicit software WebGL renderer.
-      args: process.env.CI
-        ? ['--use-gl=angle', '--use-angle=swiftshader-webgl', '--enable-unsafe-swiftshader']
-        : [],
-    },
-  },
+  outputDir: '../../artifacts/frontend-redesign/test-results',
+  use: { baseURL: webUrl, channel: 'chromium', viewport: { width: 1440, height: 1000 }, trace: 'retain-on-failure' },
   webServer: [
     {
       command: 'python -m uvicorn cci.main:app --app-dir ../../services/backend/src --host 127.0.0.1 --port ' + apiPort,

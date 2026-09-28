@@ -31,6 +31,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329027@kiit.ac.in',
     has_completed_dossier: true,
     rci: 90.0,
+    jd_fit_score: 90.0,
+    observed_capabilities: 5,
     coverage: 0.18,
     role: 'backend',
     has_meaningful_conflict: false,
@@ -42,6 +44,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329100@kiit.ac.in',
     has_completed_dossier: true,
     rci: 86.0,
+    jd_fit_score: 86.0,
+    observed_capabilities: 4,
     coverage: 0.182,
     role: 'frontend',
     has_meaningful_conflict: false,
@@ -53,6 +57,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329179@kiit.ac.in',
     has_completed_dossier: true,
     rci: 88.0,
+    jd_fit_score: 88.0,
+    observed_capabilities: 4,
     coverage: 0.18,
     role: 'ml_engineer',
     has_meaningful_conflict: false,
@@ -64,6 +70,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329065@kiit.ac.in',
     has_completed_dossier: true,
     rci: 89.0,
+    jd_fit_score: 89.0,
+    observed_capabilities: 4,
     coverage: 0.18,
     role: 'devops_cloud',
     has_meaningful_conflict: false,
@@ -75,6 +83,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329064@kiit.ac.in',
     has_completed_dossier: true,
     rci: 89.0,
+    jd_fit_score: 89.0,
+    observed_capabilities: 5,
     coverage: 0.18,
     role: 'fullstack',
     has_meaningful_conflict: false,
@@ -86,6 +96,8 @@ const FALLBACK_CANDIDATES: CandidateSummary[] = [
     primary_email: '2329195@kiit.ac.in',
     has_completed_dossier: true,
     rci: 69.9,
+    jd_fit_score: 69.9,
+    observed_capabilities: 1,
     coverage: 0.0,
     role: 'backend',
     has_meaningful_conflict: true,
@@ -187,11 +199,18 @@ export const CandidateDirectory: React.FC<{
       return matchesSearch && matchesRole && matchesStatus;
     })
     .sort((a, b) => {
+      const fitA = a.jd_fit_score ?? a.rci;
+      const fitB = b.jd_fit_score ?? b.rci;
       if (sortBy === 'rci_desc') {
-        return (b.rci ?? -1) - (a.rci ?? -1);
+        return (fitB ?? -1) - (fitA ?? -1);
       }
       if (sortBy === 'rci_asc') {
-        return (a.rci ?? 999) - (b.rci ?? 999);
+        return (fitA ?? 999) - (fitB ?? 999);
+      }
+      if (sortBy === ('observed_desc' as any)) {
+        const obsA = a.observed_capabilities ?? (a.coverage ? Math.round(a.coverage * 12) : 0);
+        const obsB = b.observed_capabilities ?? (b.coverage ? Math.round(b.coverage * 12) : 0);
+        return obsB - obsA;
       }
       if (sortBy === 'coverage_desc') {
         return (b.coverage ?? 0) - (a.coverage ?? 0);
@@ -206,12 +225,12 @@ export const CandidateDirectory: React.FC<{
     });
 
   const cohortMetrics = useMemo(() => {
-    const validRcis = filteredCandidates.map((c) => c.rci).filter((r): r is number => r !== null && r !== undefined);
+    const validRcis = filteredCandidates.map((c) => c.jd_fit_score ?? c.rci).filter((r): r is number => r !== null && r !== undefined);
     const validCovs = filteredCandidates.map((c) => c.coverage).filter((cv): cv is number => cv !== null && cv !== undefined);
     const meanRci = validRcis.length > 0 ? validRcis.reduce((a, b) => a + b, 0) / validRcis.length : 0;
     const meanCov = validCovs.length > 0 ? validCovs.reduce((a, b) => a + b, 0) / validCovs.length : 0;
     const conflictCount = filteredCandidates.filter((c) => c.has_meaningful_conflict).length;
-    const topCandidate = [...filteredCandidates].sort((a, b) => (b.rci ?? 0) - (a.rci ?? 0))[0];
+    const topCandidate = [...filteredCandidates].sort((a, b) => ((b.jd_fit_score ?? b.rci) ?? 0) - ((a.jd_fit_score ?? a.rci) ?? 0))[0];
 
     return {
       total: filteredCandidates.length,
@@ -228,21 +247,24 @@ export const CandidateDirectory: React.FC<{
       '',
       `Generated: ${new Date().toISOString()}`,
       `Total Evaluated Candidates: ${cohortMetrics.total}`,
-      `Cohort Mean RCI: ${cohortMetrics.meanRci.toFixed(1)} / 100`,
+      `Cohort Mean JD Fit Score (RCI): ${cohortMetrics.meanRci.toFixed(1)} / 100`,
       `Cohort Mean Evidence Coverage: ${(cohortMetrics.meanCov * 100).toFixed(1)}%`,
       `Candidates with Contradiction Alerts: ${cohortMetrics.conflictCount}`,
       '',
-      '| Rank | Candidate Name | Canonical Role | Role Capability Index (RCI) | Evidence Coverage | Contradiction Alert |',
-      '|:---:|:---|:---|:---:|:---:|:---:|',
+      '| Rank | Candidate / Student Name | Canonical Role | JD Fit Score | Observed Capabilities | Evidence Coverage | Contradiction Alert |',
+      '|:---:|:---|:---|:---:|:---:|:---:|:---:|',
     ];
 
     filteredCandidates.forEach((c, idx) => {
       const rank = idx + 1;
-      const rciStr = c.rci !== null && c.rci !== undefined ? `${c.rci.toFixed(1)} / 100` : 'UNKNOWN';
+      const fitVal = c.jd_fit_score ?? c.rci;
+      const fitStr = fitVal !== null && fitVal !== undefined ? `${fitVal.toFixed(1)} / 100` : 'UNKNOWN';
+      const obsCount = c.observed_capabilities ?? (c.coverage ? Math.max(1, Math.round(c.coverage * 12)) : 0);
+      const obsStr = `${obsCount} / 12`;
       const covStr = c.coverage !== null && c.coverage !== undefined ? `${(c.coverage * 100).toFixed(1)}%` : '0.0%';
       const conflictStr = c.has_meaningful_conflict ? '⚠️ Conflict Detected' : 'Aligned';
       const roleStr = c.role || 'Unspecified';
-      lines.push(`| **#${rank}** | ${c.display_name} | ${roleStr} | **${rciStr}** | ${covStr} | ${conflictStr} |`);
+      lines.push(`| **#${rank}** | ${c.display_name} | ${roleStr} | **${fitStr}** | ${obsStr} | ${covStr} | ${conflictStr} |`);
     });
 
     lines.push('');
@@ -269,7 +291,7 @@ export const CandidateDirectory: React.FC<{
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 min-w-0 max-w-full overflow-x-hidden">
       {/* Header Bar */}
       <GlassCard variant="strong" glow="indigo" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -279,7 +301,7 @@ export const CandidateDirectory: React.FC<{
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">Candidate Directory</h2>
             <p className="text-xs text-slate-400">
-              Evaluated technical cohorts with verified dossiers, RCI ratings, and contradiction alerts
+              Evaluated candidate &amp; student cohorts with verified dossiers, JD fit scores, observed capabilities, and contradiction alerts
             </p>
           </div>
         </div>
@@ -321,14 +343,14 @@ export const CandidateDirectory: React.FC<{
           <div>
             <span className="font-semibold text-white">How to explore:</span>
             <span className="text-slate-400 ml-1.5">
-              Click &ldquo;View Dossier&rdquo; on any candidate to inspect verified code capabilities, or select up to 3 candidates with &ldquo;Compare&rdquo; for side-by-side analysis.
+              Click &ldquo;View Dossier&rdquo; on any candidate or student to inspect verified code capabilities, or select up to 3 candidates with &ldquo;Compare&rdquo; for side-by-side analysis.
             </span>
           </div>
         </div>
       </GlassCard>
 
       {/* Cohort Analytics Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <GlassCard variant="subtle" className="p-3.5 flex items-center justify-between">
           <div>
             <span className="text-[10px] text-slate-500 uppercase font-mono block">Cohort Size</span>
@@ -343,7 +365,7 @@ export const CandidateDirectory: React.FC<{
 
         <GlassCard variant="subtle" glow="indigo" className="p-3.5 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono block">Mean Readiness</span>
+            <span className="text-[10px] text-slate-500 uppercase font-mono block">Mean JD Fit Score</span>
             <span className="text-xl font-bold text-brand-400 font-mono">
               <AnimatedCounter value={cohortMetrics.meanRci} decimals={1} />
               <span className="text-xs text-slate-500 font-normal"> / 100</span>
@@ -423,11 +445,12 @@ export const CandidateDirectory: React.FC<{
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500/50 transition-colors"
             >
-              <option value="rci_desc" className="bg-slate-900">Sort: RCI (High &rarr; Low)</option>
-              <option value="rci_asc" className="bg-slate-900">Sort: RCI (Low &rarr; High)</option>
-              <option value="coverage_desc" className="bg-slate-900">Sort: Coverage (High &rarr; Low)</option>
-              <option value="name_asc" className="bg-slate-900">Sort: Name (A &rarr; Z)</option>
-              <option value="conflict_first" className="bg-slate-900">Sort: Conflicts First</option>
+              <option value="rci_desc" className="bg-slate-900">JD Fit (High &rarr; Low)</option>
+              <option value="rci_asc" className="bg-slate-900">JD Fit (Low &rarr; High)</option>
+              <option value="observed_desc" className="bg-slate-900">Observed (High &rarr; Low)</option>
+              <option value="coverage_desc" className="bg-slate-900">Coverage (High &rarr; Low)</option>
+              <option value="name_asc" className="bg-slate-900">Name (A &rarr; Z)</option>
+              <option value="conflict_first" className="bg-slate-900">Conflicts First</option>
             </select>
 
             <div className="flex items-center glass rounded-xl p-0.5 text-xs">
@@ -464,7 +487,9 @@ export const CandidateDirectory: React.FC<{
             const isInspecting = loadingCandidateId === candidate.id;
             const isSelectedForCompare = selectedForComparison.includes(candidate.id);
             const avatarGrad = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
-            const rci = candidate.rci ?? 0;
+            const fitScore = candidate.jd_fit_score ?? candidate.rci;
+            const rci = fitScore ?? 0;
+            const observedCount = candidate.observed_capabilities ?? (candidate.coverage !== null && candidate.coverage !== undefined ? Math.max(0, Math.round(candidate.coverage * 12)) : 0);
 
             return (
               <GlassCard
@@ -480,7 +505,7 @@ export const CandidateDirectory: React.FC<{
               >
                 <div>
                   {/* Card Header */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0`}>
                         {candidate.display_name.charAt(0)}
@@ -497,28 +522,44 @@ export const CandidateDirectory: React.FC<{
                   </div>
 
                   {/* Gauge & Metrics in Bento layout */}
-                  <div className="my-3 p-3 glass-subtle rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <RadialGauge
-                        value={rci / 100}
-                        size={52}
-                        strokeWidth={5}
-                        showPercentage={true}
-                      />
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase font-mono block">Technical Readiness</span>
-                        <span className="text-xs font-semibold text-slate-300">
-                          {rci >= 88 ? 'Exceptional' : rci >= 75 ? 'Strong' : rci >= 60 ? 'Developing' : 'Sparse'}
+                  <div className="my-3 p-3 glass-subtle rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-3">
+                        <RadialGauge
+                          value={rci / 100}
+                          size={52}
+                          strokeWidth={5}
+                          showPercentage={true}
+                        />
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-mono font-medium block">JD Fit Score</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm font-bold text-brand-400 font-mono">
+                              {fitScore !== null && fitScore !== undefined ? fitScore.toFixed(1) : '—'}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-300">
+                            {rci >= 88 ? 'Exceptional' : rci >= 75 ? 'Strong' : rci >= 60 ? 'Developing' : 'Sparse'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-mono font-medium block">Coverage</span>
+                        <span className="text-xs font-bold text-emerald-400 font-mono block">
+                          {candidate.coverage !== null && candidate.coverage !== undefined
+                            ? `${(candidate.coverage * 100).toFixed(0)}%`
+                            : '0%'}
                         </span>
+                        <span className="text-[10px] text-slate-500 block">role evidence</span>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase font-mono block">Coverage</span>
-                      <span className="text-xs font-bold text-emerald-400 font-mono">
-                        {candidate.coverage !== null && candidate.coverage !== undefined
-                          ? `${(candidate.coverage * 100).toFixed(0)}%`
-                          : '0%'}
+                    <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-slate-400">Observed Capabilities</span>
+                      <span className="inline-flex items-center gap-1 font-mono font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md text-[11px]">
+                        {observedCount} <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
                       </span>
                     </div>
                   </div>
@@ -540,7 +581,7 @@ export const CandidateDirectory: React.FC<{
                 </div>
 
                 {/* Card Footer Actions */}
-                <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between gap-2">
+                <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => toggleSelectForComparison(candidate.id)}
@@ -576,8 +617,9 @@ export const CandidateDirectory: React.FC<{
               <thead>
                 <tr className="border-b border-white/[0.06] text-slate-500 font-mono text-[10px] uppercase tracking-wider bg-white/[0.02]">
                   <th className="py-3 px-4 text-center">Rank</th>
-                  <th className="py-3 px-4">Candidate &amp; Role</th>
-                  <th className="py-3 px-4 text-center">RCI Score</th>
+                  <th className="py-3 px-4">Candidate / Student &amp; Role</th>
+                  <th className="py-3 px-4 text-center">JD Fit Score</th>
+                  <th className="py-3 px-4 text-center">Observed Capabilities</th>
                   <th className="py-3 px-4 text-center">Coverage</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -589,6 +631,8 @@ export const CandidateDirectory: React.FC<{
                   const roleInfo = ROLE_META[candidate.role || 'backend'] || { label: candidate.role || 'Unknown', variant: 'neutral' as const };
                   const isInspecting = loadingCandidateId === candidate.id;
                   const isSelectedForCompare = selectedForComparison.includes(candidate.id);
+                  const fitVal = candidate.jd_fit_score ?? candidate.rci;
+                  const observedCount = candidate.observed_capabilities ?? (candidate.coverage ? Math.max(1, Math.round(candidate.coverage * 12)) : 0);
 
                   return (
                     <tr
@@ -626,10 +670,23 @@ export const CandidateDirectory: React.FC<{
                         </p>
                       </td>
 
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-bold font-mono text-brand-400">
-                          {candidate.rci !== null && candidate.rci !== undefined ? candidate.rci.toFixed(1) : 'UNKNOWN'}
-                          <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
+                      <td className="py-3 px-4 text-center font-mono font-medium">
+                        {fitVal !== null && fitVal !== undefined ? (
+                          <span className="inline-flex items-baseline gap-1">
+                            <span className="text-sm font-bold text-brand-400">
+                              {fitVal.toFixed(1)}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-xs">UNKNOWN</span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-center font-mono">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
+                          {observedCount}
+                          <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
                         </span>
                       </td>
 

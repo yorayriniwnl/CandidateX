@@ -18,6 +18,8 @@ class CandidateSummaryResponse(BaseModel):
     primary_email: str | None = None
     has_completed_dossier: bool
     rci: float | None = None
+    jd_fit_score: float | None = None
+    observed_capabilities: int | None = None
     coverage: float | None = None
     role: str | None = None
     has_meaningful_conflict: bool = False
@@ -39,6 +41,8 @@ class SaveCandidateRequest(BaseModel):
     primary_email: str | None = None
     has_completed_dossier: bool = True
     rci: float | None = None
+    jd_fit_score: float | None = None
+    observed_capabilities: int | None = None
     coverage: float | None = None
     role: str | None = None
     has_meaningful_conflict: bool = False
@@ -66,12 +70,15 @@ def save_candidate_profile(
         cand_id = uuid4()
 
     created_at_str = req.created_at or datetime.now(timezone.utc).isoformat()
+    fit_score = req.jd_fit_score if req.jd_fit_score is not None else req.rci
     summary = CandidateSummaryResponse(
         id=cand_id,
         display_name=req.display_name,
         primary_email=req.primary_email,
         has_completed_dossier=req.has_completed_dossier,
         rci=req.rci,
+        jd_fit_score=fit_score,
+        observed_capabilities=req.observed_capabilities,
         coverage=req.coverage,
         role=req.role,
         has_meaningful_conflict=req.has_meaningful_conflict,
@@ -129,10 +136,16 @@ def list_candidates(
                 coverage = dossier.coverage if dossier else None
                 role_val = dossier.role.value if dossier else None
                 has_conflict = False
+                observed_count = None
                 if dossier:
                     has_conflict = any(
                         conf.has_meaningful_conflict
                         for conf in dossier.capability_conflicts.values()
+                    )
+                    observed_count = sum(
+                        1
+                        for est in dossier.capability_estimates.values()
+                        if est.is_observed and est.estimate is not None
                     )
 
                 summaries.append(
@@ -142,6 +155,8 @@ def list_candidates(
                         primary_email=c.primary_email,
                         has_completed_dossier=has_dossier,
                         rci=rci,
+                        jd_fit_score=rci,
+                        observed_capabilities=observed_count,
                         coverage=coverage,
                         role=role_val,
                         has_meaningful_conflict=has_conflict,

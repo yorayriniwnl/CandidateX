@@ -70,6 +70,7 @@ export function LiveDossier({ result, onNewEvaluation }: { result: LiveResult; o
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '36px 0 24px', borderTop: '1px solid var(--rule)', marginTop: '24px', flexWrap: 'wrap' }}>
       <Link
         href="/hr"
+        scroll={true}
         className={styles.secondary}
         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
         title="Land to Candidates"
@@ -80,6 +81,7 @@ export function LiveDossier({ result, onNewEvaluation }: { result: LiveResult; o
       </Link>
       <Link
         href="/"
+        scroll={true}
         className={styles.secondary}
         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
         title="Land to Home"

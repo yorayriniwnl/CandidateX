@@ -3,6 +3,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { ArrowRight, ArrowUpRight, Braces, Check, FileText, GitBranch, MessageSquare, Quote } from 'lucide-react';
 import Link from 'next/link';
+import { AnalyzeLink } from '../navigation/AnalyzeLink';
 import styles from './walkthrough.module.css';
 
 const STEPS = [
@@ -43,7 +44,7 @@ export function EvidenceWalkthrough() {
         <div className={styles.tabList} role="tablist" aria-label="Follow an example claim" aria-orientation="vertical">
           {STEPS.map(({ label, text, icon: Icon }, index) => <button key={label} type="button" role="tab" id={`evidence-step-${index}`} aria-selected={active === index} aria-controls="evidence-example-panel" tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => navigate(event, index)}><span className={styles.stepNumber}>0{index + 1}</span><span className={styles.stepCopy}><strong>{label}</strong><span>{text}</span></span><Icon size={17} strokeWidth={1.3} aria-hidden="true" /></button>)}
         </div>
-        <Link href="/analyze" className={styles.tryLink}>Follow your own evidence <ArrowUpRight size={14} aria-hidden="true" /></Link>
+        <AnalyzeLink targetHref="/analyze" className={styles.tryLink}>Follow your own evidence <ArrowUpRight size={14} aria-hidden="true" /></AnalyzeLink>
       </div>
       <div className={styles.example}>
         <div className={styles.exampleBar}><span className={styles.windowDots} aria-hidden="true"><i /><i /><i /></span><span>CANDIDATEX / EVIDENCE TRACE</span><span className={styles.exampleBadge}>Illustrative example</span></div>

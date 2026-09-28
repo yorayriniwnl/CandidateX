@@ -119,7 +119,7 @@ export const CapabilityBreakdownTable: React.FC<{
                             <GlowBadge variant="neutral" size="sm">UNKNOWN</GlowBadge>
                             <span className="text-[10px] text-amber-400/70">No Repos</span>
                           </div>
-                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #1e293b, #1e293b 4px, #0f172a 4px, #0f172a 8px)' }} />
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #281e34, #281e34 4px, #171020 4px, #171020 8px)' }} />
                         </div>
                       )}
                     </td>

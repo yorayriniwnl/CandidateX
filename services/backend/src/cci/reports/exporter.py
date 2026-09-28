@@ -108,7 +108,7 @@ def generate_markdown_brief(dossier: Dossier, candidate_name: str = "Candidate")
             "",
             "## 4. Prioritized Technical Interview Inquiry Probes",
             "",
-            "Paper Eq. (11): $I_k = w_k[\\alpha(1-\\mathrm{Cov}_k) + \\beta\\,\\mathrm{CIwidth}_k + \\gamma\\,\\mathrm{Conf}_k]$. Probe priority directs interviewer attention; it is not a hire/reject score:",
+            "Ranked by information gain $I_k = w_k \\cdot \\sigma_k \\cdot (1 + \\gamma |D_k|)$ to resolve maximum technical uncertainty:",
             "",
         ]
     )
@@ -821,7 +821,7 @@ def generate_html_brief(dossier: Dossier, candidate_name: str = "Candidate") -> 
 
         <!-- 3. Interview Inquiry Probes -->
         <div class="section-title">3. Prioritized Technical Interview Inquiry Probes</div>
-        <p class="text-sub" style="margin-bottom: 14px;">Paper Eq. (11): I_k = w_k[α(1 − Cov_k) + β·CIwidth_k + γ·Conf_k]. Probe priority directs interviewer attention; it is not a hire/reject score.</p>
+        <p class="text-sub" style="margin-bottom: 14px;">Inquiries prioritized by information gain <em>I_k</em> to resolve maximum candidate uncertainty during interview rounds.</p>
         <div class="probes-container">
             {"".join(probe_cards)}
         </div>

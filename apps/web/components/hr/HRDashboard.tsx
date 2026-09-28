@@ -47,7 +47,13 @@ export function HRDashboard() {
     setMode('loading');
     withReadTimeout(fetchCandidatesList()).then((items) => {
       if (!Array.isArray(items)) throw new Error('Invalid candidate list');
-      if (active) { setCandidates(items.map((item) => ({ ...item, source: 'live' }))); setMode('live'); }
+      if (active) {
+        const liveIds = new Set(items.map((item) => item.id));
+        const nonDuplicateSamples = SAMPLE_CANDIDATES.filter((s) => !liveIds.has(s.id));
+        const liveCandidates = items.map((item) => ({ ...item, source: 'live' as const }));
+        setCandidates([...liveCandidates, ...nonDuplicateSamples]);
+        setMode('live');
+      }
     }).catch(() => {
       if (active) { setCandidates(SAMPLE_CANDIDATES); setMode('sample'); }
     });
@@ -60,7 +66,7 @@ export function HRDashboard() {
   const nonDuplicateSaved = savedCandidates.filter((s) => !draftIds.has(s.id));
   const all = [...drafts, ...nonDuplicateSaved, ...otherCandidates];
   const roles = [...new Set(all.map((candidate) => candidate.role || ''))].sort((a, b) => roleLabel(a).localeCompare(roleLabel(b)));
-  const [sortField, setSortField] = useState<'candidate' | 'score' | null>(null);
+  const [sortField, setSortField] = useState<'candidate' | 'score' | 'observed' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const hasFilters = query !== '' || role !== 'all' || status !== 'all' || sortField !== null;
@@ -74,9 +80,16 @@ export function HRDashboard() {
     if (!sortField) return filtered;
     return [...filtered].sort((a, b) => {
       if (sortField === 'score') {
-        const scoreA = a.rci != null ? a.rci : -1;
-        const scoreB = b.rci != null ? b.rci : -1;
+        const valA = a.jd_fit_score ?? a.rci;
+        const valB = b.jd_fit_score ?? b.rci;
+        const scoreA = valA != null ? valA : -1;
+        const scoreB = valB != null ? valB : -1;
         return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+      }
+      if (sortField === 'observed') {
+        const countA = a.observed_capabilities ?? (a.coverage ? Math.round(a.coverage * 12) : -1);
+        const countB = b.observed_capabilities ?? (b.coverage ? Math.round(b.coverage * 12) : -1);
+        return sortDirection === 'desc' ? countB - countA : countA - countB;
       }
       if (sortField === 'candidate') {
         return sortDirection === 'desc'
@@ -87,12 +100,12 @@ export function HRDashboard() {
     });
   }, [filtered, sortField, sortDirection]);
 
-  function handleSort(field: 'candidate' | 'score') {
+  function handleSort(field: 'candidate' | 'score' | 'observed') {
     if (sortField !== field) {
       setSortField(field);
-      setSortDirection(field === 'score' ? 'desc' : 'asc');
-    } else if (sortDirection === (field === 'score' ? 'desc' : 'asc')) {
-      setSortDirection(field === 'score' ? 'asc' : 'desc');
+      setSortDirection(field === 'candidate' ? 'asc' : 'desc');
+    } else if (sortDirection === (field === 'candidate' ? 'asc' : 'desc')) {
+      setSortDirection(field === 'candidate' ? 'desc' : 'asc');
     } else {
       setSortField(null);
     }
@@ -110,7 +123,7 @@ export function HRDashboard() {
 
   return <div className="studio-hr">
     <main className="studio-page space-y-7">
-      <StudioHeading eyebrow="01 / THE CANDIDATE WORKSPACE" title="Hiring Dashboard" description="A fuller picture of the people behind the profiles. Explore their evidence and prepare for the next conversation.">
+      <StudioHeading eyebrow="01 / CANDIDATE & STUDENT WORKSPACE" title="Hiring Dashboard" description="A fuller picture of the people behind the profiles. Explore their evidence and prepare for the next conversation.">
         <GlassButton variant="secondary" disabled={mode === 'loading'} onClick={() => { setSelected(null); setAttempt(value => value + 1); }} icon={<RefreshCw className={`h-3.5 w-3.5 ${mode === 'loading' ? 'animate-spin' : ''}`} />}>Refresh list</GlassButton>
         <GlassButton variant="primary" onClick={() => setAdding(true)} icon={<Plus className="h-3.5 w-3.5" />}>Add Candidate</GlassButton>
       </StudioHeading>
@@ -204,18 +217,41 @@ export function HRDashboard() {
                 <caption className="sr-only">Candidates with evaluation status, score, evidence status, alerts, and a quick-view action</caption>
                 <thead className="studio-table-head text-xs text-slate-400 border-b border-white/[0.06]">
                   <tr>
-                    {['Candidate', 'Role', 'Score', 'Evaluation', 'Evidence', 'Alerts', 'Action'].map((heading) => {
-                      if (heading === 'Score') {
+                    {['Candidate', 'Role', 'JD Fit Score', 'Observed Capabilities', 'Evaluation', 'Evidence', 'Alerts', 'Action'].map((heading) => {
+                      if (heading === 'JD Fit Score') {
                         return (
                           <th key={heading} scope="col" className="px-5 py-4 font-semibold">
                             <button
                               type="button"
                               onClick={() => handleSort('score')}
                               className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort"
-                              title="Sort by score"
+                              title="Sort by JD fit score"
                             >
-                              <span>Score</span>
+                              <span>JD Fit Score</span>
                               {sortField === 'score' ? (
+                                sortDirection === 'desc' ? (
+                                  <ArrowDown className="h-3.5 w-3.5 text-brand-400" />
+                                ) : (
+                                  <ArrowUp className="h-3.5 w-3.5 text-brand-400" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 text-slate-500 opacity-60 group-hover/sort:opacity-100" />
+                              )}
+                            </button>
+                          </th>
+                        );
+                      }
+                      if (heading === 'Observed Capabilities') {
+                        return (
+                          <th key={heading} scope="col" className="px-5 py-4 font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => handleSort('observed')}
+                              className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort"
+                              title="Sort by observed capabilities"
+                            >
+                              <span>Observed Capabilities</span>
+                              {sortField === 'observed' ? (
                                 sortDirection === 'desc' ? (
                                   <ArrowDown className="h-3.5 w-3.5 text-brand-400" />
                                 ) : (
@@ -272,12 +308,31 @@ export function HRDashboard() {
                         </th>
                         <td className="px-5 py-4 text-slate-400">{roleLabel(candidate.role)}</td>
                         <td className="px-5 py-4 font-mono font-medium">
-                          {candidate.rci !== null && candidate.rci !== undefined ? (
-                            <span className="inline-flex items-baseline gap-1">
-                              <span className="text-sm font-bold text-brand-400">
-                                {candidate.rci.toFixed(1)}
+                          {(() => {
+                            const fitVal = candidate.jd_fit_score ?? candidate.rci;
+                            return fitVal !== null && fitVal !== undefined ? (
+                              <span className="inline-flex items-baseline gap-1">
+                                <span className="text-sm font-bold text-brand-400">
+                                  {fitVal.toFixed(1)}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
                               </span>
-                              <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
+                            ) : (
+                              <span className="text-slate-500 text-xs">—</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-5 py-4 font-mono">
+                          {candidate.has_completed_dossier ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
+                              {candidate.observed_capabilities ?? (
+                                candidate.dossier
+                                  ? Object.values(candidate.dossier.capability_estimates).filter((e) => e.is_observed && e.estimate != null).length
+                                  : candidate.coverage
+                                  ? Math.max(1, Math.round(candidate.coverage * 12))
+                                  : 0
+                              )}
+                              <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
                             </span>
                           ) : (
                             <span className="text-slate-500 text-xs">—</span>

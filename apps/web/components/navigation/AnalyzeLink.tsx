@@ -9,6 +9,7 @@ export interface AnalyzeLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorE
   targetHref?: string;
   className?: string;
   children: React.ReactNode;
+  scroll?: boolean;
 }
 
 export function AnalyzeLink({
@@ -16,6 +17,7 @@ export function AnalyzeLink({
   className,
   children,
   onClick,
+  scroll = true,
   ...props
 }: AnalyzeLinkProps) {
   const router = useRouter();
@@ -47,12 +49,17 @@ export function AnalyzeLink({
 
     if (!isUserAuthenticated()) {
       e.preventDefault();
-      router.push(`/login?redirect=${encodeURIComponent(targetHref)}`);
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+      router.push(`/login?redirect=${encodeURIComponent(targetHref)}`, { scroll: true });
     }
   };
 
   return (
-    <Link href={href} onClick={handleClick} className={className} {...props}>
+    <Link href={href} onClick={handleClick} className={className} scroll={scroll} {...props}>
       {children}
     </Link>
   );

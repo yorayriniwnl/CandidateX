@@ -400,6 +400,10 @@ test('leads with readable capability actions and keeps audit fields expandable',
   await expect(page.getByRole('heading', { name: 'Evidence strength' })).toBeVisible();
   await expect(page.getByText(/not a probability or hiring recommendation/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Capability map' })).toBeVisible();
+  const studentSection = page.getByTestId('student-section');
+  await expect(studentSection).toBeVisible();
+  await expect(studentSection.getByText('JD fit score')).toBeVisible();
+  await expect(studentSection.getByText('Observed capabilities')).toBeVisible();
   const table = page.getByRole('table', { name: 'Role emphasis and observed evidence by capability' });
   await expect(table.getByRole('columnheader', { name: 'Estimate' })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: '95% interval' })).toBeVisible();

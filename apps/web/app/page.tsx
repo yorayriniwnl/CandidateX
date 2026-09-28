@@ -61,13 +61,13 @@ export default function HomePage() {
       <footer className={styles.footer}>
         <div className={styles.footerMain}>
           <div className={styles.footerIdentity}>
-            <Link href="/" className={styles.footerBrand}>Candidate<span>X</span></Link>
+            <Link href="/" className={styles.footerBrand} scroll={true}>Candidate<span>X</span></Link>
             <p>Research-informed intelligence.<br />Human-led decisions.</p>
           </div>
           <nav className={styles.footerColumn} aria-label="Product">
             <h2>Product</h2>
             <AnalyzeLink targetHref="/analyze">Live Evidence</AnalyzeLink>
-            <Link href="/research-demo">Research Demo</Link>
+            <Link href="/research-demo" scroll={true}>Research Demo</Link>
           </nav>
           <nav className={styles.footerColumn} aria-label="Explore">
             <h2>Explore</h2>

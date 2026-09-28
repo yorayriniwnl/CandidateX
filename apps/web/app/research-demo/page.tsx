@@ -100,7 +100,7 @@ export default function ResearchDemonstration() {
           <StudioHeading eyebrow="03 / THE RESEARCH LAB" title="From evidence to interview." description="Look inside the intelligence. Change the evidence, explore the uncertainty, and discover why the same work means something different for every role." />
           <div><Instrument stage={2} /></div>
         </div>
-        <nav className="studio-research-nav" aria-label="Research navigation"><a href="#method">The method</a><a href="#benchmarks">Experiments</a><Link href="/workspace">Prototype workspace</Link></nav>
+        <nav className="studio-research-nav" aria-label="Research navigation"><a href="#method">The method</a><a href="#benchmarks">Experiments</a><Link href="/workspace" scroll={true}>Prototype workspace</Link></nav>
 
         <GlassCard variant="subtle" glow="indigo" className="mb-8 text-xs leading-7">
           <strong className="text-indigo-300">Controlled synthetic demonstration.</strong> <span className="text-slate-300">All candidate observations and source-review counts on this page are simulated. Calculations run through the CCI backend. No real person is assessed and no external repository is fetched.</span>
@@ -197,17 +197,17 @@ export default function ResearchDemonstration() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-[#0a0f1e] border border-white/[0.05] p-5 rounded-xl">
+                      <div className="bg-[#130e1c] border border-white/[0.05] p-5 rounded-xl">
                         <span className="block text-slate-400 text-xs mb-2">Role Capability Index</span>
                         <strong data-testid="rci-value" className="block text-3xl font-bold tracking-tight mb-1">{number(dossier.rci)}</strong>
                         <span className="block text-slate-500 text-xs">Observed capability / 100</span>
                       </div>
-                      <div className="bg-[#0a0f1e] border border-white/[0.05] p-5 rounded-xl">
+                      <div className="bg-[#130e1c] border border-white/[0.05] p-5 rounded-xl">
                         <span className="block text-slate-400 text-xs mb-2">Evidence coverage</span>
                         <strong data-testid="coverage-value" className="block text-3xl font-bold tracking-tight mb-1">{percent(dossier.coverage)}</strong>
                         <span className="block text-slate-500 text-xs">Weighted observability</span>
                       </div>
-                      <div className="bg-[#0a0f1e] border border-white/[0.05] p-5 rounded-xl">
+                      <div className="bg-[#130e1c] border border-white/[0.05] p-5 rounded-xl">
                         <span className="block text-slate-400 text-xs mb-2">Conflicted capabilities</span>
                         <strong data-testid="conflict-count" className="block text-3xl font-bold tracking-tight mb-1">{conflictCount}</strong>
                         <span className="block text-slate-500 text-xs">Signals to investigate</span>
@@ -222,7 +222,7 @@ export default function ResearchDemonstration() {
                     <p className="text-slate-400 text-sm">{dossier.evidence_records.length} observations · {new Set(dossier.evidence_records.map(e => e.cluster_id)).size} project clusters · scenario: {label(dossier.scenario)}</p>
                     
                     {previous && (
-                      <div className="mt-6 p-4 bg-[#0a0f1e] border border-white/[0.05] rounded-lg text-sm text-slate-300">
+                      <div className="mt-6 p-4 bg-[#130e1c] border border-white/[0.05] rounded-lg text-sm text-slate-300">
                         <strong className="text-slate-200">Previous snapshot:</strong> {label(previous.dossier.role)} / {label(previous.dossier.scenario)} — RCI {number(previous.dossier.rci)}, coverage {percent(previous.dossier.coverage)}.<br/>
                         <span className="text-slate-400 mt-1 block">{previous.evidence_digest === result.evidence_digest ? 'Evidence unchanged; compare the role or weights.' : 'Evidence inputs changed.'}</span>
                       </div>
@@ -230,7 +230,7 @@ export default function ResearchDemonstration() {
                     
                     <details className="mt-6 group">
                       <summary className="cursor-pointer text-sm text-slate-400 hover:text-slate-300 transition-colors">Run identity and reproducibility</summary>
-                      <div className="mt-4 p-4 bg-[#080b12] rounded-lg border border-white/[0.05] font-mono text-xs text-slate-400 break-all space-y-1">
+                      <div className="mt-4 p-4 bg-[#0d0a14] rounded-lg border border-white/[0.05] font-mono text-xs text-slate-400 break-all space-y-1">
                         <p>Candidate: {dossier.candidate_id}</p>
                         <p>Run: {dossier.analysis_run_id}</p>
                         <p>Snapshot: {dossier.dossier_id}</p>
@@ -289,7 +289,7 @@ export default function ResearchDemonstration() {
 
                     <details className="mt-6 group">
                       <summary className="cursor-pointer text-sm text-slate-400 hover:text-slate-300 transition-colors">Parsed job requirements ({dossier.role_requirements.length})</summary>
-                      <div data-testid="parsed-requirements" className="mt-4 p-4 bg-[#0a0f1e] border border-white/[0.05] rounded-lg">
+                      <div data-testid="parsed-requirements" className="mt-4 p-4 bg-[#130e1c] border border-white/[0.05] rounded-lg">
                         {dossier.role_requirements.length ? dossier.role_requirements.map(req => (
                           <p className="text-slate-400 text-sm mb-2 last:mb-0" key={req.requirement_id}>
                             <span className="text-slate-300">{req.source_text}</span> → {req.capability_mappings.length ? req.capability_mappings.map(label).join(', ') : 'Unresolved; excluded from weights'} ({req.priority})
@@ -332,7 +332,7 @@ export default function ResearchDemonstration() {
                         ))}
                       </div>
                       
-                      <div className="bg-[#050810] border border-indigo-900/30 p-4 rounded-lg font-mono text-xs text-indigo-200 mb-6 break-all">
+                      <div className="bg-[#0c0912] border border-indigo-900/30 p-4 rounded-lg font-mono text-xs text-indigo-200 mb-6 break-all">
                         Capability = weighted support / confidence sum = {sumWeightedSupport.toFixed(3)} / {sumConfidence.toFixed(3)} = {sumConfidence > 0 ? (sumWeightedSupport / sumConfidence).toFixed(2) : 'Unknown'}
                       </div>
 
@@ -344,7 +344,7 @@ export default function ResearchDemonstration() {
                       
                       <div className="flex flex-col gap-4">
                         {selectedEvidence.map((evidence, index) => (
-                          <details key={evidence.evidence_id} className="group border border-white/[0.05] rounded-xl bg-[#0a0f1e] overflow-hidden" open={index === 0}>
+                          <details key={evidence.evidence_id} className="group border border-white/[0.05] rounded-xl bg-[#130e1c] overflow-hidden" open={index === 0}>
                             <summary className="cursor-pointer p-4 bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-sm font-medium text-slate-200 flex items-center justify-between">
                               <span>{evidence.source_family}</span>
                               <span className="text-slate-400 font-normal text-xs flex gap-3">
@@ -392,7 +392,7 @@ export default function ResearchDemonstration() {
                       {dossier.interview_questions.map(question => { 
                         const probe = dossier.interview_probes.find(p => p.capability_key === question.target_capability); 
                         return (
-                          <article key={question.question_id} className="p-5 bg-[#0a0f1e] border border-white/[0.05] rounded-xl relative overflow-hidden">
+                          <article key={question.question_id} className="p-5 bg-[#130e1c] border border-white/[0.05] rounded-xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-violet-500/50"></div>
                             <h3 className="text-lg font-bold text-slate-200 mb-3 flex items-center gap-2">
                               <GlowBadge variant="brand" size="sm">#{probe?.rank}</GlowBadge> 
@@ -402,7 +402,7 @@ export default function ResearchDemonstration() {
                             <p className="text-slate-400 text-sm mb-4">{question.rationale}</p>
                             
                             {probe && (
-                              <div className="bg-[#050810] border border-violet-900/30 p-3 rounded-lg font-mono text-xs text-violet-200 mb-4 break-all">
+                              <div className="bg-[#0c0912] border border-violet-900/30 p-3 rounded-lg font-mono text-xs text-violet-200 mb-4 break-all">
                                 {probe.role_weight.toFixed(3)} × [0.40 × {probe.coverage_gap_term.toFixed(3)} + 0.35 × {probe.uncertainty_term.toFixed(3)} + 0.25 × {probe.contradiction_term.toFixed(3)}] = {probe.priority_score.toFixed(4)}
                               </div>
                             )}
@@ -471,7 +471,7 @@ export default function ResearchDemonstration() {
             <GlassCard>
               <h3 className="text-lg font-bold mb-3">Evidence strength and confidence</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">Source reliability uses a Beta posterior. Confidence combines artifact integrity, ownership, recency, verification, extraction specificity, and reliability. Capability is their weighted evidence mean.</p>
-              <div className="bg-[#050810] border border-white/[0.05] p-4 rounded-lg font-mono text-xs text-slate-300 leading-loose">
+              <div className="bg-[#0c0912] border border-white/[0.05] p-4 rounded-lg font-mono text-xs text-slate-300 leading-loose">
                 r = (TP + α) / (TP + FP + α + β)<br />
                 c = (a · o · t · v · x · r)^(1/6)<br />
                 q = Σ(c · z) / Σc &nbsp; · &nbsp; n_eff = (Σc)² / Σ(c²)
@@ -480,7 +480,7 @@ export default function ResearchDemonstration() {
             <GlassCard>
               <h3 className="text-lg font-bold mb-3">Role fit, coverage and contradictions</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">Role weights are normalized with softmax. Coverage measures weighted evidence saturation. The RCI uses observed capabilities only. Opposing observations remain visible through the contradiction diagnostic.</p>
-              <div className="bg-[#050810] border border-white/[0.05] p-4 rounded-lg font-mono text-xs text-slate-300 leading-loose">
+              <div className="bg-[#0c0912] border border-white/[0.05] p-4 rounded-lg font-mono text-xs text-slate-300 leading-loose">
                 w = softmax(u / T)<br />
                 Coverage = Σ w · min(1, Σc / τ)<br />
                 RCI = Σ_observed(w · q) / Σ_observed(w)<br />
@@ -505,7 +505,7 @@ export default function ResearchDemonstration() {
               <GlowBadge variant="brand" size="sm" className="mb-6">Executable prototype experiment</GlowBadge>
               <h3 className="text-lg font-bold mb-3">4,800 simulated candidates per mode</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">16 seeds × 6 roles × 50 distinct candidates per role, evaluated under five ablation modes. Recorded full-CCI Spearman ρ ≈ 0.943.</p>
-              <div className="bg-[#050810] border border-white/[0.05] p-3 rounded-lg font-mono text-xs text-indigo-300 mb-4 inline-block">
+              <div className="bg-[#0c0912] border border-white/[0.05] p-3 rounded-lg font-mono text-xs text-indigo-300 mb-4 inline-block">
                 python research/run_paper_experiments.py
               </div>
               <p className="text-slate-500 text-sm leading-relaxed">A separate cohort construction and experiment. The controls above illustrate mechanisms; they do not run either benchmark.</p>
@@ -519,7 +519,7 @@ export default function ResearchDemonstration() {
             {dossier && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-400 transition-colors">Snapshot limitations</summary>
-                <div className="mt-3 space-y-2 text-left bg-[#050810] p-4 rounded-lg border border-white/[0.02]">
+                <div className="mt-3 space-y-2 text-left bg-[#0c0912] p-4 rounded-lg border border-white/[0.02]">
                   {dossier.system_limitations.map(item => (
                     <p key={item} className="text-xs text-slate-500">{item}</p>
                   ))}

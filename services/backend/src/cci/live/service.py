@@ -11,7 +11,7 @@ from cci.live.report import build_report
 def analyze_resume(request: LiveAnalysisRequest):
     manifest = request.intake.manifest
     extracted = list(dict.fromkeys(url for key in ('linkedin_urls', 'coding_profile_urls', 'credential_urls',
-        'deployment_urls', 'portfolio_urls', 'shared_document_urls', 'project_links') for url in getattr(manifest, key, [])))
+        'deployment_urls', 'portfolio_urls', 'shared_document_urls', 'project_links', 'public_links') for url in getattr(manifest, key, [])))
     selected = request.external_urls if request.external_urls is not None else extracted
     with ThreadPoolExecutor(max_workers=2) as pool:
         github = pool.submit(acquire_sources, request.github_urls, request.github_identity)

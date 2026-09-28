@@ -129,6 +129,7 @@ export function ResultHeader({ result, onNewEvaluation }: { result: LiveResult; 
       <div className={styles.actions}>
         <Link
           href="/hr"
+          scroll={true}
           className={styles.secondary}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
           title="Land to Candidates"
@@ -139,6 +140,7 @@ export function ResultHeader({ result, onNewEvaluation }: { result: LiveResult; 
         </Link>
         <Link
           href="/"
+          scroll={true}
           className={styles.secondary}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
           title="Land to Home"
@@ -308,7 +310,7 @@ export function ExecutiveSummary({ result, claims }: { result: LiveResult; claim
   const claimsToVerify = claims.filter(c => needsClaimVerification(c.status)).length;
   const rci = result.dossier.rci;
   return <section id="overview" className={styles.snapshot} aria-label="Executive technical snapshot">
-    <div className={styles.scoreBlock}><div className={styles.eyebrow}>Role capability</div><div className={styles.scoreDial}><svg viewBox="0 0 160 148" aria-hidden="true"><circle className={styles.dialTrack} cx="80" cy="80" r="66" pathLength="100" strokeDasharray="75 100" transform="rotate(135 80 80)" />{rci != null && <circle className={styles.dialValue} cx="80" cy="80" r="66" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, rci)) * .75} 100`} transform="rotate(135 80 80)" />}</svg><div className={styles.score} data-unavailable={rci == null}>{score(rci)}{rci != null && <small>OUT OF 100</small>}</div></div><h2>Role Capability Index</h2><p>Evidence-supported estimate across observed capabilities.</p><div className={styles.coverage}><strong>{percent(result.dossier.coverage, 0)} coverage</strong><span>of role-weighted evidence</span></div><div className={styles.coverageTrack}><i style={{ width: `${Math.max(0, Math.min(100, result.dossier.coverage * 100))}%` }} /></div><small className={styles.boundary}>This is not a probability or hiring recommendation.</small></div>
+    <div className={styles.scoreBlock}><div className={styles.eyebrow}>JD fit score · Role capability</div><div className={styles.scoreDial}><svg viewBox="0 0 160 148" aria-hidden="true"><circle className={styles.dialTrack} cx="80" cy="80" r="66" pathLength="100" strokeDasharray="75 100" transform="rotate(135 80 80)" />{rci != null && <circle className={styles.dialValue} cx="80" cy="80" r="66" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, rci)) * .75} 100`} transform="rotate(135 80 80)" />}</svg><div className={styles.score} data-unavailable={rci == null}>{score(rci)}{rci != null && <small>OUT OF 100</small>}</div></div><h2>JD Fit Score (RCI)</h2><p>Evidence-supported estimate across observed capabilities.</p><div className={styles.coverage}><strong>{percent(result.dossier.coverage, 0)} coverage</strong><span>of role-weighted evidence</span></div><div className={styles.coverageTrack}><i style={{ width: `${Math.max(0, Math.min(100, result.dossier.coverage * 100))}%` }} /></div><small className={styles.boundary}>This is not a probability or hiring recommendation.</small></div>
     <div className={styles.snapshotBody}><div className={styles.strength}><h2>Evidence strength</h2><EvidenceStatus status={confidence.evidence_strength === 'well_supported' ? 'supported' : 'partial'} label={strengthLabels[confidence.evidence_strength]} /></div><p className={styles.explanation}>{confidence.explanation}</p>
       <dl className={styles.stats}><div><dd>{observed.length}<small> / {estimates.length}</small></dd><dt>Observed capabilities</dt><div className={styles.dimensionStrip} aria-hidden="true">{estimates.map(e => <i key={e.capability_key} data-observed={e.is_observed && e.estimate != null} title={`${capabilityName(e.capability_key)}: ${e.is_observed && e.estimate != null ? 'Observed' : 'Unknown'}`} />)}</div></div><div><dd>{unknown.length}</dd><dt>Unknown</dt></div><div><dd>{result.dossier.evidence_records.length}</dd><dt>Evidence records</dt></div><div><dd>{clusters || '—'}</dd><dt>Independent clusters</dt></div><div><dd>{conflicts}</dd><dt>Meaningful conflicts</dt></div></dl>
       <div className={styles.priorities}><div><span className={styles.eyebrow}>Biggest uncertainty</span><p>{unknown.length ? `${unknown.slice(0, 2).map(e => capabilityName(e.capability_key)).join(' and ')}${unknown.length > 2 ? `, plus ${unknown.length - 2} more` : ''} remain unknown.` : confidence.uncertainty_flags.length ? titleWords(confidence.uncertainty_flags[0]) : 'Review confidence ranges and ownership before drawing conclusions.'}</p><a href="#conflicts">Review uncertainty →</a></div><div><span className={styles.eyebrow}>Claims to verify</span><p>{claims.length ? `${claimsToVerify} of ${claims.length} reviewed claims need follow-up.` : 'Claim assessment unavailable. Review the supplied declarations.'}</p><a href="#claims">Review claim verification →</a></div><div><span className={styles.eyebrow}>Interview focus</span><p>{readableAnalysisText(questions[0]?.question_text ?? result.analysis.next_steps[0] ?? 'Request a walkthrough of the candidate’s own work to verify capability and ownership.')}</p><a href="#interview">Open interview plan →</a></div></div>
@@ -319,8 +321,64 @@ export function ExecutiveSummary({ result, claims }: { result: LiveResult; claim
 export function CapabilityMatrix({ result, selected, onSelect, onInspectEvidence, onInspectCapability }: { result: LiveResult; selected: CapabilityKey | null; onSelect: (key: CapabilityKey | null) => void; onInspectEvidence: (key: CapabilityKey, id: string) => void; onInspectCapability: (key: CapabilityKey) => void }) {
   const estimates = useMemo(() => Object.values(result.dossier.capability_estimates).sort((a, b) => (result.dossier.role_weights?.[b.capability_key] ?? 0) - (result.dossier.role_weights?.[a.capability_key] ?? 0) || (b.estimate ?? -1) - (a.estimate ?? -1)), [result.dossier]);
   const confidence = getAnalysisConfidence(result.dossier, result.analysis, getSourceHealth(result));
+  const observed = useMemo(() => estimates.filter(e => e.is_observed && e.estimate != null), [estimates]);
+  const rci = result.dossier.rci;
+  const displayName = result.intake.manifest.display_name;
+  const targetRole = roleName(result.dossier.role);
+  const photo = result.intake.manifest.picture || result.intake.picture;
+  const initials = displayName.trim().split(/\s+/).slice(0, 2).map(name => Array.from(name)[0]).join('');
+
   return <section id="capabilities" className={styles.section}>
     <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>01 / Capability intelligence</span><h2>Capability map</h2><p>Ranked by role importance. Select a capability to trace its evidence.</p></div><span>{estimates.length} dimensions</span></div>
+
+    <div className={styles.studentSection} data-testid="student-section" aria-label="Student capability summary">
+      <div className={styles.studentProfile}>
+        {photo ? (
+          <img src={photo} alt={displayName} className={styles.studentPhoto} />
+        ) : (
+          <span className={styles.studentMonogram} aria-hidden="true">{initials}</span>
+        )}
+        <div className={styles.studentInfo}>
+          <div className={styles.studentEyebrow}>Student section</div>
+          <h3 className={styles.studentName}>{displayName}</h3>
+          <span className={styles.studentRole}>Target role: {targetRole}</span>
+        </div>
+      </div>
+      <div className={styles.studentMetrics}>
+        <div className={styles.studentMetricCard}>
+          <span className={styles.studentMetricLabel}>JD fit score</span>
+          <div className={styles.studentMetricValue}>
+            <b>{rci != null ? score(rci) : '—'}</b>
+            {rci != null && <small>/ 100</small>}
+          </div>
+          <span className={styles.studentMetricSubtext}>Role Capability Index (RCI)</span>
+        </div>
+        <div className={styles.studentMetricCard}>
+          <span className={styles.studentMetricLabel}>Observed capabilities</span>
+          <div className={styles.studentMetricValue}>
+            <b>{observed.length}</b>
+            <small>/ {estimates.length}</small>
+          </div>
+          <div className={styles.dimensionStrip} aria-hidden="true">
+            {estimates.map(e => (
+              <i
+                key={e.capability_key}
+                data-observed={e.is_observed && e.estimate != null}
+                title={`${capabilityName(e.capability_key)}: ${e.is_observed && e.estimate != null ? 'Observed' : 'Unknown'}`}
+              />
+            ))}
+          </div>
+        </div>
+        <div className={styles.studentMetricCard}>
+          <span className={styles.studentMetricLabel}>Evidence coverage</span>
+          <div className={styles.studentMetricValue}>
+            <b>{percent(result.dossier.coverage, 0)}</b>
+          </div>
+          <span className={styles.studentMetricSubtext}>Role requirements</span>
+        </div>
+      </div>
+    </div>
+
     <div className={styles.tableScroll} tabIndex={0} aria-label="Capability estimates; scroll horizontally for more columns"><table className={styles.capabilityTable}><caption className={styles.srOnly}>Role emphasis and observed evidence by capability</caption><thead><tr><th>Capability</th><th>Estimate</th><th>95% interval</th><th>Role importance</th><th>Evidence</th><th>Status</th></tr></thead><tbody>{estimates.map(item => {
       const unknown = !item.is_observed || item.estimate == null;
       const weight = result.dossier.role_weights?.[item.capability_key];

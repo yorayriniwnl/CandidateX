@@ -51,7 +51,7 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
   return (
     <header className="platform-header" data-surface={surface}>
       <div className="platform-header__inner">
-        <Link href="/" className="platform-brand" aria-label="CandidateX home">
+        <Link href="/" className="platform-brand" aria-label="CandidateX home" scroll={true}>
           <span className="platform-brand__mark" aria-hidden="true"><Sparkles size={16} /></span>
           <span className="platform-brand__wordmark">CandidateX</span>
         </Link>
@@ -84,6 +84,7 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
               <Link
                 key={item.key}
                 href={item.href}
+                scroll={true}
                 className={`platform-navigation__link${isActive ? ' platform-navigation__link--active' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => setMenuOpen(false)}
@@ -113,6 +114,7 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
         ) : surface !== 'login' ? (
           <Link
             href="/login"
+            scroll={true}
             className="hidden md:inline-flex items-center text-[11px] text-[#a89bb8] hover:text-[#efe6f8] px-2 py-1 transition-colors"
           >
             Sign in

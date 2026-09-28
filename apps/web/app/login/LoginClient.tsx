@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -67,8 +67,10 @@ export function LoginClient() {
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    setHydrated(true);
     setCurrentUser(getStoredUser());
 
     if (typeof window !== 'undefined') {
@@ -155,12 +157,17 @@ export function LoginClient() {
       await new Promise((resolve) => setTimeout(resolve, 450));
 
       const redirectTarget = getRedirectTarget();
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
       if (redirectTarget) {
-        router.push(redirectTarget);
+        router.push(redirectTarget, { scroll: true });
       } else if (matchedAccount.role === 'evaluator') {
-        router.push('/workspace');
+        router.push('/workspace', { scroll: true });
       } else {
-        router.push('/analyze');
+        router.push('/analyze', { scroll: true });
       }
     } catch (err) {
       setError('Authentication failed. Please verify your credentials and try again.');
@@ -261,7 +268,7 @@ export function LoginClient() {
 
         {/* Right Column: Authentication Card */}
         <section className={styles.authContainer} aria-labelledby="auth-card-title">
-          <div className={styles.authCard}>
+          <div className={styles.authCard} data-hydrated={hydrated ? 'true' : 'false'}>
             {/* Role Switcher */}
             <div className={styles.roleSwitcher} role="tablist" aria-label="Select role">
               <button
@@ -411,7 +418,7 @@ export function LoginClient() {
             )}
 
             {/* Email / Password Form */}
-            <form onSubmit={handleSubmit} className={styles.form} noValidate>
+            <form onSubmit={handleSubmit} action="#" method="POST" className={styles.form} noValidate>
               <div className={styles.fieldGroup}>
                 <div className={styles.fieldLabelRow}>
                   <label htmlFor="login-email" className={styles.fieldLabel}>
@@ -527,10 +534,14 @@ export function LoginClient() {
             </form>
 
             <div className={styles.cardFooter}>
-              <span>Don&apos;t have an organization account?</span>
-              <Link href="/analyze" className={styles.cardFooterLink}>
-                Try live demo without account
-              </Link>
+              <span>Need access or credentials?</span>
+              <button
+                type="button"
+                onClick={() => handleQuickFill(STATIC_ACCOUNTS[0])}
+                className={styles.cardFooterLink}
+              >
+                Use authorized demo credentials
+              </button>
             </div>
           </div>
         </section>

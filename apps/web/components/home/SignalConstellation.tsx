@@ -95,7 +95,7 @@ export function SignalConstellation() {
         <span>The evidence engine</span>
         <span className={styles.edition}>Interactive illustration</span>
       </div>
-      <div className={styles.stage} ref={host} aria-hidden="true" data-testid="signal-scene">
+      <div className={styles.stage} ref={host} aria-hidden="true">
         {surprise && (
           <div className={styles.surpriseHud} key={surprise.id} data-testid="signal-surprise-badge" role="status">
             <div className={styles.surprisePill}>

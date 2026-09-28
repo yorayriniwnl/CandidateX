@@ -12,7 +12,7 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 import pymupdf
 
-from cci.intake.canonicalizer import classify_url, normalize_url
+from cci.intake.canonicalizer import classify_url, is_false_positive_link
 from cci.security.ssrf import resolve_and_validate_hostname, SSRFSecurityError
 
 MAX_LINKS = 24
@@ -54,7 +54,7 @@ class PageText(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.hidden = 0
         self.in_title = False
-        self.title, self.description, self.text, self.hrefs = [], '', [], []
+        self.title, self.description, self.text = [], '', []
         self.og_title = ''
 
     def handle_starttag(self, tag, attrs):
@@ -63,8 +63,6 @@ class PageText(HTMLParser):
         if tag == 'title':
             self.in_title = True
         values = dict(attrs)
-        if tag == 'a' and values.get('href') and len(self.hrefs) < 300:
-            self.hrefs.append(values['href'])
         if tag == 'meta':
             name = values.get('name', '').lower()
             prop = values.get('property', '').lower()
@@ -228,6 +226,8 @@ def fetch_cloud_file_data(url: str, timeout: float = 20.0, transport=None) -> di
         'inferred_kind': 'cloud_storage',
         'detail': 'Link could not be reached.',
     }
+    if is_false_positive_link(url):
+        return {**receipt, 'status': 'not_scanned', 'detail': 'Invalid URL or academic degree abbreviation falsely parsed as a link.'}
     parsed = urlsplit(url)
     if parsed.scheme not in {'https', 'http'} or not parsed.hostname:
         return {**receipt, 'detail': 'Only public HTTP(S) links are supported.'}
@@ -463,8 +463,17 @@ def fetch_cloud_file_data(url: str, timeout: float = 20.0, transport=None) -> di
                                 }
                             clean_title = re.sub(r'\s*[-|]\s*(?:Google Drive|OneDrive|Dropbox|Box|iCloud)\s*$', '', title, flags=re.I).strip()
                             inferred_kind, _ = analyze_document_content(url, clean_title, description, visible, is_gated=False)
-                            techs = [t for t in ('Python', 'TypeScript', 'JavaScript', 'Go', 'Docker', 'AWS', 'React', 'Kubernetes', 'SQL', 'FastAPI') if re.search(rf'\b{t}\b', excerpt, re.I)]
-                            files = [{'name': clean_title or 'cloud_document', 'size': len(raw_bytes), 'type': 'cloud_document'}]
+                            techs = [t for t in ('Python', 'TypeScript', 'JavaScript', 'Go', 'Docker', 'AWS', 'React', 'Next.js', 'Vue', 'Node.js', 'Kubernetes', 'SQL', 'FastAPI', 'Tailwind', 'GraphQL', 'Three.js') if re.search(rf'\b{t}\b', excerpt, re.I)]
+                            file_type = 'portfolio_site' if inferred_kind == 'portfolio' else ('cloud_document' if is_cloud else 'web_page')
+                            file_name = clean_title or ('portfolio_site' if inferred_kind == 'portfolio' else ('cloud_document' if is_cloud else 'web_page'))
+                            files = [{'name': file_name, 'size': len(raw_bytes), 'type': file_type}]
+                            detail_msg = (
+                                f"Fetched candidate portfolio website ({clean_title or title}). Extracted page content and technologies."
+                                if inferred_kind == 'portfolio' else
+                                f"Fetched cloud file metadata ({clean_title or title}). Extracted page data."
+                                if is_cloud else
+                                f"Fetched web page metadata ({clean_title or title}). Extracted page data."
+                            )
                             return {
                                 **receipt,
                                 'status': 'fetched',
@@ -475,7 +484,7 @@ def fetch_cloud_file_data(url: str, timeout: float = 20.0, transport=None) -> di
                                 'technologies': techs,
                                 'excerpt': excerpt[:3000],
                                 'inferred_kind': inferred_kind,
-                                'detail': f"Fetched cloud file metadata ({clean_title or title}). Extracted page data.",
+                                'detail': detail_msg,
                                 'content_sha256': sha,
                             }
         except Exception:
@@ -524,13 +533,21 @@ def analyze_document_content(url: str, title: str, description: str, visible_tex
             "Contains candidate declarations; not an independent project artifact.",
         )
 
-    # 3. Portfolio, Presentations, Decks
-    if re.search(r'\b(?:presentations?|slides?|pitch\s*deck|portfolio|case\s*stud(?:y|ies))\b|\.(?:pptx?|key)\b', clues):
-        doc_label = clean_title if clean_title else "presentation deck"
+    # 3. Portfolio & Developer Showcases
+    if classify_url(url) == "portfolio" or re.search(r'\b(?:presentations?|slides?|pitch\s*deck|portfolio|personal\s*website|case\s*stud(?:y|ies)|showcase|about\s*me)\b|\.(?:pptx?|key)\b', clues):
+        is_deck = bool(re.search(r'\b(?:presentations?|slides?|pitch\s*deck)\b|\.(?:pptx?|key)\b', clues))
+        if is_deck:
+            doc_label = clean_title if clean_title else "presentation deck"
+            return (
+                "portfolio",
+                f"Observed shared presentation or portfolio deck ({doc_label}). "
+                "Self-published showcase material; design, impact, and technical execution require separate verification.",
+            )
+        doc_label = clean_title if clean_title else "personal portfolio website"
         return (
             "portfolio",
-            f"Observed shared presentation or portfolio deck ({doc_label}). "
-            "Self-published showcase material; design, impact, and technical execution require separate verification.",
+            f"Observed candidate personal portfolio website ({doc_label}). "
+            "Self-published showcase material; design, live projects, and technical demonstrations noted.",
         )
 
     # 4. Project Source Code / Archive / Technical Report
@@ -559,6 +576,15 @@ def analyze_document_content(url: str, title: str, description: str, visible_tex
 
 
 def inspect_link(url, deadline, transport=None):
+    if is_false_positive_link(url):
+        return {
+            'url': url,
+            'kind': 'invalid',
+            'status': 'not_scanned',
+            'fetched_at': datetime.now(timezone.utc).isoformat(),
+            'verification': 'not_verified',
+            'detail': 'Invalid URL or academic degree abbreviation falsely parsed as a link; excluded from acquisition.',
+        }
     receipt = {'url': url, 'kind': classify_url(url), 'status': 'unavailable',
                'fetched_at': datetime.now(timezone.utc).isoformat(), 'verification': 'not_verified'}
     if time.monotonic() >= deadline:
@@ -584,6 +610,14 @@ def inspect_link(url, deadline, transport=None):
                         continue
                     if response.status_code in (401, 403, 429, 999):
                         is_cloud = is_cloud_storage_url(url)
+                        if is_cloud:
+                            try:
+                                from cci.cloud.fetcher import fetch_cloud_document
+                                cloud_res = fetch_cloud_document(url, timeout=min(6.0, remaining), transport=transport)
+                                if cloud_res.get('status') == 'fetched':
+                                    return {**receipt, **cloud_res}
+                            except Exception:
+                                pass
                         detail = ('Cloud storage document requires authentication or access permissions (HTTP ' + str(response.status_code) + '). Cannot inspect or verify file contents.'
                                   if is_cloud else 'Login, provider restriction, or rate limit prevents public inspection.')
                         return {**receipt, 'status': 'access_restricted', 'inferred_kind': 'cloud_storage' if is_cloud else 'public_page', 'detail': detail}
@@ -706,35 +740,26 @@ def inspect_link(url, deadline, transport=None):
                         title = parser.og_title or ' '.join(parser.title)
                         description = parser.description
                         visible = ' '.join(parser.text)
-                    discovered_links = []
-                    if 'text/html' in content_type or 'application/xhtml+xml' in content_type:
-                        current_normalized = normalize_url(current)
-                        seen_links = set()
-                        for href in parser.hrefs:
-                            candidate = normalize_url(urljoin(current, href))
-                            if not candidate or candidate == current_normalized or candidate in seen_links:
-                                continue
-                            seen_links.add(candidate)
-                            discovered_links.append({
-                                'url': candidate,
-                                'kind': classify_url(candidate),
-                                'discovery_reason': 'public_page_link',
-                            })
-                            if len(discovered_links) >= 100:
-                                break
                     excerpt = re.sub(r'\s+', ' ', visible).strip()[:12000]
                     gate = re.search(r'(sign in to continue|log in to continue|verify you are human|just a moment|access denied|enable javascript and cookies|google drive:\s*sign-in|meet google drive)', f'{title} {excerpt[:1200]}', re.I)
                     inferred_kind, analysis_detail = analyze_document_content(url, title, description, visible, is_gated=bool(gate))
-                    techs = [t for t in ('Python', 'TypeScript', 'JavaScript', 'Go', 'Docker', 'AWS', 'React', 'Kubernetes', 'SQL', 'FastAPI') if re.search(rf'\b{t}\b', excerpt, re.I)]
+                    techs = [t for t in ('Python', 'TypeScript', 'JavaScript', 'Go', 'Docker', 'AWS', 'React', 'Next.js', 'Vue', 'Node.js', 'Kubernetes', 'SQL', 'FastAPI', 'Tailwind', 'GraphQL', 'Three.js') if re.search(rf'\b{t}\b', excerpt, re.I)]
                     clean_title = re.sub(r'\s*[-|]\s*(?:Google Drive|OneDrive|Dropbox|Box|iCloud)\s*$', '', title, flags=re.I).strip()
-                    file_name = clean_title or urlsplit(url).path.split('/')[-1] or 'cloud_document'
-                    doc_files = [{'name': file_name, 'size': len(content), 'type': 'pdf' if 'application/pdf' in content_type else 'doc'}]
+                    file_name = clean_title or urlsplit(url).path.split('/')[-1] or ('portfolio_site' if inferred_kind == 'portfolio' else 'cloud_document')
+                    doc_files = [{'name': file_name, 'size': len(content), 'type': 'pdf' if 'application/pdf' in content_type else ('portfolio_site' if inferred_kind == 'portfolio' else 'doc')}]
                     receipt.update(title=title[:300], description=description, excerpt=excerpt,
-                                   discovered_links=discovered_links,
                                    inferred_kind=inferred_kind,
                                    files=doc_files, file_count=1, technologies=techs,
                                    content_sha256=hashlib.sha256(content).hexdigest())
                     if gate:
+                        if is_cloud_storage_url(url):
+                            try:
+                                from cci.cloud.fetcher import fetch_cloud_document
+                                cloud_res = fetch_cloud_document(url, timeout=max(2.0, deadline - time.monotonic()), transport=transport)
+                                if cloud_res.get('status') == 'fetched':
+                                    return {**receipt, **cloud_res}
+                            except Exception:
+                                pass
                         return {**receipt, 'status': 'access_restricted', 'detail': analysis_detail}
                     if len(excerpt) < 40:
                         is_cloud = is_cloud_storage_url(url)

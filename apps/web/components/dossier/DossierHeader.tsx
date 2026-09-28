@@ -407,7 +407,7 @@ export const DossierHeader: React.FC<{
         <GlassCard variant="subtle" glow={getRciGlow(dossier.rci)} className="flex items-center justify-between p-4">
           <div>
             <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
-              Technical Readiness (RCI)
+              JD Fit Score (RCI)
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-brand-400 font-mono">

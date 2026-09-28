@@ -4,7 +4,6 @@ test('engine stages explain the process and still work with reduced motion', asy
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const engine = page.getByTestId('signal-observatory');
-  await engine.getByTestId('signal-scene').scrollIntoViewIfNeeded();
   await expect(engine).toHaveAttribute('data-ready', 'true');
   const before = await engine.locator('canvas').screenshot();
   await engine.getByRole('button', { name: '04 Interview' }).click();

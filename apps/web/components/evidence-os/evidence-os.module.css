@@ -57,14 +57,24 @@
 .previousRun p { margin: 7px 0 0; color: var(--muted-text); font-size: 10px; line-height: 1.45; }
 
 .stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 22px; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line); }
-.step { min-height: 63px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-right: 1px solid var(--line); background: transparent; color: #76828e; cursor: pointer; text-align: left; font-size: 12px; transition: color 160ms ease, background-color 160ms ease; }
+.step { position: relative; min-height: 63px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-right: 1px solid var(--line); background: transparent; color: #76828e; cursor: pointer; text-align: left; font-size: 12px; transition: color 160ms ease, background-color 160ms ease; overflow: hidden; }
 .step:last-child { border-right: 0; }
 .step:hover:not(:disabled) { background: #170e20; color: var(--ink); }
 .step:disabled { cursor: default; opacity: 0.5; }
 .stepNumber { color: #83708f; font: 10px var(--font-mono), monospace; }
-.stepActive { color: var(--ink); background: linear-gradient(0deg, #ba93df10, transparent); box-shadow: inset 0 -1px 0 #c7a4ef; }
+.stepActive { color: var(--ink); background: linear-gradient(0deg, #ba93df10, transparent); }
 .stepActive .stepNumber, .stepComplete .stepNumber { color: #c7a4ef; }
 .stepComplete { color: #bec7cf; }
+.stepActiveIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #9ba9f5, #c7a4ef);
+  box-shadow: 0 0 10px rgba(199, 164, 239, 0.7);
+  pointer-events: none;
+}
 
 .stepPanel { position: relative; padding: clamp(22px, 3vw, 36px); border: 1px solid var(--line); border-radius: 14px; background: radial-gradient(ellipse at 100% 0, #b18ed108, transparent 65%), var(--surface-1); box-shadow: inset 0 1px #ffffff05, 0 15px 60px #0002; }
 .stepPanel h2 { margin: 0; font-size: clamp(24px, 3vw, 34px); font-weight: 570; letter-spacing: -0.055em; }
@@ -80,7 +90,23 @@
 .privacyNote svg { flex-shrink: 0; margin-top: 2px; }
 .inputLimit { margin: 12px 0 0; }
 
-.intakeSummary { margin-top: 24px; border-top: 1px solid var(--line-strong); }
+.intakeSummary {
+  margin-top: 24px;
+  border-top: 1px solid var(--line-strong);
+  scroll-margin-top: 92px;
+  animation: intakeSummaryAppear 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes intakeSummaryAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .summaryHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px 0 18px; }
 .summaryIdentity { display: flex; align-items: center; gap: 20px; min-width: 0; }
 .resumePhotoButton { padding: 0; border: 0; background: transparent; cursor: pointer; text-align: center; border-radius: 20px; transition: transform 160ms ease; }
@@ -665,7 +691,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .runSpinner, .skeletonLine, .skeletonSectionTitle, .skeletonMetric, .skeletonCapabilityRow, .skeletonEvidenceRow { animation: none; border-top-color: var(--observed); }
-  .step, .primaryButton, .secondaryButton, .dropzone, .textButton { transition: none; }
+  .step, .primaryButton, .secondaryButton, .dropzone, .textButton, .intakeSummary { transition: none; animation: none; }
 }
 /* Completed reports use readable text and dividers; intake retains its own layout. */
 .resultReport { --muted-text: #96a3b5; --secondary: #a4b0c1; --role: #9ba9f5; --observed: #7bcda5; --line: #262e39; --line-strong: #303946; }

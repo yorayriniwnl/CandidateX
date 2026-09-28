@@ -416,7 +416,7 @@ export function createSignalScene(
 
     world.rotation.set(
       dragRotation.x + look.y * .1 + currentScroll * .08,
-      dragRotation.y + look.x * .17,
+      dragRotation.y + look.x * .17 + time * .12,
       -.07
     );
 

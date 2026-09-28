@@ -9,6 +9,7 @@ export interface ResumeIntake {
     github_urls: string[]; linkedin_urls: string[]; coding_profile_urls: string[];
     credential_urls: string[]; deployment_urls: string[]; portfolio_urls: string[]; project_links: string[];
     shared_document_urls?: string[];
+    public_links?: string[];
     project_claims: { title: string; description: string; technologies: string[] }[];
   };
   picture?: string | null;
@@ -25,34 +26,13 @@ export interface ParsedJobDescription {
   warnings?: string[];
 }
 export interface TechnologyEvidence { name: string; path: string; basis: string; url: string; attribution_observed?: boolean; }
-export interface EngineeringFingerprint {
-  files_considered: number;
-  practice_breadth: { observed: number; possible: number; ratio: number };
-  observed_practices: { name: string; status: string; paths: string[]; occurrence_files: number }[];
-  not_observed_in_bounded_scan: string[];
-  architecture_boundaries: { name: string; paths: string[]; occurrence_files: number }[];
-  signal_hotspots: { path: string; signal_family_count: number; signal_families: string[] }[];
-  module_topology: {
-    nodes: number; edges: number; connected_components: number; cross_directory_edges: number;
-    cycles_detected: number; cycles: string[][];
-    highest_fan_out: { path: string; edges: number }[];
-    highest_fan_in: { path: string; edges: number }[];
-    limitations: string;
-  };
-  review_targets: {
-    count: number; by_severity: { high: number; medium: number; low: number };
-    findings: { rule: string; severity: string; path: string; lines: number[]; why_review: string; status: string }[];
-    interpretation: string;
-  };
-  interpretation: string;
-}
 export interface RepositoryReview {
   primary_language?: string | null;
   description: string | null; stars: number; forks: number; open_issues: number; is_fork: boolean; archived: boolean;
   license: string | null; topics: string[]; pushed_at: string | null; languages_by_inspected_file: Record<string, number>;
   file_categories: Record<string, number>; dependencies: { name: string; version: string; path: string }[];
   technologies: TechnologyEvidence[]; readme_excerpt: string;
-  engineering_signals: { name: string; status: string; paths: string[] }[]; engineering_fingerprint?: EngineeringFingerprint; limitations: string[];
+  engineering_signals: { name: string; status: string; paths: string[] }[]; limitations: string[];
 }
 export interface SourceReceipt {
   url: string; status: string; detail: string; commit_sha?: string; fetched_at?: string;
@@ -66,7 +46,6 @@ export interface SourceReceipt {
   content_sha256?: string; verification?: string;
   inferred_kind?: string;
   acquisition_method?: string;
-  discovered_links?: { url: string; kind: string; discovery_reason: string }[];
   files?: FetchedFileItem[];
   file_count?: number;
   total_size?: number;
@@ -104,13 +83,6 @@ export interface SourceHealth {
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
-  source_coverage?: { by_status: Record<string, number>; by_kind: Record<string, number>; discovered_links: number };
-  discovered_links?: { url: string; kind: string; discovery_reason: string }[];
-  claims?: { claim_id: string; category: string; claim: string; source: string; section: string;
-    status: string; is_quantified: boolean; normalized_subject?: string; project_title?: string }[];
-  academic_records?: { record_id: string; raw_claim: string; status: string; degree_text: string | null;
-    years: string[]; claimed_cgpa: { value: number; scale: number | null } | null;
-    claimed_percentage: number | null; evidence_sources: string[]; limitations: string[] }[];
   role_fit?: RoleFitSummary; analysis_confidence?: AnalysisConfidenceSummary; source_health?: SourceHealth;
   skills: { skill: string; learning: boolean; status: string; evidence: TechnologyEvidence[];
     evidence_count: number; public_mentions: string[]; explanation: string }[];

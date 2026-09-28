@@ -1,3 +1,6 @@
+'use client';
+
+import { motion } from 'framer-motion';
 import styles from './evidence-os.module.css';
 
 export const EVALUATION_STEPS = [
@@ -20,18 +23,26 @@ export function EvaluationSteps({ active, canAdvanceTo, busy = false, onChange }
       {EVALUATION_STEPS.map((label, index) => {
         const step = index as EvaluationStep;
         const complete = step < active;
+        const isActive = step === active;
         const disabled = busy || step > canAdvanceTo;
         return (
           <button
             key={label}
             type="button"
-            className={`${styles.step} ${step === active ? styles.stepActive : ''} ${complete ? styles.stepComplete : ''}`}
-            aria-current={step === active ? 'step' : undefined}
+            className={`${styles.step} ${isActive ? styles.stepActive : ''} ${complete ? styles.stepComplete : ''}`}
+            aria-current={isActive ? 'step' : undefined}
             disabled={disabled}
             onClick={() => onChange(step)}
           >
             <span className={styles.stepNumber}>{String(index + 1).padStart(2, '0')}</span>
             <span>{label}</span>
+            {isActive && (
+              <motion.span
+                layoutId="activeStepGlider"
+                className={styles.stepActiveIndicator}
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              />
+            )}
           </button>
         );
       })}

@@ -15,6 +15,8 @@ def test_candidates_endpoint_post_and_list():
         "primary_email": "sarah.connor@example.com",
         "has_completed_dossier": True,
         "rci": 94.2,
+        "jd_fit_score": 94.2,
+        "observed_capabilities": 10,
         "coverage": 0.88,
         "role": "backend",
         "has_meaningful_conflict": False,
@@ -32,6 +34,8 @@ def test_candidates_endpoint_post_and_list():
     assert data["id"] == test_id
     assert data["display_name"] == "Dr. Sarah Connor"
     assert data["rci"] == 94.2
+    assert data["jd_fit_score"] == 94.2
+    assert data["observed_capabilities"] == 10
     assert data["role"] == "backend"
 
     # Test GET /api/v1/candidates includes the saved candidate
@@ -42,3 +46,5 @@ def test_candidates_endpoint_post_and_list():
     assert len(matched) == 1
     assert matched[0]["display_name"] == "Dr. Sarah Connor"
     assert matched[0]["rci"] == 94.2
+    assert matched[0]["jd_fit_score"] == 94.2
+    assert matched[0]["observed_capabilities"] == 10

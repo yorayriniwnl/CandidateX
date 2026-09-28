@@ -4,8 +4,35 @@ import re
 from typing import Any
 
 from cci.domain.contracts import CandidateManifest
-from cci.intake.canonicalizer import classify_url, deduplicate_urls
+from cci.intake.canonicalizer import classify_url, deduplicate_urls, is_false_positive_link, normalize_url
 from cci.intake.parsers import ParsedDocument
+
+
+def extract_url_contexts(text: str) -> dict[str, str]:
+    """Extracts contextual category labels for URLs appearing in resume text.
+
+    Detects candidate declarations like 'Portfolio:', 'Personal Website:', 'Website:', etc.
+    """
+    contexts: dict[str, str] = {}
+    if not text:
+        return contexts
+
+    portfolio_label_pattern = re.compile(
+        r'(?i)\b(?:portfolio(?:\s*website|\s*link|\s*page)?|personal\s*website|personal\s*site|personal\s*page|website|web|site)\b[:\s|-]+'
+    )
+
+    for line in text.splitlines():
+        line_clean = line.strip()
+        if not line_clean:
+            continue
+        if portfolio_label_pattern.search(line_clean):
+            from cci.intake.parsers.pdf import URL_REGEX
+            for m in URL_REGEX.finditer(line_clean):
+                norm = normalize_url(m.group(0))
+                if norm and not is_false_positive_link(norm):
+                    contexts[norm] = 'portfolio'
+
+    return contexts
 
 EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
@@ -154,11 +181,12 @@ def build_candidate_manifest(
     5. Validation
     6. Canonicalization / deduplication
     """
-    # 1 & 2. Gather URLs: embedded first, then visible
-    raw_urls = list(document.embedded_urls) + list(document.visible_urls)
+    # 1 & 2. Gather URLs: embedded first, then visible, filtering out degree false positives
+    raw_urls = [u for u in (list(document.embedded_urls) + list(document.visible_urls)) if not is_false_positive_link(u)]
 
     # 3 & 6. Canonicalize and deduplicate
     canonical_urls = deduplicate_urls(raw_urls)
+    url_contexts = extract_url_contexts(document.raw_text)
 
     # Classify URLs strictly by platform
     github_urls: list[str] = []
@@ -169,9 +197,13 @@ def build_candidate_manifest(
     portfolio_urls: list[str] = []
     shared_document_urls: list[str] = []
     project_links: list[str] = []
+    public_links: list[str] = []
 
     for url in canonical_urls:
-        cat = classify_url(url)
+        if is_false_positive_link(url):
+            continue
+        ctx = url_contexts.get(url)
+        cat = classify_url(url, context=ctx)
         if cat == "github":
             github_urls.append(url)
         elif cat == "linkedin":
@@ -182,6 +214,8 @@ def build_candidate_manifest(
             credential_urls.append(url)
         elif cat == "deployment":
             deployment_urls.append(url)
+            if ctx == "portfolio" and url not in portfolio_urls:
+                portfolio_urls.append(url)
         elif cat == "portfolio":
             portfolio_urls.append(url)
         elif cat == "cloud_storage":
@@ -189,7 +223,10 @@ def build_candidate_manifest(
         elif cat == "project":
             project_links.append(url)
         else:
-            shared_document_urls.append(url)
+            if ctx == "portfolio":
+                portfolio_urls.append(url)
+            else:
+                public_links.append(url)
 
     # 4. Structured extraction from parsed text
     name = display_name_override or extract_candidate_name(document.raw_text)
@@ -213,6 +250,7 @@ def build_candidate_manifest(
         credential_urls=credential_urls,
         linkedin_urls=linkedin_urls,
         shared_document_urls=shared_document_urls,
+        public_links=public_links,
         claimed_skills=claimed_skills,
         project_claims=project_claims,
         experience_claims=experience_claims,

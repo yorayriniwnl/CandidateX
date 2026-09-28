@@ -354,10 +354,10 @@ export const AuditTrailViewer: React.FC<AuditTrailViewerProps> = ({
                   <div
                     className={`absolute -left-6 top-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                       isOverride
-                        ? 'bg-[#0a0f1e] border-indigo-500 text-indigo-400'
+                        ? 'bg-[#130e1c] border-indigo-500 text-indigo-400'
                         : isInterview
-                        ? 'bg-[#0a0f1e] border-emerald-500 text-emerald-400'
-                        : 'bg-[#0a0f1e] border-slate-600 text-slate-400'
+                        ? 'bg-[#130e1c] border-emerald-500 text-emerald-400'
+                        : 'bg-[#130e1c] border-slate-600 text-slate-400'
                     }`}
                   >
                     {isOverride ? (

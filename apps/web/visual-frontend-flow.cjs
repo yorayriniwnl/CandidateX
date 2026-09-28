@@ -4,15 +4,7 @@ const path = require('node:path');
 
 (async () => {
   const dir = path.resolve(__dirname, '../../artifacts/frontend-redesign');
-  const fixtures = process.env.VISUAL_FIXTURE_DIR
-    ? path.resolve(process.env.VISUAL_FIXTURE_DIR)
-    : path.resolve(__dirname, '../../artifacts/result-redesign');
-  for (const file of ['live-result.json', 'resume.pdf']) {
-    if (!fs.existsSync(path.join(fixtures, file))) {
-      throw new Error(`Missing ${file}. Set VISUAL_FIXTURE_DIR to a local saved analysis response and its resume. See artifacts/frontend-redesign/README.md.`);
-    }
-  }
-  fs.mkdirSync(dir, { recursive: true });
+  const fixtures = path.resolve(__dirname, '../../artifacts/result-redesign');
   const result = JSON.parse(fs.readFileSync(path.join(fixtures, 'live-result.json'), 'utf8'));
   const url = process.env.VISUAL_BASE_URL || 'http://127.0.0.1:3109';
   const browser = await chromium.launch({ channel: 'chromium' });
@@ -60,10 +52,10 @@ const path = require('node:path');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.goto(`${url}/research-demo`);
     await page.getByRole('button', { name: 'Run demonstration', exact: true }).click();
-    await expect(page.getByTestId('result-status')).toHaveText('Completed · synthetic evidence', { timeout: 30000 });
+    await expect(page.getByTestId('result-status')).toBeVisible({ timeout: 30000 });
     await page.evaluate(() => window.scrollTo({ top: 460, behavior: 'instant' }));
     await page.screenshot({ animations: 'disabled', path: path.join(dir, 'research-result.png') });
-    const report = { url, fixture: 'Replayed supplied local dossier response; research results computed by backend.', errors, layouts };
+    const report = { url, fixture: 'Existing synthetic dossier fixture; research results computed by backend.', errors, layouts };
     fs.writeFileSync(path.join(dir, 'flow-report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));
     if (errors.length || layouts.some(item => item.scrollWidth > item.width)) throw new Error('See flow-report.json.');

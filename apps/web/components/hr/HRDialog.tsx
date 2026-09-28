@@ -34,7 +34,7 @@ export function HRDialog({ title, description, onClose, children, wide = false, 
     <dialog ref={dialogRef} aria-labelledby="hr-dialog-title" aria-describedby="hr-dialog-description"
       onCancel={() => onClose()}
       className={`m-auto max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white/[0.06] backdrop-blur-2xl border border-white/[0.10] text-slate-100 p-0 shadow-2xl backdrop:bg-slate-950/80 ${wide ? 'max-w-6xl' : 'max-w-2xl'}`}>
-      <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[0.06] bg-[#0a0f1e]/80 backdrop-blur-xl px-6 py-5">
+      <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[0.06] bg-[#130e1c]/80 backdrop-blur-xl px-6 py-5">
         <div className="min-w-0">
           <h2 id="hr-dialog-title" className="break-words text-xl font-semibold tracking-tight text-white">{title}</h2>
           <p id="hr-dialog-description" className="mt-1 text-sm leading-6 text-slate-400">{description}</p>

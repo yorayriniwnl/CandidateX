@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import type { CanonicalRole } from '../../types/cci';
 import type { LiveResult, ResumeIntake } from '../../lib/live-analysis';
 import { AnalysisRunStatus } from './AnalysisRunStatus';
@@ -18,6 +20,32 @@ const CONTEXT = [
   ['Follow the work to its source.', 'Choose the artifacts worth exploring. Keep declarations, observations, and unanswered questions distinct.'],
   ['A clearer view starts here.', 'Your inputs become a connected evidence trail, with capability signals and questions for the conversation ahead.'],
 ];
+
+const stepVariants: Variants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 32 : -32,
+    opacity: 0,
+    filter: 'blur(2px)',
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    filter: 'blur(0px)',
+    transition: {
+      duration: 0.35,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -32 : 32,
+    opacity: 0,
+    filter: 'blur(2px)',
+    transition: {
+      duration: 0.22,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  }),
+};
 
 export function AnalysisWizard({
   step,
@@ -85,6 +113,15 @@ export function AnalysisWizard({
   onFetchAllCloud?: () => void;
 }) {
   const maximumStep = intake ? 3 : 0;
+  const [direction, setDirection] = useState(1);
+  const prevStepRef = useRef(step);
+
+  useEffect(() => {
+    if (step !== prevStepRef.current) {
+      setDirection(step > prevStepRef.current ? 1 : -1);
+      prevStepRef.current = step;
+    }
+  }, [step]);
 
   return (
     <section className={styles.wizard} aria-labelledby="evaluation-title">
@@ -96,6 +133,7 @@ export function AnalysisWizard({
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
             <Link
               href="/hr"
+              scroll={true}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -116,6 +154,7 @@ export function AnalysisWizard({
             </Link>
             <Link
               href="/"
+              scroll={true}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -149,64 +188,90 @@ export function AnalysisWizard({
       {phase !== 'idle' && <AnalysisRunStatus phase={phase} />}
       {phase === 'analyze' && !previousRun && <PendingAnalysisSkeleton />}
 
-      {step === 0 && (
-        <ResumeStep
-          intake={intake}
-          fileName={fileName}
-          fileSize={fileSize}
-          busy={busy}
-          onUpload={onUpload}
-          onRemove={onRemoveResume}
-          onContinue={onStepChange}
-        />
-      )}
-      {step === 1 && (
-        <RoleStep
-          role={role}
-          jd={jd}
-          jdFileName={jdFileName}
-          jdFileSize={jdFileSize}
-          jdLoading={jdLoading}
-          jdError={jdError}
-          jdWarning={jdWarning}
-          busy={busy}
-          onRoleChange={onRoleChange}
-          onJdChange={onJdChange}
-          onJdUpload={onJdUpload}
-          onJdRemove={onJdRemove}
-          onContinue={onStepChange}
-        />
-      )}
-      {step === 2 && (
-        <SourceManifestStep
-          sources={sources}
-          identity={identity}
-          busy={busy}
-          addError={sourceError}
-          onToggle={onToggleSource}
-          onAdd={onAddSource}
-          onIdentityChange={onIdentityChange}
-          onContinue={onStepChange}
-          onFetchLink={onFetchLink}
-          onFetchAllCloud={onFetchAllCloud}
-        />
-      )}
-      {step === 3 && (
-        <ReviewStep
-          role={role}
-          jd={jd}
-          jdFileName={jdFileName}
-          sources={sources}
-          busy={busy}
-          onContinue={onStepChange}
-          onAnalyze={onAnalyze}
-        />
-      )}
+      <AnimatePresence mode="wait" custom={direction}>
+        <motion.div
+          key={step}
+          custom={direction}
+          variants={stepVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          style={{ width: '100%' }}
+        >
+          {step === 0 && (
+            <ResumeStep
+              intake={intake}
+              fileName={fileName}
+              fileSize={fileSize}
+              busy={busy}
+              onUpload={onUpload}
+              onRemove={onRemoveResume}
+              onContinue={onStepChange}
+            />
+          )}
+          {step === 1 && (
+            <RoleStep
+              role={role}
+              jd={jd}
+              jdFileName={jdFileName}
+              jdFileSize={jdFileSize}
+              jdLoading={jdLoading}
+              jdError={jdError}
+              jdWarning={jdWarning}
+              busy={busy}
+              onRoleChange={onRoleChange}
+              onJdChange={onJdChange}
+              onJdUpload={onJdUpload}
+              onJdRemove={onJdRemove}
+              onContinue={onStepChange}
+            />
+          )}
+          {step === 2 && (
+            <SourceManifestStep
+              sources={sources}
+              identity={identity}
+              busy={busy}
+              addError={sourceError}
+              onToggle={onToggleSource}
+              onAdd={onAddSource}
+              onIdentityChange={onIdentityChange}
+              onContinue={onStepChange}
+              onFetchLink={onFetchLink}
+              onFetchAllCloud={onFetchAllCloud}
+            />
+          )}
+          {step === 3 && (
+            <ReviewStep
+              role={role}
+              jd={jd}
+              jdFileName={jdFileName}
+              sources={sources}
+              busy={busy}
+              onContinue={onStepChange}
+              onAnalyze={onAnalyze}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
       </div>
       <aside className={styles.guide} aria-label="Evaluation context">
         <div className={styles.guideTop}><span>CX / EVIDENCE ENGINE</span><span>0{step + 1} — 04</span></div>
         <Instrument stage={step} />
-        <div className={styles.guideCopy}><p className={styles.sectionEyebrow}>INTELLIGENCE, MADE TRACEABLE</p><h2>{CONTEXT[step][0]}</h2><p>{CONTEXT[step][1]}</p></div>
+        <div className={styles.guideCopy}>
+          <p className={styles.sectionEyebrow}>INTELLIGENCE, MADE TRACEABLE</p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              <h2>{CONTEXT[step][0]}</h2>
+              <p>{CONTEXT[step][1]}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
         <div className={styles.guideManifest}>
           <div><FileText size={13} aria-hidden="true" /><span>Candidate context</span><strong>{intake ? 'Supplied' : 'Awaiting résumé'}</strong>{intake && <Check size={12} aria-hidden="true" />}</div>
           <div><Layers3 size={13} aria-hidden="true" /><span>Role lens</span><strong>{role.replaceAll('_', ' ')}</strong></div>

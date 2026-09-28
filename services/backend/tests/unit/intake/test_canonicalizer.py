@@ -67,3 +67,31 @@ def test_platform_classification():
     # Fallbacks: generic public link is not claimed as project
     assert classify_url("https://example.com/some/article") == "public_link"
     assert classify_url("https://gitlab.com/alice/project") == "project"
+    assert classify_url("https://huggingface.co/alice/model") == "project"
+    assert classify_url("https://www.npmjs.com/package/my-pkg") == "project"
+    assert classify_url("https://bento.me/alicedev") == "portfolio"
+    assert classify_url("https://demo.streamlit.app") == "deployment"
+    assert classify_url("https://udemy.com/certificate/UC-12345") == "credential"
+
+
+def test_url_normalization_with_punctuation():
+    """Verify that trailing punctuation from sentences/lists is safely stripped."""
+    assert normalize_url("https://github.com/alice/repo,") == "https://github.com/alice/repo"
+    assert normalize_url("https://github.com/alice/repo.") == "https://github.com/alice/repo"
+    assert normalize_url("(https://github.com/alice/repo)") == "https://github.com/alice/repo"
+    assert normalize_url("[https://github.com/alice/repo]") == "https://github.com/alice/repo"
+    assert normalize_url("https://github.com/alice/repo;") == "https://github.com/alice/repo"
+    assert normalize_url("https://github.com/alice/repo!") == "https://github.com/alice/repo"
+    assert normalize_url("'https://github.com/alice/repo'") == "https://github.com/alice/repo"
+
+
+def test_url_normalization_modern_tlds():
+    """Verify that scheme-less URLs on modern developer TLDs are normalized to HTTPS."""
+    assert normalize_url("huggingface.co/spaces/demo") == "https://huggingface.co/spaces/demo"
+    assert normalize_url("alice.tech/portfolio") == "https://alice.tech/portfolio"
+    assert normalize_url("mysite.xyz") == "https://mysite.xyz"
+    assert normalize_url("notion.so/alice/project") == "https://notion.so/alice/project"
+    assert normalize_url("bit.ly/my-portfolio") == "https://bit.ly/my-portfolio"
+    assert normalize_url("linktr.ee/alice") == "https://linktr.ee/alice"
+    assert normalize_url("dev.to/alice") == "https://dev.to/alice"
+    assert normalize_url("npm.im/my-package") == "https://npm.im/my-package"

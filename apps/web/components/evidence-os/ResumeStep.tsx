@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ResumeIntake } from '../../lib/live-analysis';
 import type { EvaluationStep } from './EvaluationSteps';
 import styles from './evidence-os.module.css';
@@ -23,11 +23,45 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
   const [dragging, setDragging] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const prevIntakeRef = useRef<ResumeIntake | null>(null);
+
+  useEffect(() => {
+    if (intake && intake.manifest && intake !== prevIntakeRef.current) {
+      prevIntakeRef.current = intake;
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const timer = setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (summaryRef.current) {
+            summaryRef.current.scrollIntoView({
+              behavior: prefersReducedMotion ? 'auto' : 'smooth',
+              block: 'start',
+            });
+          }
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    } else if (!intake) {
+      prevIntakeRef.current = null;
+    }
+  }, [intake]);
+
   const manifest = intake?.manifest;
   const sourceCount = manifest
-    ? [...manifest.github_urls, ...manifest.linkedin_urls, ...manifest.coding_profile_urls,
-      ...manifest.credential_urls, ...manifest.deployment_urls, ...manifest.portfolio_urls, ...manifest.project_links]
-      .filter((url, index, urls) => urls.indexOf(url) === index).length
+    ? [
+        ...manifest.github_urls,
+        ...manifest.linkedin_urls,
+        ...manifest.coding_profile_urls,
+        ...manifest.credential_urls,
+        ...manifest.deployment_urls,
+        ...manifest.portfolio_urls,
+        ...manifest.project_links,
+        ...(manifest.shared_document_urls || []),
+        ...(manifest.public_links || []),
+      ].filter((url, index, urls) => urls.indexOf(url) === index).length
     : 0;
 
   function formatSize(bytes: number) {
@@ -71,7 +105,12 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
       <p className={styles.privacyNote}><ShieldCheck size={13} aria-hidden="true" />The document is processed for this request and is not saved. Scanned images need OCR before upload.</p>
 
       {intake && manifest && (
-        <div className={styles.intakeSummary}>
+        <div
+          ref={summaryRef}
+          id="resume-intake-summary"
+          className={styles.intakeSummary}
+          data-testid="resume-intake-summary"
+        >
           <div className={styles.summaryHeading}>
             <div className={styles.summaryIdentity}>
               {(manifest.picture || intake.picture) && (

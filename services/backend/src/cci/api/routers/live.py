@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from cci.live.contracts import MAX_UPLOAD, LiveAnalysisRequest
 from cci.live.intake import parse_resume, parse_jd_document
-from cci.live.public_links import fetch_cloud_file_data
+from cci.cloud.fetcher import fetch_cloud_document
 from cci.live.service import analyze_resume
 from cci.security.ssrf import SSRFSecurityError
 
@@ -81,7 +81,7 @@ async def fetch_link(request: Request, response: Response):
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise HTTPException(400, 'Invalid JSON payload.')
     try:
-        return await run_in_threadpool(fetch_cloud_file_data, url)
+        return await run_in_threadpool(fetch_cloud_document, url)
     except SSRFSecurityError as exc:
         raise HTTPException(403, str(exc)) from exc
     except Exception as exc:

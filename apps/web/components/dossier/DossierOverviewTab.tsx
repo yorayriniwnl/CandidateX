@@ -137,7 +137,7 @@ export const DossierOverviewTab: React.FC<Props> = ({
               <RadialGauge
                 value={rci !== null ? rci / 100 : 0}
                 size={90}
-                label="RCI"
+                label="JD Fit"
                 showPercentage={true}
               />
               <div className="text-center">

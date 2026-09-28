@@ -18,18 +18,22 @@ ShortText = Annotated[str, Field(max_length=2048)]
 
 
 def github_parts(url: str) -> tuple[str, str | None]:
+    url = re.sub(r'[>)\],;:\'\"`.!?]+$', '', url.strip())
     parsed = urlsplit(url)
     if parsed.scheme != 'https' or parsed.netloc.lower() not in {'github.com', 'www.github.com'} or parsed.query or parsed.fragment:
         raise ValueError('Use an HTTPS github.com profile or repository URL without query parameters.')
     parts = parsed.path.strip('/').split('/')
-    if len(parts) not in (1, 2) or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})', parts[0]):
+    if not parts or not parts[0]:
         raise ValueError('Expected a GitHub account or owner/repository URL.')
-    if parts[0].lower() in {'search', 'topics', 'orgs', 'settings', 'login', 'marketplace', 'collections', 'features', 'explore'}:
+    owner = re.sub(r'[>)\],;:\'\"`.!?]+$', '', parts[0])
+    if len(parts) not in (1, 2) or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})', owner):
+        raise ValueError('Expected a GitHub account or owner/repository URL.')
+    if owner.lower() in {'search', 'topics', 'orgs', 'settings', 'login', 'marketplace', 'collections', 'features', 'explore'}:
         raise ValueError('Supply a candidate account or repository, not a GitHub navigation page.')
-    repo = parts[1].removesuffix('.git') if len(parts) == 2 else None
+    repo = re.sub(r'[>)\],;:\'\"`.!?]+$', '', parts[1].removesuffix('.git')) if len(parts) == 2 else None
     if repo is not None and (not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', repo) or repo in {'.', '..'}):
         raise ValueError('Invalid repository name.')
-    return parts[0], repo
+    return owner, repo
 
 
 class ResumeReview(BaseModel):

@@ -83,12 +83,18 @@ export function saveReviewToHR(params: {
   email?: string | null;
   role: string;
   rci?: number | null;
+  jdFitScore?: number | null;
+  observedCapabilities?: number;
   coverage?: number | null;
   hasMeaningfulConflict?: boolean;
   manifest?: CandidateManifest;
   dossier?: Dossier;
   graph?: CEGGraph;
 }): HRCandidate {
+  const observedCount = params.observedCapabilities ?? (params.dossier
+    ? Object.values(params.dossier.capability_estimates).filter((e) => e.is_observed && e.estimate != null).length
+    : undefined);
+  const fitScore = params.jdFitScore ?? params.rci;
   const hrCandidate: HRCandidate = {
     id: params.candidateId,
     display_name: params.displayName || 'Candidate',
@@ -96,6 +102,8 @@ export function saveReviewToHR(params: {
     role: params.role,
     has_completed_dossier: true,
     rci: params.rci ?? undefined,
+    jd_fit_score: fitScore ?? undefined,
+    observed_capabilities: observedCount,
     coverage: params.coverage ?? undefined,
     has_meaningful_conflict: params.hasMeaningfulConflict ?? false,
     created_at: params.dossier?.generated_at || new Date().toISOString(),
@@ -117,6 +125,8 @@ export const SAMPLE_CANDIDATES: HRCandidate[] = [
     role: MOCK_DOSSIER.role,
     has_completed_dossier: true,
     rci: MOCK_DOSSIER.rci,
+    jd_fit_score: MOCK_DOSSIER.rci,
+    observed_capabilities: 9,
     coverage: MOCK_DOSSIER.coverage,
     has_meaningful_conflict: Object.values(MOCK_DOSSIER.capability_conflicts).some((item) => item.has_meaningful_conflict),
     created_at: MOCK_DOSSIER.generated_at,

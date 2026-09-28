@@ -158,10 +158,10 @@ export const CandidateComparison: React.FC<{
     md += `| Metric | ${subjects.map((s) => s.name).join(' | ')} |\n`;
     md += `| :--- | ${subjects.map(() => ':---:').join(' | ')} |\n`;
     md += `| **Role** | ${subjects.map((s) => s.role).join(' | ')} |\n`;
-    md += `| **Role Capability Index (RCI)** | ${subjects
+    md += `| **JD Fit Score (RCI)** | ${subjects
       .map((s) => (s.dossier.rci !== null ? `**${s.dossier.rci.toFixed(1)} / 100**` : 'UNKNOWN'))
       .join(' | ')} |\n`;
-    md += `| **Evidence Coverage** | ${subjects
+    md += `| **Observed Capabilities** | ${subjects.map((s) => `${Object.values(s.dossier.capability_estimates).filter((e) => e.is_observed).length} / 12`).join(' | ')} |\n| **Evidence Coverage** | ${subjects
       .map((s) => `${(s.dossier.coverage * 100).toFixed(1)}%`)
       .join(' | ')} |\n`;
     md += `| **Evidence Sufficiency** | ${subjects
@@ -335,7 +335,7 @@ export const CandidateComparison: React.FC<{
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <GlassCard variant="subtle" className="p-3 text-center flex flex-col items-center justify-center relative">
                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium block mb-1">
-                            RCI Score
+                            JD Fit Score (RCI)
                           </span>
                           {rciScore !== null ? (
                             <>

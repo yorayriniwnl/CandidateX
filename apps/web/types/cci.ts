@@ -116,6 +116,8 @@ export interface CandidateManifest {
   github_repositories: string[];
   deployment_urls: string[];
   portfolio_urls: string[];
+  shared_document_urls?: string[];
+  public_links?: string[];
   declared_skills: string[];
   extraction_metadata: Record<string, any>;
 }

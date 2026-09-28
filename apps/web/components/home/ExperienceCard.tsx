@@ -26,6 +26,7 @@ export function ExperienceCard({
   return (
     <Link
       href={href}
+      scroll={true}
       className={`experience-card experience-card--${accent}${featured ? ' experience-card--featured' : ''}`}
     >
       <div className="experience-card__topline">

@@ -94,7 +94,7 @@ test('DOCX sections, public-link failures, skill filters and detailed export', a
   await expect(page.getByRole('heading', { name: 'Skills and supporting evidence' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Certificates and credentials' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Python Programming Certificate' })).toBeVisible();
-  await expect(page.getByText('security blocked', { exact: true })).toBeVisible();
+  await expect(page.getByText('security blocked', { exact: true }).first()).toBeVisible();
   await page.getByLabel('Find a skill').fill('Docker');
   await expect(page.getByRole('region', { name: 'Detailed resume analysis', exact: true }).locator('summary').filter({ hasText: 'Docker' })).toContainText('Currently learning');
   await page.getByLabel('Show skills without repository evidence').check();

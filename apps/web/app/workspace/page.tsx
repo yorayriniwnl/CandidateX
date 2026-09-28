@@ -54,6 +54,15 @@ const pageVariants: Variants = {
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('directory');
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  };
   const [currentRole, setCurrentRole] = useState<CanonicalRole>('backend');
   const [manifest, setManifest] = useState<CandidateManifest | null>(null);
   const [jdText, setJdText] = useState('');
@@ -103,12 +112,18 @@ export default function HomePage() {
           ? Object.values(dossier.capability_conflicts).some(item => item.has_meaningful_conflict)
           : false;
 
+        const observedCount = Object.values(dossier.capability_estimates).filter(
+          (e) => e.is_observed && e.estimate != null
+        ).length;
+
         saveReviewToHR({
           candidateId,
           displayName: candidateName,
           email: candidate.primary_email,
           role: candidateRole,
           rci: score,
+          jdFitScore: score,
+          observedCapabilities: observedCount,
           coverage,
           hasMeaningfulConflict: hasConflict,
           manifest: candidate,
@@ -122,6 +137,8 @@ export default function HomePage() {
           primary_email: candidate.primary_email,
           role: candidateRole,
           rci: score ?? undefined,
+          jd_fit_score: score ?? undefined,
+          observed_capabilities: observedCount,
           coverage,
           has_meaningful_conflict: hasConflict,
           has_completed_dossier: true,
@@ -138,7 +155,7 @@ export default function HomePage() {
 
   const handleSelectCandidateFromDirectory = async (candidateId: string, name: string) => {
     const sequence = ++requestSequence.current;
-    setCurrentDossier(null); setCurrentGraph(null); setManifest(null); setLoadError(''); setActiveTab('dossier');
+    setCurrentDossier(null); setCurrentGraph(null); setManifest(null); setLoadError(''); handleTabChange('dossier');
     try {
       const [dossier, graph] = await Promise.all([fetchCandidateDossier(candidateId), fetchCandidateGraph(candidateId)]);
       if (sequence !== requestSequence.current) return;
@@ -167,13 +184,13 @@ export default function HomePage() {
       <div className="studio-page">
         <StudioHeading eyebrow="02 / THE PROTOTYPE WORKSPACE" title="A different perspective." description="Bring the people, the evidence, and the questions into one considered workspace.">
           <GlowBadge variant={isBackendOnline ? 'success' : 'warning'} size="sm">{isBackendOnline === null ? 'Checking API...' : isBackendOnline ? 'API connected' : 'API unavailable'}</GlowBadge>
-          {manifest?.full_name && <button type="button" className={styles.candidatePill} onClick={() => setActiveTab('dossier')}><span>{manifest.full_name.charAt(0)}</span>{manifest.full_name}</button>}
+          {manifest?.full_name && <button type="button" className={styles.candidatePill} onClick={() => handleTabChange('dossier')}><span>{manifest.full_name.charAt(0)}</span>{manifest.full_name}</button>}
         </StudioHeading>
         <div className={styles.shell} data-collapsed={!sidebarExpanded}>
           <aside className={styles.rail} aria-label="Workspace tools">
             <div className={styles.railHeading}><span>CX / WORKSPACE</span><span>02</span></div>
             <nav className={styles.tools} aria-label="Workspace views">
-              {NAV_ITEMS.map(item => <button key={item.key} type="button" onClick={() => setActiveTab(item.key)} aria-pressed={activeTab === item.key} aria-label={`${item.label} ${item.description}`} title={sidebarExpanded ? undefined : item.label}>
+              {NAV_ITEMS.map(item => <button key={item.key} type="button" onClick={() => handleTabChange(item.key)} aria-pressed={activeTab === item.key} aria-label={`${item.label} ${item.description}`} title={sidebarExpanded ? undefined : item.label}>
                 <span className={styles.toolIcon}>{item.icon}</span><span className={styles.toolCopy}><strong>{item.label}</strong><span>{item.description}</span></span><i />
               </button>)}
             </nav>
@@ -189,10 +206,10 @@ export default function HomePage() {
             {loadError && <div role="alert" className={styles.error}>{loadError}</div>}
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} variants={pageVariants} initial="initial" animate="animate" exit="exit" className={styles.view}>
-                {activeTab === 'directory' && <CandidateDirectory onSelectCandidate={handleSelectCandidateFromDirectory} onNewCandidate={() => setActiveTab('new_eval')} isBackendOnline={isBackendOnline} initialSelectedForComparison={comparisonCandidateIds} onCompareCandidates={ids => { setComparisonCandidateIds(ids); setActiveTab('compare'); }} />}
-                {activeTab === 'new_eval' && <EvaluationWizard currentRole={currentRole} pipelineStageIndex={pipelineStageIndex} isPipelineRunning={isPipelineRunning} isPipelineComplete={isPipelineComplete} onJobComplete={handleJobComplete} onCandidateSubmit={handleCandidateSubmit} onViewDossier={() => setActiveTab('dossier')} />}
+                {activeTab === 'directory' && <CandidateDirectory onSelectCandidate={handleSelectCandidateFromDirectory} onNewCandidate={() => handleTabChange('new_eval')} isBackendOnline={isBackendOnline} initialSelectedForComparison={comparisonCandidateIds} onCompareCandidates={ids => { setComparisonCandidateIds(ids); handleTabChange('compare'); }} />}
+                {activeTab === 'new_eval' && <EvaluationWizard currentRole={currentRole} pipelineStageIndex={pipelineStageIndex} isPipelineRunning={isPipelineRunning} isPipelineComplete={isPipelineComplete} onJobComplete={handleJobComplete} onCandidateSubmit={handleCandidateSubmit} onViewDossier={() => handleTabChange('dossier')} />}
                 {activeTab === 'dossier' && currentDossier && currentGraph && <DossierView initialDossier={currentDossier} graph={currentGraph} candidateName={manifest?.full_name || 'Candidate'} candidatePicture={manifest?.picture} onSelectCandidate={handleSelectCandidateFromDirectory} />}
-                {activeTab === 'dossier' && !currentDossier && <div className={styles.empty}><div className={styles.emptyIcon}><Award size={32} strokeWidth={1} /></div><span>THE CANDIDATE DOSSIER</span><h2>A person behind every profile.</h2><p role="status">No candidate dossier selected or available.</p><button type="button" onClick={() => setActiveTab('directory')}>Explore candidates <ChevronRight size={14} /></button></div>}
+                {activeTab === 'dossier' && !currentDossier && <div className={styles.empty}><div className={styles.emptyIcon}><Award size={32} strokeWidth={1} /></div><span>THE CANDIDATE DOSSIER</span><h2>A person behind every profile.</h2><p role="status">No candidate dossier selected or available.</p><button type="button" onClick={() => handleTabChange('directory')}>Explore candidates <ChevronRight size={14} /></button></div>}
                 {activeTab === 'compare' && <CandidateComparison onSelectCandidateDossier={handleSelectCandidateFromDirectory} isBackendOnline={isBackendOnline} selectedCandidateIds={comparisonCandidateIds} onSelectedIdsChange={setComparisonCandidateIds} />}
                 {activeTab === 'research' && <ResearchTheoremsExplorer isBackendOnline={isBackendOnline} />}
               </motion.div>
