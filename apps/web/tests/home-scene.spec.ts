@@ -125,11 +125,14 @@ test('right-clicking the scene triggers surprise overdrive, theme cycling, and H
 
   const badge = scene.getByTestId('signal-surprise-badge');
   await expect(badge).toBeVisible();
-  await expect(badge).toContainText('SOLAR SUPERNOVA');
-  await expect(badge).toContainText('Thermonuclear surge');
+  const firstBadgeText = await badge.textContent();
+  expect(firstBadgeText).toContain('SOLAR SUPERNOVA');
+  expect(firstBadgeText).toContain('Thermonuclear surge');
 
   // Triggering right-click again cycles to next theme
   await canvas.click({ button: 'right' });
   await expect(badge).toContainText('CYBER EMERALD');
-  await expect(badge).toContainText('Matrix verification');
+  const secondBadgeText = await badge.textContent();
+  expect(secondBadgeText).toContain('CYBER EMERALD');
+  expect(secondBadgeText).toContain('Matrix verification');
 });
