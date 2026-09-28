@@ -309,7 +309,7 @@ test('supports uploading a job description or recruitment standards document in 
   await page.getByRole('button', { name: /Continue to public sources/ }).click();
   await page.getByRole('button', { name: /Continue to review/ }).click();
   await expect(page.getByText('senior_backend_jd.pdf', { exact: true })).toBeVisible();
-  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toBeVisible();
+  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toHaveCount(0);
 
   await page.getByRole('button', { name: /02 Target role/ }).click();
   await expect(page.getByTestId('jd-file-card')).toBeVisible();
