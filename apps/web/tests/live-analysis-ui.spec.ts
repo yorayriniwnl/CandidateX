@@ -301,15 +301,15 @@ test('supports uploading a job description or recruitment standards document in 
 
   await expect(page.getByTestId('jd-file-card')).toBeVisible();
   await expect(page.getByText('senior_backend_jd.pdf')).toBeVisible();
-  await expect(page.getByText('Document loaded')).toBeVisible();
+  await expect(page.getByText('Ready for analysis', { exact: true })).toBeVisible();
 
   const textarea = page.locator('#live-jd');
-  await expect(textarea).toHaveValue(/Senior Backend Engineer Requirements/);
+  await expect(textarea).toHaveValue('');
 
   await page.getByRole('button', { name: /Continue to public sources/ }).click();
   await page.getByRole('button', { name: /Continue to review/ }).click();
   await expect(page.getByText('senior_backend_jd.pdf', { exact: true })).toBeVisible();
-  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toBeVisible();
+  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toHaveCount(0);
 
   await page.getByRole('button', { name: /02 Target role/ }).click();
   await expect(page.getByTestId('jd-file-card')).toBeVisible();

@@ -30,7 +30,7 @@ test('real upload, extracted claims, unknown assessment, and export work through
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
-  await expect(page.getByText('No public sources were selected for this run.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Live candidate dossier' }).getByText('No public sources were selected for this run.', { exact: false })).toBeVisible();
   await expect(page.getByText('Insufficient evidence', { exact: true })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export dossier JSON' }).click();

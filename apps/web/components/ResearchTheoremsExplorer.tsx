@@ -222,7 +222,14 @@ const DEFAULT_ABLATION_MODELS: AblationRow[] = [
   },
 ];
 
-const DEFAULT_ROLE_BREAKDOWN: RoleBreakdownRow[] = [];
+const DEFAULT_ROLE_BREAKDOWN: RoleBreakdownRow[] = [
+  { role: 'backend', display_name: 'Backend', full_cci_mae: 1.9355, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+  { role: 'frontend', display_name: 'Frontend', full_cci_mae: 1.9002, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+  { role: 'fullstack', display_name: 'Full-stack', full_cci_mae: 1.8942, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+  { role: 'ml_engineer', display_name: 'ML Engineer', full_cci_mae: 1.9863, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+  { role: 'devops_cloud', display_name: 'DevOps / Cloud', full_cci_mae: 1.9574, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+  { role: 'data_engineer', display_name: 'Data Engineer', full_cci_mae: 1.9822, no_decay_mae: null, no_ownership_mae: null, uniform_weights_mae: null },
+];
 
 export const ResearchTheoremsExplorer: React.FC<{
   isBackendOnline?: boolean | null;

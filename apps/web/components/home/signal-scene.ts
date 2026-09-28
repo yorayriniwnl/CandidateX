@@ -338,15 +338,20 @@ export function createSignalScene(
   function stepReturnWhilePaused() {
     if (disposed || lost) return;
     const now = performance.now();
-    const dt = Math.min((now - (lastReturnTime || now)) / 1000, 0.05);
+    const elapsed = Math.max(0, (now - (lastReturnTime || now)) / 1000);
+    // Return-to-rest should follow wall-clock time even when headless or low-power
+    // renderers deliver sparse animation frames. Visual effects keep their
+    // conservative timestep separately below.
+    const returnDt = Math.min(elapsed, 1);
+    const effectDt = Math.min(elapsed, 0.05);
     lastReturnTime = now;
     if (!isDragging) {
-      dragRotation.x = THREE.MathUtils.damp(dragRotation.x, 0, 7, dt);
-      dragRotation.y = THREE.MathUtils.damp(dragRotation.y, 0, 7, dt);
+      dragRotation.x = THREE.MathUtils.damp(dragRotation.x, 0, 7, returnDt);
+      dragRotation.y = THREE.MathUtils.damp(dragRotation.y, 0, 7, returnDt);
       if (Math.abs(dragRotation.x) < 0.001) dragRotation.x = 0;
       if (Math.abs(dragRotation.y) < 0.001) dragRotation.y = 0;
     }
-    draw(false, dt);
+    draw(false, effectDt);
     const hasMovement =
       dragRotation.x !== 0 ||
       dragRotation.y !== 0 ||
