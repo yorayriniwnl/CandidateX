@@ -301,7 +301,7 @@ test('supports uploading a job description or recruitment standards document in 
 
   await expect(page.getByTestId('jd-file-card')).toBeVisible();
   await expect(page.getByText('senior_backend_jd.pdf')).toBeVisible();
-  await expect(page.getByText('Document loaded')).toBeVisible();
+  await expect(page.getByText('Ready for analysis', { exact: true })).toBeVisible();
 
   const textarea = page.locator('#live-jd');
   await expect(textarea).toHaveValue(/Senior Backend Engineer Requirements/);

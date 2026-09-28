@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('HR Tab and Candidate Review Profile Saving', () => {
-  test('HR dashboard renders the Score column and shows candidate scores', async ({ page }) => {
+  test('HR dashboard renders the Score column and leaves unevaluated roster candidates unscored', async ({ page }) => {
     await page.goto('/hr');
 
     // Verify Score column header exists in the table
@@ -14,13 +14,14 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(tableHeader).toContainText('Alerts');
     await expect(tableHeader).toContainText('Action');
 
-    // Verify Ayush Roy displays their RCI score
+    // Roster entries are identity/role fixtures only. They stay unscored until
+    // an actual dossier is saved or returned by the backend.
     const ayushRow = page.locator('tr:has-text("Ayush Roy")');
     await expect(ayushRow).toBeVisible();
-    await expect(ayushRow).toContainText('81.4');
-    await expect(ayushRow).toContainText('/ 100');
+    await expect(ayushRow).toContainText('—');
+    await expect(ayushRow).toContainText('Not completed');
 
-    // Verify unevaluated sample candidates show '—' in Score column
+    // Verify another unevaluated sample candidate is also unscored
     const archiRow = page.locator('tr:has-text("Archi Srivastava")');
     await expect(archiRow).toBeVisible();
     await expect(archiRow).toContainText('—');

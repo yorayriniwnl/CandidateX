@@ -340,7 +340,7 @@ export function CapabilityMatrix({ result, selected, onSelect, onInspectEvidence
         )}
         <div className={styles.studentInfo}>
           <div className={styles.studentEyebrow}>Student section</div>
-          <h3 className={styles.studentName}>{displayName}</h3>
+          <p className={styles.studentName}>{displayName}</p>
           <span className={styles.studentRole}>Target role: {targetRole}</span>
         </div>
       </div>
