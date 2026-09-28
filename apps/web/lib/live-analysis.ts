@@ -80,6 +80,15 @@ export interface SourceHealth {
   is_partial: boolean;
   flags: string[];
 }
+export interface PortfolioAnalysis {
+  url: string;
+  title: string;
+  status: string;
+  technologies: string[];
+  excerpt: string;
+  explanation: string;
+}
+
 export interface ComprehensiveAnalysis {
   method: string; coverage: { supplied_sources: number; observed_sources: number; skills_declared: number;
     skills_with_repository_matches: number; credential_claims: number };
@@ -88,6 +97,7 @@ export interface ComprehensiveAnalysis {
     evidence_count: number; public_mentions: string[]; explanation: string }[];
   credentials: { claim: string; status: string; explanation: string; matching_pages: {
     url: string; title: string; matched_terms: string[]; candidate_name_present: boolean }[] }[];
+  portfolios?: PortfolioAnalysis[];
   projects: { title: string; description: string; source_urls: string[]; status: string; explanation: string }[];
   education: { claim: string; status: string }[]; experience: { claim: string; status: string }[];
   achievements: { claim: string; status: string }[]; quantified_claims_to_verify: string[]; next_steps: string[];

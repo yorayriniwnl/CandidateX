@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { CanonicalRole, CapabilityKey, Dossier } from '../types/cci';
 import { fetchCandidateDossier, fetchCandidatesList, CandidateSummary } from '../lib/api';
-import { MOCK_DOSSIER } from '../data/mockDossier';
+import { mergeCandidateLists, TEAM_CANDIDATES } from '../lib/team-members';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -34,14 +34,15 @@ interface ComparisonSubject {
   dossier: Dossier;
 }
 
-const PRESET_COHORTS = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'backend' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'backend' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', role: 'frontend' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ml_engineer' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'devops_cloud' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', role: 'fullstack' },
-];
+function comparisonOption(candidate: CandidateSummary) {
+  return {
+    id: candidate.id,
+    name: candidate.display_name,
+    role: candidate.role_label || candidate.role || 'Unspecified',
+  };
+}
+
+const PRESET_COHORTS = TEAM_CANDIDATES.map(comparisonOption);
 
 const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
   backend_engineering: 'Backend Engineering',
@@ -84,15 +85,7 @@ export const CandidateComparison: React.FC<{
     if (isBackendOnline) {
       fetchCandidatesList()
         .then((cands) => {
-          if (cands.length > 0) {
-            setCandidateOptions(
-              cands.map((c) => ({
-                id: c.id,
-                name: c.display_name,
-                role: c.role || 'backend',
-              }))
-            );
-          }
+          setCandidateOptions(mergeCandidateLists(cands, TEAM_CANDIDATES).map(comparisonOption));
         })
         .catch(() => {});
     }

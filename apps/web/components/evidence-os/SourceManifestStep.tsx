@@ -170,10 +170,11 @@ export function SourceManifestStep({
         {sources.length === 0 && <p className={styles.emptyLine}>No public sources selected. Add a public URL if you want CandidateX to inspect one.</p>}
         {sources.map((source, index) => {
           const isCloud = isCloudUrl(source.url, source.category);
+          const isPortfolio = source.category === 'Portfolio' || source.category.toLowerCase().includes('portfolio');
           return (
             <div className={styles.manifestRow} key={`${source.kind}-${source.url}-${index}`}>
               <div className={styles.manifestSource}>
-                <span className={styles.sourceType}>{source.kind === 'github' ? 'GITHUB' : isCloud ? 'CLOUD FILE' : 'PUBLIC URL'}</span>
+                <span className={styles.sourceType}>{source.kind === 'github' ? 'GITHUB' : isCloud ? 'CLOUD FILE' : isPortfolio ? 'PORTFOLIO' : 'PUBLIC URL'}</span>
                 <div className={styles.sourceAddressWrapper}>
                   <a
                     href={formatHref(source.url)}
@@ -212,7 +213,7 @@ export function SourceManifestStep({
                   <div className={styles.sourceFetchedContainer}>
                     <div className={styles.sourceFetchedHeader}>
                       <span className={styles.fetchedSuccessBadge}>
-                        <Check size={11} strokeWidth={2.5} /> Files & data fetched ({source.fetchedData.file_count || source.fetchedData.files?.length || 1} {((source.fetchedData.file_count || source.fetchedData.files?.length || 1) === 1 ? 'file' : 'files')}{source.fetchedData.total_size ? ` · ${(source.fetchedData.total_size / 1024).toFixed(1)} KB` : ''})
+                        <Check size={11} strokeWidth={2.5} /> {isPortfolio || source.fetchedData.inferred_kind === 'portfolio' ? `Portfolio inspected (${source.fetchedData.title || 'Live Website'})` : `Files & data fetched (${source.fetchedData.file_count || source.fetchedData.files?.length || 1} ${((source.fetchedData.file_count || source.fetchedData.files?.length || 1) === 1 ? 'file' : 'files')}${source.fetchedData.total_size ? ` · ${(source.fetchedData.total_size / 1024).toFixed(1)} KB` : ''})`}
                       </span>
                       {source.fetchedData.technologies && source.fetchedData.technologies.length > 0 && (
                         <span className={styles.fetchedTechBadge}>
@@ -271,10 +272,10 @@ export function SourceManifestStep({
                       </button>
                     )}
                   </div>
-                ) : isCloud ? (
+                ) : (isCloud || isPortfolio) ? (
                   <div className={styles.sourceCloudActionRow}>
                     <span className={styles.sourceOrigin}>
-                      {source.declared ? 'Candidate-declared cloud link' : 'Cloud storage link'}
+                      {isPortfolio ? (source.declared ? 'Candidate-declared portfolio' : 'Portfolio website') : source.declared ? 'Candidate-declared cloud link' : 'Cloud storage link'}
                     </span>
                     {onFetchLink && (
                       <button
@@ -282,10 +283,10 @@ export function SourceManifestStep({
                         className={styles.fetchFilesBtn}
                         disabled={busy || !source.selectable}
                         onClick={() => onFetchLink(source.url)}
-                        title="Fetch files and extract data from this link"
+                        title={isPortfolio ? 'Inspect portfolio website' : 'Fetch files and extract data from this link'}
                       >
                         <Download size={11} />
-                        <span>Fetch files & get data</span>
+                        <span>{isPortfolio ? 'Inspect portfolio website' : 'Fetch files & get data'}</span>
                       </button>
                     )}
                   </div>

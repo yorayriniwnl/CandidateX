@@ -48,7 +48,28 @@ async def parse_jd_endpoint(request: Request, response: Response):
         raise HTTPException(415, 'Upload a PDF, DOCX, DOC, or TXT document.')
     body = await limited_body(request, MAX_UPLOAD)
     try:
-        return await run_in_threadpool(parse_jd_document, body, filename)
+        result = await run_in_threadpool(parse_jd_document, body, filename)
+        # Store in backend database
+        try:
+            from uuid import UUID
+            from cci.db.session import SessionLocal
+            from cci.domain.enums import CanonicalRole
+            import cci.db.repository as repo
+            with SessionLocal() as db:
+                jd = repo.save_job_description(
+                    session=db,
+                    organization_id=UUID('00000000-0000-0000-0000-000000000001'),
+                    title=filename[:250],
+                    canonical_role=CanonicalRole.BACKEND,
+                    raw_text=result.get('text', ''),
+                    file_name=filename,
+                    recruitment_rules=result.get('text', ''),
+                )
+                db.commit()
+                result['job_id'] = str(jd.id)
+        except Exception:
+            pass
+        return result
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     except Exception as exc:

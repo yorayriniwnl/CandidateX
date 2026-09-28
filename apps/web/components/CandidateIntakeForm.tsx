@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { CheckSquare, ExternalLink, FileUp, GitBranch, Globe, Plus, Trash2, UserCheck, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { CandidateManifest } from '../types/cci';
+import { TEAM_MEMBERS } from '../lib/team-members';
 import { liveRequest, type ResumeIntake } from '../lib/live-analysis';
 
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -25,12 +26,8 @@ interface CandidatePreset {
   file: string;
 }
 
-const CANONICAL_PRESETS: CandidatePreset[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    name: 'Ayush Roy',
-    email: '2329027@kiit.ac.in',
-    role: 'Backend (Senior)',
+const PRESET_DETAILS: Record<string, Omit<CandidatePreset, 'id' | 'name' | 'email' | 'role'>> = {
+  '11111111-1111-1111-1111-111111111111': {
     badge: 'High Coverage',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     badgeVariant: 'success',
@@ -40,13 +37,9 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     ],
     deployments: ['https://yorayriniwnl.in'],
     skills: ['Python', 'Go', 'PostgreSQL', 'Kafka', 'Docker', 'Distributed Systems'],
-    file: 'Ayush_Roy_Backend_CV.pdf',
+    file: 'Ayush_Roy_Fullstack_CV.pdf',
   },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    name: 'Archi Srivastava',
-    email: '2329100@kiit.ac.in',
-    role: 'Frontend (Staff)',
+  '22222222-2222-2222-2222-222222222222': {
     badge: 'Design Systems',
     badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
     badgeVariant: 'brand',
@@ -58,11 +51,7 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     skills: ['TypeScript', 'React', 'Next.js', 'Web Vitals', 'WAI-ARIA', 'Tailwind CSS'],
     file: 'Archi_Srivastava_Frontend_CV.pdf',
   },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    name: 'Atmaja Tripathy',
-    email: '2329179@kiit.ac.in',
-    role: 'ML Engineer (Senior)',
+  '33333333-3333-3333-3333-333333333333': {
     badge: 'PyTorch / LLMs',
     badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
     badgeVariant: 'brand',
@@ -74,11 +63,7 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     skills: ['Python', 'PyTorch', 'Transformers', 'vLLM', 'Qdrant', 'Model Evaluation'],
     file: 'Atmaja_Tripathy_ML_CV.pdf',
   },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    name: 'Shreya',
-    email: '2329065@kiit.ac.in',
-    role: 'DevOps / SRE (Staff)',
+  '44444444-4444-4444-4444-444444444444': {
     badge: 'K8s / Terraform',
     badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
     badgeVariant: 'info',
@@ -88,13 +73,9 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     ],
     deployments: ['https://tmansour.cloud'],
     skills: ['Kubernetes', 'Terraform', 'Prometheus', 'ArgoCD', 'eBPF', 'AWS'],
-    file: 'Shreya_SRE_CV.pdf',
+    file: 'Shreya_DevOps_CV.pdf',
   },
-  {
-    id: '55555555-5555-5555-5555-555555555555',
-    name: 'Shreshth Nigam',
-    email: '2329064@kiit.ac.in',
-    role: 'Fullstack (Principal)',
+  '55555555-5555-5555-5555-555555555555': {
     badge: 'Type-Safe Stack',
     badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
     badgeVariant: 'info',
@@ -104,13 +85,9 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     ],
     deployments: ['https://soconnor.tech'],
     skills: ['React', 'Next.js', 'Node.js', 'PostgreSQL', 'Redis', 'tRPC'],
-    file: 'Shreshth_Nigam_Fullstack_CV.pdf',
+    file: 'Shreshth_Nigam_SRE_CV.pdf',
   },
-  {
-    id: '77777777-7777-7777-7777-777777777777',
-    name: 'P Ajay Kumar',
-    email: '2329195@kiit.ac.in',
-    role: 'Backend (Conflict Test)',
+  '77777777-7777-7777-7777-777777777777': {
     badge: 'Contradiction Flag',
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     badgeVariant: 'danger',
@@ -121,7 +98,15 @@ const CANONICAL_PRESETS: CandidatePreset[] = [
     skills: ['Python', 'Unindexed Database Claims', 'Microservices'],
     file: 'P_Ajay_Kumar_CV.pdf',
   },
-];
+};
+
+const CANONICAL_PRESETS: CandidatePreset[] = TEAM_MEMBERS.map((member) => ({
+  ...PRESET_DETAILS[member.id],
+  id: member.id,
+  name: member.name,
+  email: member.email,
+  role: member.role_label,
+}));
 
 export const CandidateIntakeForm: React.FC<{
   onSubmit?: (manifest: CandidateManifest) => void;

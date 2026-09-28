@@ -28,6 +28,8 @@ class JobDescription(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
         String(50), nullable=False
     )  # CanonicalRole enum
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    file_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    recruitment_rules: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     role_profiles: Mapped[list["RoleProfileEntity"]] = relationship(
         "RoleProfileEntity",

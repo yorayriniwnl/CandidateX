@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Trash2 } from 'lucide-react';
 import { fetchCandidateDossier, fetchCandidateGraph } from '../../lib/api';
-import { MOCK_DOSSIER, MOCK_GRAPH } from '../../data/mockDossier';
 import { DossierView } from '../dossier/DossierView';
 import type { CEGGraph, Dossier } from '../../types/cci';
 import { evaluationLabel, removeSavedHRCandidate, roleLabel, summarizeDossier, withReadTimeout, type HRCandidate } from './hr-data';
@@ -50,7 +49,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
     const request = candidate.dossier
       ? Promise.resolve(candidate.dossier)
       : candidate.source === 'sample'
-      ? Promise.resolve(MOCK_DOSSIER)
+      ? Promise.reject(new Error('No sample dossier available'))
       : withReadTimeout(fetchCandidateDossier(candidate.id));
     request.then((result) => {
       if (result.candidate_id !== candidate.id) throw new Error('Candidate mismatch');
@@ -69,7 +68,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
     const request = candidate.graph
       ? Promise.resolve(candidate.graph)
       : candidate.source === 'sample'
-      ? Promise.resolve(MOCK_GRAPH)
+      ? Promise.reject(new Error('No sample graph available'))
       : withReadTimeout(fetchCandidateGraph(candidate.id));
     request.then((result) => {
       if (result.candidate_id !== dossier.candidate_id || result.analysis_run_id !== dossier.analysis_run_id) throw new Error('Evaluation mismatch');
@@ -106,7 +105,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
       isOpen={!!candidate} 
       onClose={onClose} 
       title={fullView ? `${candidate.display_name} · Technical dossier` : candidate.display_name}
-      subtitle={`${roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${scoreBadge}${observedBadge}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
+      subtitle={`${candidate.role_label || roleLabel(candidate.role)} · ${evaluationLabel(candidate)}${scoreBadge}${observedBadge}${candidate.source === 'sample' ? ' · Sample candidate' : ''}`}
       size={fullView ? 'xl' : 'lg'}
     >
       {fullView ? <div className="space-y-6">

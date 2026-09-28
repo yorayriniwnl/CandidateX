@@ -19,6 +19,36 @@ from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.pipeline.orchestrator import execute_analysis_pipeline
 
 
+def test_seed_database_preserves_all_six_team_members(tmp_path, monkeypatch):
+    from scripts.seed_db import seed_database
+
+    monkeypatch.setattr("cci.api.routers.dossier.register_dossier", lambda *_: None)
+    db_url = f"sqlite:///{(tmp_path / 'team-roster.db').as_posix()}"
+    seed_database(db_url)
+    expected = {
+        "2329027@kiit.ac.in": ("Ayush Roy", CanonicalRole.FULLSTACK),
+        "2329100@kiit.ac.in": ("Archi Srivastava", CanonicalRole.FRONTEND),
+        "2329179@kiit.ac.in": ("Atmaja Tripathy", CanonicalRole.ML_ENGINEER),
+        "2329065@kiit.ac.in": ("Shreya", CanonicalRole.DEVOPS_CLOUD),
+        "2329064@kiit.ac.in": ("Shreshth Nigam", CanonicalRole.DEVOPS_CLOUD),
+        "2329195@kiit.ac.in": ("P Ajay Kumar", CanonicalRole.BACKEND),
+    }
+    engine = create_engine(db_url)
+    try:
+        with sessionmaker(bind=engine)() as session:
+            candidates = repo.list_candidates(session)
+            assert len(candidates) == 6
+            assert {candidate.primary_email for candidate in candidates} == set(expected)
+            for candidate in candidates:
+                name, role = expected[candidate.primary_email]
+                assert candidate.display_name == name
+                dossier = repo.get_dossier_by_candidate_id(session, candidate.id)
+                assert dossier is not None
+                assert dossier.role == role
+    finally:
+        engine.dispose()
+
+
 @pytest.fixture
 def memory_db():
     """In-memory SQLite database session for fast, isolated repository tests."""

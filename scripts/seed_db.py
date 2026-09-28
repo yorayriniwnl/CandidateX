@@ -7,6 +7,7 @@ paper-aligned dossiers, immutable evidence rows, and interview probe inquiries.
 """
 
 import argparse
+import json
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -40,6 +41,15 @@ from cci.domain.enums import (
 from cci.jobs.parser import extract_requirements_from_jd
 from cci.pipeline.orchestrator import execute_analysis_pipeline
 from cci.scoring.weights import build_role_profile
+
+
+# Use the same roster as the hiring dashboard, intake, and comparison views.
+TEAM_MEMBERS = {
+    member["id"]: member
+    for member in json.loads(
+        (ROOT_DIR / "apps" / "web" / "data" / "team-members.json").read_text(encoding="utf-8")
+    )
+}
 
 
 def read_fixture(filename: str, fallback_text: str = "") -> str:
@@ -226,12 +236,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
         cohorts = [
             {
                 "id": UUID("11111111-1111-1111-1111-111111111111"),
-                "name": "Ayush Roy",
-                "email": "2329027@kiit.ac.in",
-                "role": CanonicalRole.BACKEND,
                 "org_id": org_acme.id,
-                "cv_file": "sample_backend_cv.txt",
-                "jd_role": CanonicalRole.BACKEND,
+                "cv_file": "sample_fullstack_cv.txt",
                 "repos": [
                     "https://github.com/alicechen-dev/distributed-payment-engine",
                     "https://github.com/alicechen-dev/pg-partition-manager",
@@ -248,12 +254,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
             },
             {
                 "id": UUID("22222222-2222-2222-2222-222222222222"),
-                "name": "Archi Srivastava",
-                "email": "2329100@kiit.ac.in",
-                "role": CanonicalRole.FRONTEND,
                 "org_id": org_acme.id,
                 "cv_file": "sample_frontend_cv.txt",
-                "jd_role": CanonicalRole.FRONTEND,
                 "repos": [
                     "https://github.com/erostova-web/a11y-kit-react",
                     "https://github.com/erostova-web/next-vitals-booster",
@@ -269,12 +271,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
             },
             {
                 "id": UUID("33333333-3333-3333-3333-333333333333"),
-                "name": "Atmaja Tripathy",
-                "email": "2329179@kiit.ac.in",
-                "role": CanonicalRole.ML_ENGINEER,
                 "org_id": org_apex.id,
                 "cv_file": "sample_ml_cv.txt",
-                "jd_role": CanonicalRole.ML_ENGINEER,
                 "repos": [
                     "https://github.com/mthorne-ai/fast-alignment",
                     "https://github.com/mthorne-ai/vector-gateway-service",
@@ -289,12 +287,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
             },
             {
                 "id": UUID("44444444-4444-4444-4444-444444444444"),
-                "name": "Shreya",
-                "email": "2329065@kiit.ac.in",
-                "role": CanonicalRole.DEVOPS_CLOUD,
                 "org_id": org_acme.id,
                 "cv_file": "sample_devops_cv.txt",
-                "jd_role": CanonicalRole.DEVOPS_CLOUD,
                 "repos": [
                     "https://github.com/tmansour-infra/tf-blast-guard",
                     "https://github.com/tmansour-infra/k8s-region-failover",
@@ -309,12 +303,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
             },
             {
                 "id": UUID("55555555-5555-5555-5555-555555555555"),
-                "name": "Shreshth Nigam",
-                "email": "2329064@kiit.ac.in",
-                "role": CanonicalRole.FULLSTACK,
                 "org_id": org_acme.id,
-                "cv_file": "sample_fullstack_cv.txt",
-                "jd_role": CanonicalRole.FULLSTACK,
+                "cv_file": "sample_devops_cv.txt",
                 "repos": [
                     "https://github.com/soconnor-fullstack/type-safe-stack",
                     "https://github.com/soconnor-fullstack/collab-canvas",
@@ -329,12 +319,8 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
             },
             {
                 "id": UUID("77777777-7777-7777-7777-777777777777"),
-                "name": "P Ajay Kumar (Contradictory / Discrepancy)",
-                "email": "2329195@kiit.ac.in",
-                "role": CanonicalRole.BACKEND,
                 "org_id": org_acme.id,
                 "cv_file": "",
-                "jd_role": CanonicalRole.BACKEND,
                 "repos": [
                     "https://github.com/pajaykumar-dev/distributed-order-service",
                 ],
@@ -369,15 +355,16 @@ def seed_database(db_url: str, reset: bool = False, samples_count: int = 6) -> N
         summary_rows = []
         for candidate_data in cohorts[:samples_count]:
             cid = candidate_data["id"]
-            name = candidate_data["name"]
-            c_role = candidate_data["role"]
+            member = TEAM_MEMBERS[str(cid)]
+            name = member["name"]
+            c_role = CanonicalRole(member["role"])
             org_id = candidate_data["org_id"]
             cv_raw = read_fixture(candidate_data["cv_file"], f"# {name}\nEngineer specializing in {c_role.value}.") if candidate_data["cv_file"] else f"# {name}\nCandidate CV for {c_role.value}."
-            jd_raw = saved_jds[candidate_data["jd_role"]].raw_text
+            jd_raw = saved_jds[c_role].raw_text
 
             manifest = CandidateManifest(
                 display_name=name,
-                email=candidate_data["email"],
+                email=member["email"],
                 github_urls=candidate_data["repos"],
                 claimed_skills=[c_role.value, "Git", "Clean Architecture"],
             )

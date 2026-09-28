@@ -90,6 +90,8 @@ def save_job_description(
     job_id: UUID | None = None,
     role_profile: RoleProfile | None = None,
     requirements: list[NormalizedRequirement] | None = None,
+    file_name: str | None = None,
+    recruitment_rules: str | None = None,
 ) -> models.JobDescription:
     """Creates a job description along with its derived role profile and requirements."""
     jd = models.JobDescription(
@@ -101,6 +103,8 @@ def save_job_description(
         else str(canonical_role),
         raw_text=raw_text,
         is_active=True,
+        file_name=file_name,
+        recruitment_rules=recruitment_rules,
     )
     session.add(jd)
     session.flush()

@@ -59,6 +59,7 @@ class LiveAnalysisRequest(BaseModel):
     intake: ResumeIntake
     role: CanonicalRole = CanonicalRole.BACKEND
     jd_text: str = Field(default='', max_length=20000)
+    job_id: UUID | None = None
     github_urls: list[ShortText] = Field(default_factory=list, max_length=20)
     external_urls: list[ShortText] | None = Field(default=None, max_length=100)
     github_identity: str = Field(default='', pattern=r'^(?:[A-Za-z0-9][A-Za-z0-9-]{0,38})?$')

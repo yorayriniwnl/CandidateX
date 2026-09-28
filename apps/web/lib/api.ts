@@ -33,6 +33,7 @@ export interface CandidateSummary {
   observed_capabilities?: number;
   coverage?: number;
   role?: string;
+  role_label?: string;
   has_meaningful_conflict: boolean;
   created_at: string;
 }
@@ -475,6 +476,44 @@ export async function saveCandidateBackend(
 
   if (!res.ok) {
     throw new Error(`Failed to save candidate to backend: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface JobUploadResponse {
+  id: string;
+  title: string;
+  canonical_role: string;
+  is_active: boolean;
+  created_at: string;
+  file_name: string;
+  requirements_count: number;
+}
+
+/**
+ * Uploads a Job Description file (PDF or DOCX) to the backend.
+ * The backend extracts text and recruitment rules, stores them in the database,
+ * and returns only a minimal confirmation — no document content is exposed.
+ */
+export async function uploadJobDescription(
+  file: File,
+  title: string,
+  role: CanonicalRole = 'backend'
+): Promise<JobUploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', title);
+  formData.append('role', role);
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/jobs/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Job upload failed: HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
   }
 
   return res.json();

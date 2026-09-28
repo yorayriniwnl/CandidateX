@@ -30,8 +30,8 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
     name: 'Ayush Roy',
-    role: 'backend',
-    label: 'Senior Distributed Backend',
+    role: 'fullstack',
+    label: 'Fullstack, SDE',
     badge: 'High Coverage (RCI 90.0)',
     variant: 'success',
     manifest: {

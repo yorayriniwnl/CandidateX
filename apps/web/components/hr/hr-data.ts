@@ -1,6 +1,6 @@
 import type { CandidateSummary } from '../../lib/api';
+import { TEAM_CANDIDATES } from '../../lib/team-members';
 import type { CandidateManifest, CanonicalRole, CapabilityKey, Dossier, CEGGraph } from '../../types/cci';
-import { MOCK_DOSSIER, MOCK_GRAPH } from '../../data/mockDossier';
 
 export const ROLE_LABELS: Record<CanonicalRole, string> = {
   backend: 'Backend Developer',
@@ -116,45 +116,11 @@ export function saveReviewToHR(params: {
   return hrCandidate;
 }
 
-// Only this sample is associated with the repository's exported mock dossier.
-export const SAMPLE_CANDIDATES: HRCandidate[] = [
-  {
-    id: MOCK_DOSSIER.candidate_id,
-    display_name: 'Ayush Roy',
-    primary_email: '2329027@kiit.ac.in',
-    role: MOCK_DOSSIER.role,
-    has_completed_dossier: true,
-    rci: MOCK_DOSSIER.rci,
-    jd_fit_score: MOCK_DOSSIER.rci,
-    observed_capabilities: 9,
-    coverage: MOCK_DOSSIER.coverage,
-    has_meaningful_conflict: Object.values(MOCK_DOSSIER.capability_conflicts).some((item) => item.has_meaningful_conflict),
-    created_at: MOCK_DOSSIER.generated_at,
-    source: 'sample',
-    dossier: MOCK_DOSSIER,
-    graph: MOCK_GRAPH,
-  },
-  {
-    id: 'hr-sample-archi', display_name: 'Archi Srivastava', primary_email: '2329100@kiit.ac.in', role: 'frontend',
-    has_completed_dossier: false, has_meaningful_conflict: false,
-    created_at: '', source: 'sample',
-  },
-  {
-    id: 'hr-sample-atmaja', display_name: 'Atmaja Tripathy', primary_email: '2329179@kiit.ac.in', role: 'ml_engineer',
-    has_completed_dossier: false, has_meaningful_conflict: false,
-    created_at: '', source: 'sample',
-  },
-  {
-    id: 'hr-sample-shreya', display_name: 'Shreya', primary_email: '2329065@kiit.ac.in', role: 'devops_cloud',
-    has_completed_dossier: false, has_meaningful_conflict: false,
-    created_at: '', source: 'sample',
-  },
-  {
-    id: 'hr-sample-shreshth', display_name: 'Shreshth Nigam', primary_email: '2329064@kiit.ac.in', role: 'fullstack',
-    has_completed_dossier: false, has_meaningful_conflict: false,
-    created_at: '', source: 'sample',
-  },
-];
+// Keep all six configured members available when their saved records are absent.
+export const SAMPLE_CANDIDATES: HRCandidate[] = TEAM_CANDIDATES.map((candidate) => ({
+  ...candidate,
+  source: 'sample',
+}));
 
 export function roleLabel(role?: string) {
   return ROLE_LABELS[role as CanonicalRole] || 'Role not specified';

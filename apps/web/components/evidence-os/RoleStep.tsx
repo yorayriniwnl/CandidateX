@@ -152,12 +152,12 @@ export function RoleStep({
               <div className={styles.jdFileInfo}>
                 <div className={styles.jdFileNameRow}>
                   <strong>{jdFileName}</strong>
-                  <span className={styles.jdBadge}>Document loaded</span>
+                  <span className={styles.jdBadge}>Stored in backend</span>
                 </div>
                 <div className={styles.jdFileMeta}>
                   {jdFileSize ? <span>{formatFileSize(jdFileSize)}</span> : null}
                   {jdFileSize ? <span>·</span> : null}
-                  <span>{jd.length.toLocaleString()} characters extracted</span>
+                  <span>Job description & recruitment rules stored in backend</span>
                   <span>·</span>
                   <span>Ready for analysis</span>
                 </div>
@@ -213,7 +213,7 @@ export function RoleStep({
 
           <div className={styles.jdTextareaHeader}>
             <label htmlFor="live-jd">
-              {jdFileName ? 'Extracted text & custom criteria (editable)' : 'Or paste requirements and standards directly'}
+              {jdFileName ? 'Additional recruiter notes (optional)' : 'Or paste requirements and standards directly'}
             </label>
           </div>
 
@@ -221,12 +221,16 @@ export function RoleStep({
             id="live-jd"
             maxLength={20000}
             disabled={busy || jdLoading}
-            placeholder="Paste the responsibilities, standards, or recruitment rules…"
+            placeholder={jdFileName ? "Optional extra notes or specific hiring criteria (document is already safely stored in backend)..." : "Paste the responsibilities, standards, or recruitment rules…"}
             value={jd}
             onChange={event => onJdChange(event.target.value)}
-            rows={8}
+            rows={jdFileName ? 4 : 8}
           />
-          <p>{jd.length.toLocaleString()} / 20,000 characters · Parsed during the analysis request.</p>
+          <p>
+            {jdFileName
+              ? 'Document data is securely stored in backend and calibrated for evaluation without displaying in this note.'
+              : `${jd.length.toLocaleString()} / 20,000 characters · Parsed during the analysis request.`}
+          </p>
         </div>
       </div>
       <div className={styles.stepActions}>

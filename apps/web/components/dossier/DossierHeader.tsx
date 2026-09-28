@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Dossier } from '../../types/cci';
+import { TEAM_MEMBERS } from '../../lib/team-members';
 import { downloadDossier, ExportFormat, ExportScope } from '../../lib/api';
 import { GlassCard } from '../ui/GlassCard';
 import { GlowBadge } from '../ui/GlowBadge';
@@ -27,14 +28,9 @@ import { AnimatedCounter } from '../ui/AnimatedCounter';
 import { GlassButton } from '../ui/GlassButton';
 import { PhotoLightboxModal } from '../ui/PhotoLightboxModal';
 
-const CANONICAL_CANDIDATE_LIST = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', role: 'Backend (Senior)' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', role: 'Frontend (Staff)' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', role: 'ML Engineer (Senior)' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', role: 'DevOps / SRE (Staff)' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', role: 'Fullstack (Principal)' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', role: 'Backend (Discrepancy Demo)' },
-];
+const CANONICAL_CANDIDATE_LIST = TEAM_MEMBERS.map((member) => ({
+  id: member.id, name: member.name, role: member.role_label,
+}));
 
 export const DossierHeader: React.FC<{
   dossier: Dossier;

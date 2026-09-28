@@ -19,91 +19,11 @@ import {
   Users,
 } from 'lucide-react';
 import { CandidateSummary, fetchCandidatesList } from '../lib/api';
+import { mergeCandidateLists, TEAM_CANDIDATES } from '../lib/team-members';
 import { GlassCard } from './ui/GlassCard';
 import { GlowBadge } from './ui/GlowBadge';
 import { RadialGauge } from './ui/RadialGauge';
 import { AnimatedCounter } from './ui/AnimatedCounter';
-
-const FALLBACK_CANDIDATES: CandidateSummary[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    display_name: 'Ayush Roy',
-    primary_email: '2329027@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 90.0,
-    jd_fit_score: 90.0,
-    observed_capabilities: 5,
-    coverage: 0.18,
-    role: 'backend',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    display_name: 'Archi Srivastava',
-    primary_email: '2329100@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 86.0,
-    jd_fit_score: 86.0,
-    observed_capabilities: 4,
-    coverage: 0.182,
-    role: 'frontend',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    display_name: 'Atmaja Tripathy',
-    primary_email: '2329179@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 88.0,
-    jd_fit_score: 88.0,
-    observed_capabilities: 4,
-    coverage: 0.18,
-    role: 'ml_engineer',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    display_name: 'Shreya',
-    primary_email: '2329065@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 89.0,
-    jd_fit_score: 89.0,
-    observed_capabilities: 4,
-    coverage: 0.18,
-    role: 'devops_cloud',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '55555555-5555-5555-5555-555555555555',
-    display_name: 'Shreshth Nigam',
-    primary_email: '2329064@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 89.0,
-    jd_fit_score: 89.0,
-    observed_capabilities: 5,
-    coverage: 0.18,
-    role: 'fullstack',
-    has_meaningful_conflict: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '77777777-7777-7777-7777-777777777777',
-    display_name: 'P Ajay Kumar',
-    primary_email: '2329195@kiit.ac.in',
-    has_completed_dossier: true,
-    rci: 69.9,
-    jd_fit_score: 69.9,
-    observed_capabilities: 1,
-    coverage: 0.0,
-    role: 'backend',
-    has_meaningful_conflict: true,
-    created_at: new Date().toISOString(),
-  },
-];
 
 const ROLE_META: Record<string, { label: string; variant: 'brand' | 'success' | 'warning' | 'info' | 'neutral' }> = {
   backend: { label: 'Backend', variant: 'success' },
@@ -136,7 +56,7 @@ export const CandidateDirectory: React.FC<{
   onCompareCandidates,
   initialSelectedForComparison,
 }) => {
-  const [candidates, setCandidates] = useState<CandidateSummary[]>([]);
+  const [candidates, setCandidates] = useState<CandidateSummary[]>(TEAM_CANDIDATES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -159,10 +79,10 @@ export const CandidateDirectory: React.FC<{
     if (isBackendOnline) {
       fetchCandidatesList()
         .then((data) => {
-          setCandidates(data || []);
+          setCandidates(mergeCandidateLists(data || [], TEAM_CANDIDATES));
         })
         .catch(() => {
-          setCandidates([]);
+          setCandidates(TEAM_CANDIDATES);
         });
     }
   }, [isBackendOnline]);
@@ -181,9 +101,8 @@ export const CandidateDirectory: React.FC<{
 
   const filteredCandidates = candidates
     .filter((c) => {
-      const matchesSearch =
-        c.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.primary_email && c.primary_email.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesSearch = `${c.display_name} ${c.primary_email || ''} ${c.role_label || c.role || ''}`
+        .toLowerCase().includes(searchQuery.trim().toLowerCase());
 
       const matchesRole = selectedRole === 'all' || c.role === selectedRole;
 
@@ -193,7 +112,7 @@ export const CandidateDirectory: React.FC<{
       } else if (selectedStatus === 'sparse') {
         matchesStatus = c.coverage !== undefined && c.coverage < 0.10;
       } else if (selectedStatus === 'robust') {
-        matchesStatus = !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
+        matchesStatus = c.has_completed_dossier && !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
       }
 
       return matchesSearch && matchesRole && matchesStatus;
@@ -263,7 +182,7 @@ export const CandidateDirectory: React.FC<{
       const obsStr = `${obsCount} / 12`;
       const covStr = c.coverage !== null && c.coverage !== undefined ? `${(c.coverage * 100).toFixed(1)}%` : '0.0%';
       const conflictStr = c.has_meaningful_conflict ? '⚠️ Conflict Detected' : 'Aligned';
-      const roleStr = c.role || 'Unspecified';
+      const roleStr = c.role_label || c.role || 'Unspecified';
       lines.push(`| **#${rank}** | ${c.display_name} | ${roleStr} | **${fitStr}** | ${obsStr} | ${covStr} | ${conflictStr} |`);
     });
 
@@ -517,7 +436,7 @@ export const CandidateDirectory: React.FC<{
                     </div>
 
                     <GlowBadge variant={roleInfo.variant} size="sm">
-                      {roleInfo.label}
+                      {candidate.role_label || roleInfo.label}
                     </GlowBadge>
                   </div>
 
@@ -529,7 +448,8 @@ export const CandidateDirectory: React.FC<{
                           value={rci / 100}
                           size={52}
                           strokeWidth={5}
-                          showPercentage={true}
+                          showPercentage={fitScore != null}
+                          label={fitScore == null ? '—' : undefined}
                         />
                         <div>
                           <span className="text-[10px] text-slate-400 uppercase font-mono font-medium block">JD Fit Score</span>
@@ -540,7 +460,7 @@ export const CandidateDirectory: React.FC<{
                             <span className="text-[10px] text-slate-500 font-normal">/ 100</span>
                           </div>
                           <span className="text-[11px] font-semibold text-slate-300">
-                            {rci >= 88 ? 'Exceptional' : rci >= 75 ? 'Strong' : rci >= 60 ? 'Developing' : 'Sparse'}
+                            {!candidate.has_completed_dossier ? 'Not evaluated' : rci >= 88 ? 'Exceptional' : rci >= 75 ? 'Strong' : rci >= 60 ? 'Developing' : 'Sparse'}
                           </span>
                         </div>
                       </div>
@@ -550,7 +470,7 @@ export const CandidateDirectory: React.FC<{
                         <span className="text-xs font-bold text-emerald-400 font-mono block">
                           {candidate.coverage !== null && candidate.coverage !== undefined
                             ? `${(candidate.coverage * 100).toFixed(0)}%`
-                            : '0%'}
+                            : '—'}
                         </span>
                         <span className="text-[10px] text-slate-500 block">role evidence</span>
                       </div>
@@ -559,7 +479,7 @@ export const CandidateDirectory: React.FC<{
                     <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
                       <span className="text-[11px] text-slate-400">Observed Capabilities</span>
                       <span className="inline-flex items-center gap-1 font-mono font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md text-[11px]">
-                        {observedCount} <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
+                        {candidate.has_completed_dossier ? observedCount : '—'} <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
                       </span>
                     </div>
                   </div>
@@ -662,7 +582,7 @@ export const CandidateDirectory: React.FC<{
                             {candidate.display_name}
                           </button>
                           <GlowBadge variant={roleInfo.variant} size="sm">
-                            {roleInfo.label}
+                            {candidate.role_label || roleInfo.label}
                           </GlowBadge>
                         </div>
                         <p className="text-[11px] text-slate-500 font-mono mt-0.5">
@@ -685,7 +605,7 @@ export const CandidateDirectory: React.FC<{
 
                       <td className="py-3 px-4 text-center font-mono">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-                          {observedCount}
+                          {candidate.has_completed_dossier ? observedCount : '—'}
                           <span className="text-slate-500 font-normal text-[10px]">/ 12</span>
                         </span>
                       </td>
@@ -694,12 +614,14 @@ export const CandidateDirectory: React.FC<{
                         <span className="text-xs font-semibold font-mono text-emerald-400">
                           {candidate.coverage !== null && candidate.coverage !== undefined
                             ? `${(candidate.coverage * 100).toFixed(1)}%`
-                            : '0.0%'}
+                            : '—'}
                         </span>
                       </td>
 
                       <td className="py-3 px-4 text-center">
-                        {candidate.has_meaningful_conflict ? (
+                        {!candidate.has_completed_dossier ? (
+                          <GlowBadge variant="neutral" size="sm">Not evaluated</GlowBadge>
+                        ) : candidate.has_meaningful_conflict ? (
                           <GlowBadge variant="danger" size="sm">Conflict Flagged</GlowBadge>
                         ) : (
                           <GlowBadge variant="success" size="sm">Aligned</GlowBadge>

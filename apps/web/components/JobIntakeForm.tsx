@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Briefcase, CheckCircle2, ChevronRight, FileText, Sparkles } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AlertCircle, Briefcase, CheckCircle2, ChevronRight, FileCheck, FileText, Sparkles, Upload, X } from 'lucide-react';
 import { CanonicalRole, CapabilityKey, NormalizedRequirement } from '../types/cci';
 
-import { parseJobDescription } from '../lib/api';
+import { parseJobDescription, uploadJobDescription } from '../lib/api';
 
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassInput } from '@/components/ui/GlassInput';
@@ -56,6 +56,38 @@ export const JobIntakeForm: React.FC<{
   const [seniority, setSeniority] = useState('Senior');
   const [jobTitle, setJobTitle] = useState(ROLE_JD_TEMPLATES.backend.title);
   const [jdText, setJdText] = useState(ROLE_JD_TEMPLATES.backend.text);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError('');
+    const ext = file.name.toLowerCase();
+    if (!ext.endsWith('.pdf') && !ext.endsWith('.docx')) {
+      setUploadError('Only PDF and DOCX files are supported.');
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const res = await uploadJobDescription(file, jobTitle, selectedRole);
+      setUploadedFile(file.name);
+      // NOTE: Do not paste the document text into jdText note. Data stays securely in backend.
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload document.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setUploadError('');
+  };
+
   const [isExtracted, setIsExtracted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -193,15 +225,96 @@ export const JobIntakeForm: React.FC<{
         </div>
       </div>
 
+      <div className="space-y-3">
+        <label className="block text-xs font-medium text-slate-300">
+          Job Description & Recruitment Rules Document (PDF or DOCX)
+        </label>
+
+        {!uploadedFile ? (
+          <div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="hidden"
+              id="jd-file-upload-input"
+            />
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-dashed border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors text-slate-300 hover:text-white cursor-pointer group"
+            >
+              <Upload className={`w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform ${isUploading ? 'animate-bounce' : ''}`} />
+              <div className="text-left">
+                <span className="text-sm font-medium block">
+                  {isUploading ? 'Uploading & parsing in backend...' : 'Upload Job Description or Recruitment Rules (PDF / DOCX)'}
+                </span>
+                <span className="text-xs text-slate-400">
+                  Data will be kept in the backend database and not displayed in the note.
+                </span>
+              </div>
+            </button>
+          </div>
+        ) : (
+          <GlassCard variant="subtle" className="flex items-center justify-between p-3.5 border border-indigo-500/30 bg-indigo-500/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-100">{uploadedFile}</span>
+                  <GlowBadge variant="brand" size="sm">Stored in backend</GlowBadge>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Job description & recruitment rules stored in backend. Data is securely held and not displayed.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveFile}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+              title="Remove document"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </GlassCard>
+        )}
+
+        {uploadError && (
+          <p className="text-xs text-rose-400 flex items-center gap-1.5 mt-1">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            {uploadError}
+          </p>
+        )}
+      </div>
+
       <div>
         <GlassInput
           variant="textarea"
-          label="Verbatim Job Description (Text is analyzed for requirements without hallucinatory expansion)"
-          value={jdText}
+          label={
+            uploadedFile
+              ? "Additional recruiter notes or custom criteria (optional — document is safely stored in backend)"
+              : "Verbatim Job Description (Text is analyzed for requirements without hallucinatory expansion)"
+          }
+          value={uploadedFile ? '' : jdText}
           onChange={(e) => setJdText(e.target.value)}
-          rows={10}
+          placeholder={
+            uploadedFile
+              ? "Optional recruiter notes or extra instructions (uploaded document is kept in backend and not shown here)..."
+              : "Paste the responsibilities, standards, or recruitment rules…"
+          }
+          rows={uploadedFile ? 4 : 8}
           glowColor="indigo"
         />
+        {uploadedFile && (
+          <p className="text-xs text-slate-400 mt-1">
+            The uploaded job description & recruitment rules are kept securely in backend storage.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap justify-between items-center gap-3 pt-2">

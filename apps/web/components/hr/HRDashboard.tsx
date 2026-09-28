@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ClipboardList, Loader2, Plus, RefreshCw, Search, Users } from 'lucide-react';
 import { fetchCandidatesList } from '../../lib/api';
+import { mergeCandidateLists } from '../../lib/team-members';
 import { AddCandidateDialog } from './AddCandidateDialog';
 import { CandidateQuickView } from './CandidateQuickView';
 import { SAMPLE_CANDIDATES, evaluationLabel, evidenceLabel, getSavedHRCandidates, hasEvidenceAlert, roleLabel, withReadTimeout, type HRCandidate } from './hr-data';
@@ -48,10 +49,8 @@ export function HRDashboard() {
     withReadTimeout(fetchCandidatesList()).then((items) => {
       if (!Array.isArray(items)) throw new Error('Invalid candidate list');
       if (active) {
-        const liveIds = new Set(items.map((item) => item.id));
-        const nonDuplicateSamples = SAMPLE_CANDIDATES.filter((s) => !liveIds.has(s.id));
         const liveCandidates = items.map((item) => ({ ...item, source: 'live' as const }));
-        setCandidates([...liveCandidates, ...nonDuplicateSamples]);
+        setCandidates(mergeCandidateLists<HRCandidate>(liveCandidates, SAMPLE_CANDIDATES));
         setMode('live');
       }
     }).catch(() => {
@@ -60,11 +59,7 @@ export function HRDashboard() {
     return () => { active = false; };
   }, [attempt]);
 
-  const savedIds = new Set(savedCandidates.map((c) => c.id));
-  const otherCandidates = candidates.filter((c) => !savedIds.has(c.id));
-  const draftIds = new Set(drafts.map((d) => d.id));
-  const nonDuplicateSaved = savedCandidates.filter((s) => !draftIds.has(s.id));
-  const all = [...drafts, ...nonDuplicateSaved, ...otherCandidates];
+  const all = mergeCandidateLists(drafts, savedCandidates, candidates);
   const roles = [...new Set(all.map((candidate) => candidate.role || ''))].sort((a, b) => roleLabel(a).localeCompare(roleLabel(b)));
   const [sortField, setSortField] = useState<'candidate' | 'score' | 'observed' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -303,10 +298,11 @@ export function HRDashboard() {
                       >
                         <th scope="row" className="min-w-[180px] max-w-[260px] break-words px-5 py-4 font-normal">
                           <div className="flex items-center gap-3"><span className="studio-candidate-avatar" aria-hidden="true">{candidate.display_name.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')}</span><div><p className="font-medium text-slate-200 group-hover:text-white transition-colors">{candidate.display_name}</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-500">{candidate.source === 'sample' ? 'Sample candidate' : candidate.source === 'draft' ? 'Local draft · not shared' : candidate.primary_email || 'No email provided'}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{candidate.primary_email ? <a href={`mailto:${candidate.primary_email}`} className="hover:text-indigo-300">{candidate.primary_email}</a> : 'No email provided'}</p>
+                          {candidate.source !== 'live' && <p className="text-xs leading-5 text-slate-500">{candidate.source === 'sample' ? 'Sample candidate' : 'Local draft · not shared'}</p>}
                           </div></div>
                         </th>
-                        <td className="px-5 py-4 text-slate-400">{roleLabel(candidate.role)}</td>
+                        <td className="px-5 py-4 text-slate-400">{candidate.role_label || roleLabel(candidate.role)}</td>
                         <td className="px-5 py-4 font-mono font-medium">
                           {(() => {
                             const fitVal = candidate.jd_fit_score ?? candidate.rci;

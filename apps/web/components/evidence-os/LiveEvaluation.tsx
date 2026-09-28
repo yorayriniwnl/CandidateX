@@ -119,6 +119,8 @@ export function LiveEvaluation() {
   const [result, setResult] = useState<LiveResult | null>(null);
   const [role, setRole] = useState<CanonicalRole>('backend');
   const [jd, setJd] = useState('');
+  const [backendJdText, setBackendJdText] = useState('');
+  const [backendJobId, setBackendJobId] = useState<string | null>(null);
   const [jdFileName, setJdFileName] = useState('');
   const [jdFileSize, setJdFileSize] = useState(0);
   const [jdLoading, setJdLoading] = useState(false);
@@ -193,15 +195,18 @@ export function LiveEvaluation() {
         const clean = text.trim();
         if (clean.length < 10) throw new Error('No readable text found in document.');
         const truncated = clean.length > 20000;
-        setJd(clean.slice(0, 20000));
+        setBackendJdText(clean.slice(0, 20000));
         setJdFileName(file.name);
         setJdFileSize(file.size);
         if (truncated) {
           setJdWarning('Document text was truncated to 20,000 characters to fit the analysis limit.');
         }
       } else {
-        const parsed = await liveRequest<ParsedJobDescription>('parse-jd', file, file.name);
-        setJd(parsed.text);
+        const parsed = await liveRequest<ParsedJobDescription & { job_id?: string }>('parse-jd', file, file.name);
+        setBackendJdText(parsed.text || '');
+        if (parsed.job_id) {
+          setBackendJobId(parsed.job_id);
+        }
         setJdFileName(parsed.filename || file.name);
         setJdFileSize(file.size);
         if (parsed.truncated) {
@@ -220,7 +225,8 @@ export function LiveEvaluation() {
   function removeJd() {
     setJdFileName('');
     setJdFileSize(0);
-    setJd('');
+    setBackendJdText('');
+    setBackendJobId(null);
     setJdError('');
     setJdWarning('');
   }
@@ -269,7 +275,7 @@ export function LiveEvaluation() {
             : data.inferred_kind === 'credential'
             ? 'Credential file (Fetched)'
             : data.inferred_kind === 'portfolio'
-            ? 'Portfolio deck (Fetched)'
+            ? 'Portfolio website (Fetched)'
             : 'Shared file (Fetched)';
         return {
           ...s,
@@ -307,10 +313,14 @@ export function LiveEvaluation() {
     const previousRunId = result?.dossier.analysis_run_id;
     try {
       const selected = sources.filter(source => source.selected && source.selectable);
+      const effectiveJd = backendJdText
+        ? (jd.trim() ? `${backendJdText}\n\n[Recruiter Note]:\n${jd.trim()}` : backendJdText)
+        : jd;
       const data = await liveRequest<LiveResult>('analyze', JSON.stringify({
         intake,
         role,
-        jd_text: jd,
+        jd_text: effectiveJd,
+        job_id: backendJobId || undefined,
         github_urls: selected.filter(source => source.kind === 'github').map(source => source.url),
         github_identity: identity.trim(),
         external_urls: selected.filter(source => source.kind === 'public').map(source => source.url),

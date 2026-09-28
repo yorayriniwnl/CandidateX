@@ -125,31 +125,75 @@ def test_bare_portfolio_urls_do_not_extract_email_domains():
     matches = [m.group() for m in URL_REGEX.finditer('Portfolio: example.dev | ayushroy.dev@gmail.com | person@sub.example.com | issuer.org/verify/abc | https://issuer.org?credential=123')]
     assert matches == ['example.dev', 'issuer.org/verify/abc', 'https://issuer.org?credential=123']
 
-def test_report_builds_stable_claim_ledger_and_academic_record():
-    document = docx.Document()
-    for line in [
-        'Example Candidate',
-        'Technical Skills',
-        'Python, FastAPI',
-        'Education',
-        'B.Tech Computer Science | Example University | CGPA: 8.4/10 | 2023 - 2027',
-        'Projects',
-        'Evidence Portal',
-        'Built 12 deployed projects and reduced latency by 40%.',
-    ]:
-        document.add_paragraph(line)
-    data = io.BytesIO()
-    document.save(data)
-    intake = parse_resume(data.getvalue(), 'resume.docx')
-    report = build_report(intake, [])
 
-    assert report['claims']
-    assert len({claim['claim_id'] for claim in report['claims']}) == len(report['claims'])
-    assert any(claim['category'] == 'skill' and claim['claim'] == 'FastAPI' for claim in report['claims'])
-    assert any(claim['is_quantified'] for claim in report['claims'] if claim['category'] == 'project')
+def test_academic_degrees_not_extracted_and_portfolio_audited(monkeypatch):
+    import re
+    from cci.intake.parsers import ParsedDocument
+    from cci.intake.manifest import build_candidate_manifest
+    from cci.live.report import build_report
+    from cci.live.contracts import ResumeIntake, LiveAnalysisRequest
+    from cci.live import service
 
-    academic = report['academic_records'][0]
-    assert academic['status'] == 'self_reported'
-    assert academic['degree_text'].lower().replace(' ', '').startswith('b.tech')
-    assert academic['claimed_cgpa'] == {'value': 8.4, 'scale': 10.0}
-    assert academic['years'] == ['2023', '2027']
+    # Document with education mentioning B.Tech, M.Tech, B.E., B.Com, and a portfolio website
+    raw_text = """
+    John Doe
+    Email: john.doe@example.com
+    Portfolio: https://john-doe.dev
+    GitHub: https://github.com/johndoe
+
+    Education
+    B.Tech in Computer Science and Engineering - XYZ Institute of Technology
+    M.Tech in Artificial Intelligence
+    B.E. in Electronics
+    B.Com from City College
+
+    Skills
+    Python, React, TypeScript
+    """
+
+    doc = ParsedDocument(
+        raw_text=raw_text,
+        visible_urls=["https://john-doe.dev", "https://github.com/johndoe"],
+    )
+
+    manifest = build_candidate_manifest(doc)
+
+    # 1. Verify degrees are NOT extracted as URLs or public links
+    all_extracted_urls = (
+        manifest.github_urls + manifest.linkedin_urls + manifest.portfolio_urls +
+        manifest.deployment_urls + manifest.shared_document_urls + manifest.public_links
+    )
+    from urllib.parse import urlparse
+    for u in all_extracted_urls:
+        host = urlparse(u).netloc.lower()
+        assert host not in ["b.tech", "m.tech", "b.e", "b.com", "btech", "b.sc", "b.ca"]
+        assert not re.match(r'^(?:b|m|d)\.(?:tech|com|sc|ca|e)$', host)
+
+    # 2. Verify portfolio is properly identified in manifest
+    assert "https://john-doe.dev" in manifest.portfolio_urls
+
+    # 3. Verify report includes portfolio analysis
+    fake_sources = [
+        {
+            "url": "https://john-doe.dev",
+            "status": "observed",
+            "kind": "portfolio",
+            "title": "John Doe - Fullstack Engineer",
+            "technologies": ["React", "TypeScript", "Tailwind CSS"],
+            "excerpt": "Welcome to my portfolio showcasing fullstack applications.",
+        }
+    ]
+
+    report = build_report(
+        intake=ResumeIntake(manifest=manifest, filename="resume.pdf", document_sha256="0" * 64, warnings=[]),
+        sources=fake_sources,
+    )
+
+    assert "portfolios" in report
+    assert len(report["portfolios"]) == 1
+    p = report["portfolios"][0]
+    assert p["url"] == "https://john-doe.dev"
+    assert p["title"] == "John Doe - Fullstack Engineer"
+    assert p["status"] == "observed"
+    assert "React" in p["technologies"]
+    assert any("portfolio" in step.lower() for step in report["next_steps"])

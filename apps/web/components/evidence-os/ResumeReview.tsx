@@ -77,6 +77,42 @@ export function ResumeReview({ result, onInspect }: { result: LiveResult; onInsp
       </article>)}
     </section>
 
+    {analysis.portfolios && analysis.portfolios.length > 0 && (
+      <section aria-label="Candidate portfolio and website review">
+        <div className={styles.sectionHeading}>
+          <div>
+            <span className={styles.eyebrow}>Candidate Showcase</span>
+            <h2>Portfolio and personal websites</h2>
+            <p>Verified candidate portfolio domains, personal websites, and live work showcases.</p>
+          </div>
+        </div>
+        {analysis.portfolios.map((portfolio, index) => (
+          <article className={styles.credentialRow} key={index}>
+            <div>
+              <h3>{portfolio.title || portfolio.url}</h3>
+              <EvidenceStatus status={portfolio.status} label={titleWords(portfolio.status)} />
+            </div>
+            <p>{portfolio.explanation}</p>
+            {portfolio.technologies && portfolio.technologies.length > 0 && (
+              <p className={styles.footnote}>
+                <strong>Technologies detected:</strong> {portfolio.technologies.join(', ')}
+              </p>
+            )}
+            {portfolio.excerpt && (
+              <p className={styles.footnote} style={{ fontStyle: 'italic' }}>
+                &ldquo;{portfolio.excerpt}&rdquo;
+              </p>
+            )}
+            <ul className={styles.artifactList}>
+              <li>
+                <SourceLink url={portfolio.url}>{portfolio.url}</SourceLink>
+              </li>
+            </ul>
+          </article>
+        ))}
+      </section>
+    )}
+
     <section aria-label="Resume declarations">
       <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>Candidate declarations</span><h2>Projects, experience and education</h2><p>Statements extracted from the résumé, with their returned verification status.</p></div></div>
       {(result.intake.manifest.picture || result.intake.picture) && (

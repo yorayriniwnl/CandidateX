@@ -2,10 +2,12 @@
 from fastapi import FastAPI
 from cci.api.routers.live import router
 from cci.api.routers.research_demo import router as research_demo_router
+from cci.api.routers.jobs import router as jobs_router
 
 app = FastAPI(title='CandidateX Live Analysis', version='0.3.0')
 app.include_router(router)
 app.include_router(research_demo_router)
+app.include_router(jobs_router)
 
 
 @app.get('/health')

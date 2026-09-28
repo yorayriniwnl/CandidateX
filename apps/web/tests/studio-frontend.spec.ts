@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures';
-import { MOCK_DOSSIER } from '../data/mockDossier';
 
 test('comparison starts empty and candidates can be selected and cleared with the keyboard', async ({ page }) => {
   await page.route('**/health', route => route.fulfill({ json: { status: 'ok' } }));
@@ -13,7 +12,7 @@ test('comparison starts empty and candidates can be selected and cleared with th
   await page.route('**/api/v1/dossier/keyboard-candidate', async route => {
     requestedDossier();
     await dossierGate;
-    await route.fulfill({ json: { ...MOCK_DOSSIER, candidate_id: 'keyboard-candidate' } });
+    await route.fulfill({ json: { candidate_id: 'keyboard-candidate', role: 'backend', rci: 80, coverage: 0.5, is_insufficient_evidence: false, capability_estimates: {}, capability_conflicts: {}, interview_probes: [], interview_questions: [], claims_corroboration: [], ownership_assessments: [], role_requirements: [], system_limitations: [], versions: {}, generated_at: new Date().toISOString(), dossier_id: 'test-dossier', analysis_run_id: 'test-run' } });
   });
   await page.goto('/workspace');
   await page.getByRole('button', { name: 'Compare Side by side', exact: true }).click();

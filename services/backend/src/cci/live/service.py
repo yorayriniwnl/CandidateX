@@ -24,8 +24,19 @@ def analyze_resume(request: LiveAnalysisRequest):
     for url in manifest.github_urls:
         if url.lower() not in {s['url'].lower() for s in sources}:
             sources.append({'url': url, 'status': 'not_selected', 'detail': 'Extracted GitHub link not selected for this run.'})
+    effective_jd = request.jd_text
+    if not effective_jd and request.job_id:
+        try:
+            from cci.db.session import SessionLocal
+            from cci.db.models.jobs import JobDescription
+            with SessionLocal() as db:
+                stored_jd = db.get(JobDescription, request.job_id)
+                if stored_jd and stored_jd.raw_text:
+                    effective_jd = stored_jd.raw_text
+        except Exception:
+            pass
     state = execute_analysis_pipeline(candidate_id=request.intake.candidate_id, role=request.role,
-        jd_text=request.jd_text, declared_claims=manifest.claimed_skills, custom_evidence=evidence, evidence_mode='live')
+        jd_text=effective_jd, declared_claims=manifest.claimed_skills, custom_evidence=evidence, evidence_mode='live')
     if state.dossier is None:
         raise RuntimeError('The scoring pipeline could not produce a dossier.')
     limitations = [

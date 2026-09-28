@@ -21,8 +21,8 @@ dependencies = [
     "defusedxml>=0.7.1",
     "PyYAML>=6.0.0",
     "PyMuPDF>=1.24.0",
-    "Pillow>=10.0.0",
     "python-docx>=1.1.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -41,4 +41,4 @@ where = ["src"]
 minversion = "8.0"
 addopts = "-ra -q --import-mode=importlib"
 testpaths = ["tests"]
-pythonpath = ["src", "../.."]
+pythonpath = ["src", ".", "../.."]

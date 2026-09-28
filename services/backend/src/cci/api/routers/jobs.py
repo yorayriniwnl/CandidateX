@@ -8,8 +8,10 @@ from cci.domain.contracts import NormalizedRequirement, RoleProfile
 from cci.domain.enums import CanonicalRole
 from cci.jobs.parser import extract_requirements_from_jd
 from cci.scoring.weights import build_role_profile
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel, Field
+from cci.intake.parsers.pdf import parse_pdf_document
+from cci.intake.parsers.docx import parse_docx_document
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["Job Description Intelligence"])
 
@@ -34,6 +36,78 @@ class JobSummaryResponse(BaseModel):
     canonical_role: str
     is_active: bool
     created_at: str
+
+class JobUploadResponse(BaseModel):
+    id: UUID
+    title: str
+    canonical_role: str
+    is_active: bool
+    created_at: str
+    file_name: str | None
+    requirements_count: int
+
+@router.post(
+    "/upload",
+    response_model=JobUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload and parse JD document",
+)
+async def upload_job_description(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    role: CanonicalRole = Form(default=CanonicalRole.BACKEND),
+    organization_id: UUID | None = Form(default=None),
+) -> JobUploadResponse:
+    """Uploads a PDF or DOCX job description, parses it, and stores it in DB."""
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename is missing."
+        )
+
+    is_pdf = file.filename.lower().endswith(".pdf")
+    is_docx = file.filename.lower().endswith(".docx")
+
+    if not (is_pdf or is_docx):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF and DOCX files are supported."
+        )
+
+    content = await file.read()
+
+    if is_pdf:
+        parsed = parse_pdf_document(content)
+    else:
+        parsed = parse_docx_document(content)
+
+    requirements = extract_requirements_from_jd(parsed.raw_text)
+    profile = build_role_profile(requirements, role)
+
+    org_id = organization_id or UUID('00000000-0000-0000-0000-000000000001')
+
+    with SessionLocal() as db:
+        jd = repo.save_job_description(
+            session=db,
+            organization_id=org_id,
+            title=title,
+            canonical_role=role,
+            raw_text=parsed.raw_text,
+            role_profile=profile,
+            requirements=requirements,
+            file_name=file.filename,
+        )
+        db.commit()
+
+        return JobUploadResponse(
+            id=jd.id,
+            title=jd.title,
+            canonical_role=jd.canonical_role,
+            is_active=jd.is_active,
+            created_at=jd.created_at.isoformat() if jd.created_at else "",
+            file_name=jd.file_name,
+            requirements_count=len(requirements)
+        )
 
 
 @router.post(
