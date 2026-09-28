@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('engine stages explain the process and still work with reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -35,9 +35,9 @@ test('the example follows a claim through evidence to an interview using the key
 
 test('home remains within the viewport and the mobile menu works', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/');
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
     await expect(page.getByTestId('signal-observatory')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `overflow at ${width}`).toBe(true);
     if (width === 390) {

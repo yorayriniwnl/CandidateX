@@ -227,9 +227,8 @@
 @media (max-width: 760px) {
   .scoreBlock { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 0 16px; text-align: left; }
   .scoreBlock > .eyebrow { grid-column: 1 / -1; justify-content: flex-start; margin-bottom: 8px; }
-  .scoreDial { grid-column: 1; grid-row: 2 / 4; width: 120px; height: 114px; margin: 0; }
-  .score { inset: 35px 0 auto; font-size: 34px; text-align: center; }
-  .score[data-unavailable=true] { top: 53px; font-size: 12px; }
+  .scoreDial { grid-column: 1; grid-row: 2 / 4; }
+  .score { text-align: center; }
   .scoreBlock h2 { grid-column: 2; align-self: end; margin-bottom: 7px; }
   .scoreBlock > p { grid-column: 2; }
   .coverage, .coverageTrack, .boundary { grid-column: 1 / -1; }
@@ -260,3 +259,11 @@
 .drawer { --accent: #c8a5e9; background: #140d1d; border-left-color: #b294c84a; box-shadow: -20px 0 100px #0008; }.drawerTop { background: #1a1024f5; border-color: #b294c829; backdrop-filter: blur(20px); color: #c7a6de; }.drawer::backdrop { background: #08050dc7; backdrop-filter: blur(8px); }
 @media (max-width: 1100px) { .snapshot { grid-template-columns: 235px minmax(0, 1fr); }.snapshotBody { padding: 24px; }.stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 12px; }.stats > div + div { padding-left: 12px; }.stats dd { font-size: 26px; }.priorities { grid-template-columns: 1fr; gap: 12px; }.header { padding: 24px; }.titleRow h1 { font-size: 35px; } }
 @media (max-width: 760px) { .header { padding: 20px 18px; border-radius: 10px; }.header .eyebrow { font-size: 8px; gap: 8px; }.titleRow { margin-top: 20px; gap: 22px; }.titleRow h1 { font-size: 31px; }.monogram { width: 53px; height: 62px; font-size: 20px; }.identity { gap: 13px; }.metadata { padding-top: 16px; margin-top: 20px; font-size: 9px; }.actions { gap: 9px; flex-wrap: wrap; }.actions button { font-size: 10px; padding: 10px 13px; }.navigation { top: 78px; }.report .navigation a { padding: 9px 10px; font-size: 10px; }.snapshot { grid-template-columns: 1fr; }.scoreBlock { padding: 24px; }.scoreBlock p { max-width: 290px; margin-inline: auto; }.coverageTrack { max-width: 220px; margin-inline: auto; }.snapshotBody { padding: 23px 18px; }.stats dd { font-size: 26px; }.stats dt { font-size: 9px; }.section { padding-block: 29px; scroll-margin-top: 140px; }.sectionHeading h2 { font-size: 25px; }.signal { padding-inline: 5px; }.claimRow { padding-inline: 4px; }.drawer { width: 100%; } }
+
+/* Keep the dial inside its 120px mobile grid column after desktop styling. */
+@media (max-width: 760px) {
+  .scoreDial { width: 120px; height: 114px; margin: 0; }
+  .score { inset: 35px 0 auto; font-size: 34px; }
+  .score[data-unavailable=true] { top: 53px; font-size: 12px; }
+  .scoreBlock > p { margin-inline: 0; }
+}

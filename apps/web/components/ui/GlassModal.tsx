@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,25 +29,21 @@ export const GlassModal: React.FC<GlassModalProps> = ({
   className,
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal();
-        document.body.style.overflow = 'hidden';
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close();
-        document.body.style.overflow = '';
-      }
-    }
+    if (!dialog || !isOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    if (!dialog.open) dialog.showModal();
+    document.body.style.overflow = 'hidden';
 
     return () => {
-      document.body.style.overflow = '';
+      if (dialog.open) dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener?.isConnected) opener.focus();
     };
   }, [isOpen]);
 
@@ -64,7 +60,8 @@ export const GlassModal: React.FC<GlassModalProps> = ({
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (e.target === dialogRef.current) {
-      handleClose();
+      const bounds = e.currentTarget.getBoundingClientRect();
+      if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) handleClose();
     }
   };
 
@@ -79,6 +76,8 @@ export const GlassModal: React.FC<GlassModalProps> = ({
   return (
     <dialog
       ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={subtitle ? descriptionId : undefined}
       onKeyDown={handleKeyDown}
       onClick={handleBackdropClick}
       onCancel={(e) => {
@@ -86,7 +85,7 @@ export const GlassModal: React.FC<GlassModalProps> = ({
         handleClose();
       }}
       className={cn(
-        'w-full bg-slate-900/90 backdrop-blur-2xl border border-white/[0.10] rounded-2xl shadow-2xl p-0 m-auto',
+        'w-[calc(100%-2rem)] bg-slate-900/90 backdrop-blur-2xl border border-white/[0.10] rounded-2xl shadow-2xl p-0 m-auto',
         'text-slate-100 transition-all duration-300 ease-out',
         'backdrop:bg-black/70 backdrop:backdrop-blur-sm backdrop:transition-all backdrop:duration-300',
         'open:animate-in open:fade-in open:zoom-in-95',
@@ -98,8 +97,8 @@ export const GlassModal: React.FC<GlassModalProps> = ({
       <div className="flex flex-col max-h-[85vh] overflow-hidden">
         <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-5 border-b border-white/[0.06] bg-slate-900/50 backdrop-blur-md">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-semibold text-slate-100">{title}</h2>
-            {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
+            <h2 id={titleId} className="text-xl font-medium tracking-tight text-slate-100">{title}</h2>
+            {subtitle && <p id={descriptionId} className="text-sm text-slate-400">{subtitle}</p>}
           </div>
           <button
             onClick={handleClose}

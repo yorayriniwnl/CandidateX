@@ -55,6 +55,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
       <button
         ref={ref}
         disabled={isDisabled}
+        aria-busy={loading || undefined}
         className={cn(
           baseStyles,
           variants[variant],
@@ -66,7 +67,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         {...props}
       >
         {loading ? (
-          <Loader2 className="animate-spin" size={size === 'sm' ? 14 : size === 'lg' ? 20 : 18} />
+          <><Loader2 aria-hidden="true" className="animate-spin" size={size === 'sm' ? 14 : size === 'lg' ? 20 : 18} />{children}</>
         ) : (
           <>
             {icon && iconPosition === 'left' && <span className="shrink-0 flex items-center">{icon}</span>}

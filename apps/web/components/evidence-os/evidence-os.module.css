@@ -18,8 +18,8 @@
   font-family: var(--font-sans), sans-serif;
 }
 
-.app a { color: inherit; }
-.app button, .app input, .app select, .app textarea { font: inherit; }
+:where(.app a) { color: inherit; }
+:where(.app button, .app input, .app select, .app textarea) { font: inherit; }
 .app :focus-visible { outline: 2px solid #c5a0ed; outline-offset: 3px; }
 
 .appHeader {
@@ -49,7 +49,7 @@
 .wizard { max-width: 1440px; margin: 10px auto 72px; }
 .pageHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin: 10px 0 28px; }
 .pageHeading h1 { margin: 0; font-size: clamp(32px, 4.1vw, 59px); font-weight: 450; letter-spacing: -0.065em; line-height: 1.08; }
-.pageHeading > div:first-child > p:last-child { max-width: 680px; margin: 13px 0 0; color: var(--secondary); font-size: 14px; line-height: 1.55; }
+.pageHeading h1 + p { max-width: 680px; margin: 15px 0 0; color: var(--secondary); font-size: 13px; line-height: 1.8; }
 .kicker, .sectionEyebrow { margin: 0 0 9px; color: #a085b6; font: 9px var(--font-mono), monospace; letter-spacing: 0.13em; text-transform: uppercase; }
 .previousRun { width: min(260px, 35%); flex: none; padding: 13px 14px; border-left: 2px solid var(--incomplete); background: var(--surface-1); }
 .previousRun > span, .previousRun code { display: block; color: #9da8b3; font: 9px var(--font-mono), monospace; letter-spacing: 0.1em; }

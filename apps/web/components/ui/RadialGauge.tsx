@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 
 interface RadialGaugeProps {
   value: number; // 0–1
@@ -25,16 +26,17 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
   showPercentage = true,
   animated = true,
 }) => {
+  const reducedMotion = useReducedMotion();
   const [animatedValue, setAnimatedValue] = useState(animated ? 0 : value);
 
   useEffect(() => {
-    if (!animated) {
+    if (!animated || reducedMotion) {
       setAnimatedValue(value);
       return;
     }
     const timer = setTimeout(() => setAnimatedValue(value), 100);
     return () => clearTimeout(timer);
-  }, [value, animated]);
+  }, [value, animated, reducedMotion]);
 
   const clampedValue = Math.max(0, Math.min(1, animatedValue));
   const radius = (size - strokeWidth) / 2;
@@ -45,7 +47,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
   // Auto color based on value if not provided
   const resolvedColor = color || (
     clampedValue >= 0.75 ? '#34d399' :
-    clampedValue >= 0.5 ? '#6366f1' :
+    clampedValue >= 0.5 ? '#b493d7' :
     clampedValue >= 0.3 ? '#fbbf24' :
     '#f87171'
   );
@@ -78,7 +80,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
           strokeDashoffset={offset}
           suppressHydrationWarning
           style={{
-            transition: animated ? 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+            transition: animated && !reducedMotion ? 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
             filter: `drop-shadow(0 0 6px ${resolvedColor}40)`,
           }}
         />

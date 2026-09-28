@@ -69,17 +69,13 @@ export const CandidateComparison: React.FC<{
   selectedCandidateIds,
   onSelectedIdsChange,
 }) => {
-  const [selectedIds, setSelectedIds] = useState<string[]>(
-    selectedCandidateIds && selectedCandidateIds.length > 0
-      ? selectedCandidateIds
-      : ['11111111-1111-1111-1111-111111111111', '77777777-7777-7777-7777-777777777777']
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(selectedCandidateIds ?? []);
   const [subjects, setSubjects] = useState<ComparisonSubject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [candidateOptions, setCandidateOptions] = useState<Array<{ id: string; name: string; role: string }>>(PRESET_COHORTS);
 
   useEffect(() => {
-    if (selectedCandidateIds && selectedCandidateIds.length > 0) {
+    if (selectedCandidateIds) {
       setSelectedIds(selectedCandidateIds);
     }
   }, [selectedCandidateIds]);
@@ -103,6 +99,7 @@ export const CandidateComparison: React.FC<{
   }, [isBackendOnline]);
 
   useEffect(() => {
+    let active = true;
     async function loadComparisonData() {
       setIsLoading(true);
       const loaded: ComparisonSubject[] = [];
@@ -121,17 +118,18 @@ export const CandidateComparison: React.FC<{
         }
       }
 
+      if (!active) return;
       setSubjects(loaded);
       setIsLoading(false);
     }
 
     loadComparisonData();
+    return () => { active = false; };
   }, [selectedIds, candidateOptions, isBackendOnline]);
 
   const toggleCandidateSelection = (id: string) => {
     let nextIds: string[];
     if (selectedIds.includes(id)) {
-      if (selectedIds.length <= 1) return;
       nextIds = selectedIds.filter((item) => item !== id);
     } else {
       if (selectedIds.length >= 3) {
@@ -216,13 +214,13 @@ export const CandidateComparison: React.FC<{
   return (
     <div className="space-y-6">
       <GlassCard glow="indigo" className="p-6 space-y-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-5 border-b border-slate-800 pb-5">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Users className="w-5 h-5 text-indigo-400" />
-              <h1 className="text-xl font-bold text-white tracking-tight">
+              <h2 className="text-xl font-medium text-white tracking-tight">
                 Candidate Comparative Capability Matrix
-              </h1>
+              </h2>
               <GlowBadge variant="brand" size="sm">Side-by-Side Evaluation</GlowBadge>
             </div>
             <p className="text-xs text-slate-400 mt-1">
@@ -230,13 +228,14 @@ export const CandidateComparison: React.FC<{
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <GlassButton
               variant="primary"
               size="sm"
               icon={<Download className="w-3.5 h-3.5" />}
               iconPosition="left"
               onClick={handleDownloadMarkdown}
+              disabled={!subjects.length}
             >
               Download Matrix (.md)
             </GlassButton>
@@ -246,6 +245,7 @@ export const CandidateComparison: React.FC<{
               icon={<Printer className="w-3.5 h-3.5 text-indigo-400" />}
               iconPosition="left"
               onClick={handlePrint}
+              disabled={!subjects.length}
             >
               Print Comparison
             </GlassButton>
@@ -261,11 +261,11 @@ export const CandidateComparison: React.FC<{
             {candidateOptions.map((cand) => {
               const isSelected = selectedIds.includes(cand.id);
               return (
-                <GlassCard
+                <button
                   key={cand.id}
-                  variant="subtle"
-                  glow={isSelected ? 'indigo' : 'none'}
-                  className={`px-3 py-1.5 cursor-pointer flex items-center gap-1.5 border transition-all ${
+                  type="button"
+                  aria-pressed={isSelected}
+                  className={`glass-subtle rounded-xl px-3 py-1.5 cursor-pointer flex items-center gap-1.5 border transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 ${
                     isSelected ? 'ring-1 ring-indigo-500/50' : ''
                   }`}
                   onClick={() => toggleCandidateSelection(cand.id)}
@@ -277,7 +277,7 @@ export const CandidateComparison: React.FC<{
                     {cand.name}
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono">({cand.role})</span>
-                </GlassCard>
+                </button>
               );
             })}
           </div>
@@ -294,6 +294,12 @@ export const CandidateComparison: React.FC<{
       {isLoading ? (
         <GlassCard className="p-12 text-center text-slate-400 text-sm animate-pulse">
           Loading comparative candidate dossiers...
+        </GlassCard>
+      ) : subjects.length === 0 ? (
+        <GlassCard className="py-16 px-6 text-center">
+          <Users className="w-9 h-9 mx-auto mb-5 text-indigo-300" strokeWidth={1.25} aria-hidden="true" />
+          <h3 className="text-xl font-medium text-slate-100">A clearer view, side by side.</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-400">{selectedIds.length ? 'No completed dossiers are available for this selection. Check the backend connection or select another candidate.' : 'Select candidates above to compare their completed dossiers.'}</p>
         </GlassCard>
       ) : (
         <AnimatePresence>

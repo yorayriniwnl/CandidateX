@@ -294,7 +294,7 @@ export function HRDashboard() {
                             <span className="inline-flex items-center gap-1.5 font-medium text-amber-400"><AlertTriangle className="h-4 w-4" aria-hidden="true" />Review</span>
                           ) : candidate.has_completed_dossier ? 'None reported' : 'Not assessed'}
                         </td>
-                        <td className="sticky right-0 bg-[#030712]/90 backdrop-blur group-hover:bg-[#0a0f1e]/90 px-5 py-4 transition-colors">
+                        <td className="sticky right-0 bg-[#09070e]/90 backdrop-blur group-hover:bg-[#130e1c]/90 px-5 py-4 transition-colors">
                           <GlassButton variant="secondary" size="sm" onClick={() => setSelected(candidate)} aria-label={`View ${candidate.display_name}`}>
                             View
                           </GlassButton>
@@ -315,7 +315,7 @@ export function HRDashboard() {
               </GlassButton>
             </div>
           )}
-          <div aria-live="polite" className="border-t border-white/[0.06] bg-[#0a0f1e]/40 px-6 py-4 text-xs text-slate-500">
+          <div aria-live="polite" className="border-t border-white/[0.06] bg-[#130e1c]/40 px-6 py-4 text-xs text-slate-500">
             {mode === 'loading' ? 'Checking your candidate list' : `Showing ${filtered.length} of ${all.length} candidates${mode === 'sample' ? ' · Sample workspace' : ''}`}
           </div>
         </GlassCard>
@@ -325,7 +325,7 @@ export function HRDashboard() {
     </main>
     {adding && <AddCandidateDialog onClose={() => setAdding(false)} onAdd={(candidate) => {
       setDrafts((previous) => [candidate, ...previous]); setAdding(false); clearFilters();
-      setNotice(`${candidate.display_name} added as a local draft. Download a copy from View before leaving this page.`);
+      setNotice(`${candidate.display_name} saved as a local draft in this browser.`);
     }} />}
     {selected && <CandidateQuickView key={`${selected.source}-${selected.id}`} candidate={selected} onClose={() => setSelected(null)} />}
   </div>;

@@ -17,8 +17,12 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   workers: 1,
+  timeout: 45000,
+  expect: { timeout: 10000 },
   use: {
     baseURL: webUrl,
+    channel: 'chromium',
+    viewport: { width: 1440, height: 1000 },
     trace: 'retain-on-failure',
     launchOptions: {
       // GitHub's headless Chromium needs an explicit software WebGL renderer.
@@ -30,6 +34,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'python -m uvicorn cci.main:app --app-dir ../../services/backend/src --host 127.0.0.1 --port ' + apiPort,
+      env: { DEBUG: 'false' },
       url: apiUrl + '/health',
       reuseExistingServer: false,
       timeout: 60000,

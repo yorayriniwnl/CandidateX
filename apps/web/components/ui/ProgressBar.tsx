@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -28,6 +28,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   animated = true,
   className,
 }) => {
+  const reducedMotion = useReducedMotion();
   const clampedValue = Math.max(0, Math.min(1, value));
   const percentage = Math.round(clampedValue * 100);
 
@@ -65,9 +66,9 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       <div className={cn('w-full bg-white/[0.06] rounded-full overflow-hidden', sizeStyles[size])}>
         <motion.div
           className={cn('h-full rounded-full', colorStyles[activeColor])}
-          initial={animated ? { width: 0 } : false}
+          initial={animated && !reducedMotion ? { width: 0 } : false}
           animate={{ width: `${clampedValue * 100}%` }}
-          transition={{ type: 'spring', stiffness: 60, damping: 15, duration: 0.5 }}
+          transition={reducedMotion || !animated ? { duration: 0 } : { type: 'spring', stiffness: 60, damping: 15, duration: 0.5 }}
         />
       </div>
     </div>

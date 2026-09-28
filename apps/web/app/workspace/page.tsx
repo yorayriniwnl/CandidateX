@@ -15,9 +15,6 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  Search,
-  Sparkles,
-  Zap,
 } from 'lucide-react';
 import { SystemNotice } from '../../components/SystemNotice';
 import { EvaluationWizard } from '../../components/EvaluationWizard';
@@ -69,10 +66,7 @@ export default function HomePage() {
   const [currentDossier, setCurrentDossier] = useState<Dossier | null>(null);
   const [currentGraph, setCurrentGraph] = useState<CEGGraph | null>(null);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
-  const [comparisonCandidateIds, setComparisonCandidateIds] = useState<string[]>([
-    '11111111-1111-1111-1111-111111111111',
-    '77777777-7777-7777-7777-777777777777',
-  ]);
+  const [comparisonCandidateIds, setComparisonCandidateIds] = useState<string[]>([]);
 
   const [mounted, setMounted] = useState(false);
 
@@ -158,7 +152,7 @@ export default function HomePage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#030712] font-[family-name:var(--font-sans)]" suppressHydrationWarning>
+      <div className="min-h-screen flex items-center justify-center bg-[#09070e] font-[family-name:var(--font-sans)]" suppressHydrationWarning>
         <div className="flex flex-col items-center gap-3" suppressHydrationWarning>
           <div className="w-8 h-8 rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" suppressHydrationWarning />
           <div className="text-xs text-slate-500 font-mono tracking-wide" suppressHydrationWarning>Initializing workspace...</div>

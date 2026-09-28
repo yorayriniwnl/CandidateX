@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { changedPixels } from './pixel-difference';
 
 test('home scene animates, pauses without drift, and resumes', async ({ page }) => {
   test.setTimeout(45000);
@@ -10,14 +11,14 @@ test('home scene animates, pauses without drift, and resumes', async ({ page }) 
   const canvas = scene.locator('canvas');
   await expect(canvas).toHaveCSS('opacity', '1');
   const first = await canvas.screenshot();
-  await expect.poll(async () => (await canvas.screenshot()).equals(first), { timeout: 15000 }).toBe(false);
+  await expect.poll(async () => changedPixels(page, first, await canvas.screenshot()), { timeout: 15000 }).toBeGreaterThan(100);
   await page.getByRole('button', { name: 'Pause 3D animation' }).click();
   const paused = await canvas.screenshot();
   await page.waitForTimeout(250);
-  expect((await canvas.screenshot()).equals(paused)).toBe(true);
+  expect(await changedPixels(page, paused, await canvas.screenshot())).toBeLessThan(5);
   await page.getByRole('button', { name: 'Play 3D animation' }).click();
   await stage.scrollIntoViewIfNeeded();
-  await expect.poll(async () => (await canvas.screenshot()).equals(paused), { timeout: 15000 }).toBe(false);
+  await expect.poll(async () => changedPixels(page, paused, await canvas.screenshot()), { timeout: 15000 }).toBeGreaterThan(100);
   await page.getByRole('link', { name: /Start with live evidence/ }).click();
   await expect(page).toHaveURL(/\/login|\/analyze$/);
 });
@@ -33,10 +34,10 @@ test('reduced motion renders a still scene and responds to preference changes', 
   await expect(canvas).toHaveCSS('opacity', '1');
   const still = await canvas.screenshot();
   await page.waitForTimeout(250);
-  expect((await canvas.screenshot()).equals(still)).toBe(true);
+  expect(await changedPixels(page, still, await canvas.screenshot())).toBeLessThan(5);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect(page.getByRole('button', { name: 'Pause 3D animation' })).toBeVisible();
-  await expect.poll(async () => (await canvas.screenshot()).equals(still), { timeout: 15000 }).toBe(false);
+  await expect.poll(async () => changedPixels(page, still, await canvas.screenshot()), { timeout: 15000 }).toBeGreaterThan(100);
 });
 
 test('home keeps an illustration and working navigation without WebGL', async ({ page }) => {

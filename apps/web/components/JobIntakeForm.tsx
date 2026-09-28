@@ -173,12 +173,11 @@ export const JobIntakeForm: React.FC<{
           {CANONICAL_ROLES.map((r) => {
             const isSelected = selectedRole === r.id;
             return (
-              <GlassCard
+              <button
                 key={r.id}
-                variant="subtle"
-                glow={isSelected ? 'indigo' : 'none'}
-                hoverLift
-                className={`cursor-pointer p-3 transition-all ${isSelected ? 'ring-1 ring-indigo-500/50' : ''}`}
+                type="button"
+                aria-pressed={isSelected}
+                className={`rounded-xl border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-300 ${isSelected ? 'bg-indigo-500/10 border-indigo-400/40' : 'bg-white/[0.02] border-white/10 hover:border-indigo-400/30'}`}
                 onClick={() => handleRoleSelect(r.id)}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -188,7 +187,7 @@ export const JobIntakeForm: React.FC<{
                   {isSelected && <CheckCircle2 className="w-4 h-4 text-indigo-400" />}
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">{r.description}</p>
-              </GlassCard>
+              </button>
             );
           })}
         </div>
@@ -205,7 +204,7 @@ export const JobIntakeForm: React.FC<{
         />
       </div>
 
-      <div className="flex justify-between items-center pt-2">
+      <div className="flex flex-wrap justify-between items-center gap-3 pt-2">
         <GlassButton
           variant="secondary"
           onClick={handleExtract}
@@ -222,7 +221,7 @@ export const JobIntakeForm: React.FC<{
           icon={<ChevronRight className="w-4 h-4" />}
           iconPosition="right"
         >
-          Confirm & Calibrate Role Profile
+          Confirm role profile
         </GlassButton>
       </div>
 

@@ -49,6 +49,15 @@
 .studio-research-hero { display: grid; grid-template-columns: 1fr 280px; align-items: center; gap: 20px; }
 .studio-research-hero > div:last-child { width: 280px; height: 240px; }
 .studio-research-inputs { top: 98px; }
+.studio-research-nav { display: flex; flex-wrap: wrap; gap: 24px; padding: 0 0 22px; border-bottom: 1px solid #b69acf20; color: #b39fc4; font-size: 11px; }
+.studio-research-nav a { display: inline-flex; align-items: center; gap: 7px; transition: color .2s; }
+.studio-research-nav a:hover { color: #ecdffa; }
+.studio-system-notice { border: 1px solid #cfa76b2d; border-left: 2px solid #cfa76b88; border-radius: 8px; background: #cfa76b06; padding: 15px; font-size: 11px; line-height: 1.8; display: flex; flex-wrap: wrap; gap: 12px; }
+.studio-system-notice > div:first-child { flex: 1 1 390px; align-items: flex-start; }
+.studio-system-notice > div:first-child svg { margin-top: 3px; }
+.studio-system-notice > div { min-width: 0; max-width: 100%; }
+.studio-system-notice > div:last-child { flex-shrink: 1; flex-wrap: wrap; gap: 8px; }
+.studio-system-notice strong { color: #d5bb95; font-weight: 500; }
 .studio-research-empty { position: relative; overflow: hidden; background: radial-gradient(ellipse at 85% 0%, #9364bf1a, transparent 70%), #100c17; }
 .studio-research-empty::after { content: ''; position: absolute; width: 340px; height: 340px; right: -150px; top: -180px; border: 1px solid #bb98e323; border-radius: 50%; box-shadow: 0 0 0 25px #b99bdf04, 0 0 0 60px #b99bdf03; pointer-events: none; }
 @media (max-width: 1000px) {
@@ -67,7 +76,7 @@
 }
 @media (max-width: 600px) {
   .platform-header__inner { min-height: 68px; width: calc(100% - 36px); }
-  .platform-header__cta { display: none; }.platform-navigation { left: 18px; right: 18px; }
+  .platform-header__cta { display: none; }.platform-navigation { left: 18px; right: 18px; }.platform-menu-toggle { margin-left: auto; }
   .studio-page { width: calc(100% - 36px); padding-top: 18px; }
   .studio-hr-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .studio-hr-metrics > div { padding: 16px; }.studio-hr-metrics h2 { font-size: 10px; }.studio-hr-metrics .tabular-nums { font-size: 30px; }.studio-hr-metrics p { font-size: 9px; line-height: 1.6; }

@@ -342,16 +342,16 @@ Total role-specific synthetic samples: $N = 4,800$ per ablation mode across 6 ca
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 sm:p-6 shadow-xl flex flex-wrap items-center justify-between gap-5">
+        <div className="flex items-start gap-3 min-w-0 flex-1 basis-[440px]">
           <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white tracking-tight">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-medium text-white tracking-tight">
                 Prototype Methodology &amp; Research Context
-              </h1>
+              </h2>
               <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded font-mono text-[10px] font-bold">
                 10 THEOREMS
               </span>
@@ -363,7 +363,7 @@ Total role-specific synthetic samples: $N = 4,800$ per ablation mode across 6 ca
         </div>
 
         {/* Sub-Tab Selector */}
-        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs shrink-0">
+        <div className="flex flex-wrap items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs max-w-full gap-1">
           <button
             onClick={() => setSubTab('theorems')}
             className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${

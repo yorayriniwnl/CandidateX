@@ -138,7 +138,7 @@ export const CandidateDirectory: React.FC<{
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   useEffect(() => {
-    if (initialSelectedForComparison && initialSelectedForComparison.length > 0) {
+    if (initialSelectedForComparison) {
       setSelectedForComparison(initialSelectedForComparison);
     }
   }, [initialSelectedForComparison]);
@@ -687,15 +687,15 @@ export const CandidateDirectory: React.FC<{
       {filteredCandidates.length === 0 && (
         <GlassCard className="text-center py-12">
           <Users className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-          <p className="text-sm text-slate-300 font-medium">No candidates match the selected filters</p>
-          <p className="text-xs text-slate-500 mt-1">Try broadening your search query or role filter.</p>
+          <p className="text-sm text-slate-300 font-medium">{candidates.length ? 'No candidates match the selected filters' : 'No candidate dossiers yet.'}</p>
+          <p className="text-xs text-slate-500 mt-2">{candidates.length ? 'Try broadening your search query or role filter.' : isBackendOnline ? 'Start an evaluation to bring candidate evidence into this workspace.' : 'Connect the backend to load your candidate directory.'}</p>
         </GlassCard>
       )}
 
       {/* Floating Comparison Bar */}
       {selectedForComparison.length > 0 && onCompareCandidates && (
         <div className="fixed bottom-6 inset-x-0 mx-auto max-w-xl px-4 z-40">
-          <GlassCard variant="strong" glow="indigo" className="p-3.5 flex items-center justify-between gap-4 border-brand-500/30 shadow-2xl">
+          <GlassCard variant="strong" glow="indigo" className="p-3.5 flex flex-wrap items-center justify-between gap-4 border-brand-500/30 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-glow-sm shrink-0">
                 <GitCompare className="w-4 h-4" />

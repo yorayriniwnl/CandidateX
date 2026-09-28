@@ -79,29 +79,30 @@ export function AddCandidateDialog({ onClose, onAdd }: {
       <form onSubmit={submit} className="space-y-5">
         <div className="flex gap-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 p-4 text-sm leading-6 text-indigo-200">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-indigo-400" aria-hidden="true" />
-          <p><strong className="block font-semibold text-indigo-300">A draft, not a shared candidate record</strong>Your draft stays on this page only and does not start an evaluation. Download a copy from the candidate’s View action before leaving or refreshing.</p>
+          <p><strong className="block font-semibold text-indigo-300">Saved in this browser</strong>Your draft is stored locally and does not start an evaluation. You can download a copy from the candidate’s View action.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <GlassInput name="name" label="Full name" placeholder="e.g. Sam Taylor" required />
           <GlassInput name="email" type="email" label="Email (optional)" placeholder="name@example.com" />
         </div>
-        <GlassSelect name="role" label="Hiring role" options={roleOptions} value="backend" />
+        <GlassSelect name="role" label="Hiring role" options={roleOptions} defaultValue="backend" />
         <GlassInput name="workUrl" type="url" label="Work sample or portfolio (optional)" placeholder="https://github.com/name/project" />
         <span className="block -mt-3 text-xs font-normal leading-5 text-slate-500">One public project or portfolio link. Leave blank if you don’t have one yet.</span>
         
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-300">Skills shared by the candidate <span className="text-slate-500">(optional)</span></label>
+          <label htmlFor="candidate-skills" className="block text-sm font-medium text-slate-300">Skills shared by the candidate <span className="text-slate-500">(optional)</span></label>
           <div className="flex flex-wrap gap-2 mb-2">
             {skills.map((skill) => (
               <span key={skill} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200 border border-white/20">
                 {skill}
-                <button type="button" onClick={() => handleRemoveSkill(skill)} className="text-slate-400 hover:text-white">
+                <button type="button" aria-label={`Remove ${skill}`} onClick={() => handleRemoveSkill(skill)} className="text-slate-400 hover:text-white">
                   <X className="h-3 w-3" />
                 </button>
               </span>
             ))}
           </div>
           <GlassInput
+            id="candidate-skills"
             value={skillInput}
             onChange={(e) => setSkillInput(e.target.value)}
             onKeyDown={handleAddSkill}
@@ -115,7 +116,7 @@ export function AddCandidateDialog({ onClose, onAdd }: {
         </label>
         {error && <p role="alert" className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-400">{error}</p>}
         <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-white/10 mt-6">
-          <GlassButton variant="ghost" onClick={onClose}>Cancel</GlassButton>
+          <GlassButton type="button" variant="ghost" onClick={onClose}>Cancel</GlassButton>
           <GlassButton type="submit" variant="primary" icon={<UserPlus className="h-4 w-4" />}>Add local draft</GlassButton>
         </div>
       </form>

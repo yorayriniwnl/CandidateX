@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { CapabilityKey } from '../../types/cci';
 import type { LiveResult } from '../../lib/live-analysis';
 import { publicUrl } from '../../lib/live-analysis';
@@ -247,11 +247,29 @@ export function EvidenceInspector({ record, onClose }: { record: LiveEvidence; o
   const [copied, setCopied] = useState('');
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
+    const element = dialog.current;
+    element?.showModal();
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = overflow; previous?.focus(); };
+    return () => {
+      if (element?.open) element.close();
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
   }, []);
+  function keepFocusInInspector(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])')).filter(element => element.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus({ preventScroll: true });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus({ preventScroll: true });
+    }
+  }
   async function copyPath() {
     try { await navigator.clipboard.writeText(record.provenance.artifact_path); setCopied('Path copied'); }
     catch { setCopied('Copy unavailable. Select the artifact path below.'); }
@@ -259,7 +277,7 @@ export function EvidenceInspector({ record, onClose }: { record: LiveEvidence; o
   const verification = record.provenance.verification_status || (record.is_positive_support ? 'supporting observation' : 'contradicting observation');
   const artifactUrl = publicUrl(record.provenance.artifact_url) ?? publicUrl(record.source_locator);
   return (
-    <dialog ref={dialog} className={resultStyles.drawer} aria-label="Evidence inspector" onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if(event.clientX < rect.left) onClose(); } }}>
+    <dialog ref={dialog} className={resultStyles.drawer} aria-label="Evidence inspector" onKeyDown={keepFocusInInspector} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if(event.clientX < rect.left) onClose(); } }}>
     <aside className={styles.evidenceDetail} aria-label="Selected evidence provenance">
       <div className={resultStyles.drawerTop}><span>Evidence inspector</span><button type="button" onClick={onClose} autoFocus aria-label="Close evidence inspector">×</button></div>
       <div className={styles.inspectorHeader}>
