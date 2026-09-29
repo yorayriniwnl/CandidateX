@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { verifySession } from '../../../../lib/session';
 
-export const maxDuration = 14400; // 4 hours — give the backend full leverage of time.
+export const maxDuration = 300; // Vercel-safe request ceiling; longer work must run asynchronously.
 
 export async function POST(request: NextRequest, context: { params: Promise<{ operation: string }> }) {
   const sessionCookie = request.cookies.get('cx_session')?.value;
