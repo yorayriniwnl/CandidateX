@@ -364,7 +364,7 @@ def get_candidate_audit_trail(
         response.headers["X-Page-Size"] = str(page_sz)
         response.headers["X-Total-Pages"] = str(total_pages)
         
-    if paginated:
+    if paginated is True:
         paginated_items = results[offset_val : offset_val + limit_val]
         return PaginatedResponse(
             items=paginated_items,
