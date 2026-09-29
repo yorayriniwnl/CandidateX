@@ -3,6 +3,8 @@
 import os
 import sys
 import tempfile
+
+import pytest
 from pathlib import Path
 
 # Configure before application imports; never run API tests against a user's database.
@@ -11,6 +13,16 @@ os.environ["DATABASE_URL"] = "sqlite:///" + (Path(_test_database.name) / "test.d
 
 # Add backend src directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_state():
+    """Keep in-memory request throttling deterministic across isolated tests."""
+    from cci.middleware.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    yield
+    reset_rate_limits()
 
 
 def pytest_sessionstart(session):
