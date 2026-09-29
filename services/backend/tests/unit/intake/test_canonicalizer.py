@@ -95,3 +95,4 @@ def test_url_normalization_modern_tlds():
     assert normalize_url("linktr.ee/alice") == "https://linktr.ee/alice"
     assert normalize_url("dev.to/alice") == "https://dev.to/alice"
     assert normalize_url("npm.im/my-package") == "https://npm.im/my-package"
+

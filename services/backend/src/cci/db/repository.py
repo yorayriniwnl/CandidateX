@@ -518,25 +518,50 @@ def get_candidate_by_id(
     return session.get(models.Candidate, candidate_id)
 
 
+def delete_candidate(session: Session, candidate_id: UUID) -> bool:
+    """Deletes a candidate and their analysis runs by UUID."""
+    cand = session.get(models.Candidate, candidate_id)
+    if cand:
+        runs = list(
+            session.execute(
+                select(models.AnalysisRun).where(models.AnalysisRun.candidate_id == candidate_id)
+            ).scalars().all()
+        )
+        for run in runs:
+            session.delete(run)
+        session.delete(cand)
+        session.flush()
+        return True
+    return False
+
+
 def list_candidates(
-    session: Session, organization_id: UUID | None = None
+    session: Session, organization_id: UUID | None = None, limit: int | None = None, offset: int | None = None
 ) -> list[models.Candidate]:
     """Lists candidates, optionally scoped by organization."""
     stmt = select(models.Candidate)
     if organization_id:
         stmt = stmt.where(models.Candidate.organization_id == organization_id)
     stmt = stmt.order_by(models.Candidate.created_at.desc())
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    if offset is not None:
+        stmt = stmt.offset(offset)
     return list(session.execute(stmt).scalars().all())
 
 
 def list_jobs(
-    session: Session, organization_id: UUID | None = None
+    session: Session, organization_id: UUID | None = None, limit: int | None = None, offset: int | None = None
 ) -> list[models.JobDescription]:
     """Lists active job descriptions."""
     stmt = select(models.JobDescription)
     if organization_id:
         stmt = stmt.where(models.JobDescription.organization_id == organization_id)
     stmt = stmt.order_by(models.JobDescription.created_at.desc())
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    if offset is not None:
+        stmt = stmt.offset(offset)
     return list(session.execute(stmt).scalars().all())
 
 
@@ -563,3 +588,17 @@ def get_dossier_by_candidate_id(session: Session, candidate_id: UUID) -> Dossier
         return Dossier.model_validate(snapshot.summary_payload)
     except Exception:
         return None
+
+from sqlalchemy import func
+
+def count_candidates(session: Session, organization_id: UUID | None = None) -> int:
+    stmt = select(func.count()).select_from(models.Candidate)
+    if organization_id:
+        stmt = stmt.where(models.Candidate.organization_id == organization_id)
+    return session.execute(stmt).scalar() or 0
+
+def count_jobs(session: Session, organization_id: UUID | None = None) -> int:
+    stmt = select(func.count()).select_from(models.JobDescription)
+    if organization_id:
+        stmt = stmt.where(models.JobDescription.organization_id == organization_id)
+    return session.execute(stmt).scalar() or 0

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Code,
   FileText,
@@ -76,6 +76,16 @@ export const GraphViewer: React.FC<{
   const [isDragging, setIsDragging] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const panRef = useRef(pan);
+  const svgGroupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    panRef.current = pan;
+    if (svgGroupRef.current) {
+      svgGroupRef.current.style.transform = `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`;
+    }
+  }, [pan, zoom]);
 
   // Partition nodes into layered columns
   const { nodePositions, visibleNodes, visibleEdges } = useMemo(() => {
@@ -163,12 +173,18 @@ export const GraphViewer: React.FC<{
   };
   const handlePointerMove = (e: React.PointerEvent) => {
     if (isDragging) {
-      setPan((p) => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+      panRef.current = { x: panRef.current.x + e.movementX, y: panRef.current.y + e.movementY };
+      if (svgGroupRef.current) {
+        svgGroupRef.current.style.transform = `scale(${zoom}) translate(${panRef.current.x / zoom}px, ${panRef.current.y / zoom}px)`;
+      }
     }
   };
   const handlePointerUp = (e: React.PointerEvent) => {
-    setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (isDragging) {
+      setIsDragging(false);
+      setPan(panRef.current);
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
   return (
@@ -259,6 +275,7 @@ export const GraphViewer: React.FC<{
           onPointerLeave={handlePointerUp}
         >
           <div
+            ref={svgGroupRef}
             className="min-w-[960px] min-h-[460px] p-4 origin-top-left transition-transform duration-75"
             style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` }}
           >

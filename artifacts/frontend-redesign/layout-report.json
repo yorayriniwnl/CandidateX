@@ -1,0 +1,339 @@
+{
+  "url": "http://127.0.0.1:3109",
+  "errors": [],
+  "layouts": [
+    {
+      "route": "analyze",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "elements": []
+    },
+    {
+      "route": "analyze",
+      "width": 1024,
+      "scrollWidth": 1024,
+      "elements": []
+    },
+    {
+      "route": "analyze",
+      "width": 768,
+      "scrollWidth": 768,
+      "elements": []
+    },
+    {
+      "route": "analyze",
+      "width": 390,
+      "scrollWidth": 390,
+      "elements": []
+    },
+    {
+      "route": "analyze",
+      "width": 320,
+      "scrollWidth": 320,
+      "elements": []
+    },
+    {
+      "route": "hr",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "elements": []
+    },
+    {
+      "route": "hr",
+      "width": 1024,
+      "scrollWidth": 1024,
+      "elements": []
+    },
+    {
+      "route": "hr",
+      "width": 768,
+      "scrollWidth": 768,
+      "elements": [
+        {
+          "tag": "TABLE",
+          "class": "w-full min-w-[860px] text-left text-sm",
+          "text": "Candidates with evaluation status, score, evidence"
+        },
+        {
+          "tag": "THEAD",
+          "class": "studio-table-head text-xs text-slate-400 border-b border-white/[0.06]",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TR",
+          "class": "",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Alerts"
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Action"
+        },
+        {
+          "tag": "TBODY",
+          "class": "divide-y divide-white/[0.04]",
+          "text": "ARAyush RoySample candidateBackend Developer81.4/ "
+        },
+        {
+          "tag": "TR",
+          "class": "group hover:bg-white/[0.04] transition-colors",
+          "text": "ARAyush RoySample candidateBackend Developer81.4/ "
+        },
+        {
+          "tag": "TD",
+          "class": "px-5 py-4 text-xs text-slate-500",
+          "text": "Review"
+        },
+        {
+          "tag": "TR",
+          "class": "group hover:bg-white/[0.04] transition-colors",
+          "text": "ASArchi SrivastavaSample candidateFrontend Develop"
+        },
+        {
+          "tag": "TD",
+          "class": "px-5 py-4 text-xs text-slate-500",
+          "text": "Not assessed"
+        },
+        {
+          "tag": "TR",
+          "class": "group hover:bg-white/[0.04] transition-colors",
+          "text": "ATAtmaja TripathySample candidateMachine Learning "
+        },
+        {
+          "tag": "TD",
+          "class": "px-5 py-4 text-xs text-slate-500",
+          "text": "Not assessed"
+        }
+      ]
+    },
+    {
+      "route": "hr",
+      "width": 390,
+      "scrollWidth": 390,
+      "elements": [
+        {
+          "tag": "TABLE",
+          "class": "w-full min-w-[860px] text-left text-sm",
+          "text": "Candidates with evaluation status, score, evidence"
+        },
+        {
+          "tag": "THEAD",
+          "class": "studio-table-head text-xs text-slate-400 border-b border-white/[0.06]",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TR",
+          "class": "",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Score"
+        },
+        {
+          "tag": "BUTTON",
+          "class": "inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort",
+          "text": "Score"
+        },
+        {
+          "tag": "SPAN",
+          "class": "",
+          "text": "Score"
+        },
+        {
+          "tag": "svg",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Evaluation"
+        }
+      ]
+    },
+    {
+      "route": "hr",
+      "width": 320,
+      "scrollWidth": 320,
+      "elements": [
+        {
+          "tag": "TABLE",
+          "class": "w-full min-w-[860px] text-left text-sm",
+          "text": "Candidates with evaluation status, score, evidence"
+        },
+        {
+          "tag": "THEAD",
+          "class": "studio-table-head text-xs text-slate-400 border-b border-white/[0.06]",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TR",
+          "class": "",
+          "text": "CandidateRoleScoreEvaluationEvidenceAlertsAction"
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Role"
+        },
+        {
+          "tag": "TH",
+          "class": "px-5 py-4 font-semibold",
+          "text": "Score"
+        },
+        {
+          "tag": "BUTTON",
+          "class": "inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer group/sort",
+          "text": "Score"
+        },
+        {
+          "tag": "SPAN",
+          "class": "",
+          "text": "Score"
+        },
+        {
+          "tag": "svg",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "class": {},
+          "text": ""
+        }
+      ]
+    },
+    {
+      "route": "workspace",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "elements": []
+    },
+    {
+      "route": "workspace",
+      "width": 1024,
+      "scrollWidth": 1024,
+      "elements": []
+    },
+    {
+      "route": "workspace",
+      "width": 768,
+      "scrollWidth": 768,
+      "elements": []
+    },
+    {
+      "route": "workspace",
+      "width": 390,
+      "scrollWidth": 390,
+      "elements": []
+    },
+    {
+      "route": "workspace",
+      "width": 320,
+      "scrollWidth": 320,
+      "elements": []
+    },
+    {
+      "route": "research-demo",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "elements": []
+    },
+    {
+      "route": "research-demo",
+      "width": 1024,
+      "scrollWidth": 1024,
+      "elements": []
+    },
+    {
+      "route": "research-demo",
+      "width": 768,
+      "scrollWidth": 768,
+      "elements": []
+    },
+    {
+      "route": "research-demo",
+      "width": 390,
+      "scrollWidth": 390,
+      "elements": []
+    },
+    {
+      "route": "research-demo",
+      "width": 320,
+      "scrollWidth": 320,
+      "elements": []
+    },
+    {
+      "route": "login",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "elements": []
+    },
+    {
+      "route": "login",
+      "width": 1024,
+      "scrollWidth": 1024,
+      "elements": []
+    },
+    {
+      "route": "login",
+      "width": 768,
+      "scrollWidth": 768,
+      "elements": []
+    },
+    {
+      "route": "login",
+      "width": 390,
+      "scrollWidth": 390,
+      "elements": []
+    },
+    {
+      "route": "login",
+      "width": 320,
+      "scrollWidth": 320,
+      "elements": []
+    }
+  ]
+}

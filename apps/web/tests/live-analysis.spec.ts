@@ -224,3 +224,4 @@ test('report and full audit export options work correctly across header and prov
   expect(auditJson.analysis_run_id).toBeDefined();
   expect(auditJson.candidate_id).toBeDefined();
 });
+

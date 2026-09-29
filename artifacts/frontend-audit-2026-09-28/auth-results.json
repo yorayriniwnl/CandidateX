@@ -1,0 +1,84 @@
+{
+  "testedAt": "2026-09-28T05:54:43.057Z",
+  "mode": "Current source; mocked OAuth transport; no external requests",
+  "results": [
+    {
+      "probe": "control_missing_code",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/login?error=missing_code&provider=github",
+      "issuedSession": false,
+      "mockedProviderCalls": 0
+    },
+    {
+      "probe": "control_valid_state",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/workspace",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "oauth_missing_state",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/workspace",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "oauth_missing_state_cookie",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/workspace",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "oauth_mismatched_state",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/workspace",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "oauth_malformed_matching_state",
+      "status": 307,
+      "location": "http://127.0.0.1:3178/workspace",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "oauth_external_redirect",
+      "status": 307,
+      "location": "http://audit-redirect.invalid/landing",
+      "issuedSession": true,
+      "mockedProviderCalls": 2
+    },
+    {
+      "probe": "control_no_session",
+      "status": 200,
+      "body": {
+        "user": null
+      }
+    },
+    {
+      "probe": "forged_auth_cookie",
+      "status": 200,
+      "body": {
+        "user": {
+          "email": "audit@example.invalid",
+          "role": "evaluator",
+          "loginTime": 1790574883057
+        }
+      }
+    },
+    {
+      "probe": "forged_session_cookie",
+      "status": 200,
+      "body": {
+        "user": {
+          "email": "audit@example.invalid",
+          "role": "evaluator",
+          "loginTime": 1
+        }
+      }
+    }
+  ]
+}

@@ -43,7 +43,7 @@ export const GlassInput = forwardRef<HTMLInputElement | HTMLTextAreaElement, Gla
     const internalRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
     const generatedId = useId();
     const fieldId = id ?? generatedId;
-    useImperativeHandle(ref, () => internalRef.current as any);
+    useImperativeHandle(ref, () => internalRef.current as HTMLInputElement | HTMLTextAreaElement);
 
     const [internalValue, setInternalValue] = useState(value || '');
 

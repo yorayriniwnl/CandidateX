@@ -9,11 +9,13 @@ import type { CanonicalRole } from '../../types/cci';
 import { liveRequest, publicUrl, fetchLinkData, type LiveResult, type ResumeIntake, type ParsedJobDescription } from '../../lib/live-analysis';
 import { saveCandidateBackend } from '../../lib/api';
 import { saveReviewToHR } from '../hr/hr-data';
+import { normalizeTeamMember } from '../../lib/team-members';
 import { PlatformHeader } from '../navigation/PlatformHeader';
 import { AnalysisWizard } from './AnalysisWizard';
 import { LiveDossier } from './LiveDossier';
 import type { EvaluationStep } from './EvaluationSteps';
 import type { SourceSelection } from './SourceManifestStep';
+import { useEvaluationWorkflow } from './useEvaluationWorkflow';
 import styles from './evidence-os.module.css';
 
 type Phase = 'idle' | 'upload' | 'analyze';
@@ -115,28 +117,57 @@ export function LiveEvaluation() {
     };
   }, [router]);
 
-  const [intake, setIntake] = useState<ResumeIntake | null>(null);
-  const [result, setResult] = useState<LiveResult | null>(null);
-  const [role, setRole] = useState<CanonicalRole>('backend');
-  const [jd, setJd] = useState('');
-  const [backendJdText, setBackendJdText] = useState('');
-  const [backendJobId, setBackendJobId] = useState<string | null>(null);
-  const [jdFileName, setJdFileName] = useState('');
-  const [jdFileSize, setJdFileSize] = useState(0);
-  const [jdLoading, setJdLoading] = useState(false);
-  const [jdError, setJdError] = useState('');
-  const [jdWarning, setJdWarning] = useState('');
-  const [sources, setSources] = useState<SourceSelection[]>([]);
-  const [identity, setIdentity] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileSize, setFileSize] = useState(0);
-  const [error, setError] = useState('');
-  const [sourceError, setSourceError] = useState('');
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [step, setStep] = useState<EvaluationStep>(0);
-  const [showWizard, setShowWizard] = useState(true);
-  const [previousRunNotice, setPreviousRunNotice] = useState('');
-  const [hrSavedNotice, setHrSavedNotice] = useState('');
+  const {
+    state,
+    dispatch,
+    setIntake,
+    setFileName,
+    setFileSize,
+    setRole,
+    setJd,
+    setBackendJdText,
+    setBackendJobId,
+    setJdFileName,
+    setJdFileSize,
+    setJdLoading,
+    setJdError,
+    setJdWarning,
+    setSources,
+    setIdentity,
+    setStep,
+    setPhase,
+    setError,
+    setSourceError,
+    setShowWizard,
+    setResult,
+    setPreviousRunNotice,
+    setHrSavedNotice,
+  } = useEvaluationWorkflow();
+
+  const {
+    intake,
+    result,
+    role,
+    jd,
+    backendJdText,
+    backendJobId,
+    jdFileName,
+    jdFileSize,
+    jdLoading,
+    jdError,
+    jdWarning,
+    sources,
+    identity,
+    fileName,
+    fileSize,
+    error,
+    sourceError,
+    phase,
+    step,
+    showWizard,
+    previousRunNotice,
+    hrSavedNotice,
+  } = state;
   const busy = useRef(false);
   const isBusy = phase !== 'idle';
 
@@ -150,28 +181,26 @@ export function LiveEvaluation() {
     setPhase('upload');
     try {
       const parsed = await liveRequest<ResumeIntake>('intake', file, file.name);
-      setIntake(parsed);
-      setFileName(file.name);
-      setFileSize(file.size);
-      setSources(sourceSelections(parsed));
-      setIdentity(declaredGithubIdentity(parsed));
-      setStep(0);
+      dispatch({
+        type: 'RESUME_UPLOAD_SUCCESS',
+        payload: {
+          intake: parsed,
+          fileName: file.name,
+          fileSize: file.size,
+          sources: sourceSelections(parsed),
+          identity: declaredGithubIdentity(parsed),
+        },
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Resume could not be parsed.');
+      setPhase('idle');
     } finally {
       busy.current = false;
-      setPhase('idle');
     }
   }
 
   function removeResume() {
-    setIntake(null);
-    setSources([]);
-    setIdentity('');
-    setFileName('');
-    setFileSize(0);
-    setError('');
-    setStep(0);
+    dispatch({ type: 'REMOVE_RESUME' });
   }
 
   async function uploadJd(file?: File) {
@@ -196,6 +225,7 @@ export function LiveEvaluation() {
         if (clean.length < 10) throw new Error('No readable text found in document.');
         const truncated = clean.length > 20000;
         setBackendJdText(clean.slice(0, 20000));
+        setJd(clean.slice(0, 20000));
         setJdFileName(file.name);
         setJdFileSize(file.size);
         if (truncated) {
@@ -204,6 +234,7 @@ export function LiveEvaluation() {
       } else {
         const parsed = await liveRequest<ParsedJobDescription & { job_id?: string }>('parse-jd', file, file.name);
         setBackendJdText(parsed.text || '');
+        setJd(parsed.text || '');
         if (parsed.job_id) {
           setBackendJobId(parsed.job_id);
         }
@@ -223,12 +254,7 @@ export function LiveEvaluation() {
   }
 
   function removeJd() {
-    setJdFileName('');
-    setJdFileSize(0);
-    setBackendJdText('');
-    setBackendJobId(null);
-    setJdError('');
-    setJdWarning('');
+    dispatch({ type: 'REMOVE_JD' });
   }
 
   function addSource(value: string) {
@@ -313,9 +339,7 @@ export function LiveEvaluation() {
     const previousRunId = result?.dossier.analysis_run_id;
     try {
       const selected = sources.filter(source => source.selected && source.selectable);
-      const effectiveJd = backendJdText
-        ? (jd.trim() ? `${backendJdText}\n\n[Recruiter Note]:\n${jd.trim()}` : backendJdText)
-        : jd;
+      const effectiveJd = jd.trim() || backendJdText;
       const data = await liveRequest<LiveResult>('analyze', JSON.stringify({
         intake,
         role,
@@ -330,10 +354,25 @@ export function LiveEvaluation() {
 
       // Auto-save candidate profile to HR at the end of the review
       try {
-        const candidateId = data.intake.candidate_id || data.dossier.candidate_id || crypto.randomUUID();
-        const candidateName = data.intake.manifest.display_name || 'Candidate';
-        const candidateEmail = data.intake.manifest.email || undefined;
+        const rawId = data.intake.candidate_id || data.dossier.candidate_id || crypto.randomUUID();
+        const rawName = data.intake.manifest.display_name || 'Candidate';
+        const rawEmail = data.intake.manifest.email || undefined;
         const candidateRole = data.dossier.role || role;
+
+        const normalized = normalizeTeamMember({
+          id: rawId,
+          display_name: rawName,
+          primary_email: rawEmail,
+          role: candidateRole,
+          role_label: '',
+          has_completed_dossier: true,
+          has_meaningful_conflict: false,
+          created_at: '',
+        });
+
+        const candidateId = normalized.id;
+        const candidateName = normalized.display_name;
+        const candidateEmail = normalized.primary_email;
         const score = data.dossier.rci;
         const coverage = data.dossier.coverage;
         const hasConflict = data.dossier.capability_conflicts

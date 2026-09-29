@@ -51,7 +51,7 @@ def parse_pdf_document(pdf_bytes: bytes) -> ParsedDocument:
 
     for page_idx in range(len(doc)):
         page = doc[page_idx]
-        page_text = page.get_text("text")
+        page_text = page.get_text("text", sort=True)
         text_chunks.append(page_text)
 
         # 1. Extract embedded hyperlinks (PDF URI annotations)

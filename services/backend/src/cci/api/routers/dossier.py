@@ -1,4 +1,7 @@
-"""Dossier and Candidate Evidence Graph API router."""
+import logging
+from cci.logging_config import get_logger
+logger = get_logger(__name__)
+
 
 from typing import Any
 from uuid import UUID
@@ -65,8 +68,8 @@ def get_candidate_dossier(candidate_id: UUID) -> DossierResponse:
                 dossier = get_dossier_by_candidate_id(db, candidate_id)
                 if dossier:
                     _DOSSIER_STORE[candidate_id] = dossier
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to get candidate dossier from database", extra={"candidate_id": str(candidate_id)})
 
     if not dossier:
         raise HTTPException(
@@ -81,7 +84,8 @@ def _fetch_candidate_audit_events(candidate_id: UUID) -> list[Any]:
     try:
         from cci.api.routers.overrides import get_candidate_audit_trail
         return get_candidate_audit_trail(candidate_id)
-    except Exception:
+    except Exception as e:
+        logger.exception("Failed to fetch candidate audit trail", extra={"candidate_id": str(candidate_id)})
         return []
 
 
@@ -104,8 +108,8 @@ def _resolve_candidate_dossier_and_name(candidate_id: UUID) -> tuple[Dossier, st
                     cand_name = cand.display_name
                 if dossier:
                     _DOSSIER_STORE[candidate_id] = dossier
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to get candidate dossier from database", extra={"candidate_id": str(candidate_id)})
 
     if not dossier:
         raise HTTPException(
@@ -239,8 +243,8 @@ def get_candidate_probes(candidate_id: UUID) -> InterviewProbesResponse:
                 dossier = get_dossier_by_candidate_id(db, candidate_id)
                 if dossier:
                     _DOSSIER_STORE[candidate_id] = dossier
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to get candidate dossier from database", extra={"candidate_id": str(candidate_id)})
 
     if not dossier:
         raise HTTPException(

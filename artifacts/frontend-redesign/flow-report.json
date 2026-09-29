@@ -1,0 +1,57 @@
+{
+  "url": "http://127.0.0.1:3109",
+  "fixture": "Existing synthetic dossier fixture; research results computed by backend.",
+  "errors": [],
+  "layouts": [
+    {
+      "step": "role",
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "step": "role",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "step": "sources",
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "step": "sources",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "step": "review",
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "step": "review",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "step": "dossier",
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "step": "dossier",
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "step": "dossier",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "step": "dossier",
+      "width": 320,
+      "scrollWidth": 320
+    }
+  ]
+}

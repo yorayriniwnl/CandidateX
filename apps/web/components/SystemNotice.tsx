@@ -6,14 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GlowBadge } from '@/components/ui/GlowBadge';
 
 export const SystemNotice: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
     const dismissed = localStorage.getItem('cci-notice-dismissed');
-    if (!dismissed) {
-      setIsVisible(true);
+    if (dismissed) {
+      setIsVisible(false);
     }
   }, []);
 
@@ -21,8 +19,6 @@ export const SystemNotice: React.FC = () => {
     setIsVisible(false);
     localStorage.setItem('cci-notice-dismissed', 'true');
   };
-
-  if (!mounted) return null;
 
   return (
     <AnimatePresence>

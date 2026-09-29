@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type KeyboardEvent } from 'react';
+import { useState, useRef, type KeyboardEvent } from 'react';
 import { ArrowRight, ArrowUpRight, Braces, Check, FileText, GitBranch, MessageSquare, Quote } from 'lucide-react';
 import Link from 'next/link';
 import { AnalyzeLink } from '../navigation/AnalyzeLink';
@@ -26,6 +26,8 @@ const CODE = [
 
 export function EvidenceWalkthrough() {
   const [active, setActive] = useState(0);
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next = index;
     if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (index + 1) % STEPS.length;
@@ -35,14 +37,14 @@ export function EvidenceWalkthrough() {
     else return;
     event.preventDefault();
     setActive(next);
-    document.getElementById(`evidence-step-${next}`)?.focus();
+    buttonRefs.current[next]?.focus();
   }
 
   return (
     <div className={styles.walkthrough}>
       <div className={styles.steps}>
         <div className={styles.tabList} role="tablist" aria-label="Follow an example claim" aria-orientation="vertical">
-          {STEPS.map(({ label, text, icon: Icon }, index) => <button key={label} type="button" role="tab" id={`evidence-step-${index}`} aria-selected={active === index} aria-controls="evidence-example-panel" tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => navigate(event, index)}><span className={styles.stepNumber}>0{index + 1}</span><span className={styles.stepCopy}><strong>{label}</strong><span>{text}</span></span><Icon size={17} strokeWidth={1.3} aria-hidden="true" /></button>)}
+          {STEPS.map(({ label, text, icon: Icon }, index) => <button key={label} ref={el => { buttonRefs.current[index] = el; }} type="button" role="tab" id={`evidence-step-${index}`} aria-selected={active === index} aria-controls="evidence-example-panel" tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => navigate(event, index)}><span className={styles.stepNumber}>0{index + 1}</span><span className={styles.stepCopy}><strong>{label}</strong><span>{text}</span></span><Icon size={17} strokeWidth={1.3} aria-hidden="true" /></button>)}
         </div>
         <AnalyzeLink targetHref="/analyze" className={styles.tryLink}>Follow your own evidence <ArrowUpRight size={14} aria-hidden="true" /></AnalyzeLink>
       </div>

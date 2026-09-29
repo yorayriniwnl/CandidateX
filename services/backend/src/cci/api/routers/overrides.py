@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import math
 from cci.pipeline.orchestrator import rescore_dossier
 from cci.graph.builder import build_dossier_graph
-from typing import Any
+from typing import Any, Union, Optional
 from uuid import UUID, uuid4
 
 import cci.db.repository as repo
@@ -14,8 +14,13 @@ from cci.db.session import SessionLocal
 from cci.domain.contracts import Dossier
 from cci.api.contracts.graph import CEGGraphResponse
 from cci.domain.enums import CapabilityKey
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status, Depends
 from pydantic import BaseModel, Field, field_validator
+from cci.api.pagination import PaginatedResponse, PaginationParams
+from cci.middleware.rate_limit import rate_limit
+from cci.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/overrides", tags=["Recruiter Overrides & Audit Trail"]
@@ -135,8 +140,8 @@ def record_recruiter_override(
                 dossier = repo.get_dossier_by_candidate_id(db, candidate_id)
                 if dossier:
                     _DOSSIER_STORE[candidate_id] = dossier
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to get candidate dossier from database for override", extra={"candidate_id": str(candidate_id)})
 
     if not dossier:
         raise HTTPException(
@@ -267,8 +272,8 @@ def record_interview_feedback(
             )
             db.add(audit)
             db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception("Failed to persist interview feedback to database", extra={"candidate_id": str(request.candidate_id)})
 
     # Track in in-memory fallback log
     _AUDIT_LOG_STORE.append(
@@ -295,11 +300,17 @@ def record_interview_feedback(
 
 @router.get(
     "/audit/{candidate_id}",
-    response_model=list[AuditEventResponse],
+    response_model=Union[PaginatedResponse[AuditEventResponse], list[AuditEventResponse]],
     status_code=status.HTTP_200_OK,
     summary="Get immutable audit trail of recruiter overrides and interview feedback for a candidate",
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))]
 )
-def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
+def get_candidate_audit_trail(
+    candidate_id: UUID,
+    response: Response = None,
+    paginated: bool = Query(False, description="Whether to return a paginated response envelope"),
+    pagination: PaginationParams = Depends()
+) -> Union[PaginatedResponse[AuditEventResponse], list[AuditEventResponse]]:
     """Retrieves all immutable audit events for the given candidate ID."""
     results: list[AuditEventResponse] = []
     cand_id_str = str(candidate_id)
@@ -325,8 +336,8 @@ def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
                         created_at=ev.created_at.isoformat() if ev.created_at else "",
                     )
                 )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception("Failed to get candidate audit trail from database", extra={"candidate_id": cand_id_str})
 
     # Merge with in-memory fallback store (de-duping by id)
     seen_ids = {r.id for r in results}
@@ -337,6 +348,31 @@ def get_candidate_audit_trail(candidate_id: UUID) -> list[AuditEventResponse]:
 
     # Sort descending by created_at
     results.sort(key=lambda x: x.created_at, reverse=True)
+    
+    # Safe pagination handling
+    page_num = pagination.page if hasattr(pagination, "page") else 1
+    page_sz = pagination.page_size if hasattr(pagination, "page_size") else 20
+    offset_val = pagination.offset if hasattr(pagination, "offset") else 0
+    limit_val = pagination.limit if hasattr(pagination, "limit") else page_sz
+
+    total = len(results)
+    total_pages = (total + page_sz - 1) // page_sz if total > 0 else 1
+    
+    if response is not None:
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["X-Page"] = str(page_num)
+        response.headers["X-Page-Size"] = str(page_sz)
+        response.headers["X-Total-Pages"] = str(total_pages)
+        
+    if paginated:
+        paginated_items = results[offset_val : offset_val + limit_val]
+        return PaginatedResponse(
+            items=paginated_items,
+            total=total,
+            page=page_num,
+            page_size=page_sz,
+            total_pages=total_pages
+        )
     return results
 
 
@@ -378,8 +414,8 @@ def export_candidate_audit_trail(
                 cand = get_candidate_by_id(db, candidate_id)
                 if cand:
                     cand_name = cand.display_name
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to get candidate and dossier from database for audit export", extra={"candidate_id": str(candidate_id)})
 
     if format == "csv":
         content = generate_audit_csv(audit_events=events, dossier=dossier)
@@ -409,3 +445,4 @@ def export_candidate_audit_trail(
                 default=str,
             )
         return Response(content=content, media_type="application/json")
+

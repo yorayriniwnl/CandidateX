@@ -56,8 +56,8 @@ Thumbs.db
 # Browser verification artifacts
 apps/web/test-results/
 apps/web/playwright-report/
+test-results/
+.next*/
+*.log
+scratch/
 
-# Local frontend review captures and response replays
-/artifacts/frontend-redesign/*
-!/artifacts/frontend-redesign/README.md
-/artifacts/login/*.png

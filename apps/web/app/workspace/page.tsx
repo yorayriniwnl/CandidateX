@@ -51,7 +51,7 @@ const pageVariants: Variants = {
   exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
 };
 
-export default function HomePage() {
+export default function WorkspacePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('directory');
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
@@ -144,7 +144,7 @@ export default function HomePage() {
           has_completed_dossier: true,
           created_at: dossier.generated_at || new Date().toISOString(),
           manifest: candidate,
-        }).catch(() => {});
+        }).catch((err) => console.error('[CandidateX] Failed to save candidate to backend:', err));
       } catch (saveErr) {
         console.error('Failed to auto-save workspace candidate to HR', saveErr);
       }

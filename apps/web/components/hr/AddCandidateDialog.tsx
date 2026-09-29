@@ -123,3 +123,5 @@ export function AddCandidateDialog({ onClose, onAdd }: {
     </GlassModal>
   );
 }
+
+export const AddMemberDialog = AddCandidateDialog;

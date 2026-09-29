@@ -21,7 +21,7 @@ import {
   CalculationResponse,
 } from '../types/cci';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 export interface CandidateSummary {
   id: string;
@@ -92,13 +92,14 @@ export async function triggerPipelineRun(
   candidateId: string,
   role: CanonicalRole,
   manifest?: CandidateManifest,
-  jdText?: string
+  jdText?: string,
+  cvText?: string
 ): Promise<PipelineStatusResponse> {
   const payload = {
     candidate_id: candidateId,
     role: role,
     jd_text: jdText || '',
-    cv_text: '',
+    cv_text: cvText || '',
     repo_urls: [
       ...(manifest?.github_repositories || []),
     ],
@@ -227,6 +228,31 @@ export async function fetchCandidatesList(): Promise<CandidateSummary[]> {
     throw new Error(`Candidates list fetch failed: HTTP ${res.status}`);
   }
 
+  return res.json();
+}
+
+/**
+ * Deletes a candidate by ID from the backend.
+ */
+export async function deleteCandidate(candidateId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates/${candidateId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Failed to delete candidate: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Purges non-team candidates from the backend, preserving only the 6 team members.
+ */
+export async function purgeNonTeamCandidates(): Promise<{ deleted: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates?keep_team_only=true`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to purge candidates: HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -403,7 +429,7 @@ export async function fetchTheorems(): Promise<TheoremMetadata[]> {
   const res = await fetch(`${API_BASE_URL}/api/v1/research/theorems`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
-    cache: 'no-store',
+    next: { revalidate: 3600 },
   });
 
   if (!res.ok) {
@@ -420,7 +446,7 @@ export async function fetchAblationStudy(): Promise<AblationStudyResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/research/ablation-study`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
-    cache: 'no-store',
+    next: { revalidate: 3600 },
   });
 
   if (!res.ok) {

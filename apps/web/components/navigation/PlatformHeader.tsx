@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowUpRight, Menu, Sparkles, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { NAVIGATION_ITEMS, SURFACE_COPY, type Surface, type SurfaceStatus } from './navigation';
 import { SurfaceBadge } from './SurfaceBadge';
 import { AnalyzeLink } from './AnalyzeLink';
-import { getStoredUser, clearStoredUser, type AuthUser } from '../../lib/auth';
+import { getStoredUser, clearStoredUser, fetchUserSession, type AuthUser } from '../../lib/auth';
 
 export type PlatformHeaderProps = {
   surface: Surface;
@@ -17,6 +17,7 @@ export type PlatformHeaderProps = {
 export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
   const copy = SURFACE_COPY[surface];
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false);
-        document.querySelector<HTMLButtonElement>('.platform-menu-toggle')?.focus();
+        menuToggleRef.current?.focus();
       }
     };
     document.addEventListener('keydown', close);
@@ -39,6 +40,9 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
 
   useEffect(() => {
     setCurrentUser(getStoredUser());
+    fetchUserSession().then((u) => {
+      if (u) setCurrentUser(u);
+    });
     const onAuthChange = () => setCurrentUser(getStoredUser());
     window.addEventListener('cx-auth-change', onAuthChange);
     window.addEventListener('storage', onAuthChange);
@@ -63,6 +67,7 @@ export function PlatformHeader({ surface, status }: PlatformHeaderProps) {
         </div>
 
         <button
+          ref={menuToggleRef}
           type="button"
           className="platform-menu-toggle"
           aria-label="Toggle navigation"

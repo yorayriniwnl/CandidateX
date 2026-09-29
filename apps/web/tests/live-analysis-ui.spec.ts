@@ -744,3 +744,4 @@ test('supports opening cloud link directly and fetching files/data instead of sh
   await page.getByRole('button', { name: 'Hide data ▴' }).click();
   await expect(page.getByText('Files detected (3):')).toBeHidden();
 });
+

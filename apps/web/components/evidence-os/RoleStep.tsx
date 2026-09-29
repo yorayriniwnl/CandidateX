@@ -87,14 +87,6 @@ export function RoleStep({
 
       <div className={styles.roleControls}>
         <div className={styles.fieldBlock}>
-          <label htmlFor="live-role">Target role</label>
-          <select id="live-role" value={role} disabled={busy} onChange={event => onRoleChange(event.target.value as CanonicalRole)}>
-            {ROLES.map(option => <option key={option} value={option}>{roleName(option)}</option>)}
-          </select>
-          <p>The role profile and weights are returned with the dossier after analysis.</p>
-        </div>
-
-        <div className={styles.fieldBlock}>
           <div className={styles.labelLine}>
             <label htmlFor="live-jd">Job description & recruitment rules</label>
             <span>OPTIONAL</span>
@@ -152,12 +144,12 @@ export function RoleStep({
               <div className={styles.jdFileInfo}>
                 <div className={styles.jdFileNameRow}>
                   <strong>{jdFileName}</strong>
-                  <span className={styles.jdBadge}>Stored in backend</span>
+                  <span className={styles.jdBadge}>Document loaded</span>
                 </div>
                 <div className={styles.jdFileMeta}>
                   {jdFileSize ? <span>{formatFileSize(jdFileSize)}</span> : null}
                   {jdFileSize ? <span>·</span> : null}
-                  <span>Job description & recruitment rules stored in backend</span>
+                  <span>Job description & recruitment rules loaded</span>
                   <span>·</span>
                   <span>Ready for analysis</span>
                 </div>
@@ -213,7 +205,7 @@ export function RoleStep({
 
           <div className={styles.jdTextareaHeader}>
             <label htmlFor="live-jd">
-              {jdFileName ? 'Additional recruiter notes (optional)' : 'Or paste requirements and standards directly'}
+              {jdFileName ? 'Extracted job description & requirements' : 'Or paste requirements and standards directly'}
             </label>
           </div>
 
@@ -221,15 +213,13 @@ export function RoleStep({
             id="live-jd"
             maxLength={20000}
             disabled={busy || jdLoading}
-            placeholder={jdFileName ? "Optional extra notes or specific hiring criteria (document is already safely stored in backend)..." : "Paste the responsibilities, standards, or recruitment rules…"}
+            placeholder="Paste the responsibilities, standards, or recruitment rules…"
             value={jd}
             onChange={event => onJdChange(event.target.value)}
-            rows={jdFileName ? 4 : 8}
+            rows={8}
           />
           <p>
-            {jdFileName
-              ? 'Document data is securely stored in backend and calibrated for evaluation without displaying in this note.'
-              : `${jd.length.toLocaleString()} / 20,000 characters · Parsed during the analysis request.`}
+            {`${jd.length.toLocaleString()} / 20,000 characters · Parsed during the analysis request.`}
           </p>
         </div>
       </div>

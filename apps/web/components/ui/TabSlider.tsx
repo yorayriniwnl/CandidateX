@@ -24,12 +24,11 @@ export const TabSlider: React.FC<TabSliderProps> = ({
   size = 'md',
   className = '',
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const updateIndicator = useCallback(() => {
-    if (!containerRef.current) return;
-    const activeEl = containerRef.current.querySelector(`[data-tab-key="${activeKey}"]`) as HTMLElement;
+    const activeEl = tabRefs.current[activeKey];
     if (!activeEl) return;
 
     setIndicatorStyle({
@@ -50,7 +49,6 @@ export const TabSlider: React.FC<TabSliderProps> = ({
 
   return (
     <div
-      ref={containerRef}
       className={`relative flex items-center gap-0.5 p-1 glass rounded-xl ${sizeClasses} ${className}`}
     >
       {/* Sliding indicator */}
@@ -62,6 +60,9 @@ export const TabSlider: React.FC<TabSliderProps> = ({
       {tabs.map((tab) => (
         <button
           key={tab.key}
+          ref={(el) => {
+            tabRefs.current[tab.key] = el;
+          }}
           type="button"
           data-tab-key={tab.key}
           onClick={() => onChange(tab.key)}

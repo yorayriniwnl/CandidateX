@@ -21,7 +21,7 @@ import {
   Loader2,
   LogOut,
 } from 'lucide-react';
-import { setStoredUser, getStoredUser, clearStoredUser, type AuthUser } from '../../lib/auth';
+import { setStoredUser, getStoredUser, clearStoredUser, fetchUserSession, type AuthUser } from '../../lib/auth';
 import styles from './login.module.css';
 
 type UserRole = 'evaluator' | 'candidate';
@@ -72,6 +72,9 @@ export function LoginClient() {
   useEffect(() => {
     setHydrated(true);
     setCurrentUser(getStoredUser());
+    fetchUserSession().then((u) => {
+      if (u) setCurrentUser(u);
+    });
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -144,17 +147,28 @@ export function LoginClient() {
     setIsSubmitting(true);
 
     try {
-      // Simulate credential verification
-      await new Promise((resolve) => setTimeout(resolve, 650));
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password, role }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Invalid credentials. Access is restricted to authorized static accounts.');
+        setIsSubmitting(false);
+        return;
+      }
 
       setStoredUser({
-        email: matchedAccount.email,
-        role: matchedAccount.role,
+        email: data.user.email,
+        role: data.user.role,
+        name: data.user.name,
         loginTime: Date.now(),
       });
 
       setSuccess('Identity verified. Loading CandidateX workspace...');
-      await new Promise((resolve) => setTimeout(resolve, 450));
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       const redirectTarget = getRedirectTarget();
       if (typeof window !== 'undefined') {
@@ -164,7 +178,7 @@ export function LoginClient() {
       }
       if (redirectTarget) {
         router.push(redirectTarget, { scroll: true });
-      } else if (matchedAccount.role === 'evaluator') {
+      } else if (data.user.role === 'evaluator') {
         router.push('/workspace', { scroll: true });
       } else {
         router.push('/analyze', { scroll: true });

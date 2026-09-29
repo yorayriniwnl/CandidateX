@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     MAX_REPOSITORY_SIZE_MB: int = 500
     MAX_REPOSITORY_PATHS: int = 100000
     MAX_FILE_SIZE_MB: int = 5
-    ANALYSIS_TIMEOUT_SECONDS: int = 300
+    ANALYSIS_TIMEOUT_SECONDS: int = 14400  # 4 hours — full time leverage.
 
     # Formal Scoring Parameters (Paper-aligned default v1)
     SCORING_CONFIG_VERSION: str = "1.0.0"
@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     GOOGLE_DRIVE_API_KEY: str | None = None
     CLOUD_FILE_EXTRACTION_ENABLED: bool = True
     CLOUD_FILE_MAX_SIZE_MB: int = 10
+    
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_DEFAULT_RPM: int = 100
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

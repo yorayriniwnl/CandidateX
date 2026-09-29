@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUpRight, CheckCircle2, Download, Edit3, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { fetchCandidateDossier, fetchCandidateGraph } from '../../lib/api';
 import { DossierView } from '../dossier/DossierView';
 import type { CEGGraph, Dossier } from '../../types/cci';
@@ -30,25 +30,41 @@ function DetailList({ title, items, empty, tone = 'neutral' }: {
   );
 }
 
-export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandidate; onClose: () => void }) {
-  const [dossier, setDossier] = useState<Dossier | null>(null);
-  const [loading, setLoading] = useState(candidate.has_completed_dossier);
+export function CandidateQuickView({
+  candidate,
+  onClose,
+  onAudit,
+  onEdit,
+}: {
+  candidate: HRCandidate;
+  onClose: () => void;
+  onAudit?: (candidate: HRCandidate) => void;
+  onEdit?: (candidate: HRCandidate) => void;
+}) {
+  const [dossier, setDossier] = useState<Dossier | null>(candidate.dossier || null);
+  const [loading, setLoading] = useState(candidate.has_completed_dossier && !candidate.dossier);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [fullView, setFullView] = useState(false);
-  const [graph, setGraph] = useState<CEGGraph | null>(null);
+  const [graph, setGraph] = useState<CEGGraph | null>(candidate.graph || null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphAttempt, setGraphAttempt] = useState(0);
   const [graphError, setGraphError] = useState('');
 
   useEffect(() => {
     let active = true;
-    if (!candidate.has_completed_dossier) return;
+    if (!candidate.has_completed_dossier) {
+      setLoading(false);
+      return;
+    }
+    if (candidate.dossier) {
+      setDossier(candidate.dossier);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
-    const request = candidate.dossier
-      ? Promise.resolve(candidate.dossier)
-      : candidate.source === 'sample'
+    const request = candidate.source === 'sample'
       ? Promise.reject(new Error('No sample dossier available'))
       : withReadTimeout(fetchCandidateDossier(candidate.id));
     request.then((result) => {
@@ -62,12 +78,14 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
 
   useEffect(() => {
     if (!fullView || !dossier) return;
+    if (candidate.graph) {
+      setGraph(candidate.graph);
+      return;
+    }
     let active = true;
     setGraphLoading(true);
     setGraphError('');
-    const request = candidate.graph
-      ? Promise.resolve(candidate.graph)
-      : candidate.source === 'sample'
+    const request = candidate.source === 'sample'
       ? Promise.reject(new Error('No sample graph available'))
       : withReadTimeout(fetchCandidateGraph(candidate.id));
     request.then((result) => {
@@ -84,7 +102,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'candidate-intake-draft.json';
+    link.download = `${candidate.display_name.toLowerCase().replace(/\s+/g, '-')}-intake-draft.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -98,8 +116,9 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
       ? Math.max(1, Math.round(candidate.coverage * 12))
       : null
   );
-  const scoreBadge = fitScore != null ? ` · JD Fit Score: ${fitScore.toFixed(1)} / 100` : '';
+  const scoreBadge = fitScore != null ? ` · Score: ${fitScore.toFixed(1)} / 100` : '';
   const observedBadge = observedCount != null ? ` · Observed: ${observedCount} / 12` : '';
+
   return (
     <GlassModal 
       isOpen={!!candidate} 
@@ -128,7 +147,7 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
               <div className="flex flex-wrap items-center gap-2">
                 {fitScore != null && (
                   <div className="flex items-baseline gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20">
-                    <span className="text-xs text-slate-400 font-medium">JD Fit Score:</span>
+                    <span className="text-xs text-slate-400 font-medium">Score:</span>
                     <span className="text-sm font-bold text-brand-400 font-mono">
                       {fitScore.toFixed(1)}
                     </span>
@@ -160,19 +179,45 @@ export function CandidateQuickView({ candidate, onClose }: { candidate: HRCandid
             <h3 className="mb-3 text-sm font-semibold text-slate-100">Suggested technical interview questions</h3>
             <p className="mb-4 text-xs leading-5 text-slate-400">Share these with your technical interviewer. They support a conversation, not an automatic hiring decision.</p>
             <ol className="divide-y divide-white/10 text-sm leading-7 text-slate-300">
-              {(dossier?.interview_questions.length ? dossier.interview_questions.slice(0, 4).map((question) => question.question_text) : [
+              {(dossier?.interview_questions?.length ? dossier.interview_questions.slice(0, 4).map((question) => question.question_text) : [
                 'Walk us through a recent project. What did you personally build, and what trade-offs did you make?',
                 'How did you test your work and check that it solved the intended problem?',
               ]).map((question, index) => <li key={index} className="flex gap-4 py-4 first:pt-0"><span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-semibold text-indigo-300 border border-indigo-500/20">{index + 1}</span><span className="min-w-0 break-words mt-0.5">{question}</span></li>)}
             </ol>
-            {!dossier?.interview_questions.length && <p className="mt-4 text-xs text-slate-500">General questions — not based on an evaluation.</p>}
+            {!dossier?.interview_questions?.length && <p className="mt-4 text-xs text-slate-500">General questions — not based on an evaluation.</p>}
           </GlassCard>
-          {candidate.manifest && <DetailList title="Candidate-provided skills · not verified" items={candidate.manifest.declared_skills} empty="No skills provided yet." />}
+          {candidate.manifest && <DetailList title="Candidate-provided skills · not verified" items={candidate.manifest.declared_skills || []} empty="No skills provided yet." />}
         </>}
         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-white/10 mt-8">
-          <GlassButton disabled={!dossier || loading || !!error} onClick={() => setFullView(true)} variant="primary" icon={<ArrowUpRight className="h-4 w-4" />} iconPosition="right">
-            Open full technical dossier
-          </GlassButton>
+          {onEdit && (
+            <GlassButton
+              variant="secondary"
+              onClick={() => {
+                onClose();
+                onEdit(candidate);
+              }}
+              icon={<Edit3 className="h-4 w-4" />}
+            >
+              Edit Profile
+            </GlassButton>
+          )}
+          {onAudit && (
+            <GlassButton
+              variant="primary"
+              onClick={() => {
+                onClose();
+                onAudit(candidate);
+              }}
+              icon={<Sparkles className="h-4 w-4" />}
+            >
+              {candidate.has_completed_dossier ? 'Re-audit Student' : 'Audit Student'}
+            </GlassButton>
+          )}
+          {candidate.has_completed_dossier && (
+            <GlassButton disabled={!dossier || loading || !!error} onClick={() => setFullView(true)} variant={onAudit ? 'secondary' : 'primary'} icon={<ArrowUpRight className="h-4 w-4" />} iconPosition="right">
+              Open full technical dossier
+            </GlassButton>
+          )}
           {candidate.manifest && <GlassButton onClick={downloadDraft} variant="secondary" icon={<Download className="h-4 w-4" />}>
             Download draft
           </GlassButton>}

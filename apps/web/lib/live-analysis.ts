@@ -323,3 +323,4 @@ export function publicUrl(value?: string): string | undefined {
 export async function fetchLinkData(url: string): Promise<FetchedLinkResult> {
   return await liveRequest<FetchedLinkResult>('fetch-link', JSON.stringify({ url }));
 }
+

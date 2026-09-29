@@ -227,10 +227,7 @@ export const InterviewScorecardModal: React.FC<InterviewScorecardModalProps> = (
         const saved = getSavedHRCandidates();
         const existing = saved.find(c => c.id === candidateId);
         if (existing) {
-          saveHRCandidate({
-            ...existing,
-            created_at: res.recorded_at || existing.created_at,
-          });
+          saveHRCandidate({ ...existing });
         }
       } catch {}
       if (onFeedbackSubmitted) {

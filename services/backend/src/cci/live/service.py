@@ -47,13 +47,54 @@ def analyze_resume(request: LiveAnalysisRequest):
         'Recent-commit attribution is repository-level; it does not prove authorship of each inspected line.',
         'Public page text, profile metadata and certificate mentions do not increase capability scores. Issuer authentication and employment verification are not automated.',
         'Public links: up to 24 HTML/text/digital PDF pages, 512 KB each, 3 redirects; PDFs up to 5 pages. Login gates, image-only and script-only pages remain unresolved.',
-        f'Bounded scan: {MAX_REPOSITORIES} repositories, {MAX_FILES} selected text files each, {MAX_SECONDS}s acquisition budget.',
+        f'Bounded scan: {MAX_REPOSITORIES} repositories, {MAX_FILES} selected text files each. Acquisition runs without a tight time ceiling.',
         'The uploaded document and analysis are request-scoped. Download JSON to retain this result; refreshing clears the page.',
     ]
     dossier = state.dossier.model_copy(update={'ownership_assessments': ownership,
         'system_limitations': [*state.dossier.system_limitations, *limitations]})
     graph = build_dossier_graph(dossier)
+
+    # Register in memory for instantaneous lookup
+    try:
+        from cci.api.routers.dossier import register_dossier
+        register_dossier(dossier, graph)
+    except Exception:
+        pass
+
+    # Persist to relational database for multi-session durability
+    try:
+        from uuid import UUID
+        from cci.db.session import SessionLocal
+        import cci.db.repository as repo
+        org_id = UUID('00000000-0000-0000-0000-000000000001')
+        with SessionLocal() as db:
+            repo.save_dossier(db, dossier, org_id, custom_evidence=evidence)
+            db.commit()
+    except Exception:
+        pass
+
+    # Record SaaS quota usage and dispatch webhooks
+    try:
+        from uuid import UUID
+        from cci.billing.service import billing_service
+        from cci.webhooks.dispatcher import webhook_dispatcher
+        org_id = UUID('00000000-0000-0000-0000-000000000001')
+        billing_service.record_analysis_usage(org_id, dossier.candidate_id)
+        webhook_dispatcher.dispatch_event(
+            org_id,
+            "candidate.analyzed",
+            {
+                "candidate_id": str(dossier.candidate_id),
+                "rci": dossier.rci,
+                "coverage": dossier.coverage,
+                "role": dossier.role.value if hasattr(dossier.role, "value") else str(dossier.role),
+                "status": "completed",
+            },
+        )
+    except Exception:
+        pass
+
     return {'intake': request.intake, 'dossier': dossier,
         'graph': graph.to_api_response(candidate_id=dossier.candidate_id, analysis_run_id=dossier.analysis_run_id),
         'graph_snapshot': graph.to_dict(), 'sources': sources, 'analysis': build_report(request.intake, sources), 'scoring_config': ScoringConfig(),
-        'storage': 'request_only', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}
+        'storage': 'database_and_memory', 'status': 'partial' if any(s['status'] != 'observed' for s in sources) or not evidence else 'completed'}

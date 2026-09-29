@@ -187,3 +187,4 @@ def test_parse_jd_endpoint_unsupported_extension():
         headers={'X-Filename': 'rules.exe', 'Content-Type': 'application/octet-stream'}
     )
     assert response.status_code == 415
+

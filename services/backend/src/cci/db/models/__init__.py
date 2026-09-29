@@ -33,7 +33,7 @@ from cci.db.models.jobs import (
     RoleRequirement,
     RoleWeightOverride,
 )
-from cci.db.models.organizations import Organization, User
+from cci.db.models.organizations import ApiKey, Organization, User
 from cci.db.models.ownership import OwnershipAssessmentEntity
 from cci.db.models.probes import (
     InterviewProbePriority,
@@ -60,6 +60,7 @@ __all__ = [
     "AnalysisScoreEntity",
     "AnalysisStageRun",
     "AnalyzerVersion",
+    "ApiKey",
     "Artifact",
     "AuditEvent",
     "Candidate",

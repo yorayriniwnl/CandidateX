@@ -1,12 +1,11 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LiveEvaluation } from '../../components/evidence-os/LiveEvaluation';
+import { getSessionFromRequest } from '../../lib/session';
 
 export default async function AnalyzePage() {
-  const cookieStore = await cookies();
-  const hasAuth = cookieStore.has('cx_auth') || cookieStore.has('cx_session');
+  const session = await getSessionFromRequest();
 
-  if (!hasAuth) {
+  if (!session) {
     redirect('/login?redirect=%2Fanalyze');
   }
 

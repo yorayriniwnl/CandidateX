@@ -34,7 +34,7 @@ export function InterviewPlan({ result, onSelectEvidence }: { result: LiveResult
               <div className={styles.interviewHead}>
                 <span className={styles.interviewNumber}>{String(probe?.rank ?? index + 1).padStart(2, '0')}</span>
                 <div><span className={styles.sectionEyebrow}>{capabilityName(question.target_capability)}</span></div>
-
+                
               </div>
               <blockquote className={styles.interviewQuestion}>{readableAnalysisText(question.question_text)}</blockquote>
               <div className={styles.interviewRationale}><div><h4>Why ask</h4><p>{readableInterviewRationale(question.rationale)}</p></div><div><h4>What to verify</h4><p>{question.verification_guidance}</p></div></div>

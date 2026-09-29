@@ -13,7 +13,7 @@ MAX_FILES = 100
 MAX_FILE_BYTES = 128 * 1024
 MAX_ARCHIVE_BYTES = 8 * 1024 * 1024
 MAX_EXPANDED_BYTES = 24 * 1024 * 1024
-MAX_SECONDS = 45
+MAX_SECONDS = 14400  # 4 hours — full time leverage for deep analysis.
 ShortText = Annotated[str, Field(max_length=2048)]
 
 

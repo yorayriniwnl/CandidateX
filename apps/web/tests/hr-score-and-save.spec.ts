@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('HR Tab and Candidate Review Profile Saving', () => {
   test('HR dashboard renders the Score column and leaves unevaluated roster candidates unscored', async ({ page }) => {
@@ -130,5 +130,69 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     // Candidates with no score (— / -1) come first when ascending
     expect(firstRowAscText).toContain('—');
   });
+
+  test('Auditing a student from the HR page saves score, updates status, and avoids duplicate candidate rows', async ({ page }) => {
+    // Start with offline roster (all 6 students available, unevaluated)
+    await page.route('**/api/v1/candidates', route => route.abort());
+    await page.route('**/api/v1/pipeline/run', route => route.fulfill({
+      json: {
+        analysis_run_id: 'test-run-001',
+        candidate_id: '22222222-2222-2222-2222-222222222222',
+        role: 'frontend',
+        status: 'completed',
+        rci: 86.4,
+        coverage: 0.75,
+        stages: [],
+      }
+    }));
+    await page.goto('/hr');
+
+    // Confirm initial 6 students
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+
+    // Archi Srivastava starts unevaluated and marked as Pending
+    const archiRow = page.locator('tr:has-text("Archi Srivastava")');
+    await expect(archiRow).toBeVisible();
+    await expect(archiRow).toContainText('—');
+    await expect(archiRow).toContainText('Pending');
+
+    // Click Audit on Archi Srivastava
+    const auditBtn = archiRow.getByRole('button', { name: /audit archi srivastava/i });
+    await auditBtn.click();
+
+    // Verify modal is displayed
+    const modal = page.locator('dialog');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Audit Student: Archi Srivastava');
+
+    // Click Start Student Audit
+    const startAuditBtn = modal.getByRole('button', { name: /start student audit/i });
+    await startAuditBtn.click();
+
+    // Wait for audit to complete
+    await expect(modal).toContainText('Student Audit Successful', { timeout: 15000 });
+    await expect(modal).toContainText('/ 100');
+
+    // Close dialog
+    const doneBtn = modal.getByRole('button', { name: /done/i });
+    await doneBtn.click();
+    await expect(modal).not.toBeVisible();
+
+    // Verify Archi's row is updated with a score and completed status
+    await expect(archiRow).toContainText('/ 100');
+    await expect(archiRow).toContainText('Completed');
+
+    // Verify candidate count is still exactly 6 (NO duplicate student row created!)
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+
+    // Reload page to verify persistence from localStorage
+    await page.reload();
+    const archiRowAfter = page.locator('tr:has-text("Archi Srivastava")');
+    await expect(archiRowAfter).toBeVisible();
+    await expect(archiRowAfter).toContainText('/ 100');
+    await expect(archiRowAfter).toContainText('Completed');
+    await expect(page.locator('tbody tr')).toHaveCount(6);
+  });
 });
+
 

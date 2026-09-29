@@ -35,11 +35,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="studio-theme noise-texture antialiased min-h-screen text-slate-100 font-[family-name:var(--font-sans)]" suppressHydrationWarning>
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-indigo-600 focus:text-white focus:text-sm focus:font-semibold">Skip to main content</a>
         <div className="studio-atmosphere" aria-hidden="true" />
         <Suspense fallback={null}>
           <NavigationScrollManager />
         </Suspense>
-        <MotionProvider><div className="relative z-10">{children}</div></MotionProvider>
+        <MotionProvider><div id="main-content" className="relative z-10">{children}</div></MotionProvider>
       </body>
     </html>
   );

@@ -1,0 +1,27 @@
+{
+  "captured_at": "2026-09-28T09:33:10.959975+00:00",
+  "preview_build_id": "8Tf6W5i3lvlo7H7aIkTvF",
+  "compared_files": 113,
+  "changes": [
+    {
+      "path": "apps/web/components/hr/hr-data.ts",
+      "preview_sha256": "da1d3887d3392f1bfc90d1e6e4d9487569015843d0b14be219e4547c8e8e9924",
+      "current_sha256": "2382fad40e406dd9400718adc7d9932158c13ae01b129ffaada1e27c33c9dd03",
+      "changed_since_manifest": false,
+      "diff": "--- preview/apps/web/components/hr/hr-data.ts\n\n+++ current/apps/web/components/hr/hr-data.ts\n\n@@ -74,6 +74,23 @@\n\n     window.dispatchEvent(new CustomEvent('cci_hr_candidates_changed', { detail: { id: candidateId, removed: true } }));\n   } catch (e) {\n     console.error('Failed to remove HR candidate from localStorage', e);\n+  }\n+}\n+\n+export function clearNonTeamSavedCandidates(): void {\n+  if (typeof window === 'undefined') return;\n+  try {\n+    const teamEmails = new Set(TEAM_CANDIDATES.map(m => m.primary_email?.toLowerCase().trim()));\n+    const teamIds = new Set(TEAM_CANDIDATES.map(m => m.id));\n+    const existing = getSavedHRCandidates();\n+    const updated = existing.filter(c => {\n+      const email = c.primary_email?.toLowerCase().trim();\n+      return teamIds.has(c.id) || (email && teamEmails.has(email));\n+    });\n+    localStorage.setItem(HR_STORAGE_KEY, JSON.stringify(updated));\n+    window.dispatchEvent(new CustomEvent('cci_hr_candidates_changed', { detail: { purged: true } }));\n+  } catch (e) {\n+    console.error('Failed to clear non-team candidates from localStorage', e);\n   }\n }\n "
+    },
+    {
+      "path": "apps/web/lib/api.ts",
+      "preview_sha256": "3c402507758c61b0da7cb79493d380883c9302be19fe0af58e57d68adec5cfda",
+      "current_sha256": "7c4ea1879604a6946678a1ca657af965e77511b587c3d333be72c7f7f6765d97",
+      "changed_since_manifest": false,
+      "diff": "--- preview/apps/web/lib/api.ts\n\n+++ current/apps/web/lib/api.ts\n\n@@ -230,6 +230,31 @@\n\n   return res.json();\n }\n \n+/**\n+ * Deletes a candidate by ID from the backend.\n+ */\n+export async function deleteCandidate(candidateId: string): Promise<void> {\n+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates/${candidateId}`, {\n+    method: 'DELETE',\n+  });\n+  if (!res.ok && res.status !== 404) {\n+    throw new Error(`Failed to delete candidate: HTTP ${res.status}`);\n+  }\n+}\n+\n+/**\n+ * Purges non-team candidates from the backend, preserving only the 6 team members.\n+ */\n+export async function purgeNonTeamCandidates(): Promise<{ deleted: number }> {\n+  const res = await fetch(`${API_BASE_URL}/api/v1/candidates?keep_team_only=true`, {\n+    method: 'DELETE',\n+  });\n+  if (!res.ok) {\n+    throw new Error(`Failed to purge candidates: HTTP ${res.status}`);\n+  }\n+  return res.json();\n+}\n+\n export type ExportFormat = 'html' | 'markdown' | 'json' | 'csv';\n export type ExportScope = 'report' | 'audit' | 'full';\n "
+    }
+  ],
+  "scope": "Browser results apply to the isolated preview. Concurrent source changes were read, not invoked or modified by this audit.",
+  "assessment": {
+    "apps/web/components/hr/hr-data.ts": "Only clearNonTeamSavedCandidates was added. Existing save/remove/read functions are unchanged. Findings F08, F10 and F13 remain supported by current source.",
+    "apps/web/lib/api.ts": "Only deleteCandidate and purgeNonTeamCandidates were added. Existing API calls are unchanged; the tested candidate deletion UI does not call either helper.",
+    "other_files": "All other compared files match the preview source. This is a source comparison, not a browser rerun of a fresh current-source build."
+  }
+}

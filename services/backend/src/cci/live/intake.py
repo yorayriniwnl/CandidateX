@@ -116,3 +116,4 @@ def parse_jd_document(data: bytes, filename: str) -> dict[str, Any]:
         'truncated': truncated,
         'warnings': warnings,
     }
+

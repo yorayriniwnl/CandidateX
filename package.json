@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "pnpm --filter web dev",
+    "dev:backend": "python -m uvicorn cci.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir services/backend",
     "build": "pnpm --filter web build",
     "lint": "pnpm --filter web lint",
     "test": "pnpm --filter web test"

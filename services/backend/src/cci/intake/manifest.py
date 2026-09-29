@@ -39,7 +39,17 @@ EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 # Standard resume section headers
 SECTION_PATTERNS = {
     "skills": re.compile(
-        r"^(?:technical\s+)?skills\b|^(?:core\s+)?technologies\b|^competencies\b",
+        r"^(?:(?:technical|key|core|professional|relevant|hard|software|it|computer|domain)\s+)?skills?(?:\s+(?:&|and)\s+(?:expertise|tools|abilities|competencies))?\b"
+        r"|^(?:core|key|technical)\s+competencies\b"
+        r"|^competencies\b"
+        r"|^(?:core|key|technical|emerging)\s+technologies\b"
+        r"|^technologies(?:\s+(?:&|and)\s+(?:tools|frameworks))?\b"
+        r"|^(?:tools\s+(?:&|and)\s+technologies|technologies\s+(?:&|and)\s+tools)\b"
+        r"|^(?:programming\s+)?languages(?:\s+(?:&|and)\s+(?:frameworks|technologies|tools|libraries))?\b"
+        r"|^(?:tech(?:nical)?\s+)?(?:stack|toolkit)\b"
+        r"|^(?:technical\s+)?proficiencies\b"
+        r"|^skill\s*sets?\b"
+        r"|^(?:areas\s+of\s+)?expertise\b",
         re.IGNORECASE,
     ),
     "projects": re.compile(
@@ -89,6 +99,67 @@ def extract_candidate_email(text: str) -> str | None:
     return None
 
 
+# Subcategories commonly found inside a skills section that shouldn't break out of skills
+SKILLS_SUBCATEGORY_PATTERN = re.compile(
+    r"^(?:[•\-\*·●▪■◦‣⁃\s]*)(?:(?:programming\s+)?languages?|frameworks?(?:\s+(?:&|and)\s+libraries)?|developer\s+tools|databases?|cloud(?:\s+(?:&|and)\s+devops)?|platforms?|technologies|tools|libraries|devops|backend|frontend|fullstack|methodologies|web\s+technologies|version\s+control|operating\s+systems|core|others?)\s*:\s*(.+)$",
+    re.IGNORECASE,
+)
+
+INLINE_SKILLS_PATTERN = re.compile(
+    r"^(?:[•\-\*·●▪■◦‣⁃#|~0-9.\s]*)(?:technical\s+|key\s+|core\s+|software\s+)?(?:skills?|technologies|tools?|tech\s+stack|competencies|proficiencies|languages)\s*:\s*(.+)$",
+    re.IGNORECASE,
+)
+
+COMMON_TECH_CANONICAL = [
+    ('Python', r'\bpython\b'),
+    ('TypeScript', r'\btypescript\b'),
+    ('JavaScript', r'\bjavascript\b'),
+    ('Go', r'\b(?:golang|go)\b(?!\s+(?:to|ahead|back|on|for))'),
+    ('Rust', r'\brust\b'),
+    ('Java', r'\bjava\b(?!script)'),
+    ('C++', r'\bc\+\+\b'),
+    ('C#', r'\bc#\b'),
+    ('SQL', r'\bsql\b'),
+    ('PostgreSQL', r'\b(?:postgresql|postgres)\b'),
+    ('MySQL', r'\bmysql\b'),
+    ('MongoDB', r'\bmongodb\b'),
+    ('Redis', r'\bredis\b'),
+    ('React', r'\breact(?:\.js)?\b'),
+    ('Next.js', r'\bnext(?:\.js)?\b'),
+    ('Node.js', r'\bnode(?:\.js)?\b'),
+    ('Vue.js', r'\bvue(?:\.js)?\b'),
+    ('Angular', r'\bangular\b'),
+    ('FastAPI', r'\bfastapi\b'),
+    ('Flask', r'\bflask\b'),
+    ('Django', r'\bdjango\b'),
+    ('Spring Boot', r'\bspring\s+boot\b'),
+    ('Docker', r'\bdocker\b'),
+    ('Kubernetes', r'\b(?:kubernetes|k8s)\b'),
+    ('AWS', r'\baws\b|\bamazon\s+web\s+services\b'),
+    ('GCP', r'\bgcp\b|\bgoogle\s+cloud\b'),
+    ('Azure', r'\bazure\b'),
+    ('Git', r'\bgit\b(?!hub|lab)'),
+    ('GraphQL', r'\bgraphql\b'),
+    ('Kafka', r'\bkafka\b'),
+    ('Terraform', r'\bterraform\b'),
+    ('PyTorch', r'\bpytorch\b'),
+    ('TensorFlow', r'\btensorflow\b'),
+    ('Linux', r'\blinux\b'),
+    ('Tailwind CSS', r'\btailwind(?:\s+css)?\b'),
+    ('HTML', r'\bhtml5?\b'),
+    ('CSS', r'\bcss3?\b'),
+]
+
+
+def fallback_extract_tech(text: str) -> list[str]:
+    """Fallback extractor for technical skills from narrative CV text when no skills section exists."""
+    found: list[str] = []
+    for name, pattern in COMMON_TECH_CANONICAL:
+        if re.search(pattern, text, re.IGNORECASE):
+            found.append(name)
+    return found
+
+
 def segment_sections(text: str) -> dict[str, list[str]]:
     """Segments resume text into standard sections based on detected headings."""
     sections: dict[str, list[str]] = {
@@ -107,16 +178,34 @@ def segment_sections(text: str) -> dict[str, list[str]]:
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
     for line in lines:
+        clean_header = re.sub(r"^[•\-\*·●▪■◦‣⁃#|>~0-9.\s]+", "", line).strip()
+        clean_title = re.sub(r"[:\-\–\—\s|]+$", "", clean_header).strip()
+
+        # Retain subcategory lines inside skills (e.g. "Languages: Python, Go")
+        if current_section == "skills" and SKILLS_SUBCATEGORY_PATTERN.match(line):
+            sections["skills"].append(line)
+            continue
+
         matched_section = None
-        for sec_name, pattern in SECTION_PATTERNS.items():
-            if pattern.match(line) and len(line.split()) <= 4:
-                matched_section = sec_name
-                break
+        has_inline_content = ":" in clean_header and len(clean_header.split(":", 1)[1].strip()) > 0
+
+        if clean_title and not has_inline_content:
+            words = clean_title.split()
+            if len(words) <= 5:
+                for sec_name, pattern in SECTION_PATTERNS.items():
+                    if pattern.match(clean_title):
+                        matched_section = sec_name
+                        break
 
         if matched_section:
             current_section = matched_section
         else:
-            sections[current_section].append(line)
+            inline_match = INLINE_SKILLS_PATTERN.match(line)
+            if inline_match and current_section != "skills":
+                current_section = "skills"
+                sections["skills"].append(line)
+            else:
+                sections[current_section].append(line)
 
     return sections
 
@@ -124,15 +213,31 @@ def segment_sections(text: str) -> dict[str, list[str]]:
 def extract_skills_from_section(skill_lines: list[str]) -> list[str]:
     """Extracts normalized technical skill tokens from skills section."""
     skills = []
+    category_pattern = re.compile(
+        r'^(?:[•\-\*·●▪■◦‣⁃\s]*)(?:(?:programming\s+)?languages?|frameworks?(?:\s+(?:&|and)\s+libraries)?|developer\s+tools|databases?|cloud(?:\s+(?:&|and)\s+devops)?|platforms?|technologies|tools|libraries|devops|backend|frontend|fullstack|methodologies|web\s+technologies|version\s+control|operating\s+systems|core|others?)\s*:\s*',
+        re.IGNORECASE,
+    )
+
     for line in skill_lines:
-        # Preserve parenthesized groups and CI/CD; strip category labels first.
-        line = re.sub(r'^[A-Za-z &/+-]+:\s*', '', line)
-        parts = re.split(r'[,•|;\t]+(?![^()]*\))', line)
+        line_clean = line.strip()
+        if not line_clean:
+            continue
+
+        line_clean = re.sub(r'^[•\-\*·●▪■◦‣⁃\s]+', '', line_clean)
+        line_clean = category_pattern.sub('', line_clean)
+        line_clean = re.sub(r'^[A-Za-z &/+-]+:\s*', '', line_clean)
+
+        parts = re.split(r'(?:[,•·●▪■◦‣⁃|;\t]+|\s+[/]\s+)(?![^()]*\))', line_clean)
         for part in parts:
             clean = part.strip()
-            # Remove category labels like "Languages:", "Frameworks:"
-            clean = re.sub(r"^[A-Za-z\s]+:\s*", "", clean).strip()
-            if 1 <= len(clean) <= 120 and not re.match(r"^\d+$", clean):
+            clean = re.sub(r'^[•\-\*·●▪■◦‣⁃\s]+', '', clean)
+            clean = re.sub(r'[;,.]+$', '', clean).strip()
+            clean = re.sub(r'^[A-Za-z\s]+:\s*', '', clean).strip()
+
+            if clean.lower() in {'etc', 'etc.', 'and', '&', 'various', 'others', 'proficient in', 'experience with'}:
+                continue
+
+            if 1 <= len(clean) <= 80 and not re.match(r'^\d+$', clean) and len(clean.split()) <= 6:
                 if clean not in skills:
                     skills.append(clean)
     return skills
@@ -234,6 +339,23 @@ def build_candidate_manifest(
 
     sections = segment_sections(document.raw_text)
     claimed_skills = extract_skills_from_section(sections.get("skills", []))
+
+    # Fallback 1: If skills section yielded nothing, scan for subcategory lines across all text
+    if not claimed_skills:
+        fallback_lines = []
+        for line in document.raw_text.splitlines():
+            clean_l = line.strip()
+            if not clean_l:
+                continue
+            if SKILLS_SUBCATEGORY_PATTERN.match(clean_l) or INLINE_SKILLS_PATTERN.match(clean_l):
+                fallback_lines.append(clean_l)
+        if fallback_lines:
+            claimed_skills = extract_skills_from_section(fallback_lines)
+
+    # Fallback 2: Narrative/paragraph resume without explicit skills headers
+    if not claimed_skills:
+        claimed_skills = fallback_extract_tech(document.raw_text)
+
     project_claims = extract_project_claims(sections.get("projects", []))
     experience_claims = [{"text": line} for line in sections.get("experience", [])[:10]]
 

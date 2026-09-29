@@ -17,7 +17,7 @@ from cci.security.ssrf import resolve_and_validate_hostname, SSRFSecurityError
 
 MAX_LINKS = 24
 MAX_BYTES = 512 * 1024
-LINK_SECONDS = 20
+LINK_SECONDS = 300  # 5 minutes per link — generous time for slow sources.
 
 
 class PublicTransport(httpx.BaseTransport):

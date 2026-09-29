@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { signSession } from '../../../../../lib/session';
 
 export async function GET(
   request: NextRequest,
@@ -33,14 +34,18 @@ export async function GET(
   let redirectTarget = '/workspace';
   const storedState = request.cookies.get('cx_oauth_state')?.value;
 
-  if (state && storedState && state === storedState) {
-    try {
-      const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-      if (decoded.redirect) {
-        redirectTarget = decoded.redirect;
-      }
-    } catch {}
+  if (!state || !storedState || state !== storedState) {
+    return NextResponse.redirect(
+      new URL(`/login?error=invalid_state&provider=${provider}`, baseUrl)
+    );
   }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+    if (decoded.redirect) {
+      redirectTarget = decoded.redirect;
+    }
+  } catch {}
 
   try {
     let userEmail = '';
@@ -162,7 +167,7 @@ export async function GET(
     const response = NextResponse.redirect(new URL(finalTarget, baseUrl));
 
     // Set secure authentication cookies
-    response.cookies.set('cx_session', JSON.stringify(sessionPayload), {
+    response.cookies.set('cx_session', signSession(sessionPayload), {
       httpOnly: true,
       secure: protocol === 'https',
       sameSite: 'lax',
@@ -170,13 +175,8 @@ export async function GET(
       maxAge: 60 * 60 * 24 * 30, // 30 days
     });
 
-    response.cookies.set('cx_auth', encodeURIComponent(sessionPayload.email), {
-      httpOnly: false,
-      secure: protocol === 'https',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    // Clean up any legacy insecure client cookies
+    response.cookies.delete('cx_auth');
 
     // Clear state cookie
     response.cookies.delete('cx_oauth_state');

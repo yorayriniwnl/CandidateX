@@ -88,3 +88,4 @@ def test_document_without_picture_returns_none():
     pdf_bytes = create_golden_pdf_with_hidden_links()
     parsed = parse_pdf_document(pdf_bytes)
     assert parsed.picture is None
+

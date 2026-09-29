@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
@@ -58,6 +58,7 @@ export const CandidateDirectory: React.FC<{
 }) => {
   const [candidates, setCandidates] = useState<CandidateSummary[]>(TEAM_CANDIDATES);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<
@@ -99,49 +100,52 @@ export const CandidateDirectory: React.FC<{
     });
   };
 
-  const filteredCandidates = candidates
-    .filter((c) => {
-      const matchesSearch = `${c.display_name} ${c.primary_email || ''} ${c.role_label || c.role || ''}`
-        .toLowerCase().includes(searchQuery.trim().toLowerCase());
+  const filteredCandidates = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    return candidates
+      .filter((c) => {
+        const matchesSearch = !q || `${c.display_name} ${c.primary_email || ''} ${c.role_label || c.role || ''}`
+          .toLowerCase().includes(q);
 
-      const matchesRole = selectedRole === 'all' || c.role === selectedRole;
+        const matchesRole = selectedRole === 'all' || c.role === selectedRole;
 
-      let matchesStatus = true;
-      if (selectedStatus === 'conflict') {
-        matchesStatus = c.has_meaningful_conflict;
-      } else if (selectedStatus === 'sparse') {
-        matchesStatus = c.coverage !== undefined && c.coverage < 0.10;
-      } else if (selectedStatus === 'robust') {
-        matchesStatus = c.has_completed_dossier && !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
-      }
+        let matchesStatus = true;
+        if (selectedStatus === 'conflict') {
+          matchesStatus = c.has_meaningful_conflict;
+        } else if (selectedStatus === 'sparse') {
+          matchesStatus = c.coverage !== undefined && c.coverage < 0.10;
+        } else if (selectedStatus === 'robust') {
+          matchesStatus = c.has_completed_dossier && !c.has_meaningful_conflict && (c.coverage === undefined || c.coverage >= 0.10);
+        }
 
-      return matchesSearch && matchesRole && matchesStatus;
-    })
-    .sort((a, b) => {
-      const fitA = a.jd_fit_score ?? a.rci;
-      const fitB = b.jd_fit_score ?? b.rci;
-      if (sortBy === 'rci_desc') {
-        return (fitB ?? -1) - (fitA ?? -1);
-      }
-      if (sortBy === 'rci_asc') {
-        return (fitA ?? 999) - (fitB ?? 999);
-      }
-      if (sortBy === ('observed_desc' as any)) {
-        const obsA = a.observed_capabilities ?? (a.coverage ? Math.round(a.coverage * 12) : 0);
-        const obsB = b.observed_capabilities ?? (b.coverage ? Math.round(b.coverage * 12) : 0);
-        return obsB - obsA;
-      }
-      if (sortBy === 'coverage_desc') {
-        return (b.coverage ?? 0) - (a.coverage ?? 0);
-      }
-      if (sortBy === 'name_asc') {
-        return a.display_name.localeCompare(b.display_name);
-      }
-      if (sortBy === 'conflict_first') {
-        return (b.has_meaningful_conflict ? 1 : 0) - (a.has_meaningful_conflict ? 1 : 0);
-      }
-      return 0;
-    });
+        return matchesSearch && matchesRole && matchesStatus;
+      })
+      .sort((a, b) => {
+        const fitA = a.jd_fit_score ?? a.rci;
+        const fitB = b.jd_fit_score ?? b.rci;
+        if (sortBy === 'rci_desc') {
+          return (fitB ?? -1) - (fitA ?? -1);
+        }
+        if (sortBy === 'rci_asc') {
+          return (fitA ?? 999) - (fitB ?? 999);
+        }
+        if (sortBy === ('observed_desc' as any)) {
+          const obsA = a.observed_capabilities ?? (a.coverage ? Math.round(a.coverage * 12) : 0);
+          const obsB = b.observed_capabilities ?? (b.coverage ? Math.round(b.coverage * 12) : 0);
+          return obsB - obsA;
+        }
+        if (sortBy === 'coverage_desc') {
+          return (b.coverage ?? 0) - (a.coverage ?? 0);
+        }
+        if (sortBy === 'name_asc') {
+          return a.display_name.localeCompare(b.display_name);
+        }
+        if (sortBy === 'conflict_first') {
+          return (b.has_meaningful_conflict ? 1 : 0) - (a.has_meaningful_conflict ? 1 : 0);
+        }
+        return 0;
+      });
+  }, [candidates, deferredSearch, selectedRole, selectedStatus, sortBy]);
 
   const cohortMetrics = useMemo(() => {
     const validRcis = filteredCandidates.map((c) => c.jd_fit_score ?? c.rci).filter((r): r is number => r !== null && r !== undefined);
@@ -435,9 +439,13 @@ export const CandidateDirectory: React.FC<{
                       </div>
                     </div>
 
-                    <GlowBadge variant={roleInfo.variant} size="sm">
-                      {candidate.role_label || roleInfo.label}
-                    </GlowBadge>
+                    {candidate.has_completed_dossier ? (
+                      <GlowBadge variant={roleInfo.variant} size="sm">
+                        {candidate.role_label || roleInfo.label}
+                      </GlowBadge>
+                    ) : (
+                      <span className="text-slate-500 text-xs px-2 py-0.5 rounded border border-white/10">—</span>
+                    )}
                   </div>
 
                   {/* Gauge & Metrics in Bento layout */}
@@ -581,9 +589,13 @@ export const CandidateDirectory: React.FC<{
                           >
                             {candidate.display_name}
                           </button>
-                          <GlowBadge variant={roleInfo.variant} size="sm">
-                            {candidate.role_label || roleInfo.label}
-                          </GlowBadge>
+                          {candidate.has_completed_dossier ? (
+                            <GlowBadge variant={roleInfo.variant} size="sm">
+                              {candidate.role_label || roleInfo.label}
+                            </GlowBadge>
+                          ) : (
+                            <span className="text-slate-500 text-xs">—</span>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-500 font-mono mt-0.5">
                           {candidate.primary_email || candidate.id.slice(0, 8)}

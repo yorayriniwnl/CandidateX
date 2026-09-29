@@ -1736,3 +1736,4 @@ def generate_combined_report_and_audit_json(
         },
     }
     return json.dumps(data, indent=2, default=str)
+

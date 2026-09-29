@@ -62,7 +62,7 @@ export function ReviewStep({
         )}
       </div>
       <div className={styles.runLimits}>
-        The request is synchronous and may take up to 55 seconds. The interface will show the request state, not invented acquisition progress.
+        The request is synchronous and may take several minutes depending on the number of sources. The interface will show the request state, not invented acquisition progress.
       </div>
       <div className={styles.stepActions}>
         <button className={styles.secondaryButton} type="button" disabled={busy} onClick={() => onContinue(2)}>← Public sources</button>

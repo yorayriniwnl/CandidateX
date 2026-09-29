@@ -7,9 +7,10 @@ from uuid import UUID
 from cci.domain.contracts import Dossier
 from cci.domain.enums import CanonicalRole, CapabilityKey
 from cci.pipeline.service import pipeline_service
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, Query
 from pydantic import BaseModel, Field, field_validator
 import math
+from cci.middleware.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["Pipeline Orchestration"])
 
@@ -64,9 +65,60 @@ class PipelineRescoreRequest(BaseModel):
     response_model=PipelineStatusResponse,
     status_code=status.HTTP_200_OK,
     summary="Trigger end-to-end Candidate Capability Intelligence pipeline",
+    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))]
 )
-def run_pipeline(request: PipelineRunRequest) -> Any:
+def run_pipeline(
+    request: PipelineRunRequest,
+    background_tasks: BackgroundTasks,
+    run_async: bool = Query(False, description="Whether to execute pipeline asynchronously in background"),
+) -> Any:
     """Executes the full 10-stage analysis pipeline and returns execution state."""
+    if run_async:
+        from uuid import uuid4
+        from cci.pipeline.orchestrator import PipelineExecutionState, PipelineStatus, _init_stage_progress
+        run_id = uuid4()
+        initial_state = PipelineExecutionState(
+            analysis_run_id=run_id,
+            candidate_id=request.candidate_id,
+            role=request.role,
+            status=PipelineStatus.RUNNING,
+            stages=_init_stage_progress(),
+        )
+        with pipeline_service._lock:
+            pipeline_service._runs[run_id] = initial_state
+
+        background_tasks.add_task(
+            pipeline_service.start_pipeline,
+            candidate_id=request.candidate_id,
+            role=request.role,
+            jd_text=request.jd_text,
+            cv_text=request.cv_text,
+            repo_urls=request.repo_urls,
+            declared_claims=request.declared_claims,
+            expert_weight_overrides=request.expert_weight_overrides,
+        )
+
+        stage_responses = [
+            StageProgressResponse(
+                stage=s.stage.value,
+                label=s.label,
+                status=s.status,
+                started_at=s.started_at,
+                completed_at=s.completed_at,
+                details=s.details,
+            )
+            for s in initial_state.stages
+        ]
+
+        return PipelineStatusResponse(
+            analysis_run_id=run_id,
+            candidate_id=request.candidate_id,
+            role=request.role,
+            status=PipelineStatus.RUNNING.value,
+            current_stage=None,
+            stages=stage_responses,
+        )
+
     state = pipeline_service.start_pipeline(
         candidate_id=request.candidate_id,
         role=request.role,
@@ -107,6 +159,7 @@ def run_pipeline(request: PipelineRunRequest) -> Any:
     "/status/{run_id}",
     response_model=PipelineStatusResponse,
     summary="Get pipeline execution progress and result summary",
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))]
 )
 def get_pipeline_status(run_id: UUID) -> Any:
     """Retrieves current stage and progress for an active or completed analysis run."""
@@ -147,6 +200,7 @@ def get_pipeline_status(run_id: UUID) -> Any:
     "/rescore",
     response_model=Dossier,
     summary="Pure functional rescore of candidate dossier with expert weights",
+    dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))]
 )
 def rescore_pipeline(request: PipelineRescoreRequest) -> Any:
     """Pure functional recalculation of RCI without re-running analyzers or re-crawling."""

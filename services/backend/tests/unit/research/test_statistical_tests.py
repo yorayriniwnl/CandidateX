@@ -50,7 +50,7 @@ def test_paper_table_formatting():
     md_table = format_markdown_ablation_table(sample_results, sample_stats)
     assert "| Evaluation Model |" in md_table
     assert "**FULL_CCI**" in md_table
-    assert "paired Wilcoxon p=1.000e-04 (significant)" in md_table
+    assert "Yes (***)" in md_table
 
     latex_table = format_latex_ablation_table(sample_results, sample_stats)
     assert r"\begin{table}" in latex_table

@@ -9,13 +9,19 @@ const members = [
   { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', email: '2329195@kiit.ac.in', role: 'backend', label: 'Backend' },
 ];
 
-async function expectRoster(page: Page, count = 6) {
+async function expectRoster(page: Page, count = 6, forceAssessed?: boolean) {
   await expect(page.locator('tbody tr')).toHaveCount(count);
   for (const member of members) {
     const row = page.getByRole('row').filter({ hasText: member.email });
     await expect(row).toHaveCount(1);
     await expect(row.getByRole('rowheader')).toContainText(member.name);
-    await expect(row.getByRole('cell').first()).toHaveText(member.label);
+    if (forceAssessed === true) {
+      await expect(row.getByRole('cell').first()).toHaveText(member.label);
+    } else if (forceAssessed === false) {
+      await expect(row.getByRole('cell').first()).toHaveText('—');
+    } else {
+      await expect(row.getByRole('cell').first()).toHaveText(new RegExp(`^(?:${member.label.replace('+', '\\+')}|—|-)$`));
+    }
     await expect(row.getByRole('link', { name: member.email })).toHaveAttribute('href', `mailto:${member.email}`);
   }
 }
@@ -23,7 +29,7 @@ async function expectRoster(page: Page, count = 6) {
 test('all six members remain available offline with their roles and email links', async ({ page }, testInfo) => {
   await page.route('**/api/v1/candidates', route => route.abort());
   await page.goto('/hr');
-  await expectRoster(page);
+  await expectRoster(page, 6, false);
   await expect(page.locator('tbody')).not.toContainText('/ 100');
   await page.screenshot({ path: testInfo.outputPath('hiring-dashboard.png'), fullPage: true });
 

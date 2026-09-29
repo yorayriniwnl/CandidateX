@@ -197,3 +197,4 @@ def test_academic_degrees_not_extracted_and_portfolio_audited(monkeypatch):
     assert p["status"] == "observed"
     assert "React" in p["technologies"]
     assert any("portfolio" in step.lower() for step in report["next_steps"])
+

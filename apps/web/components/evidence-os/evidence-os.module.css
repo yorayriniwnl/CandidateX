@@ -170,7 +170,7 @@
 .skeletonEvidenceRow { height: 43px; }
 @keyframes cx-shimmer { to { background-position: -220% 0; } }
 
-.roleControls { display: grid; grid-template-columns: minmax(180px, 0.68fr) minmax(0, 1.32fr); gap: 28px; }
+.roleControls { display: grid; grid-template-columns: 1fr; gap: 28px; }
 .fieldBlock { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .fieldBlock > label, .labelLine label { color: #e0e6eb; font-size: 11px; font-weight: 560; }
 .fieldBlock input, .fieldBlock select, .fieldBlock textarea, .filterBar input, .filterBar select, .graphControls input, .graphControls select, .notesField textarea {
@@ -832,3 +832,4 @@
 .jdTextareaHeader label { color: #c8b0da; font-size: 11px; }
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+

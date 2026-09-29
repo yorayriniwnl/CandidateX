@@ -2,8 +2,9 @@
 import json
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from pydantic import ValidationError
+from cci.middleware.rate_limit import rate_limit
 from starlette.concurrency import run_in_threadpool
 
 from cci.live.contracts import MAX_UPLOAD, LiveAnalysisRequest
@@ -25,7 +26,7 @@ async def limited_body(request, limit):
     return b''.join(chunks)
 
 
-@router.post('/intake')
+@router.post('/intake', dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))])
 async def intake(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
     filename = unquote(request.headers.get('X-Filename', 'resume.pdf'))
@@ -40,7 +41,7 @@ async def intake(request: Request, response: Response):
         raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF or DOCX.') from exc
 
 
-@router.post('/parse-jd')
+@router.post('/parse-jd', dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))])
 async def parse_jd_endpoint(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
     filename = unquote(request.headers.get('X-Filename', 'job_description.pdf'))
@@ -67,8 +68,10 @@ async def parse_jd_endpoint(request: Request, response: Response):
                 )
                 db.commit()
                 result['job_id'] = str(jd.id)
-        except Exception:
-            pass
+        except Exception as e:
+            from cci.logging_config import get_logger
+            logger = get_logger(__name__)
+            logger.exception("Failed to store JD in database", extra={"filename": filename})
         return result
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -76,7 +79,7 @@ async def parse_jd_endpoint(request: Request, response: Response):
         raise HTTPException(422, 'The document could not be read. Upload a valid, unlocked PDF, DOCX, or TXT.') from exc
 
 
-@router.post('/analyze')
+@router.post('/analyze', dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))])
 async def analyze(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
     body = await limited_body(request, 1024 * 1024)
@@ -90,7 +93,7 @@ async def analyze(request: Request, response: Response):
         raise HTTPException(500, 'The analysis failed. No sample result was substituted.') from exc
 
 
-@router.post('/fetch-link')
+@router.post('/fetch-link', dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))])
 async def fetch_link(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
     body = await limited_body(request, 64 * 1024)
@@ -107,3 +110,4 @@ async def fetch_link(request: Request, response: Response):
         raise HTTPException(403, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(500, f'Failed to fetch link: {exc}') from exc
+

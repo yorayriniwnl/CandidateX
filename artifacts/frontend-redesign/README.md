@@ -1,40 +1,50 @@
-# CandidateX frontend verification
+# CandidateX frontend studio
 
-The homepage's warm dark surfaces and lavender accents extend through analysis, candidate management, the prototype workspace, research, and sign-in. The finishing pass fixes narrow-screen controls, candidate role selection, modal labels and focus restoration, comparison empty states, and reduced-motion behavior.
+The homepage visual language now extends through the guided analysis, candidate dashboard, prototype workspace, research demo, and shared sign-in navigation.
 
-Research benchmark caveats and deterministic evidence-quality details from the current main branch are preserved. Missing evidence remains unknown; report metrics still come from the analysis response.
+Preview: http://127.0.0.1:3109
 
-## Verified on September 28, 2026
+## Design
 
-The production build, lint, and all 57 browser workflow tests passed. The visual checks covered 35 page or workflow widths from 320px to 1440px with no page overflow or browser runtime errors. The dossier capture was refreshed after fixing the mobile score dial, and its 390px screenshot was visually inspected.
+- Warm black and plum surfaces, lavender primary actions, consistent typography, spacing, navigation, and footers.
+- A still edition of the homepage sculpture accompanies analysis steps and research. It renders on demand and has an inline SVG fallback.
+- Layered document upload, visual role selection, orbital request indicator, redesigned dossier summary, evidence panels, and inspector.
+- Candidate monograms, quieter metric cards, a responsive workspace tool rail, and clearer empty states.
+- Modal labeling, focus restoration, keyboard role selection, and reduced-motion support in shared controls.
 
-Regression coverage includes keyboard comparison selection, clearing a selection while a dossier response is pending, retained candidate roles, dialog focus restoration, and workspace controls at 320px. HR sample-data checks explicitly select the sample fallback so a developer's saved candidates cannot change the expected rows.
+## Review captures
 
-## Run the checks
+- `analyze-1440.png` / `analyze-390.png`: first-run intake.
+- `analysis-role-1440.png`, `analysis-sources-1440.png`, `analysis-review-1440.png`: guided steps; mobile counterparts use `390`.
+- `analysis-running.png`: a pending request, without simulated progress percentages.
+- `dossier-1440.png` / `dossier-390.png`: report overview.
+- `dossier-capabilities.png` / `evidence-inspector.png`: evidence drill-down.
+- `hr-1440.png` / `hr-390.png` / `add-candidate.png`: candidate workspace and dialog.
+- `workspace-1440.png` / `workspace-390.png`: prototype shell; additional captures show evaluation, comparison, and methodology.
+- `research-demo-1440.png` / `research-demo-390.png` / `research-result.png`: experiment inputs and calculated results.
+- `login-1440.png` / `login-390.png`: shared navigation on sign-in.
 
-From the repository root, with the workspace and backend dependencies installed:
+The dossier captures reuse the existing local test fixture. Research captures use the backend's explicitly synthetic demonstration. Candidate and prototype views retain their existing live, empty, or labeled sample states. The legacy workspace API still depends on its configured browser API URL and allowed origin.
+
+## Reproduce in PowerShell
+
+From `apps/web`:
 
 ```powershell
-pnpm --filter web lint
-pnpm --filter web build
-pnpm --filter web test
-pnpm --filter web exec playwright test --config playwright.visual.config.ts
+$env:CANDIDATEX_DIST_DIR = '.next-studio'
+pnpm build
+pnpm exec playwright test --reporter=line
+pnpm exec next start --hostname 127.0.0.1 --port 3109
 ```
 
-The browser harness starts and stops its own local web and backend servers. Set `PLAYWRIGHT_WEB_PORT` and `PLAYWRIGHT_API_PORT` before testing if their defaults (3108 and 8017) are occupied. CI's software WebGL renderer settings remain enabled.
+The optional build directory keeps this review independent of another development session using `.next`. Default builds continue to use `.next`.
 
-For a build independent of another development session, set `CANDIDATEX_DIST_DIR=.next-studio` before both the build and browser checks. The default remains `.next`.
+With the preview and backend available, run the visual checks in a separate terminal:
 
-## Local captures
+```powershell
+$env:VISUAL_BASE_URL = 'http://127.0.0.1:3109'
+node visual-frontend.cjs
+node visual-frontend-flow.cjs
+```
 
-The visual harness saves screenshots and JSON reports in this directory, outside version control:
-
-- `analyze`, `hr`, `workspace`, `research-demo`, and `login`: desktop and 390px screenshots, plus overflow checks at 1440, 1024, 768, 390, and 320px.
-- `add-candidate` and `workspace-evaluation`, `workspace-compare`, `workspace-methodology`: supporting controls.
-- `layout-report.json`: page widths and browser runtime errors. Wide tables may scroll within their own containers; the page must remain within the viewport.
-
-The optional dossier capture needs a locally saved analysis response (`live-result.json`, including its `intake`) and the corresponding `resume.pdf`. Use a synthetic resume and set `VISUAL_FIXTURE_DIR` to that directory before running the visual harness. Without it, only the dossier replay is skipped. The regular workflow tests have their own fixtures and do not require these files.
-
-The dossier script saves the guided role/source/review steps, pending request, desktop and mobile dossier, evidence inspector, and `flow-report.json`. It replays the supplied response; it does not claim a fresh repository scan. Research results are computed by the running backend using its explicitly synthetic demonstration.
-
-The legacy prototype workspace uses its configured `NEXT_PUBLIC_API_URL` and allowed browser origin. Capturing its empty or sample states does not verify a deployed database. Demo sign-in and missing OAuth configuration are covered by browser tests; live provider sign-in is outside this local check.
+The scripts save viewport and runtime-error reports beside the images. Initial source copies and before images are retained in this directory.

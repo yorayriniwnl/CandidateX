@@ -7,61 +7,103 @@ export interface AuthUser {
   loginTime: number;
 }
 
-const STORAGE_KEY = 'cx_auth_session';
-const COOKIE_NAME = 'cx_auth';
+// In-memory session cache for instant synchronous access in React lifecycle
+let memoryUser: AuthUser | null = null;
+let sessionFetchPromise: Promise<AuthUser | null> | null = null;
+
+// Safe non-sensitive UI profile storage (display name/avatar cache only)
+const CACHE_KEY = 'cx_user_profile_cache';
 
 export function getStoredUser(): AuthUser | null {
+  if (memoryUser) return memoryUser;
   if (typeof window === 'undefined') return null;
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && typeof parsed.email === 'string') {
-        return parsed as AuthUser;
+        memoryUser = parsed as AuthUser;
+        return memoryUser;
       }
     }
+  } catch {}
 
-    // Cookie fallback set by OAuth callback
-    const cookies = document.cookie.split(';');
-    for (const c of cookies) {
-      const [key, val] = c.trim().split('=');
-      if (key === COOKIE_NAME && val) {
-        const email = decodeURIComponent(val);
-        const user: AuthUser = {
-          email,
-          role: 'evaluator',
-          loginTime: Date.now(),
-        };
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-        } catch {}
-        return user;
-      }
+  // Clean up any legacy insecure client cookie
+  try {
+    if (document.cookie.includes('cx_auth=')) {
+      document.cookie = 'cx_auth=; path=/; max-age=0; SameSite=Lax';
     }
-  } catch {
-    return null;
-  }
+    if (localStorage.getItem('cx_auth_session')) {
+      localStorage.removeItem('cx_auth_session');
+    }
+  } catch {}
+
   return null;
 }
 
 export function setStoredUser(user: AuthUser): void {
+  memoryUser = user;
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(user.email)}; path=/; max-age=2592000; SameSite=Lax`;
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(user));
+    // Clean up legacy insecure storage
+    localStorage.removeItem('cx_auth_session');
+    document.cookie = 'cx_auth=; path=/; max-age=0; SameSite=Lax';
     window.dispatchEvent(new Event('cx-auth-change'));
   } catch {}
 }
 
 export function clearStoredUser(): void {
+  memoryUser = null;
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    sessionStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem('cx_auth_session');
+    document.cookie = 'cx_auth=; path=/; max-age=0; SameSite=Lax';
     window.dispatchEvent(new Event('cx-auth-change'));
-    // Call server signout to clear httpOnly session
+    // Call server signout to invalidate HttpOnly session cookie
     fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
   } catch {}
+}
+
+export async function fetchUserSession(): Promise<AuthUser | null> {
+  if (typeof window === 'undefined') return null;
+  if (sessionFetchPromise) return sessionFetchPromise;
+
+  sessionFetchPromise = (async () => {
+    try {
+      const res = await fetch('/api/auth/session', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        clearStoredUser();
+        return null;
+      }
+      const data = await res.json();
+      if (data?.user) {
+        const user: AuthUser = {
+          email: data.user.email,
+          role: data.user.role === 'candidate' ? 'candidate' : 'evaluator',
+          name: data.user.name,
+          loginTime: data.user.loginTime || Date.now(),
+        };
+        setStoredUser(user);
+        return user;
+      } else {
+        clearStoredUser();
+        return null;
+      }
+    } catch {
+      return getStoredUser();
+    } finally {
+      sessionFetchPromise = null;
+    }
+  })();
+
+  return sessionFetchPromise;
 }
 
 export function isUserAuthenticated(): boolean {

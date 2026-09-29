@@ -1,13 +1,20 @@
 """Candidate directory and manifest API router."""
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Union
 from uuid import UUID, uuid4
 
 import cci.db.repository as repo
 from cci.db.session import SessionLocal
-from fastapi import APIRouter, HTTPException, status
+from cci.logging_config import get_logger
+from fastapi import APIRouter, HTTPException, status, Depends, Response, Query
 from pydantic import BaseModel
+from sqlalchemy import select, func
+from cci.api.pagination import PaginatedResponse, PaginationParams
+from cci.middleware.rate_limit import rate_limit
+import math
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/candidates", tags=["Candidate Directory"])
 
@@ -58,6 +65,7 @@ _MEMORY_CANDIDATES: dict[UUID, CandidateSummaryResponse] = {}
     response_model=CandidateSummaryResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Save a candidate profile into the HR directory",
+    dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))]
 )
 def save_candidate_profile(
     req: SaveCandidateRequest,
@@ -65,8 +73,30 @@ def save_candidate_profile(
 ) -> CandidateSummaryResponse:
     """Saves or updates a candidate profile in the HR directory."""
     try:
-        cand_id = UUID(req.id) if req.id else uuid4()
+        cand_id = UUID(req.id) if req.id else None
     except (ValueError, TypeError):
+        cand_id = None
+
+    try:
+        with SessionLocal() as db:
+            if not cand_id and req.primary_email:
+                stmt = select(repo.models.Candidate).where(
+                    func.lower(repo.models.Candidate.primary_email) == req.primary_email.strip().lower()
+                )
+                existing_c = db.execute(stmt).scalars().first()
+                if existing_c:
+                    cand_id = existing_c.id
+            if not cand_id and req.display_name:
+                stmt = select(repo.models.Candidate).where(
+                    func.lower(repo.models.Candidate.display_name) == req.display_name.strip().lower()
+                )
+                existing_n = db.execute(stmt).scalars().first()
+                if existing_n:
+                    cand_id = existing_n.id
+    except Exception:
+        pass
+
+    if not cand_id:
         cand_id = uuid4()
 
     created_at_str = req.created_at or datetime.now(timezone.utc).isoformat()
@@ -84,6 +114,18 @@ def save_candidate_profile(
         has_meaningful_conflict=req.has_meaningful_conflict,
         created_at=created_at_str,
     )
+
+    # Clean any duplicate entries in memory cache with matching id, email, or name
+    req_email = req.primary_email.strip().lower() if req.primary_email else None
+    req_name = req.display_name.strip().lower() if req.display_name else None
+    to_remove = [
+        k for k, v in _MEMORY_CANDIDATES.items()
+        if k == cand_id
+        or (req_email and v.primary_email and v.primary_email.strip().lower() == req_email)
+        or (req_name and v.display_name.strip().lower() == req_name)
+    ]
+    for k in to_remove:
+        _MEMORY_CANDIDATES.pop(k, None)
     _MEMORY_CANDIDATES[cand_id] = summary
 
     try:
@@ -115,21 +157,32 @@ def save_candidate_profile(
 
 @router.get(
     "",
-    response_model=list[CandidateSummaryResponse],
+    response_model=Union[PaginatedResponse[CandidateSummaryResponse], list[CandidateSummaryResponse]],
     status_code=status.HTTP_200_OK,
     summary="List all candidates with evaluation and dossier summary",
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))]
 )
 def list_candidates(
+    response: Response = None,
     organization_id: UUID | None = None,
-) -> list[CandidateSummaryResponse]:
+    paginated: bool = Query(False, description="Whether to return a paginated response envelope"),
+    pagination: PaginationParams = Depends()
+) -> Union[PaginatedResponse[CandidateSummaryResponse], list[CandidateSummaryResponse]]:
     """Lists candidates along with their latest evaluation score summary."""
     try:
         with SessionLocal() as db:
-            cands = repo.list_candidates(db, organization_id=organization_id)
+            total = repo.count_candidates(db, organization_id=organization_id)
+            cands = repo.list_candidates(db, organization_id=organization_id, limit=pagination.limit, offset=pagination.offset)
             summaries = []
             db_ids = set()
+            db_emails = set()
+            db_names = set()
             for c in cands:
                 db_ids.add(c.id)
+                if c.primary_email:
+                    db_emails.add(c.primary_email.strip().lower())
+                if c.display_name:
+                    db_names.add(c.display_name.strip().lower())
                 dossier = repo.get_dossier_by_candidate_id(db, c.id)
                 has_dossier = dossier is not None
                 rci = dossier.rci if dossier else None
@@ -166,11 +219,47 @@ def list_candidates(
                     )
                 )
             for mem_cand in _MEMORY_CANDIDATES.values():
-                if mem_cand.id not in db_ids:
+                mem_email = mem_cand.primary_email.strip().lower() if mem_cand.primary_email else None
+                mem_name = mem_cand.display_name.strip().lower() if mem_cand.display_name else None
+                if (
+                    mem_cand.id not in db_ids
+                    and (not mem_email or mem_email not in db_emails)
+                    and (not mem_name or mem_name not in db_names)
+                ):
                     summaries.append(mem_cand)
+            total_pages = (total + pagination.page_size - 1) // pagination.page_size if total > 0 else 1
+            if response is not None:
+                response.headers["X-Total-Count"] = str(total)
+                response.headers["X-Page"] = str(pagination.page)
+                response.headers["X-Page-Size"] = str(pagination.page_size)
+                response.headers["X-Total-Pages"] = str(total_pages)
+                
+            if paginated:
+                return PaginatedResponse(
+                    items=summaries,
+                    total=total,
+                    page=pagination.page,
+                    page_size=pagination.page_size,
+                    total_pages=total_pages
+                )
             return summaries
-    except Exception:
-        return list(_MEMORY_CANDIDATES.values())
+    except Exception as e:
+        logger.exception("Failed to list candidates from database, returning in-memory cache", extra={"organization_id": str(organization_id) if organization_id else None})
+        items = list(_MEMORY_CANDIDATES.values())
+        if response is not None:
+            response.headers["X-Total-Count"] = str(len(items))
+            response.headers["X-Page"] = "1"
+            response.headers["X-Page-Size"] = str(len(items))
+            response.headers["X-Total-Pages"] = "1"
+        if paginated:
+            return PaginatedResponse(
+                items=items,
+                total=len(items),
+                page=1,
+                page_size=len(items),
+                total_pages=1
+            )
+        return items
 
 
 @router.get(
@@ -178,6 +267,7 @@ def list_candidates(
     response_model=CandidateDetailResponse,
     status_code=status.HTTP_200_OK,
     summary="Get detailed candidate manifest and intake records",
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))]
 )
 def get_candidate(candidate_id: UUID) -> CandidateDetailResponse:
     """Retrieves candidate manifest details."""
@@ -206,3 +296,85 @@ def get_candidate(candidate_id: UUID) -> CandidateDetailResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.delete(
+    "/{candidate_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a candidate and their evaluation records",
+    dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))]
+)
+def delete_candidate(candidate_id: UUID) -> None:
+    """Deletes a candidate from the database and in-memory cache."""
+    _MEMORY_CANDIDATES.pop(candidate_id, None)
+    try:
+        with SessionLocal() as db:
+            repo.delete_candidate(db, candidate_id)
+            db.commit()
+    except Exception as e:
+        logger.exception("Failed to delete candidate from database", extra={"candidate_id": str(candidate_id)})
+    return None
+
+
+OFFICIAL_TEAM_EMAILS = {
+    "2329027@kiit.ac.in",
+    "2329100@kiit.ac.in",
+    "2329179@kiit.ac.in",
+    "2329065@kiit.ac.in",
+    "2329064@kiit.ac.in",
+    "2329195@kiit.ac.in",
+}
+OFFICIAL_TEAM_IDS = {
+    UUID("11111111-1111-1111-1111-111111111111"),
+    UUID("22222222-2222-2222-2222-222222222222"),
+    UUID("33333333-3333-3333-3333-333333333333"),
+    UUID("44444444-4444-4444-4444-444444444444"),
+    UUID("55555555-5555-5555-5555-555555555555"),
+    UUID("77777777-7777-7777-7777-777777777777"),
+}
+
+
+@router.delete(
+    "",
+    status_code=status.HTTP_200_OK,
+    summary="Purge or clean candidates, optionally preserving those with completed dossiers or official team members",
+    dependencies=[Depends(rate_limit(max_requests=20, window_seconds=60))]
+)
+def purge_candidates(keep_team_only: bool = False) -> dict[str, Any]:
+    """Purges candidates, optionally keeping official team members and completed dossiers."""
+    deleted_count = 0
+    try:
+        with SessionLocal() as db:
+            cands = repo.list_candidates(db)
+            for c in cands:
+                if keep_team_only:
+                    is_team = c.id in OFFICIAL_TEAM_IDS or (
+                        c.primary_email and c.primary_email.strip().lower() in OFFICIAL_TEAM_EMAILS
+                    )
+                    dossier = repo.get_dossier_by_candidate_id(db, c.id)
+                    if is_team or dossier is not None:
+                        continue
+                repo.delete_candidate(db, c.id)
+                deleted_count += 1
+            db.commit()
+    except Exception as e:
+        logger.exception("Failed to purge candidates from database", extra={"keep_team_only": keep_team_only})
+
+    to_delete = [
+        cid for cid, item in _MEMORY_CANDIDATES.items()
+        if not (
+            keep_team_only
+            and (
+                cid in OFFICIAL_TEAM_IDS
+                or (item.primary_email and item.primary_email.strip().lower() in OFFICIAL_TEAM_EMAILS)
+                or item.has_completed_dossier
+            )
+        )
+    ]
+    for cid in to_delete:
+        _MEMORY_CANDIDATES.pop(cid, None)
+        deleted_count += 1
+
+    return {"deleted": deleted_count, "keep_team_only": keep_team_only}
+
+

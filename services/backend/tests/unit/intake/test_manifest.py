@@ -93,3 +93,47 @@ def test_manifest_diverse_resume_links():
     assert "https://udemy.com/certificate/UC-999" in manifest.credential_urls
     assert "https://drive.google.com/file/d/123/view" in manifest.shared_document_urls
     assert "https://example.com/blog/my-journey" in manifest.public_links
+
+
+def test_manifest_extracts_skills_from_various_resume_formats():
+    from cci.intake.parsers import ParsedDocument
+
+    # Format 1: Key Skills header
+    doc1 = ParsedDocument(raw_text="Alice Dev\nKey Skills\nPython, Docker, Kubernetes\nExperience\nDev at Google")
+    m1 = build_candidate_manifest(doc1)
+    assert set(m1.claimed_skills) == {"Python", "Docker", "Kubernetes"}
+
+    # Format 2: Categories under Technical Skills
+    doc2 = ParsedDocument(raw_text="Bob Dev\nTECHNICAL SKILLS:\nLanguages: Python, Go\nDatabases: Postgres\nExperience\nDev")
+    m2 = build_candidate_manifest(doc2)
+    assert "Python" in m2.claimed_skills
+    assert "Go" in m2.claimed_skills
+    assert "Postgres" in m2.claimed_skills
+
+    # Format 3: Slash-separated skills and Core Competencies
+    doc3 = ParsedDocument(raw_text="Carol Dev\nCore Competencies\nPython / FastAPI / Redis\nProjects\nMicroservices")
+    m3 = build_candidate_manifest(doc3)
+    assert set(m3.claimed_skills) == {"Python", "FastAPI", "Redis"}
+
+    # Format 4: Bulleted heading and bulleted list
+    doc4 = ParsedDocument(raw_text="David Dev\n• Skills\n• Python\n• Docker\nExperience\nDev")
+    m4 = build_candidate_manifest(doc4)
+    assert "Python" in m4.claimed_skills
+    assert "Docker" in m4.claimed_skills
+
+    # Format 5: Inline skills line
+    doc5 = ParsedDocument(raw_text="Eve Dev\nTechnical Skills: Python, React, AWS, Docker\nExperience\nEngineer")
+    m5 = build_candidate_manifest(doc5)
+    assert "Python" in m5.claimed_skills
+    assert "React" in m5.claimed_skills
+    assert "AWS" in m5.claimed_skills
+    assert "Docker" in m5.claimed_skills
+
+    # Format 6: Narrative resume without any skills header (fallback extraction)
+    doc6 = ParsedDocument(raw_text="Frank Dev\nSummary\nExperienced backend engineer in Python, Docker, and PostgreSQL.")
+    m6 = build_candidate_manifest(doc6)
+    assert "Python" in m6.claimed_skills
+    assert "Docker" in m6.claimed_skills
+    assert "PostgreSQL" in m6.claimed_skills
+
+

@@ -14,3 +14,4 @@ const fs=require('fs');const path=require('path');
  await page.getByRole('button',{name:/Inspect all evidence/}).click();await page.getByLabel('Search evidence',{exact:true}).fill('celery');await capture('#evidence', 'ledger');
  await capture('#interview', 'interview');const invalidAnchors = await page.locator('#result-start a[href^="#"]').evaluateAll(links=>links.filter(a=>!document.getElementById(a.getAttribute('href').slice(1))).map(a=>a.getAttribute('href'))); if(errors.length || invalidAnchors.length)throw new Error(JSON.stringify({errors,invalidAnchors}));console.log(JSON.stringify({errors,invalidAnchors,viewports:[1440,1280,1024,390]}));await browser.close();
 })();
+

@@ -74,7 +74,6 @@ export const JobIntakeForm: React.FC<{
     try {
       const res = await uploadJobDescription(file, jobTitle, selectedRole);
       setUploadedFile(file.name);
-      // NOTE: Do not paste the document text into jdText note. Data stays securely in backend.
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to upload document.');
     } finally {
@@ -249,10 +248,10 @@ export const JobIntakeForm: React.FC<{
               <Upload className={`w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform ${isUploading ? 'animate-bounce' : ''}`} />
               <div className="text-left">
                 <span className="text-sm font-medium block">
-                  {isUploading ? 'Uploading & parsing in backend...' : 'Upload Job Description or Recruitment Rules (PDF / DOCX)'}
+                  {isUploading ? 'Uploading & parsing document…' : 'Upload Job Description or Recruitment Rules (PDF / DOCX)'}
                 </span>
                 <span className="text-xs text-slate-400">
-                  Data will be kept in the backend database and not displayed in the note.
+                  PDF or DOCX document · requirements calibrated automatically.
                 </span>
               </div>
             </button>
@@ -266,10 +265,10 @@ export const JobIntakeForm: React.FC<{
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-100">{uploadedFile}</span>
-                  <GlowBadge variant="brand" size="sm">Stored in backend</GlowBadge>
+                  <GlowBadge variant="brand" size="sm">Document loaded</GlowBadge>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Job description & recruitment rules stored in backend. Data is securely held and not displayed.
+                  Job description & recruitment rules loaded and ready for evaluation.
                 </p>
               </div>
             </div>
@@ -297,14 +296,14 @@ export const JobIntakeForm: React.FC<{
           variant="textarea"
           label={
             uploadedFile
-              ? "Additional recruiter notes or custom criteria (optional — document is safely stored in backend)"
+              ? "Additional recruiter notes or custom criteria (optional)"
               : "Verbatim Job Description (Text is analyzed for requirements without hallucinatory expansion)"
           }
           value={uploadedFile ? '' : jdText}
           onChange={(e) => setJdText(e.target.value)}
           placeholder={
             uploadedFile
-              ? "Optional recruiter notes or extra instructions (uploaded document is kept in backend and not shown here)..."
+              ? "Optional recruiter notes or extra instructions…"
               : "Paste the responsibilities, standards, or recruitment rules…"
           }
           rows={uploadedFile ? 4 : 8}
@@ -312,7 +311,7 @@ export const JobIntakeForm: React.FC<{
         />
         {uploadedFile && (
           <p className="text-xs text-slate-400 mt-1">
-            The uploaded job description & recruitment rules are kept securely in backend storage.
+            The uploaded job description & recruitment rules are ready for evaluation.
           </p>
         )}
       </div>

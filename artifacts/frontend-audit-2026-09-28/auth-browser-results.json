@@ -1,0 +1,213 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\yoray\\Projects\\CandidateX-main\\apps\\web\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "../../artifacts/frontend-audit-2026-09-28/auth-browser.config.cjs"
+    ],
+    "configFile": "C:\\Users\\yoray\\Projects\\CandidateX-main\\artifacts\\frontend-audit-2026-09-28\\auth-browser.config.cjs",
+    "rootDir": "C:/Users/yoray/Projects/CandidateX-main/artifacts/frontend-audit-2026-09-28",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/yoray/Projects/CandidateX-main/artifacts/frontend-audit-2026-09-28/auth-browser-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/Users/yoray/Projects/CandidateX-main/artifacts/frontend-audit-2026-09-28",
+        "testIgnore": [],
+        "testMatch": [
+          "auth-browser.spec.cjs"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "C:\\Users\\yoray\\Projects\\CandidateX-main\\artifacts\\frontend-audit-2026-09-28\\auth-browser-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": {
+      "command": "pnpm exec next start --hostname 127.0.0.1 --port 3178",
+      "cwd": "C:\\Users\\yoray\\AppData\\Local\\Temp\\candidatex-frontend-audit-20260928-105715\\apps\\web",
+      "url": "http://127.0.0.1:3178",
+      "reuseExistingServer": false,
+      "timeout": 60000,
+      "env": {
+        "CCI_API_URL": "http://127.0.0.1:65530"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "auth-browser.spec.cjs",
+      "file": "auth-browser.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "session endpoint accepts unsigned cookies over HTTP",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 82,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "AUDIT {\"probe\":\"http_forged_auth\",\"status\":200,\"body\":{\"user\":{\"email\":\"audit@example.invalid\",\"role\":\"evaluator\",\"loginTime\":1790574887047}}}\n"
+                    },
+                    {
+                      "text": "AUDIT {\"probe\":\"http_forged_session\",\"status\":200,\"body\":{\"user\":{\"email\":\"audit@example.invalid\",\"role\":\"evaluator\",\"loginTime\":1}}}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-28T05:54:46.932Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "99dce5ef90d61efe5ec7-2d4c95645f420d879404",
+          "file": "auth-browser.spec.cjs",
+          "line": 4,
+          "column": 1
+        },
+        {
+          "title": "login accepts an external redirect destination",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3817,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "AUDIT {\"probe\":\"login_external_redirect\",\"finalURL\":\"https://audit-redirect.invalid/landing\",\"externalRequestIntercepted\":true}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-28T05:54:47.070Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "99dce5ef90d61efe5ec7-35e2437424812f60a2d9",
+          "file": "auth-browser.spec.cjs",
+          "line": 18,
+          "column": 1
+        },
+        {
+          "title": "password recovery makes no application request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 852,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "AUDIT {\"probe\":\"password_recovery_app_requests\",\"requests\":[],\"dialogRemainsAfterEscape\":true}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-28T05:54:51.218Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "99dce5ef90d61efe5ec7-b38a004432fc1e60671f",
+          "file": "auth-browser.spec.cjs",
+          "line": 30,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-28T05:54:44.212Z",
+    "duration": 8814.111,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
