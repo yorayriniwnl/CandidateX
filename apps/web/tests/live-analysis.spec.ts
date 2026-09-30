@@ -35,7 +35,7 @@ test('real upload, extracted claims, unknown assessment, and export work through
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
-  await expectResumeIntake(page, 'Example Candidate');
+  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Live candidate dossier' }).getByText('No public sources were selected for this run.', { exact: false })).toBeVisible();
   await expect(page.getByText('Insufficient evidence', { exact: true })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
@@ -139,7 +139,7 @@ test('resume with photo extracts and displays picture across intake, dossier hea
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
 
-  await expectResumeIntake(page, 'Photo Candidate');
+  await expect(page.getByRole('heading', { name: 'Photo Candidate', exact: true })).toBeVisible();
   await expect(page.getByTestId('dossier-candidate-picture')).toBeVisible();
 
   // Test opening lightbox on Dossier Header:
@@ -174,7 +174,7 @@ test('report and full audit export options work correctly across header and prov
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
-  await expectResumeIntake(page, 'Example Candidate');
+  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
 
   // 1. Header Dropdown: Full Audit (Markdown)
   const exportMenuButton = page.getByRole('button', { name: 'Export report and audit options' });
