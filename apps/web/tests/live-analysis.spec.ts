@@ -1,9 +1,15 @@
-import { test, expect } from './fixtures';
+import { test, expect, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 
 const pdf = execFileSync('python', ['-c', `import sys,pymupdf
 d=pymupdf.open();p=d.new_page();p.insert_text((50,50),'Example Candidate\\nSkills\\nPython, SQL\\nA public technical portfolio.')
 sys.stdout.buffer.write(d.tobytes());d.close()`]);
+async function expectResumeIntake(page: Page, candidateName: string) {
+  const summary = page.getByTestId('resume-intake-summary');
+  await expect(summary).toBeVisible({ timeout: 30000 });
+  await expect(summary).toContainText(candidateName);
+}
+
 const docx = execFileSync('python', ['-c', `import sys,io,docx
 d=docx.Document();d.add_table(rows=1,cols=1).cell(0,0).text='Example Candidate'
 for text in ['Professional Summary','Developer building public applications.','Skills','Python, CI/CD','Currently Learning: Docker','Projects','Example API','Built a web application.','Education','B.Tech Computer Science','Certifications','Python Programming Certificate','Experience','Software developer on a personal project.']:
@@ -23,13 +29,13 @@ test('real upload, extracted claims, unknown assessment, and export work through
   await page.goto('/analyze');
   await expect(page).toHaveURL(/\/analyze$/);
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
-  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Example Candidate');
   await expect(page.getByTestId('declared-skills')).toContainText('Python');
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
-  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Example Candidate');
   await expect(page.getByRole('region', { name: 'Live candidate dossier' }).getByText('No public sources were selected for this run.', { exact: false })).toBeVisible();
   await expect(page.getByText('Insufficient evidence', { exact: true })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
@@ -52,7 +58,7 @@ test('invalid upload is visible and a failed rerun keeps the prior dossier clear
   await page.locator('#resume-upload').setInputFiles({ name: 'invalid.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid') });
   await expect(page.getByRole('alert').filter({ hasText: /document|PDF|file/i })).toBeVisible();
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
-  await expect(page.getByRole('heading', { name: 'Example Candidate' })).toBeVisible();
+  await expectResumeIntake(page, 'Example Candidate');
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
@@ -78,9 +84,7 @@ test('mobile upload and review stay within viewport', async ({ page }) => {
     mimeType: 'application/pdf',
     buffer: pdf,
   });
-  const summary = page.getByTestId('resume-intake-summary');
-  await expect(summary).toBeVisible();
-  await expect(summary).toContainText('Example Candidate');
+  await expectResumeIntake(page, 'Example Candidate');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/live-analysis-mobile.png' });
 });
@@ -88,7 +92,7 @@ test('mobile upload and review stay within viewport', async ({ page }) => {
 test('DOCX sections, public-link failures, skill filters and detailed export', async ({ page }) => {
   await page.goto('/analyze');
   await page.locator('#resume-upload').setInputFiles({ name: 'detailed resume.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: docx });
-  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Example Candidate');
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByLabel('Add a public source URL').fill('http://127.0.0.1/private');
@@ -120,7 +124,7 @@ test('DOCX sections, public-link failures, skill filters and detailed export', a
 test('resume with photo extracts and displays picture across intake, dossier header, and review', async ({ page }) => {
   await page.goto('/analyze');
   await page.locator('#resume-upload').setInputFiles({ name: 'photo-resume.pdf', mimeType: 'application/pdf', buffer: pdfWithPhoto });
-  await expect(page.getByRole('heading', { name: 'Photo Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Photo Candidate');
   await expect(page.getByTestId('resume-picture')).toBeVisible();
 
   // Test opening lightbox on Step 1:
@@ -135,7 +139,7 @@ test('resume with photo extracts and displays picture across intake, dossier hea
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Photo Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Photo Candidate');
   await expect(page.getByTestId('dossier-candidate-picture')).toBeVisible();
 
   // Test opening lightbox on Dossier Header:
@@ -165,14 +169,12 @@ test('resume with photo extracts and displays picture across intake, dossier hea
 test('report and full audit export options work correctly across header and provenance section', async ({ page }) => {
   await page.goto('/analyze');
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
-  const intakeSummary = page.getByTestId('resume-intake-summary');
-  await expect(intakeSummary).toBeVisible({ timeout: 30000 });
-  await expect(intakeSummary).toContainText('Example Candidate');
+  await expectResumeIntake(page, 'Example Candidate');
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
   await page.getByRole('button', { name: 'Start live analysis' }).click();
-  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  await expectResumeIntake(page, 'Example Candidate');
 
   // 1. Header Dropdown: Full Audit (Markdown)
   const exportMenuButton = page.getByRole('button', { name: 'Export report and audit options' });
