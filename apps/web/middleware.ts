@@ -3,11 +3,18 @@ import type { NextRequest } from 'next/server';
 
 const SECRET = process.env.SESSION_SECRET || 'dev-insecure-fallback-change-me';
 
+function decodeBase64Url(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
 async function verifySessionWebCrypto(cookie: string): Promise<any | null> {
   try {
     const [data, signature] = cookie.split('.');
     if (!data || !signature) return null;
-    
+
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       'raw',
@@ -16,26 +23,26 @@ async function verifySessionWebCrypto(cookie: string): Promise<any | null> {
       false,
       ['sign']
     );
-    
+
     const hmac = await crypto.subtle.sign(
       'HMAC',
       key,
       encoder.encode(data)
     );
-    
+
     const hmacArray = Array.from(new Uint8Array(hmac));
-    const hmacBase64 = btoa(String.fromCharCode.apply(null, hmacArray));
+    const hmacBase64 = btoa(String.fromCharCode(...hmacArray));
     const expectedSignature = hmacBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    
+
     if (signature !== expectedSignature) return null;
-    
-    const decodedStr = atob(data.replace(/-/g, '+').replace(/_/g, '/'));
+
+    const decodedStr = new TextDecoder().decode(decodeBase64Url(data));
     const user = JSON.parse(decodedStr);
     if (user && typeof user.exp === 'number' && Date.now() > user.exp) {
       return null;
     }
     return user;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
