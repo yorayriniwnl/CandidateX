@@ -1,6 +1,16 @@
 import { test, expect, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 
+test.beforeEach(async ({ page }) => {
+  page.on('response', async response => {
+    if (response.url().includes('/api/live/intake')) {
+      let body = '';
+      try { body = await response.text(); } catch {}
+      console.log('INTAKE_DIAGNOSTIC', response.status(), body.slice(0, 1000));
+    }
+  });
+});
+
 const pdf = execFileSync('python', ['-c', `import sys,pymupdf
 d=pymupdf.open();p=d.new_page();p.insert_text((50,50),'Example Candidate\\nSkills\\nPython, SQL\\nA public technical portfolio.')
 sys.stdout.buffer.write(d.tobytes());d.close()`]);
