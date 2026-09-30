@@ -72,37 +72,11 @@ test('invalid upload is visible and a failed rerun keeps the prior dossier clear
 
 test('mobile upload and review stay within viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route('**/api/live/intake', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      candidate_id: 'candidate-mobile-layout',
-      manifest: {
-        display_name: 'Example Candidate',
-        email: null,
-        claimed_skills: ['Python', 'SQL'],
-        github_urls: [],
-        linkedin_urls: [],
-        coding_profile_urls: [],
-        credential_urls: [],
-        deployment_urls: [],
-        portfolio_urls: [],
-        project_links: [],
-        project_claims: [],
-      },
-      filename: 'resume.pdf',
-      document_sha256: 'a'.repeat(64),
-      text_preview: 'Example Candidate\\nSkills\\nPython, SQL',
-      warnings: [],
-      storage: 'request_only',
-      resume_review: { sections: {}, learning_skills: [], observations: [] },
-    }),
-  }));
   await page.goto('/analyze');
   await page.locator('#resume-upload').setInputFiles({
     name: 'resume.pdf',
     mimeType: 'application/pdf',
-    buffer: Buffer.from('mobile layout fixture'),
+    buffer: pdf,
   });
   const summary = page.getByTestId('resume-intake-summary');
   await expect(summary).toBeVisible();
