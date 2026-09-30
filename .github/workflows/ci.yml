@@ -44,6 +44,7 @@ jobs:
   frontend-check:
     name: Frontend Build & Typecheck (Node 22)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout Code
@@ -83,7 +84,7 @@ jobs:
           pnpm --filter web exec playwright install --with-deps chromium
 
       - name: Verify research demonstration in the browser
-        run: pnpm --filter web test
+        run: timeout 12m pnpm --filter web test
 
   security-and-invariants:
     name: Paper Invariants & SSRF Audit
