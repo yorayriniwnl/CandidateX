@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { isUserAuthenticated } from '../../lib/auth';
+import { fetchUserSession, isUserAuthenticated } from '../../lib/auth';
 import type { CanonicalRole } from '../../types/cci';
 import { liveRequest, publicUrl, fetchLinkData, type LiveResult, type ResumeIntake, type ParsedJobDescription } from '../../lib/live-analysis';
 import { saveCandidateBackend } from '../../lib/api';
@@ -99,9 +99,17 @@ export function LiveEvaluation() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isUserAuthenticated()) {
-      router.replace('/login?redirect=/analyze');
-    }
+    let active = true;
+
+    // A valid HttpOnly session survives a fresh tab even when the client-side
+    // display cache is empty. Resolve the server session before deciding that
+    // the user is unauthenticated, otherwise protected routes can bounce valid
+    // sessions back to /login during hydration.
+    void fetchUserSession().then((user) => {
+      if (active && !user) {
+        router.replace('/login?redirect=/analyze');
+      }
+    });
 
     const handleAuthChange = () => {
       if (!isUserAuthenticated()) {
@@ -112,6 +120,7 @@ export function LiveEvaluation() {
     window.addEventListener('cx-auth-change', handleAuthChange);
     window.addEventListener('storage', handleAuthChange);
     return () => {
+      active = false;
       window.removeEventListener('cx-auth-change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
     };
