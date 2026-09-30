@@ -10,6 +10,7 @@ from pathlib import Path
 # Configure before application imports; never run API tests against a user's database.
 _test_database = tempfile.TemporaryDirectory(prefix="candidatex-tests-")
 os.environ["DATABASE_URL"] = "sqlite:///" + (Path(_test_database.name) / "test.db").as_posix()
+os.environ["RATE_LIMIT_ENABLED"] = "false"  # Contract tests must not share production throttle state.
 
 # Add backend src directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
