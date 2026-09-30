@@ -35,18 +35,9 @@ class PipelineService:
         scenario: str | None = None,
     ) -> PipelineExecutionState:
         """Executes the analysis pipeline and stores execution state."""
-        if repo_urls and not custom_evidence:
-            try:
-                from cci.live.acquisition import acquire_sources
-                evidence, ownership, _ = acquire_sources(repo_urls, None)
-                if evidence:
-                    custom_evidence = evidence
-                    evidence_mode = "live"
-            except Exception as e:
-                from cci.logging_config import get_logger
-                logger = get_logger(__name__)
-                logger.warning(f"Live repo acquisition failed for {repo_urls}: {e}")
-
+        # Closed-world invariant: repository URLs and self-claims are declarations,
+        # not scored observations. Live acquisition is intentionally isolated in
+        # /api/v1/live; callers must pass explicit custom_evidence to this generic pipeline.
         state = execute_analysis_pipeline(
             candidate_id=candidate_id,
             role=role,
