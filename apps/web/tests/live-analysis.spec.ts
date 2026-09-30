@@ -92,14 +92,18 @@ test('mobile upload and review stay within viewport', async ({ page }) => {
       },
       filename: 'resume.pdf',
       document_sha256: 'a'.repeat(64),
-      text_preview: 'Example Candidate\nSkills\nPython, SQL',
+      text_preview: 'Example Candidate\\nSkills\\nPython, SQL',
       warnings: [],
       storage: 'request_only',
       resume_review: { sections: {}, learning_skills: [], observations: [] },
     }),
   }));
   await page.goto('/analyze');
-  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mobile layout fixture') });
+  await page.locator('#resume-upload').setInputFiles({
+    name: 'resume.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('mobile layout fixture'),
+  });
   await expect(page.getByRole('heading', { name: 'Example Candidate' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/live-analysis-mobile.png' });
@@ -203,3 +207,50 @@ test('report and full audit export options work correctly across header and prov
   await expect(page.getByRole('menuitem', { name: 'Download Full Audit (Markdown)' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Download Evidence Ledger (CSV)' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Report + Audit Bundle (MD)' })).toBeVisible();
+
+  const auditMdDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Download Full Audit (Markdown)' }).click();
+  const auditMdDownload = await auditMdDownloadPromise;
+  expect(auditMdDownload.suggestedFilename()).toContain('full_audit.md');
+  const auditMdStream = await auditMdDownload.createReadStream();
+  const auditMdChunks: Buffer[] = [];
+  for await (const chunk of auditMdStream!) auditMdChunks.push(Buffer.from(chunk));
+  const auditMdContent = Buffer.concat(auditMdChunks).toString();
+  expect(auditMdContent).toContain('Candidate Governance & Full Audit Trail: Example Candidate');
+  expect(auditMdContent).toContain('Analysis Run ID:');
+
+  // 2. Header Dropdown: Evidence Ledger (CSV)
+  await exportMenuButton.click();
+  const csvDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Download Evidence Ledger (CSV)' }).click();
+  const csvDownload = await csvDownloadPromise;
+  expect(csvDownload.suggestedFilename()).toContain('full_audit.csv');
+  const csvStream = await csvDownload.createReadStream();
+  const csvChunks: Buffer[] = [];
+  for await (const chunk of csvStream!) csvChunks.push(Buffer.from(chunk));
+  const csvContent = Buffer.concat(csvChunks).toString();
+  expect(csvContent).toContain('Evidence ID');
+  expect(csvContent).toContain('Target Capability');
+
+  // 3. Section 08 Methodology / Provenance: Export Full Audit (JSON)
+  await page.getByText('Run metadata, versions & limitations', { exact: true }).click();
+  const auditSectionExportButton = page.getByRole('button', { name: 'Export full audit options' });
+  await expect(auditSectionExportButton).toBeVisible();
+  await auditSectionExportButton.click();
+
+  await expect(page.getByRole('menuitem', { name: 'Full Audit (JSON)' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Evidence Ledger (CSV)' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Full Audit (Markdown)' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Full Audit (HTML / Print)' })).toBeVisible();
+
+  const auditJsonDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Full Audit (JSON)' }).click();
+  const auditJsonDownload = await auditJsonDownloadPromise;
+  expect(auditJsonDownload.suggestedFilename()).toContain('full_audit.json');
+  const auditJsonStream = await auditJsonDownload.createReadStream();
+  const auditJsonChunks: Buffer[] = [];
+  for await (const chunk of auditJsonStream!) auditJsonChunks.push(Buffer.from(chunk));
+  const auditJson = JSON.parse(Buffer.concat(auditJsonChunks).toString());
+  expect(auditJson.analysis_run_id).toBeDefined();
+  expect(auditJson.candidate_id).toBeDefined();
+});
