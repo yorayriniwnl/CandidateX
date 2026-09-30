@@ -62,10 +62,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install Dependencies
-        run: |
-          pnpm install --no-frozen-lockfile
-          echo "===== GENERATED LOCKFILE DIFF ====="
-          git diff -- pnpm-lock.yaml
+        run: pnpm install --frozen-lockfile
 
       - name: Next.js Linter & Typecheck
         run: pnpm --filter web lint
