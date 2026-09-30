@@ -25,7 +25,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'python -m uvicorn cci.main:app --app-dir ../../services/backend/src --host 127.0.0.1 --port ' + apiPort,
-      env: { DEBUG: 'false' },
+      env: { DEBUG: 'false', RATE_LIMIT_ENABLED: 'false' },
       url: apiUrl + '/health',
       reuseExistingServer: false,
       timeout: 60000,
