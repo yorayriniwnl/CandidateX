@@ -256,6 +256,7 @@ export function createSignalScene(
   let disposed = false;
   let lost = false;
   let frame = 0;
+  let renderedFrames = 0;
   let time = 0;
   let last = 0;
   let width = 1;
@@ -291,6 +292,8 @@ export function createSignalScene(
     if (disposed || lost) return;
     themeIndex = (themeIndex + 1) % THEMES.length;
     const theme = THEMES[themeIndex];
+    host.dataset.surpriseTheme = theme.name;
+    host.dataset.surpriseLabel = theme.label;
 
     violetLight.color.setHex(theme.primaryHex);
     iceLight.color.setHex(theme.secondaryHex);
@@ -370,6 +373,8 @@ export function createSignalScene(
   function draw(advance = false, dt = 0.016) {
     if (disposed || lost) return;
     if (advance) {
+      renderedFrames += 1;
+      host.dataset.renderFrame = String(renderedFrames);
       look.lerp(pointer, .055);
       currentStage = THREE.MathUtils.lerp(currentStage, stage, .045);
       currentScroll = THREE.MathUtils.lerp(currentScroll, scroll, .04);
@@ -660,6 +665,9 @@ export function createSignalScene(
       document.removeEventListener('visibilitychange', schedule);
       canvas.removeEventListener('webglcontextlost', contextLost);
       document.body.style.userSelect = '';
+      delete host.dataset.renderFrame;
+      delete host.dataset.surpriseTheme;
+      delete host.dataset.surpriseLabel;
       const geometries = new Set<THREE.BufferGeometry>();
       const materials = new Set<THREE.Material>();
       scene.traverse(object => {

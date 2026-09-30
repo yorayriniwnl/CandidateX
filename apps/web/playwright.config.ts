@@ -12,6 +12,7 @@ const apiPort = readPort('PLAYWRIGHT_API_PORT', 8017);
 const webPort = readPort('PLAYWRIGHT_WEB_PORT', 3108);
 const apiUrl = 'http://127.0.0.1:' + apiPort;
 const webUrl = 'http://127.0.0.1:' + webPort;
+const sessionSecret = process.env.SESSION_SECRET || 'dev-insecure-fallback-change-me';
 
 export default defineConfig({
   testDir: './tests',
@@ -24,7 +25,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'python -m uvicorn cci.main:app --app-dir ../../services/backend/src --host 127.0.0.1 --port ' + apiPort,
-      env: { DEBUG: 'false' },
+      env: { DEBUG: 'false', RATE_LIMIT_ENABLED: 'false' },
       url: apiUrl + '/health',
       reuseExistingServer: false,
       timeout: 60000,
@@ -32,7 +33,7 @@ export default defineConfig({
     {
       command: 'pnpm exec next start --hostname 127.0.0.1 --port ' + webPort,
       url: webUrl,
-      env: { CCI_API_URL: apiUrl },
+      env: { CCI_API_URL: apiUrl, SESSION_SECRET: sessionSecret },
       reuseExistingServer: false,
       timeout: 60000,
     },
