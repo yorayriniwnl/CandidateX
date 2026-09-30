@@ -22,9 +22,14 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
 }) {
   const [dragging, setDragging] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const prevIntakeRef = useRef<ResumeIntake | null>(null);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (intake && intake.manifest && intake !== prevIntakeRef.current) {
@@ -77,8 +82,9 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
       <p className={styles.sectionIntro}>Extract declarations and public source links. Nothing on this screen is independently verified.</p>
 
       <label
-        className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''} ${busy ? styles.dropzoneDisabled : ''}`}
+        className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''} ${busy || !hydrated ? styles.dropzoneDisabled : ''}`}
         htmlFor="resume-upload"
+        aria-disabled={busy || !hydrated}
         onDragOver={event => { event.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={event => {
@@ -95,7 +101,8 @@ export function ResumeStep({ intake, fileName, fileSize, busy, onUpload, onRemov
           id="resume-upload"
           type="file"
           accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          disabled={busy}
+          disabled={busy || !hydrated}
+          data-hydrated={hydrated ? 'true' : 'false'}
           onChange={event => {
             onUpload(event.target.files?.[0]);
             event.currentTarget.value = '';
