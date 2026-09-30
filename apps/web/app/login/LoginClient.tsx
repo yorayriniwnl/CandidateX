@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   Eye,
@@ -52,7 +51,6 @@ const STATIC_ACCOUNTS: DemoAccount[] = [
 ];
 
 export function LoginClient() {
-  const router = useRouter();
   const [role, setRole] = useState<UserRole>('evaluator');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -102,7 +100,15 @@ export function LoginClient() {
   const getRedirectTarget = () => {
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
-    return params.get('redirect') || params.get('next');
+    const target = params.get('redirect') || params.get('next');
+    if (!target?.startsWith('/')) return null;
+    try {
+      const url = new URL(target, window.location.origin);
+      if (url.origin !== window.location.origin) return null;
+      return url.pathname + url.search + url.hash;
+    } catch {
+      return null;
+    }
   };
 
   const handleRoleSelect = (newRole: UserRole) => {
@@ -176,13 +182,9 @@ export function LoginClient() {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       }
-      if (redirectTarget) {
-        router.push(redirectTarget, { scroll: true });
-      } else if (data.user.role === 'evaluator') {
-        router.push('/workspace', { scroll: true });
-      } else {
-        router.push('/analyze', { scroll: true });
-      }
+      // Request the destination with the new cookie instead of reusing an
+      // unauthenticated redirect prefetched into Next's client router cache.
+      window.location.assign(redirectTarget || (data.user.role === 'evaluator' ? '/workspace' : '/analyze'));
     } catch (err) {
       setError('Authentication failed. Please verify your credentials and try again.');
       setIsSubmitting(false);

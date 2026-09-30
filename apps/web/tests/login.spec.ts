@@ -34,8 +34,13 @@ test.describe('CandidateX Login Page', () => {
   });
 
   test('quick demo button fills credentials and submits to workspace', async ({ page }) => {
+    const prefetchedWorkspace = page.waitForResponse(response =>
+      new URL(response.url()).pathname === '/workspace' &&
+      response.request().headers()['next-router-prefetch'] === '1'
+    );
     await page.goto('/login');
     await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+    await prefetchedWorkspace;
 
     const emailInput = page.locator('#login-email');
     const passwordInput = page.locator('#login-password');
@@ -58,6 +63,16 @@ test.describe('CandidateX Login Page', () => {
     // Should redirect to workspace
     await expect(page).toHaveURL(/\/workspace$/, { timeout: 15000 });
   });
+
+  for (const target of ['//example.invalid', '/\\example.invalid']) {
+    test(`sign-in rejects an external redirect target ${target}`, async ({ page }) => {
+      await page.goto(`/login?redirect=${encodeURIComponent(target)}`);
+      await expect(page.locator('[data-hydrated="true"]')).toBeVisible();
+      await page.getByRole('button', { name: 'Yorayriniwnl' }).click();
+      await page.getByRole('button', { name: 'Sign in to workspace' }).click();
+      await expect(page).toHaveURL(/\/workspace$/, { timeout: 15000 });
+    });
+  }
 
   test('shows validation errors when submitting invalid credentials', async ({ page }) => {
     await page.goto('/login');

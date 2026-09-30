@@ -54,7 +54,7 @@ export function setStoredUser(user: AuthUser): void {
   } catch {}
 }
 
-export function clearStoredUser(): void {
+function clearProfileCache(): void {
   memoryUser = null;
   if (typeof window === 'undefined') return;
   try {
@@ -62,9 +62,14 @@ export function clearStoredUser(): void {
     localStorage.removeItem('cx_auth_session');
     document.cookie = 'cx_auth=; path=/; max-age=0; SameSite=Lax';
     window.dispatchEvent(new Event('cx-auth-change'));
-    // Call server signout to invalidate HttpOnly session cookie
-    fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
   } catch {}
+}
+
+export function clearStoredUser(): void {
+  clearProfileCache();
+  if (typeof window === 'undefined') return;
+  // Only an explicit sign-out should invalidate the HttpOnly session cookie.
+  fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
 }
 
 export async function fetchUserSession(): Promise<AuthUser | null> {
@@ -79,7 +84,7 @@ export async function fetchUserSession(): Promise<AuthUser | null> {
         cache: 'no-store',
       });
       if (!res.ok) {
-        clearStoredUser();
+        clearProfileCache();
         return null;
       }
       const data = await res.json();
@@ -93,7 +98,7 @@ export async function fetchUserSession(): Promise<AuthUser | null> {
         setStoredUser(user);
         return user;
       } else {
-        clearStoredUser();
+        clearProfileCache();
         return null;
       }
     } catch {

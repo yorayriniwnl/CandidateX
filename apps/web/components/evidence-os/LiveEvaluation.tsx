@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { isUserAuthenticated } from '../../lib/auth';
+import { fetchUserSession, isUserAuthenticated } from '../../lib/auth';
 import type { CanonicalRole } from '../../types/cci';
 import { liveRequest, publicUrl, fetchLinkData, type LiveResult, type ResumeIntake, type ParsedJobDescription } from '../../lib/live-analysis';
 import { saveCandidateBackend } from '../../lib/api';
@@ -99,19 +99,25 @@ export function LiveEvaluation() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isUserAuthenticated()) {
-      router.replace('/login?redirect=/analyze');
-    }
+    let active = true;
+    let sessionLoaded = false;
+    // A signed HttpOnly cookie can be valid before the UI profile cache exists.
+    fetchUserSession().then(user => {
+      if (!active) return;
+      sessionLoaded = true;
+      if (!user) router.replace('/login?redirect=%2Fanalyze');
+    });
 
     const handleAuthChange = () => {
-      if (!isUserAuthenticated()) {
-        router.replace('/login?redirect=/analyze');
+      if (sessionLoaded && !isUserAuthenticated()) {
+        router.replace('/login?redirect=%2Fanalyze');
       }
     };
 
     window.addEventListener('cx-auth-change', handleAuthChange);
     window.addEventListener('storage', handleAuthChange);
     return () => {
+      active = false;
       window.removeEventListener('cx-auth-change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
     };
