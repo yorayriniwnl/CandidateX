@@ -104,7 +104,9 @@ test('mobile upload and review stay within viewport', async ({ page }) => {
     mimeType: 'application/pdf',
     buffer: Buffer.from('mobile layout fixture'),
   });
-  await expect(page.getByRole('heading', { name: 'Example Candidate' })).toBeVisible();
+  const summary = page.getByTestId('resume-intake-summary');
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText('Example Candidate');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/live-analysis-mobile.png' });
 });
