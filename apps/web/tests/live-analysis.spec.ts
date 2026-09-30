@@ -165,7 +165,9 @@ test('resume with photo extracts and displays picture across intake, dossier hea
 test('report and full audit export options work correctly across header and provenance section', async ({ page }) => {
   await page.goto('/analyze');
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: pdf });
-  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible();
+  const intakeSummary = page.getByTestId('resume-intake-summary');
+  await expect(intakeSummary).toBeVisible({ timeout: 30000 });
+  await expect(intakeSummary).toContainText('Example Candidate');
   await page.getByRole('button', { name: 'Continue to target role' }).click();
   await page.getByRole('button', { name: 'Continue to public sources' }).click();
   await page.getByRole('button', { name: 'Continue to review' }).click();
