@@ -245,6 +245,7 @@ async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
 }
 
 async function uploadResume(page: Page) {
+  await expect(page.locator('header.platform-header').getByRole('button', { name: 'Sign out', exact: true, includeHidden: true })).toBeAttached();
   await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
 }
 
@@ -304,12 +305,12 @@ test('supports uploading a job description or recruitment standards document in 
   await expect(page.getByText('Ready for analysis', { exact: true })).toBeVisible();
 
   const textarea = page.locator('#live-jd');
-  await expect(textarea).toHaveValue('');
+  await expect(textarea).toHaveValue('Senior Backend Engineer Requirements:\n- Must have 5+ years experience with Python and distributed systems.\n- Preferred: Kubernetes and Docker.');
 
   await page.getByRole('button', { name: /Continue to public sources/ }).click();
   await page.getByRole('button', { name: /Continue to review/ }).click();
   await expect(page.getByText('senior_backend_jd.pdf', { exact: true })).toBeVisible();
-  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)')).toHaveCount(0);
+  await expect(page.getByText('REQUIREMENTS PREVIEW (SENIOR_BACKEND_JD.PDF)', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /02 Target role/ }).click();
   await expect(page.getByTestId('jd-file-card')).toBeVisible();

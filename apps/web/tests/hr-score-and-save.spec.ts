@@ -19,7 +19,7 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     const ayushRow = page.locator('tr:has-text("Ayush Roy")');
     await expect(ayushRow).toBeVisible();
     await expect(ayushRow).toContainText('—');
-    await expect(ayushRow).toContainText('Not completed');
+    await expect(ayushRow.getByRole('cell').nth(3)).toHaveText('Pending');
 
     // Verify another unevaluated sample candidate is also unscored
     const archiRow = page.locator('tr:has-text("Archi Srivastava")');

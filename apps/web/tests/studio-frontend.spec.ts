@@ -56,8 +56,13 @@ test('candidate drafts retain the selected role and dialogs restore keyboard foc
   await expect(add).toBeFocused();
   await page.reload();
   const row = page.getByRole('row').filter({ hasText: 'Studio Test Candidate' });
-  await expect(row).toContainText('Frontend Developer');
+  await expect(row.getByRole('cell').first()).toHaveText('—');
   await expect(row).toContainText('Local draft');
+  const savedDraft = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('cci_hr_saved_candidates') || '[]')
+      .find((candidate: { display_name: string }) => candidate.display_name === 'Studio Test Candidate')
+  );
+  expect(savedDraft).toMatchObject({ role: 'frontend', has_completed_dossier: false });
   await row.getByRole('button', { name: 'View Studio Test Candidate' }).click();
   await expect(page.getByRole('dialog')).toContainText('TypeScript');
 });
@@ -82,6 +87,6 @@ test('mobile navigation and workspace views remain usable at 320px', async ({ pa
     await page.getByRole('button', { name, exact: true }).click();
     await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), name).toBe(true);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), { message: name }).toBe(true);
   }
 });

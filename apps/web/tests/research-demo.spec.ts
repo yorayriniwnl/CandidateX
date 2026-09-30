@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { test as authenticatedTest } from './fixtures';
 import { readFile } from 'node:fs/promises';
 
 test('paper demonstration uses the backend and changes with role, JD, missingness and overrides', async ({ page }) => {
@@ -71,7 +72,7 @@ test('mobile controls and evidence table fit within the viewport', async ({ page
   await page.screenshot({ path: 'test-results/research-demo-mobile.png' });
 });
 
-test('homepage credits the research in its footer and links to live intake and the prototype', async ({ page }) => {
+authenticatedTest('homepage credits the research in its footer and links to live intake and the prototype', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Ayush Roy & Archi Srivastava', { exact: true })).toBeVisible();
   await expect(page.getByText('Dr. Debachudamani Prusti', { exact: true })).toBeVisible();

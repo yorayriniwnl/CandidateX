@@ -100,7 +100,15 @@ test('directory, comparison, and intake keep the same six members with a partial
   for (const member of members) {
     await expect(page.getByRole('heading', { name: member.name, exact: true })).toBeVisible();
     await expect(page.getByText(member.email, { exact: true })).toHaveCount(1);
-    await expect(page.getByText(member.label, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText(member.label, { exact: true }).filter({ visible: true })).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: 'Table View', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(6);
+  for (const member of members) {
+    const row = page.getByRole('row').filter({ hasText: member.email });
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('UNKNOWN');
+    await expect(row).toContainText('Not evaluated');
   }
   await page.getByRole('button', { name: 'Compare Side by side', exact: true }).click();
   for (const member of members) {
