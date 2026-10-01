@@ -21,7 +21,7 @@ def test_docx_identity_tables_sections_and_skill_groups():
     data = io.BytesIO()
     document.save(data)
     result = parse_resume(data.getvalue(), 'resume.docx')
-    assert result.manifest.display_name == 'AYUSH ROY'
+    assert result.manifest.display_name == 'EXAMPLE CANDIDATE'
     assert 'CI/CD' in result.manifest.claimed_skills
     assert 'DevOps & Tools: Docker' not in result.manifest.claimed_skills
     assert 'AWS (S3, Lambda)' in result.manifest.claimed_skills
