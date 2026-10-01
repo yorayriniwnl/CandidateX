@@ -680,10 +680,18 @@ test('analyze page offers two static buttons to land to Candidates and Home', as
   await dossierCandidates.click();
   await expect(page).toHaveURL(/\/hr$/);
 
-  // Return to analyze and verify Home navigation
+  // Return with fresh browser state and verify Home navigation from the wizard.
+  // The evaluation workflow intentionally persists draft/result state across navigation,
+  // so this navigation assertion must not depend on a second analysis run.
   await page.goto('/analyze');
-  await uploadAndAnalyze(page);
-  await page.getByTestId('landing-btn-home').click();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  const freshWizardHome = page.getByTestId('wizard-landing-btn-home');
+  await expect(freshWizardHome).toBeVisible();
+  await freshWizardHome.click();
   await expect(page).toHaveURL(/\/$/);
 });
 
