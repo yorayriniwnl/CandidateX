@@ -30,8 +30,8 @@ def test_seed_database_preserves_all_six_team_members(tmp_path, monkeypatch):
         "member2@example.test": ("Demo Member Two", CanonicalRole.FRONTEND),
         "member3@example.test": ("Demo Member Three", CanonicalRole.ML_ENGINEER),
         "member4@example.test": ("Demo Member Four", CanonicalRole.DEVOPS_CLOUD),
-        "2329064@kiit.ac.in": ("Shreshth Nigam", CanonicalRole.DEVOPS_CLOUD),
-        "2329195@kiit.ac.in": ("P Ajay Kumar", CanonicalRole.BACKEND),
+        "member5@example.test": ("Demo Member Five", CanonicalRole.DEVOPS_CLOUD),
+        "member7@example.test": ("Demo Member Seven", CanonicalRole.BACKEND),
     }
     engine = create_engine(db_url)
     try:
