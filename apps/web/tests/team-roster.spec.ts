@@ -1,10 +1,10 @@
 import { test, expect, type Page } from './fixtures';
 
 const members = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Ayush Roy', email: '2329027@kiit.ac.in', role: 'fullstack', label: 'Fullstack, SDE' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Archi Srivastava', email: '2329100@kiit.ac.in', role: 'frontend', label: 'Frontend' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Atmaja Tripathy', email: '2329179@kiit.ac.in', role: 'ml_engineer', label: 'ML Engineer' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Shreya', email: '2329065@kiit.ac.in', role: 'devops_cloud', label: 'DevOps' },
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Demo Member One', email: 'member1@example.test', role: 'fullstack', label: 'Fullstack, SDE' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Demo Member Two', email: 'member2@example.test', role: 'frontend', label: 'Frontend' },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Demo Member Three', email: 'member3@example.test', role: 'ml_engineer', label: 'ML Engineer' },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Demo Member Four', email: 'member4@example.test', role: 'devops_cloud', label: 'DevOps' },
   { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', email: '2329064@kiit.ac.in', role: 'devops_cloud', label: 'SRE' },
   { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', email: '2329195@kiit.ac.in', role: 'backend', label: 'Backend' },
 ];
@@ -39,10 +39,10 @@ test('all six members remain available offline with their roles and email links'
 
   await page.getByLabel('Role', { exact: true }).selectOption('fullstack');
   await expect(page.locator('tbody tr')).toHaveCount(1);
-  await expect(page.locator('tbody')).toContainText('Ayush Roy');
+  await expect(page.locator('tbody')).toContainText('Demo Member One');
   await page.getByLabel('Role', { exact: true }).selectOption('devops_cloud');
   await expect(page.locator('tbody tr')).toHaveCount(2);
-  await expect(page.locator('tbody')).toContainText('Shreya');
+  await expect(page.locator('tbody')).toContainText('Demo Member Four');
   await expect(page.locator('tbody')).toContainText('Shreshth Nigam');
   await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
   await page.getByLabel('Search candidate').fill('2329195@kiit.ac.in');
@@ -75,7 +75,7 @@ test('live team records replace samples by ID or email and retain scores', async
 
 test('a locally saved review replaces a matching live member with a different ID', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('cci_hr_saved_candidates', JSON.stringify([{
-    id: 'saved-ayush-review', display_name: 'Ayush Roy', primary_email: ' 2329027@KIIT.AC.IN ',
+    id: 'saved-ayush-review', display_name: 'Demo Member One', primary_email: ' 2329027@KIIT.AC.IN ',
     role: 'backend', has_completed_dossier: true, has_meaningful_conflict: false,
     rci: 94.2, observed_capabilities: 8, source: 'live', created_at: '',
   }])));

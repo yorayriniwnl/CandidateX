@@ -124,7 +124,7 @@ export function EditCandidateDialog({
           label="Full Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Ayush Roy"
+          placeholder="e.g. Demo Member One"
           required
         />
 
@@ -133,7 +133,7 @@ export function EditCandidateDialog({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="e.g. 2329027@kiit.ac.in"
+          placeholder="e.g. member1@example.test"
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
