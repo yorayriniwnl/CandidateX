@@ -29,15 +29,15 @@
   },
   {
     "id": "55555555-5555-5555-5555-555555555555",
-    "name": "Shreshth Nigam",
-    "email": "2329064@kiit.ac.in",
+    "name": "Demo Member Five",
+    "email": "member5@example.test",
     "role": "devops_cloud",
     "role_label": "SRE"
   },
   {
     "id": "77777777-7777-7777-7777-777777777777",
-    "name": "P Ajay Kumar",
-    "email": "2329195@kiit.ac.in",
+    "name": "Demo Member Seven",
+    "email": "member7@example.test",
     "role": "backend",
     "role_label": "Backend"
   }
