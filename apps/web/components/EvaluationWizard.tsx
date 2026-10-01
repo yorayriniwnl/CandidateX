@@ -73,15 +73,15 @@ const QUICK_DEMO_PROFILES: QuickDemoProfile[] = [
   },
   {
     id: '77777777-7777-7777-7777-777777777777',
-    name: 'P Ajay Kumar',
+    name: 'Demo Member Seven',
     role: 'backend',
     label: 'Backend Conflict Demo',
     badge: 'Contradiction Alert (D_k < 0)',
     variant: 'danger',
     manifest: {
       candidate_id: '77777777-7777-7777-7777-777777777777',
-      full_name: 'P Ajay Kumar',
-      primary_email: '2329195@kiit.ac.in',
+      full_name: 'Demo Member Seven',
+      primary_email: 'member7@example.test',
       github_usernames: ['pajaykumar-dev'],
       github_repositories: [
         'https://github.com/pajaykumar-dev/toy-distributed-counter',
