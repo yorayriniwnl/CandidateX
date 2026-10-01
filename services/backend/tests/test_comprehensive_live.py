@@ -8,7 +8,7 @@ from cci.live.report import build_report
 
 def test_docx_identity_tables_sections_and_skill_groups():
     document = docx.Document()
-    document.add_table(rows=1, cols=1).cell(0, 0).text = 'AYUSH ROY\nayush@example.com'
+    document.add_table(rows=1, cols=1).cell(0, 0).text = 'EXAMPLE CANDIDATE\ncandidate@example.test'
     for line in ['Professional Summary', 'Software developer building public applications.',
                  'Technical Skills', 'DevOps & Tools: Docker, CI/CD, Git',
                  'Currently Learning: AWS (S3, Lambda), RAG',
@@ -197,4 +197,3 @@ def test_academic_degrees_not_extracted_and_portfolio_audited(monkeypatch):
     assert p["status"] == "observed"
     assert "React" in p["technologies"]
     assert any("portfolio" in step.lower() for step in report["next_steps"])
-
