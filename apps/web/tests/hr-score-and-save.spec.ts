@@ -157,7 +157,7 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(memberTwoRow).toContainText('Pending');
 
     // Click Audit on Archi Srivastava
-    const auditBtn = archiRow.getByRole('button', { name: /audit archi srivastava/i });
+    const auditBtn = memberTwoRow.getByRole('button', { name: /audit archi srivastava/i });
     await auditBtn.click();
 
     // Verify modal is displayed
@@ -179,19 +179,18 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(modal).not.toBeVisible();
 
     // Verify Archi's row is updated with a score and completed status
-    await expect(archiRow).toContainText('/ 100');
-    await expect(archiRow).toContainText('Completed');
+    await expect(memberTwoRow).toContainText('/ 100');
+    await expect(memberTwoRow).toContainText('Completed');
 
     // Verify candidate count is still exactly 6 (NO duplicate student row created!)
     await expect(page.locator('tbody tr')).toHaveCount(6);
 
     // Reload page to verify persistence from localStorage
     await page.reload();
-    const archiRowAfter = page.locator('tr:has-text("Archi Srivastava")');
-    await expect(archiRowAfter).toBeVisible();
-    await expect(archiRowAfter).toContainText('/ 100');
-    await expect(archiRowAfter).toContainText('Completed');
+    const memberTwoRowAfter = page.locator('tr:has-text("Archi Srivastava")');
+    await expect(memberTwoRowAfter).toBeVisible();
+    await expect(memberTwoRowAfter).toContainText('/ 100');
+    await expect(memberTwoRowAfter).toContainText('Completed');
     await expect(page.locator('tbody tr')).toHaveCount(6);
   });
 });
-
