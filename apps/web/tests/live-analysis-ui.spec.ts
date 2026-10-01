@@ -247,10 +247,13 @@ async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
 async function uploadResume(page: Page) {
   const upload = page.locator('#resume-upload');
   await expect(upload).toBeAttached();
+  // ResumeStep deliberately disables the native input until client hydration.
+  // Waiting for the real ready state avoids dropping the change event when CI
+  // reaches the input before React has hydrated the page.
+  await expect(upload).toHaveAttribute('data-hydrated', 'true');
+  await expect(upload).toBeEnabled();
   await upload.setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
-  // Intake is asynchronous. Wait for its user-visible result before advancing,
-  // especially on the narrow viewport where rendering and smooth scrolling can
-  // otherwise race the next-step click in CI.
+  // Intake is asynchronous. Wait for its user-visible result before advancing.
   await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible({ timeout: 15000 });
 }
 
