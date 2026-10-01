@@ -248,6 +248,10 @@ async function uploadResume(page: Page) {
   const upload = page.locator('#resume-upload');
   await expect(upload).toBeAttached();
   await upload.setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  // Intake is asynchronous. Wait for its user-visible result before advancing,
+  // especially on the narrow viewport where rendering and smooth scrolling can
+  // otherwise race the next-step click in CI.
+  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible({ timeout: 15000 });
 }
 
 async function continueToAnalysis(page: Page) {
@@ -746,4 +750,3 @@ test('supports opening cloud link directly and fetching files/data instead of sh
   await page.getByRole('button', { name: 'Hide data ▴' }).click();
   await expect(page.getByText('Files detected (3):')).toBeHidden();
 });
-
