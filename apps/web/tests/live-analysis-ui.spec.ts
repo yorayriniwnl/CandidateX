@@ -245,8 +245,9 @@ async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
 }
 
 async function uploadResume(page: Page) {
-  await expect(page.locator('header.platform-header').getByRole('button', { name: 'Sign out', exact: true, includeHidden: true })).toBeAttached();
-  await page.locator('#resume-upload').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  const upload = page.locator('#resume-upload');
+  await expect(upload).toBeAttached();
+  await upload.setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
 }
 
 async function continueToAnalysis(page: Page) {
