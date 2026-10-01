@@ -16,15 +16,15 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
 
     // Roster entries are identity/role fixtures only. They stay unscored until
     // an actual dossier is saved or returned by the backend.
-    const ayushRow = page.locator('tr:has-text("Ayush Roy")');
-    await expect(ayushRow).toBeVisible();
-    await expect(ayushRow).toContainText('—');
-    await expect(ayushRow.getByRole('cell').nth(3)).toHaveText('Pending');
+    const memberOneRow = page.locator('tr:has-text("Demo Member One")');
+    await expect(memberOneRow).toBeVisible();
+    await expect(memberOneRow).toContainText('—');
+    await expect(memberOneRow.getByRole('cell').nth(3)).toHaveText('Pending');
 
     // Verify another unevaluated sample candidate is also unscored
-    const archiRow = page.locator('tr:has-text("Archi Srivastava")');
-    await expect(archiRow).toBeVisible();
-    await expect(archiRow).toContainText('—');
+    const memberTwoRow = page.locator('tr:has-text("Demo Member Two")');
+    await expect(memberTwoRow).toBeVisible();
+    await expect(memberTwoRow).toContainText('—');
   });
 
   test('Saved review candidate profile appears in HR tab with Score and details', async ({ page }) => {
@@ -151,10 +151,10 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(page.locator('tbody tr')).toHaveCount(6);
 
     // Archi Srivastava starts unevaluated and marked as Pending
-    const archiRow = page.locator('tr:has-text("Archi Srivastava")');
-    await expect(archiRow).toBeVisible();
-    await expect(archiRow).toContainText('—');
-    await expect(archiRow).toContainText('Pending');
+    const memberTwoRow = page.locator('tr:has-text("Demo Member Two")');
+    await expect(memberTwoRow).toBeVisible();
+    await expect(memberTwoRow).toContainText('—');
+    await expect(memberTwoRow).toContainText('Pending');
 
     // Click Audit on Archi Srivastava
     const auditBtn = archiRow.getByRole('button', { name: /audit archi srivastava/i });
@@ -194,5 +194,4 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(page.locator('tbody tr')).toHaveCount(6);
   });
 });
-
 
