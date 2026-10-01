@@ -321,8 +321,8 @@ OFFICIAL_TEAM_EMAILS = {
     "member2@example.test",
     "member3@example.test",
     "member4@example.test",
-    "2329064@kiit.ac.in",
-    "2329195@kiit.ac.in",
+    "member5@example.test",
+    "member7@example.test",
 }
 OFFICIAL_TEAM_IDS = {
     UUID("11111111-1111-1111-1111-111111111111"),
@@ -376,5 +376,4 @@ def purge_candidates(keep_team_only: bool = False) -> dict[str, Any]:
         deleted_count += 1
 
     return {"deleted": deleted_count, "keep_team_only": keep_team_only}
-
 
