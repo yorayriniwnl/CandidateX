@@ -26,10 +26,10 @@ def test_seed_database_preserves_all_six_team_members(tmp_path, monkeypatch):
     db_url = f"sqlite:///{(tmp_path / 'team-roster.db').as_posix()}"
     seed_database(db_url)
     expected = {
-        "2329027@kiit.ac.in": ("Ayush Roy", CanonicalRole.FULLSTACK),
-        "2329100@kiit.ac.in": ("Archi Srivastava", CanonicalRole.FRONTEND),
-        "2329179@kiit.ac.in": ("Atmaja Tripathy", CanonicalRole.ML_ENGINEER),
-        "2329065@kiit.ac.in": ("Shreya", CanonicalRole.DEVOPS_CLOUD),
+        "member1@example.test": ("Demo Member One", CanonicalRole.FULLSTACK),
+        "member2@example.test": ("Demo Member Two", CanonicalRole.FRONTEND),
+        "member3@example.test": ("Demo Member Three", CanonicalRole.ML_ENGINEER),
+        "member4@example.test": ("Demo Member Four", CanonicalRole.DEVOPS_CLOUD),
         "2329064@kiit.ac.in": ("Shreshth Nigam", CanonicalRole.DEVOPS_CLOUD),
         "2329195@kiit.ac.in": ("P Ajay Kumar", CanonicalRole.BACKEND),
     }
