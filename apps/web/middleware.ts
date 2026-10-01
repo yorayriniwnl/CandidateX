@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SECRET = process.env.SESSION_SECRET || 'dev-insecure-fallback-change-me';
+const DEV_SESSION_SECRET = 'dev-insecure-fallback-change-me';
+
+function getSessionSecret(): string {
+  const configured = process.env.SESSION_SECRET;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET is required in production');
+  }
+  return DEV_SESSION_SECRET;
+}
 
 function decodeBase64Url(value: string): Uint8Array {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
@@ -18,7 +27,7 @@ async function verifySessionWebCrypto(cookie: string): Promise<any | null> {
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(SECRET),
+      encoder.encode(getSessionSecret()),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign']
