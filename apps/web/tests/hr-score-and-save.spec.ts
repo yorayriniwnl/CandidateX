@@ -150,20 +150,20 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     // Confirm initial 6 students
     await expect(page.locator('tbody tr')).toHaveCount(6);
 
-    // Archi Srivastava starts unevaluated and marked as Pending
+    // Demo Member Two starts unevaluated and marked as Pending
     const memberTwoRow = page.locator('tr:has-text("Demo Member Two")');
     await expect(memberTwoRow).toBeVisible();
     await expect(memberTwoRow).toContainText('—');
     await expect(memberTwoRow).toContainText('Pending');
 
-    // Click Audit on Archi Srivastava
+    // Click Audit on Demo Member Two
     const auditBtn = memberTwoRow.getByRole('button', { name: /audit archi srivastava/i });
     await auditBtn.click();
 
     // Verify modal is displayed
     const modal = page.locator('dialog');
     await expect(modal).toBeVisible();
-    await expect(modal).toContainText('Audit Student: Archi Srivastava');
+    await expect(modal).toContainText('Audit Student: Demo Member Two');
 
     // Click Start Student Audit
     const startAuditBtn = modal.getByRole('button', { name: /start student audit/i });
@@ -187,7 +187,7 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
 
     // Reload page to verify persistence from localStorage
     await page.reload();
-    const memberTwoRowAfter = page.locator('tr:has-text("Archi Srivastava")');
+    const memberTwoRowAfter = page.locator('tr:has-text("Demo Member Two")');
     await expect(memberTwoRowAfter).toBeVisible();
     await expect(memberTwoRowAfter).toContainText('/ 100');
     await expect(memberTwoRowAfter).toContainText('Completed');
