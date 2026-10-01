@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![License: Proprietary / Conference Submission](https://img.shields.io/badge/License-Academic_Conference_Submission-red.svg)](#)
+[![License status: not published](https://img.shields.io/badge/Software_license-not_published-lightgrey.svg)](#license-status)
 
 > **CandidateX is a research demonstration for synthetic candidate data only. Do not upload real candidate resumes.** It demonstrates PDF/DOCX extraction, public-source inspection, and role-aware evidence dossiers with explicit verification gaps. Results are not validated for employment decisions.
 
@@ -272,3 +272,7 @@ Use the self-contained verification commands in the [demonstration guide](docs/r
 - [Demonstration acceptance tests](services/backend/tests/test_research_demonstration.py): evidence integrity, deterministic scenarios, role/JD conditioning, missingness, provenance, consistent rescoring, validation and artifact alignment.
 - [Browser workflow tests](apps/web/tests/research-demo.spec.ts): controls through API responses, exports, failure states and mobile layout.
 - Existing suites cover mathematical properties, source parsers, database operations, and the separate simulation. Passing these tests does not independently validate real-world hiring accuracy or every production security property.
+
+## License status
+
+No root software license is currently published for CandidateX. Public source availability does not by itself grant permission to copy, modify, redistribute, or reuse the code. A deliberate software license can be added separately from the conference-paper submission and publication process.
