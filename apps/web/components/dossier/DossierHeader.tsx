@@ -38,7 +38,7 @@ export const DossierHeader: React.FC<{
   candidatePicture?: string | null;
   onOpenWeightsModal?: () => void;
   onSelectCandidate?: (candidateId: string, name: string) => void;
-}> = ({ dossier, candidateName = 'Ayush Roy', candidatePicture, onOpenWeightsModal, onSelectCandidate }) => {
+}> = ({ dossier, candidateName = 'Candidate', candidatePicture, onOpenWeightsModal, onSelectCandidate }) => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isCandidateMenuOpen, setIsCandidateMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);

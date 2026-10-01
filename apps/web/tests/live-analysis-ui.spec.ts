@@ -247,7 +247,14 @@ async function mockLiveApi(page: Page, analyzeBody: unknown = mockedAnalyze) {
 async function uploadResume(page: Page) {
   const upload = page.locator('#resume-upload');
   await expect(upload).toBeAttached();
+  // ResumeStep deliberately disables the native input until client hydration.
+  // Waiting for the real ready state avoids dropping the change event when CI
+  // reaches the input before React has hydrated the page.
+  await expect(upload).toHaveAttribute('data-hydrated', 'true');
+  await expect(upload).toBeEnabled();
   await upload.setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('mock pdf') });
+  // Intake is asynchronous. Wait for its user-visible result before advancing.
+  await expect(page.getByRole('heading', { name: 'Example Candidate', exact: true })).toBeVisible({ timeout: 15000 });
 }
 
 async function continueToAnalysis(page: Page) {
@@ -676,10 +683,18 @@ test('analyze page offers two static buttons to land to Candidates and Home', as
   await dossierCandidates.click();
   await expect(page).toHaveURL(/\/hr$/);
 
-  // Return to analyze and verify Home navigation
+  // Return with fresh browser state and verify Home navigation from the wizard.
+  // The evaluation workflow intentionally persists draft/result state across navigation,
+  // so this navigation assertion must not depend on a second analysis run.
   await page.goto('/analyze');
-  await uploadAndAnalyze(page);
-  await page.getByTestId('landing-btn-home').click();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  const freshWizardHome = page.getByTestId('wizard-landing-btn-home');
+  await expect(freshWizardHome).toBeVisible();
+  await freshWizardHome.click();
   await expect(page).toHaveURL(/\/$/);
 });
 
@@ -746,4 +761,3 @@ test('supports opening cloud link directly and fetching files/data instead of sh
   await page.getByRole('button', { name: 'Hide data ▴' }).click();
   await expect(page.getByText('Files detected (3):')).toBeHidden();
 });
-
