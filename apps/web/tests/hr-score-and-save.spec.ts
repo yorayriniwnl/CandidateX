@@ -157,7 +157,7 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await expect(memberTwoRow).toContainText('Pending');
 
     // Click Audit on Demo Member Two
-    const auditBtn = memberTwoRow.getByRole('button', { name: /audit archi srivastava/i });
+    const auditBtn = memberTwoRow.getByRole('button', { name: /audit demo member two/i });
     await auditBtn.click();
 
     // Verify modal is displayed
@@ -178,7 +178,7 @@ test.describe('HR Tab and Candidate Review Profile Saving', () => {
     await doneBtn.click();
     await expect(modal).not.toBeVisible();
 
-    // Verify Archi's row is updated with a score and completed status
+    // Verify Demo Member Two's row is updated with a score and completed status
     await expect(memberTwoRow).toContainText('/ 100');
     await expect(memberTwoRow).toContainText('Completed');
 
