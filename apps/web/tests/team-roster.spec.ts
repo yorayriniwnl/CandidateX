@@ -5,8 +5,8 @@ const members = [
   { id: '22222222-2222-2222-2222-222222222222', name: 'Demo Member Two', email: 'member2@example.test', role: 'frontend', label: 'Frontend' },
   { id: '33333333-3333-3333-3333-333333333333', name: 'Demo Member Three', email: 'member3@example.test', role: 'ml_engineer', label: 'ML Engineer' },
   { id: '44444444-4444-4444-4444-444444444444', name: 'Demo Member Four', email: 'member4@example.test', role: 'devops_cloud', label: 'DevOps' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Shreshth Nigam', email: '2329064@kiit.ac.in', role: 'devops_cloud', label: 'SRE' },
-  { id: '77777777-7777-7777-7777-777777777777', name: 'P Ajay Kumar', email: '2329195@kiit.ac.in', role: 'backend', label: 'Backend' },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'Demo Member Five', email: 'member5@example.test', role: 'devops_cloud', label: 'SRE' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'Demo Member Seven', email: 'member7@example.test', role: 'backend', label: 'Backend' },
 ];
 
 async function expectRoster(page: Page, count = 6, forceAssessed?: boolean) {
@@ -33,7 +33,7 @@ test('all six members remain available offline with their roles and email links'
   await expect(page.locator('tbody')).not.toContainText('/ 100');
   await page.screenshot({ path: testInfo.outputPath('hiring-dashboard.png'), fullPage: true });
 
-  await page.getByRole('button', { name: 'View Shreshth Nigam', exact: true }).click();
+  await page.getByRole('button', { name: 'View Demo Member Five', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('SRE');
   await page.keyboard.press('Escape');
 
@@ -43,18 +43,18 @@ test('all six members remain available offline with their roles and email links'
   await page.getByLabel('Role', { exact: true }).selectOption('devops_cloud');
   await expect(page.locator('tbody tr')).toHaveCount(2);
   await expect(page.locator('tbody')).toContainText('Demo Member Four');
-  await expect(page.locator('tbody')).toContainText('Shreshth Nigam');
+  await expect(page.locator('tbody')).toContainText('Demo Member Five');
   await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
-  await page.getByLabel('Search candidate').fill('2329195@kiit.ac.in');
+  await page.getByLabel('Search candidate').fill('member7@example.test');
   await expect(page.locator('tbody tr')).toHaveCount(1);
-  await expect(page.locator('tbody')).toContainText('P Ajay Kumar');
+  await expect(page.locator('tbody')).toContainText('Demo Member Seven');
 });
 
 test('live team records replace samples by ID or email and retain scores', async ({ page }) => {
   await page.route('**/api/v1/candidates', route => route.fulfill({ json: [
     ...members.map((member, index) => ({
       id: index === 1 ? 'legacy-archi-id' : member.id,
-      display_name: index === 5 ? 'P Ajay Kumar (Contradictory / Discrepancy)' : member.name,
+      display_name: index === 5 ? 'Demo Member Seven (Contradictory / Discrepancy)' : member.name,
       primary_email: member.email.toUpperCase(),
       role: index === 0 ? 'backend' : index === 4 ? 'fullstack' : member.role,
       has_completed_dossier: true,
