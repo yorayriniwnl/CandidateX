@@ -317,10 +317,10 @@ def delete_candidate(candidate_id: UUID) -> None:
 
 
 OFFICIAL_TEAM_EMAILS = {
-    "2329027@kiit.ac.in",
-    "2329100@kiit.ac.in",
-    "2329179@kiit.ac.in",
-    "2329065@kiit.ac.in",
+    "member1@example.test",
+    "member2@example.test",
+    "member3@example.test",
+    "member4@example.test",
     "2329064@kiit.ac.in",
     "2329195@kiit.ac.in",
 }
