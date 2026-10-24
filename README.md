@@ -22,6 +22,23 @@
 
 Open `/` for the CandidateX landing page, `/research-demo` for the synthetic teaching sandbox, and `/analyze` for a separate bounded live-acquisition prototype. **Do not upload real candidate resumes to either demo path.** `/workspace` is the earlier interface; `/hr` is a separate sample surface. The live path reads only candidate-supplied documents and selected public sources. Login restrictions, missing pages and scan limits remain visible; certificate authenticity and employment are not automatically verified. See the [comprehensive analysis design](docs/comprehensive-live-analysis.md).
 
+<!-- YOR REDLINE / EXPERIENCE V2 -->
+
+<a id="system-map"></a>
+## System map
+
+<div align="center"><picture><source media="(max-width: 600px)" srcset="docs/yor-redline-system-mobile.svg"/><img src="docs/yor-redline-system.svg" width="100%" alt="Capability intelligence: Collect evidence to Assess reliability to Estimate capability to Explain uncertainty"/></picture></div>
+
+| Project signal | Documented scope |
+| :--- | :--- |
+| **Current maturity** | RESEARCH PROTOTYPE |
+| **Technical focus** | Evidence reliability, recency weighting, confidence calculations, capability indices, and reproducibility tests. |
+| **Evidence boundary** | Recorded prototype measurements are not evidence of calibrated real-world hiring decisions. |
+
+**Navigate:** [Visual Evidence](#visual-evidence) · [Table of Contents](#table-of-contents) · [Core Product Invariants](#core-product-invariants) · [System Architecture & Monorepo Structure](#system-architecture--monorepo-structure) · [Formal Mathematical Framework](#formal-mathematical-framework) · [Paper Reproducibility & Ablation Studies](#paper-reproducibility--ablation-studies) · [Quickstart & Local Development](#quickstart--local-development)
+
+<!-- END YOR REDLINE / EXPERIENCE V2 -->
+
 ## Visual Evidence
 
 ![CandidateX research demo showing the synthetic-only disclosure and simulated evidence controls](docs/readme/research-demo.png)
