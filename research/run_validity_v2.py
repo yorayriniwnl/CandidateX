@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import sys
+import scipy
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -66,7 +69,7 @@ def seed_bootstrap(sample_by_seed, seed_values, n_resamples=2000):
     return [float(np.quantile(boot, 0.025)), float(np.quantile(boot, 0.975))]
 
 
-def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000):
+def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000, record_sink=None):
     modes = ["FULL_CCI", "EQUAL_EVIDENCE", "MEDIAN_EVIDENCE",
              "NO_RECENCY_DECAY", "NO_OWNERSHIP_DISCOUNT",
              "UNCALIBRATED_SOURCES", "UNIFORM_WEIGHTS"]
@@ -79,7 +82,7 @@ def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000):
         for role in CanonicalRole:
             w = independent_role_prior(role)
             equal_w = {cap: 1.0 / len(CapabilityKey) for cap in CapabilityKey}
-            for cand in generate_synthetic_cohort(role=role, count=candidates_per_role, seed=seed):
+            for candidate_index, cand in enumerate(generate_synthetic_cohort(role=role, count=candidates_per_role, seed=seed)):
                 count += 1
                 for ob in cand.observations:
                     sources[ob.source_family.value] += 1
@@ -104,9 +107,19 @@ def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000):
                     row["est"].append(float(est))
                     row["true"].append(float(tru))
                     row["seed_err"][seed].append(abs(est - tru))
-                    row["cap_err"].extend(
-                        abs(qhat[k] - cand.ground_truth_capabilities[k]) for k in qhat
-                    )
+                    cap_abs_errors = [abs(qhat[k] - cand.ground_truth_capabilities[k]) for k in qhat]
+                    row["cap_err"].extend(cap_abs_errors)
+                    if record_sink is not None:
+                        # Each row is synthetic and contains no personal data or generated UUID.
+                        record_sink({
+                            "seed": int(seed), "role": role.value,
+                            "candidate_index": int(candidate_index), "mode": mode,
+                            "estimated_rci": float(est), "target_rci": float(tru),
+                            "rci_absolute_error": float(abs(est - tru)),
+                            "capability_mae": float(np.mean(cap_abs_errors)) if cap_abs_errors else None,
+                            "observed_capabilities": len(qhat),
+                            "evidence_observations": len(cand.observations),
+                        })
 
     summary = {}
     for mode, row in collected.items():
@@ -144,6 +157,10 @@ def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000):
         }
     return {
         "protocol": "source-aware-v2",
+        "runtime": {"python": platform.python_version(), "numpy": np.__version__,
+                    "scipy": scipy.__version__, "github_sha": os.getenv("GITHUB_SHA"),
+                    "github_ref": os.getenv("GITHUB_REF")},
+        "record_schema": "one synthetic candidate-role instance per scoring mode; candidate_index is local to seed and role",
         "status": "synthetic experiment only; not independent human validation",
         "archived_v1_metrics_comparable": False,
         "target_weights": "designer-defined ROLE_BASELINE_PRIORS; independent of generator means",
@@ -169,12 +186,21 @@ def main():
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--output", type=Path,
                         default=Path("research/results_v2/validity_v2.json"))
+    parser.add_argument("--records-output", type=Path,
+                        default=Path("research/results_v2/validity_v2_cases.jsonl"),
+                        help="Synthetic per-case predictions for independent review")
     args = parser.parse_args()
-    results = run_validation(
-        seeds=[1, 2] if args.quick else list(range(1, 17)),
-        candidates_per_role=5 if args.quick else 50,
-        bootstrap_resamples=500 if args.quick else 2000,
-    )
+    args.records_output.parent.mkdir(parents=True, exist_ok=True)
+    with args.records_output.open("w", encoding="utf-8") as records_file:
+        def write_record(row):
+            records_file.write(json.dumps(row, sort_keys=True) + "\n")
+
+        results = run_validation(
+            seeds=[1, 2] if args.quick else list(range(1, 17)),
+            candidates_per_role=5 if args.quick else 50,
+            bootstrap_resamples=500 if args.quick else 2000,
+            record_sink=write_record,
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(results["results"], indent=2))
