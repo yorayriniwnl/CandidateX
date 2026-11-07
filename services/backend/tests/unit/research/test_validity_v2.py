@@ -12,11 +12,15 @@ def test_seed_bootstrap_uses_blocks():
 
 
 def test_revised_protocol_has_unweighted_baselines_and_source_integrity():
-    result = run_validation(seeds=[7, 13], candidates_per_role=2, bootstrap_resamples=50)
+    rows = []
+    result = run_validation(seeds=[7, 13], candidates_per_role=2, bootstrap_resamples=50, record_sink=rows.append)
     assert result["protocol"] == "source-aware-v2"
     assert result["archived_v1_metrics_comparable"] is False
     assert result["simulated_instances"] == 2 * 6 * 2
     assert result["invalid_non_github_fork_observations"] == 0
+    assert len(rows) == 2 * 6 * 2 * 7
+    assert len({(r["seed"], r["role"], r["candidate_index"], r["mode"]) for r in rows}) == len(rows)
+    assert all(r["rci_absolute_error"] >= 0 and r["observed_capabilities"] > 0 for r in rows)
     assert "FULL_CCI" in result["results"]
     assert "EQUAL_EVIDENCE" in result["results"]
     assert "MEDIAN_EVIDENCE" in result["results"]
