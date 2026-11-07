@@ -191,6 +191,10 @@ def run_full_simulation_study(
 
     return {
         "metadata": {
+            "protocol_version": "synthetic_source_aware_v2",
+            "breaks_comparability_with_archived_results": True,
+            "target_role_weights": "generator-derived; not independently validated",
+            "notes": "Revised generator uses role-specific streams and GitHub-only fork simulation; treat all metrics as new synthetic results.",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             "total_candidates": len(full_errors),
             "seeds": seeds,
@@ -284,7 +288,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=str(REPO_ROOT / "research" / "results"),
+        default=str(REPO_ROOT / "research" / "results_v2"),
         help="Directory where output markdown, LaTeX, and JSON tables are written",
     )
     parser.add_argument(
