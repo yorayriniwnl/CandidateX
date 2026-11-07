@@ -60,6 +60,11 @@ python research/run_validity_v2.py --output research/results_v2/validity_v2.json
 python research/run_paper_experiments.py --output-dir research/results_v2/original_ablation_rerun
 ```
 
+The V2 runner now also exports synthetic per-case JSONL records with seed, role, mode,
+local candidate index, predicted and latent target indices, and absolute errors.
+The CI artifact bundles both aggregate and case-level files; no real applicant data
+are included. Record runtime NumPy/SciPy/Python versions and GitHub runner SHA.
+
 Validate all output counts, no invalid non-GitHub fork patterns, no NaN/Inf values,
 and convergence of metrics across the two scripts. Pin and report Python/NumPy/SciPy
 versions and the exact Git commit SHA in the eventual manuscript supplement.
