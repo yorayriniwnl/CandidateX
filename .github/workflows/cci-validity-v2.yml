@@ -36,7 +36,7 @@ jobs:
           python -m pytest services/backend/tests/unit/research/test_synthetic_generator_integrity.py services/backend/tests/unit/research/test_validity_v2.py -v
       - name: Run full 4,800-case corrected synthetic study
         run: |
-          python research/run_validity_v2.py --output reports/ci_validity_v2.json
+          python research/run_validity_v2.py --output reports/ci_validity_v2.json --records-output reports/ci_validity_v2_cases.jsonl
       - name: Validate and print complete results
         run: |
           python - <<'PY'
@@ -54,11 +54,18 @@ jobs:
                   values = [row["rci_mae"], row["rci_rmse"], row["capability_mae"],
                             row["spearman_rho"], *row["rci_mae_95ci_seed_bootstrap"]]
               assert all(math.isfinite(v) for v in values), name
+          cases = [json.loads(line) for line in Path("reports/ci_validity_v2_cases.jsonl").read_text().splitlines() if line.strip()]
+          assert len(cases) == 4800 * 7
+          keys = {(row["seed"], row["role"], row["candidate_index"], row["mode"]) for row in cases}
+          assert len(keys) == len(cases)
+          assert all(math.isfinite(row["rci_absolute_error"]) and row["rci_absolute_error"] >= 0 for row in cases)
           print(json.dumps(data, indent=2))
           PY
       - name: Preserve independent v2 artifact
         uses: actions/upload-artifact@v4
         with:
           name: cci-validity-v2-synthetic-results
-          path: reports/ci_validity_v2.json
+          path: |
+            reports/ci_validity_v2.json
+            reports/ci_validity_v2_cases.jsonl
           if-no-files-found: error
