@@ -123,20 +123,25 @@ def run_validation(seeds, candidates_per_role=50, bootstrap_resamples=2000):
                 round(x, 5) for x in seed_bootstrap(row["seed_err"], seeds, bootstrap_resamples)
             ],
         }
-    baseline = collected["EQUAL_EVIDENCE"]["seed_err"]
-    full = collected["FULL_CCI"]["seed_err"]
-    paired_delta = {
-        s: [float(np.mean(baseline[s]) - np.mean(full[s]))] for s in seeds
-    }
-    summary["FULL_MINUS_EQUAL_BASELINE"] = {
-        "metric": "MAE(EQUAL_EVIDENCE) - MAE(FULL_CCI), positive favors FULL",
-        "seed_block_95ci": [
-            round(x, 5) for x in seed_bootstrap(paired_delta, seeds, bootstrap_resamples)
-        ],
-        "mean_seed_difference": round(
-            float(np.mean([paired_delta[s][0] for s in seeds])), 5
-        ),
-    }
+    # Paired seed-block intervals against BOTH simple baselines.
+    # This post-run extension is labelled an additional contrast in the report:
+    # the median baseline was observed to be stronger in the initial V2 run.
+    for baseline_name in ("EQUAL_EVIDENCE", "MEDIAN_EVIDENCE"):
+        baseline = collected[baseline_name]["seed_err"]
+        full = collected["FULL_CCI"]["seed_err"]
+        paired_delta = {
+            s: [float(np.mean(baseline[s]) - np.mean(full[s]))] for s in seeds
+        }
+        summary[f"FULL_MINUS_{baseline_name}_BASELINE"] = {
+            "metric": f"MAE({baseline_name}) - MAE(FULL_CCI), positive favors FULL",
+            "analysis_type": "preregistered" if baseline_name == "EQUAL_EVIDENCE" else "post_hoc_follow_up",
+            "seed_block_95ci": [
+                round(x, 5) for x in seed_bootstrap(paired_delta, seeds, bootstrap_resamples)
+            ],
+            "mean_seed_difference": round(
+                float(np.mean([paired_delta[s][0] for s in seeds])), 5
+            ),
+        }
     return {
         "protocol": "source-aware-v2",
         "status": "synthetic experiment only; not independent human validation",
