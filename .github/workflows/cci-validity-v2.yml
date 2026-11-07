@@ -47,7 +47,7 @@ jobs:
           assert data["simulated_instances"] == 4800
           assert data["invalid_non_github_fork_observations"] == 0
           for name, row in data["results"].items():
-              if name == "FULL_MINUS_EQUAL_BASELINE":
+              if name.startswith("FULL_MINUS_"):
                   values = [row["mean_seed_difference"], *row["seed_block_95ci"]]
               else:
                   assert row["sample_count"] == 4800
