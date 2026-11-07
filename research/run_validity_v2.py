@@ -12,13 +12,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
-from research.run_paper_experiments import BACKEND_SRC  # establishes backend import path
+ROOT = Path(__file__).resolve().parent.parent
+BACKEND_SRC = ROOT / "services" / "backend" / "src"
+for search_root in (str(ROOT), str(BACKEND_SRC)):
+    if search_root not in sys.path:
+        sys.path.insert(0, search_root)
 from cci.domain.enums import CanonicalRole, CapabilityKey, SourceFamily
 from cci.research.ablation import AblationMode, evaluate_candidate_ablation
 from cci.research.simulation import generate_synthetic_cohort
