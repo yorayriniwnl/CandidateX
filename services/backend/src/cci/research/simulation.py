@@ -135,7 +135,11 @@ def generate_synthetic_cohort(
     seed: int = 42,
 ) -> list[SimulatedCandidate]:
     """Generates a reproducible synthetic cohort of candidates for a canonical role."""
-    rng = np.random.RandomState(seed)
+    # Different roles must not replay the same random stream for a shared seed.
+    # This changes the generated cohort and therefore invalidates archived metrics
+    # for the revised protocol; never overwrite the historical results file.
+    role_seed = int(np.random.SeedSequence([seed, list(CanonicalRole).index(role)]).generate_state(1)[0])
+    rng = np.random.RandomState(role_seed)
     cohort: list[SimulatedCandidate] = []
     profile = ROLE_CAPABILITY_PROFILES.get(
         role, ROLE_CAPABILITY_PROFILES[CanonicalRole.BACKEND]
@@ -162,18 +166,8 @@ def generate_synthetic_cohort(
             expected_emissions = int(max(0, rng.poisson(lam=1.5 + (true_q / 35.0))))
 
             for _ in range(expected_emissions):
-                # Ownership simulation: 15% chance of forked/shared repo with low ownership
-                is_fork = rng.random() < 0.15
-                if is_fork:
-                    ownership = float(rng.uniform(0.05, 0.18))
-                else:
-                    ownership = float(np.clip(rng.beta(8.0, 2.0), 0.50, 1.0))
-
-                # Elapsed years: exponential decay (majority recent, some older)
-                elapsed = float(rng.exponential(scale=1.8))
-                elapsed = min(elapsed, 8.0)
-
-                # Source family sampling
+                # Select the source before modelling source-specific ownership.
+                # A copied/forked repository can only be emitted by GitHub evidence.
                 sf_rand = rng.random()
                 if sf_rand < 0.55:
                     sf = SourceFamily.GITHUB
@@ -183,6 +177,16 @@ def generate_synthetic_cohort(
                     sf = SourceFamily.DATABASE
                 else:
                     sf = SourceFamily.RESUME
+
+                is_fork = sf == SourceFamily.GITHUB and rng.random() < 0.15
+                if is_fork:
+                    ownership = float(rng.uniform(0.05, 0.18))
+                else:
+                    ownership = float(np.clip(rng.beta(8.0, 2.0), 0.50, 1.0))
+
+                # Elapsed years: exponential decay (majority recent, some older)
+                elapsed = float(rng.exponential(scale=1.8))
+                elapsed = min(elapsed, 8.0)
 
                 # Realistic observation score with empirical source phenomena:
                 if is_fork:
